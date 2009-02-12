@@ -1,0 +1,22 @@
+#! /bin/bash
+
+# startsys/stopsys/restartsys - easy interface to /etc/init.d
+
+Prog=${0##*/}
+Verb="${Prog%sys}"
+if [[ " start stop restart " != *\ $Verb\ * ]]
+then
+	print -u2 "Internal error - verb $Verb not recognized."
+	exit 8
+fi
+
+if [[ $# -eq 0 ]]
+then
+	print -u2 "usage: $Prog service1 ..."
+	exit 9
+else
+	for Service in $*
+	do
+		/etc/init.d/$Service $Verb
+	done
+fi

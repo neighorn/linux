@@ -1,0 +1,211 @@
+#!/usr/bin/perl
+
+use LogOutput;
+use ProcessOptions;
+use Text::ParseWords;
+
+# Set up the environment.
+$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/bin:/bin';
+
+# Initialize variables.
+$Prog=$0;			# Get our name, for messages.
+$Prog=~s/^.*\///;		# Trim off the path, if present.
+@Args=@ARGV;			# Preserve orig command for ref.
+$ErrorFlag=0;			# No errors so far.
+$Syslog='user';			# Name of Syslog facility.  '' for no logging.
+$LogFile='';			# Log file name, or null for none.
+$BaseDir='/usr/local/etc';	# Set our base directory.
+$ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+
+# Set our base directory.
+chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
+
+# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
+#	1) We define a new type l (lowercase L), which is a list (i.e. if
+#	   specified multiple times, values are concatenated & blank separated.o
+#	   Normal =s and =i would replace values instead of concatenate.
+#	2) We don't support long option names, except as aliases.
+# These are the standard production options.  Add more options here as needed.
+$OptSpec='d h m=l e=l p=l P=l O=s k=s';
+
+# Load the config file.
+if (-e $ConfigFile) {
+        open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+        # Build a hash of settings found in the config file.
+        while (<CONFIG>) {
+                next if (/^\s*#/);      # Comment.
+                next if (/^\s*$/);      # Blank line.
+                ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
+                $name=~tr/[a-z]/[A-Z]/;
+                $Config{$name}=$settings;
+        }
+}
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Process the command line options, if any.
+if (@ARGV) {
+	# Process the command line arguments.
+	ProcessOptions($OptSpec);
+} else {
+	# No command line options.  Run the default job.
+	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
+		if (defined($Config{'DEFAULTJOB'}));
+}
+
+if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
+	
+# Set up our logging and output filtering.
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+
+# Typical /proc/mdstat records...
+# md1 : active raid1 hda1[0] hdc1[1]
+#      261952 blocks [2/2] [UU]
+# Recovery line...
+#[========>............]  recovery = 41.3% (45933184/111201856) finish=1051.6min speed=1032K/sec
+open (MDSTAT, '/proc/mdstat') || die("Unable to open /proc/mdstat: $!\n");
+while (<MDSTAT>) {
+	next if (/^\s*$/);
+	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+(\S+)\s+/) {
+		# This is a "mdx : active raid1" line.
+		($mdname, $status, $type) = ($1,$2,$3);
+		($mdindex=$mdname) =~s/^md//;
+		if ($status =~ /^active/ && $type =~ /raid[15]/ ) {
+			# Everything is normal.
+			$Summary[$mdindex]=1;
+		} else {
+			warn "Unexpected response from $mdname: " .
+				"$status, $type\n";
+			$Summary[$mdindex]=0;
+			$ErrorFlag=1;
+		}
+	}
+	if (/\s*\d+\s+blocks\s*\S+\s+(\S+)\s*$/) {
+		# This is a "xxxxxx blocks [2/2] [UU]" line.
+		if ($1 !~ /^\[UU+\]/) {
+			warn "$mdname is degraded ($1)\n";
+			$Summary[$mdindex]=0;
+			$ErrorFlag=1;
+		}
+	}
+	if (/\s*[\[\]=>.]+\s*recovery/) {
+		# This is a recovery line.  Display it to show how
+		# far along we are.
+		warn $_;
+		$ErrorFlag=1;
+	}
+}
+
+exit(0);
+
+
+#
+# SampleSub - sample subroutine
+#
+sub SampleSub {
+
+	#my($x,$y,$z,...)=@_;		# Get our calling arguments.
+
+	# Declare local variables.
+	#my($a);		# Variable description.	
+
+}
+
+
+#
+# Untaint  -- use very carefully!
+#
+
+sub untaint {
+        local(@parms) = @_;
+        foreach (@parms) {
+                s/^(.*)$/$1/;
+                $_=$1;
+        }
+        if (@parms == 1) {
+                # Return scalar
+                return $parms[$[];
+        } else {
+                # Return list
+                return (@parms);
+        }
+}
+
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	open (PAGENATER,$ENV{'PAGER'}?"| $ENV{'PAGER'}":"| more") || die("Unable to start pagenater: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - (1 line description here)
+
+Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
+		[-k keyfile]
+	$Prog [-h]
+
+Flags:
+	-e mailid:	Error: Send an execution report to this e-mail address
+			if errors are detected.
+	-m mailid:	Mailid: Send an execution report to this e-mail address.
+	-p mailid:	Page: Send a very brief message (suitable for a pager)
+			to this e-mail address when this job completes.
+	-P mailid:	Page error: Send a very brief message to this e-mail 
+			address if errors are detected in this job.
+	-O config:	Insert the "config" configuration options from
+			$ConfigFile into
+			the command line at this point.
+	-k keyfile:	Key file: name of the user's key file.  The default
+			is ~/bin/pw.lst.
+	-h	:	Help: display this panel
+
+Examples:
+
+Return codes:
+	0	:	Normal termination
+	1	:	Help panel displayed.
+	2	:	Invalid or unrecognized command line options.
+	3	:	Invalid or unrecognized command line option value.
+	4	:	Incorrect command line parameters.
+	5	:	Unexpected message found in output.
+ENDUSAGE
+close PAGENATER;
+exit 1;
+}
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:	Ignore - Don't display this message, it's not interesting.
+#		LogOnly - Write this message to the syslog and log file, but
+#			don't display it on STDOUT.
+#		Show - Display this message, but it's not an error condition.
+#		# - This is a comment, ignore it.
+#
+#  Pattern:	an ordinary perl pattern.  All patterns for a given score
+#		are joined by logical OR conditions.
+#
+#  Notes:
+#	1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#	2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+IGNORE	/^\s*$/
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY	"^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY	/^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW	/^Job ended normally with status 0 and signal 0$/
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.

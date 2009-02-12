@@ -1,0 +1,261 @@
+#!/usr/bin/perl
+#
+# =====Description====
+#
+#use strict;
+use LogOutput;
+use ProcessOptions;
+use Text::ParseWords;
+use Fcntl;
+use POSIX qw(strftime);
+
+# Initialize variables.
+our($Prog)=$0;				# Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;		# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";			# Trim off the path, if present.
+my(@Args)=@ARGV;				# Preserve orig command for ref.
+my($ErrorFlag)=0;				# No errors so far.
+my($Syslog)='';				# Name of Syslog facility.  '' for none.
+my($BaseDir)="/usr/local/sbin";		# Set our base directory.
+my($LogFile)="";				# Name of the log file.
+my($ConfigFile)="$BaseDir/${Prog}.cfg";     # Name of config file.
+my($DataDir)="/var/mrtg";		# Where we store our data files.
+my($DataFile)="$DataDir/sensors.dat";	# Name of our data file.
+our($Scale)="";				# Defaults to Celcius.
+our(%Reference);			# A list of reference values.
+my($RefValue)="0";			# A specific reference value.
+#
+
+chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+
+# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
+#       1) We define a new type l (lowercase L), which is a list (i.e. if
+#          specified multiple times, values are concatenated & blank separated.o
+#          Normal =s and =i would replace values instead of concatenate.
+#       2) We don't support long option names, except as aliases.
+# These are the standard production options.  Add more options here as needed.
+$OptSpec='h t m=l e=l O=s p=l P=l s t v f c r=l';
+
+# Load the config file.
+if (-e $ConfigFile) {
+	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+	# Build a hash of settings found in the config file.
+	while (<CONFIG>) {
+		next if (/^\s*#/);      # Comment.
+		next if (/^\s*$/);      # Blank line.
+		chomp;
+		($name,$settings)=split(/:?\s+/,$_,2);
+		$name=~tr/[a-z]/[A-Z]/;
+		$Config{$name}.=$settings . ',' ;
+	}
+	close CONFIG;
+	foreach (keys(%Config)) {
+		$Config{$_} =~ s/,$//;	# Remove trailing comma
+	}
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Process the command line options, if any.
+if (@ARGV) {
+	# Process the command line arguments.
+	ProcessOptions($OptSpec);
+} else {
+	# No command line options.  Run the default job.
+	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
+		if (defined($Config{'DEFAULTJOB'}));
+}
+if ($ErrorFlag) {exit $ErrorFlag;}      # Exit if errors were detected.
+	
+# Set up our logging and output filtering.
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+
+# Verify the command line.
+die("Incorrect number of values requested.  See \"$Prog -h\" for usage.")
+	unless (@Parms == 0);
+
+# Build up our table of reference values.
+foreach ((@opt_r)) {
+	($Item,$Value)=split(/=/);
+	if ($Value =~ /^[0-9]*.?[0-9]*/) {
+		$Reference{$Item}=$Value;
+	} else {
+		die "Invalid reference value $Value for $Item\n";
+	}
+}
+
+# Clean out the data directory.  This prevents MRTG from rereading old data
+# if something doesn't get updated.
+RunDangerousCmd("rm -rf $DataDir/*") &&
+	die("Unable to clean out $DataDir: $!\n");
+
+umask(0022);
+
+open($FH_SENSOR,"sensors $Scale |") ||
+	die "Unable to open sensors process: $!\n";
+while (<$FH_SENSOR>) {
+	chomp;
+	next if (/^\s*$/);	# Skip blank lines.
+	if ($_ !~ /:/) {
+		# No colon.  Must be the adaptor name.  Save it
+		# without any special characters.
+		($Adaptor=$_) =~ s/[^a-zA-Z0-9-]/_/g;
+		if (! -d "$DataDir/$Adaptor") {
+			RunDangerousCmd("mkdir -m 655 -p $DataDir/$Adaptor") &&
+				die("Unable to create $DataDir/$Adaptor: $!\n");
+		}
+		next;
+	}
+	# Has a colon.  Must be a data value.
+	/^\s*(.*)\s*:\s*(\S+)/;
+	my($Item,$Value)=($1,$2);
+	$Item=~s/[^a-zA-Z0-9+-]/_/g;		# Replace special symbols.
+	$RefValue=$Reference{"$Adaptor/$Item"};
+	$RefValue=$RefValue?$RefValue:0;
+	if (sysopen($DATAFH,"$DataDir/$Adaptor/$Item",O_CREAT | O_WRONLY | O_EXCL)) {
+		print $DATAFH "$RefValue\n$Value\nBat OK\ndummy string\n";
+	} else {
+		warn "Unable to open $DataDir/$Adaptor/$Item: $!\n";
+		RunDangerousCmd("rm -f $DataDir/$Adaptor/$Item") if (-e "$DataDir/$Adaptor/$Item");
+	}
+	close $DATAFH;
+}
+
+if (!$ExitCode and sysopen($DATAFH,"$DataDir/updated.html", O_CREAT | O_WRONLY, 0644)) {
+	print $DATAFH
+		strftime(
+			"<p>Last updated at %H:%M:%S on %m/%d/%Y</p>\n",
+			localtime
+		);
+	close $DATAFH;
+} 
+
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+$ExitCode=$Errors?10:0;
+exit($ExitCode);
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($opt_t) {
+		print "Test: $Cmd\n";
+	} else {
+		print "Executing: $Cmd\n" if ($opt_v);
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - Zip selected shared folders onto the snap server.
+
+Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
+	$Prog -h
+
+Flags:
+	-c:		Celsius: Use Celsius numbers (default)
+	-e mailid:      Error: Send an execution report to this e-mail address
+			if errors are detected.
+	-f:		Fahrenheit: use fahrenheit numbers.
+	-m mailid:      Mailid: Send an execution report to this e-mail address.
+	-p mailid:      Page: Send a very brief message (suitable for a pager)
+			to this e-mail address when this job completes.
+	-P mailid:      Page error: Send a very brief message to this e-mail 
+			address if errors are detected in this job.
+	-O config:      Insert the "config" configuration options from
+			$ConfigFile.
+	-r number:	Reference: Also include "number" as a second data point.
+			the command line at this point.
+	-t	:	Test: echo commands instead of running them.
+	-v	:	Verbose: echo commands before running them.
+	-h      :       Help: display this panel
+
+Parameters:
+	files	:	one or more files to zip.
+
+Return codes:
+	0       :       Normal termination
+	1       :       Help panel displayed.
+	2       :       Invalid or unrecognized command line options.
+	3       :       Invalid or unrecognized command line option value.
+	4       :       Incorrect command line parameters.
+	5       :       Unexpected message found in output.
+	10      :       Some delete's failed.
+ENDUSAGE
+close PAGENATER;
+exit 1;
+}
+
+sub opt_c {
+	$Scale="";		# No fahrenheit.
+}
+
+sub opt_f {
+	$Scale="-f";		# Fahrenheit.
+}
+
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:        Ignore - Don't display this message, it's not interesting.
+#               LogOnly - Write this message to the syslog and log file, but
+#                       don't display it on STDOUT.
+#               Show - Display this message, but it's not an error condition.
+#               # - This is a comment, ignore it.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given score
+#               are joined by logical OR conditions.
+#
+#  Notes:
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#       2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+IGNORE  /^\s*$/
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY /^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW    /^Job ended normally with status 0 and signal 0$/
+SHOW    /^Test:/
+SHOW    /^Executing:/
+SHOW	/^\s*debug:/
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.

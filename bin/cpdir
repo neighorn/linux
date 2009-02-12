@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [[ $# -ne 2 ]]
+then
+	echo "usage: $0 fromdir todir" 1>&2
+	exit 4
+fi
+
+(cd $1 && tar -cf - .) | (cd $2 && tar -xf -)

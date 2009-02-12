@@ -1,0 +1,98 @@
+#!/bin/sh
+#
+# Startup script to change hdparm values.
+#
+# chkconfig: 2345 08 92
+#
+# description: Automates a packet filtering firewall with iptables.
+#
+# by bero@redhat.com, based on the ipchains script:
+# Script Author:	Joshua Jensen <joshua@redhat.com>
+#   -- hacked up by gafton with help from notting
+# modified by Anton Altaparmakov <aia21@cam.ac.uk>:
+# modified by Nils Philippsen <nils@redhat.de>
+#
+# config: /etc/sysconfig/iptables
+
+# Source 'em up
+#. /etc/init.d/functions
+success() {
+	echo "PASSED: $*"
+}
+
+failure() {
+	echo "***FAILED: $*"
+}
+
+GetDisks() {
+
+	DiskList=""
+	for name in a b c d
+	do
+		[[ ! -f /proc/ide/hd$name/media ]] && continue
+		grep -q disk /proc/ide/hd$name/media
+		if [[ $? -eq 0 ]]
+		then
+			# It's a disk.
+			DiskList="$DiskList /dev/hd$name"
+		fi
+	done
+	DiskList="${DiskList# }"
+	echo $DiskList
+}
+			
+
+start() {
+	DiskList=`GetDisks`
+	OKList=""
+	FailList=""
+	for name in $DiskList
+	do
+		hdparm -S0 $name > /dev/null
+		if [[ $? -eq 0 ]]
+		then
+			OKList="$OKList $name"
+		else
+			FailList="$FailList $name"
+		fi
+	done
+	OKList="${OKList# }"
+	FailList="${FailList# }"
+	if [[ "$FailList" = ""  && "$OKList" = "" ]]
+	then
+		failure "No disks found"
+	elsif [[ "$FailList" != ""  && "$OKList" = "" ]]
+		failure "Unable to set hdparm for $FailList"
+	elsif [[ "$FailList" != ""  && "$OKList" != "" ]]
+		failure "Set hdparms for $OKList, unable to set hdparm for $FailList"
+	else 
+		success "Set hdparm for $OKList"
+	fi
+}
+
+stop() {
+	success "Nothing to do for hdparm"
+}
+
+case "$1" in
+  start)
+	start
+	;;
+
+  stop)
+	stop
+	;;
+
+  restart)
+	# "restart" is really just "start" as this isn't a daemon,
+	#  and "start" clears any pre-defined rules anyway.
+	#  This is really only here to make those who expect it happy
+	start
+	;;
+
+  *)
+	echo $"Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit 0

@@ -1,0 +1,71 @@
+#! /usr/bin/perl
+
+require "getopts.pl";
+use Gone;
+use DB_File;
+
+# Set the path explicitly.
+$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/ods/sbin:/usr/ods/bin:/usr/bin:/bin';
+
+
+# Make sure our From address is a valid address
+$From=$ARGV[1];
+exit 1 if ($From !~ /^.+@.+\..+/);	# Not in the format of xxx@yyy.zzz.
+exit 2 if ($From =~ /^nobody\@/);	# Don't reply to "nobody", from website
+system("echo From=$From, ReturnPath=$ReturnPath, User=" . @ENV{LOGNAME} . " | /usr/local/bin/ir -lt autoresponder.debug");
+
+# Get our current time stamp.
+$Seconds=`date +%s`;			# Get the seconds since 1970
+chomp $Seconds;				# Remove the trailing \n.
+$Hours=int($Seconds/3600);		# Num. of hours from 1970 to today.
+
+
+# Load the existing file, if any.
+$NeedRewrite=0;                 	# Assume there's nothing to delete.
+$BestIndex=ReadGone();			# Load the best autoresponse, if any.
+
+# If we have any data, see if it's valid.
+SendAutoResponse($BestIndex,$From) if ($BestIndex > -1);
+
+# Rewrite the data file if necessary, and if we can write to it.
+WriteGone() if ($NeedRewrite);
+exit 0;
+
+#
+# SendAutoResponse
+#
+sub SendAutoResponse {
+
+	my($Index,$From)=@_;
+
+	# We have an autoresponse.  See if we've already sent this message
+	# to this user recently.
+	dbmopen %Hash, $RespondedDB, 0600		# Open the database
+		or die "Cant open $RespondedDB: $!\n";	# ... or not.
+	$DBKey=$Serial[$Index] . ":" . $From;
+	# See if they're in the database.  If so, exit if we haven't
+	# the prior notice to them hasn't expired.
+	if (exists $Hash{$DBKey} and $Hash{$DBKey} > $Days) {
+		dbmclose %Hash;
+		return;
+	}
+
+	# Either we haven't sent this to them, or it's expired.  Update
+	# the database to say we're going to send one.
+	$Hash{$DBKey}=$Hours+int(6.5*24);	# Expires in 6.5 days.
+	dbmclose %Hash;
+
+	# Send the autoreply headers (from STDIN) followed by our message.
+	if ($Text[$Index]) {
+		open(SENDMAIL,"| /usr/sbin/sendmail -t") or
+			die("Unable to open sendmail process: $!\n");
+			while (<STDIN>) {
+			printf SENDMAIL "%s", $_;
+		}
+		$Text[$Index]=~s//\n/g;
+		printf SENDMAIL "%s\n", $Text[$Index];
+	}
+#	if ($Forward[$Index]) {
+#		# What to do here?
+#	}
+}

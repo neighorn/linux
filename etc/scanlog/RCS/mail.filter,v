@@ -1,0 +1,268 @@
+head	1.1;
+access;
+symbols;
+locks
+	root:1.1; strict;
+comment	@# @;
+
+
+1.1
+date	2007.08.06.15.42.08;	author root;	state Exp;
+branches;
+next	;
+
+
+desc
+@Initial checkin
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:        Ignore - Don't display this message, it's not interesting.
+#               LogOnly - Write this message to the syslog and log file, but
+#                       don't display it on STDOUT.
+#               Show - Display this message, but it's not an error condition.
+#               # - This is a comment, ignore it.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given score
+#               are joined by logical OR conditions.
+#
+#  Notes:
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#       2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+IGNORE  "^\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ syslogd 1.4.1: restart.$"
+#IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ 
+#IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ 
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: Found \$.* at /"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: .* code\s+(NOT)?\s*loaded\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: (Found|Internal|No)\s+decoder for"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: Found secondary av scanner"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: Module [A-Za-z_:0-9. ]+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: No (\$lzop|\$unfreeze),\s* not using it$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: Perl version"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: starting.  (/usr/sbin/)?amavisd at \S+"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: SQL::Quarantine\s+(NOT)?\s*loaded\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: Using internal av scanner code for"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) AM.CL /var/spool/amavis/.*: <.*> -> <.*>$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Blocked SPAM, "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) body hash: [a-f0-9]+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) cached [a-f0-9]+ from <"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Checking for banned"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Checking: <.*> -> <.*>$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Clam Antivirus-clamd: result"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Clam Antivirus-clamd: Connecting to socket  /var/lib/clamav/clamd-socket$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Clam Antivirus-clamd: Sending CONTSCAN"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Clam Antivirus-clamd result:"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Connecting to SQL database server$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) connect_to_sql: 'DBI:mysql:database=maia;.*succeeded$"
+# Following generated on particular virus out about 11/26/05.  Caught by vscan.
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) do_executable/do_unzip failed, ignoring: format error: bad signature:"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) ESMTP::10024 .* Received: SIZE=\d+"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) FWD via SMTP: \[127.0.0.1\]:10025 <.*> -> <.*@@.*>$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) BANNED "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Blocked BAD-HEADER,? "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Blocked BANNED "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Blocked INFECTED,? \("
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Blocked SPAM,? \("
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) headers CLUSTERING: done all \d+ recips in one go$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) INFECTED"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) INFO: no existing header field 'Subject', inserting it\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) mail_via_smtp: 250 2.6.0 Ok, id=.+-.+, from MTA: 250 Ok: queued as [0-9A-F]+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) mail checking ended: exit_code=0"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Not-Delivered, <.*> -> <.+>"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) tempdir being removed:"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\S+-\S+\) Passed CLEAN, <.*> -> "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\S+-\S+\) Passed SPAM, <.*@@.*> -> "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\S+-\S+\) Passed, <.*@@.*> -> "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) Using Clam Antivirus-clamd:"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(\d+-\d+\) \.\.\."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(.*\) spam_scan: hits=.* tests="
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(.*\) TIMING \[total \d+ ms\]"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(.*\) mail_via_smtp: 250 2.6.0 Ok, id=\d+-\d+, from MTA: 250 Ok: queued as [0-9A-F]$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis\[\d+\]: \(.*\) Passed, <.*> -> <.*>, quarantine \S+, Message-ID: <.*>, Hits: "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Archive support enabled.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Archive: Archived file size limit set to \d{8,10} bytes.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Archive: Compression ratio limit set to 250.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Archive: Files limit set to [1-4]000.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Archive: RAR support disabled.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Archive: Recursion level limit set to [6-8].$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: clamd daemon \d+\.\d+ \(OS: linux-gnu"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Daemon started.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Database correctly reloaded"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Log file size limited to \d+ bytes.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Protecting against \d{5,8} viruses.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Running as user vscan \(UID 65, GID 101\)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Setting connection queue length to \d+$"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Socket file /var/lib/clamav/clamd-socket exists."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Unix socket file /var/lib/clamav/clamd-socket$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Portable Executable support enabled.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Mail files support enabled.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: OLE2 support enabled.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: HTML support enabled.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Self checking every 1800 seconds.$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: No stats for Database check - forcing reload$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Database correctly reloaded \(\d\d\d\d\d viruses\)\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: SelfCheck: Database modification detected. Forcing reload.\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: Reading databases from /var/lib/clamav\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: SelfCheck: Database status OK.\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd\[\d+\]: /var/spool/amavis/amavis-.* FOUND\s*"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: ClamAV update process started at"
+# Following is partial message caused by line break when downloading.
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: cvd \[\*\]\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Daemon started.\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Database updated \(\d\d\d\d\d signatures\) from db.us.clamav.net"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: daily.cvd updated \(version: \d+, sigs: \d+, "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: daily.cvd is up to date"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: main.cvd is up to date"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: main.cvd updated \(version: \d+, sigs: \d+,"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Downloading daily"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: daily.inc updated "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: daily.inc is up to date "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Ignoring mirror "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Database correctly reloaded "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: ERROR: Mirrors are not fully synchronized. Please try again later."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Trying again in 5 secs...\s*$"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Can't connect to port 80 of host db.us.clamav.net"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: ClamAV update process started at"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Clamd successfully notified about the update."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Database updated \(\d+ signatures\) from [a-zA-Z.]+ \(IP: \d+.\d+.\d+.\d+\)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Downloading daily"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: daily.cvd updated \(version: \d+, sigs: \d+, f-level: \d+, builder: .*\)"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: daily.inc updated "
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: getfile: Error while reading database"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: getpatch: Can't download"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: .* is up to date"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Ignoring mirror"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: main.cvd updated \(version: \d+, sigs: \d+, f-level: \d+, builder: .*\)"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: nonblock_connect: connect timing out"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: nonblock_recv: recv timing out"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: Trying host "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ imapd\[\d+\]: imaps SSL service init from 172.27.2.\d+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: rm /usr/local/etc/postgrey/log.0000000002"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: Error opening or locking INBOX user="
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ imapd\[\d+\]: imaps SSL service init from 127.0.0.1$"
+SHOW    "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ imapd\[\d+\]: Login failed user=.* auth= host=\S+.in.dinihanian.com \[172.27.2.1\]$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ imapd\[\d+\]: Login user=.* host=localhost \[127.0.0.1\]$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ imapd\[\d+\]: Logout user=.* host=localhost \[127.0.0.1\]$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/anvil\[\d+\]: statistics: max cache size \d+ at ... .. ..:..:..\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/anvil\[\d+\]: statistics: max connection count \d+"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/anvil\[\d+\]: statistics: max connection rate \d+/\d+."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/cleanup\[\d+\]: [A-Z0-9]+: message-id=.*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/local\[\d+\]: [A-Z0-9]+: to=<.*>, orig_to=<.*>, relay=.*, delay=\d+, status=sent"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/local\[\d+\]: [A-Z0-9]+: to=<.*>, relay=local, delay=\d+, status=sent"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/master\[\d+\]: Daemon started.$"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/master\[\d+\]: daemon started -- version"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/master\[\d+\]: reload configuration$"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/master\[\d+\]: terminating on signal \d+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/pickup\[\d+\]: [0-9A-F]+: uid=\d+ from=<.*>\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/pipe\[\d+\]: [0-9A-F]+: to=<.*@@.*>, (orig_to=<.*>, )?relay=vscan, delay=\d+, status=sent \(mail.dinihanian.com\)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/postfix-script: refreshing the Postfix mail system$"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/postfix-script: starting the Postfix mail system$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/qmgr\[\d+\]: [0-9A-F]+: from=<.*>, size=\d+, nrcpt=\d+ \(queue active\)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/qmgr\[\d+\]: [0-9A-F]+: from=<.*>, status=expired, returned to sender$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/qmgr\[\d+\]: [0-9A-F]+: to=<.*>, relay=.*, delay=\d+, status=(sent|deferred)"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/qmgr\[\d+\]: [0-9A-F]+: removed"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/cleanup\[\d+\]: [0-9A-F]+: message-id=<.*>$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/scache\[\d+\]: statistics: "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: connect from"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: connect to .*: Connection timed out"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: connect to .*]: Connection refused \(port 25\)$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: connect to .*: server dropped connection without sending the initial SMTP greeting \(port 25\)"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: connect to .*: server refused to talk to me: 450"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: disconnect from"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: warning: (malformed|numeric) domain name in resource data of MX record for "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: warning: valid_hostname: empty hostname$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: [0-9A-F]+: host .* (said:|refused to)"
+# Following ignores all temporary (4xx) errors.
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: [0-9A-F]+: host .* said: 4\d\d"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: connect to .* \[[0-9.]+\]: read timeout \(port 25\)$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: [0-9A-F]+: lost connection with "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: [0-9A-F]+: enabling PIX .* workaround for"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: [0-9A-F]+: to=<.+>, relay=.*, delay=\d+, status=bounced "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: [0-9A-F]+: to=<.+>, relay=.*, delay=\d+, status=sent "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp\[\d+\]: [0-9A-F]+: to=<.+>, relay=.*, delay=\d+, status=deferred "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: connect from localhost\[127.0.0.1\]$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: disconnect from localhost\[127.0.0.1\]$"
+# Don't worry about SVR5 disconnects - checkall is making sure postfix is up.
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: connect from "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: disconnect from "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: lost connection after (CONNECT|DATA|EHLO|HELO|MAIL|RCPT|RSET|NOOP) from"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: NOQUEUE: reject: .*blocked using sbl-xbl.spamhaus.org"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: NOQUEUE: reject: RCPT from .* 450 .*: Recipient address rejected: Service temporarily unavailable\(g\);"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: NOQUEUE: reject: .*450.*Service (temporarily )?is unavailable(\(g\))?$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: NOQUEUE: reject: .*550.*User unknown in local recipient table"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: NOQUEUE: reject: .*504.*: Sender address rejected:"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: NOQUEUE: reject: .*554.*: Relay access denied;"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: table hash:/etc/aliases\(\d+,\d+\) has changed -- restarting$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: timeout after \S+ from"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: too many errors after \S+ from"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: warning: Illegal address syntax from"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: warning: numeric result .* in address->name lookup for"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: warning: .*: address not listed for hostname "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: warning: smtpd_peer_init: \d+.\d+.\d+.\d+: address not listed for hostname "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: warning: smtpd_peer_init.*verification failed: "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: warning: .*sent non-SMTP command"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: warning: .*.sbl-xbl.spamhaus.org: RBL lookup error: Host or domain name not found."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: warning: \d+.\d+.\d+.\d+: hostname \S+ verification failed: Name or service not known\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: [0-9A-F]+: client="
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: [0-9A-Z]+: reject: .*: 450 <\S+>: Recipient address rejected: Service is unavailable;"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd\[\d+\]: [0-9A-Z]+: reject: .*: 550 <\S+>: Recipient address rejected: User unknown in local recipient table;"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: cleaning up old logs...\s*$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: whitelisted: "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: delayed \d+ seconds: "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: \d+/\d+/\d+-\d+:\d+:\d+ postgrey \(type Net::Server::Multiplex\) starting! pid\(\d+\)\s*$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: Binding to UNIX socket file /var/run/postgrey.socket using SOCK_STREAM\s*$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: Setting gid to \"109 109\"\s*$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: Setting uid to \"109\"\s*$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: cleaning up old entries..."
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: cleaning main database finished. before: \d+, after: \d+"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey\[\d+\]: cleaning clients database finished. before: \d+, after: \d+"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: pop3s SSL service init from 172.27.2."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: pop3s SSL service init from 216.9.24[89]."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: Login user=\S+"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: Logout user=\S+"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: pop3s SSL service init from 172.27.2."
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: Trying to get mailbox lock from process \d+\s*$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: Mailbox is open by another process, access is readonly\s*$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: Expunge ignored on readonly mailbox\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: clean message "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: connection from localhost \[127.0.0.1\] at port \d+\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: Created user preferences file:"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: Creating default_prefs"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: handled cleanup of child pid \d+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: info: setuid to .+ succeeded\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: identified spam "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: processing message <.*> for .+:\d+.\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: result:"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: server started on port 783/tcp"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: server successfully spawned child process"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: server hit by SIGCHLD$"
+SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ spamd\[\d+\]: spamd starting$"
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY /^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW    /^Job ended normally with status 0 and signal 0$/
+SHOW    /^Test:/
+SHOW    /^Executing:/
+SHOW	/^\s*debug:/
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.
+@

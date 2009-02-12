@@ -1,0 +1,32 @@
+#!/bin/bash
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+cd /home/shareusr/documents
+
+Total=`du -sk .`
+Total="${Total%%[^0-9]*}"
+
+printf "Total space used in \"documents\": %d KB\n" $Total
+echo "------------------------------------------------------------"
+printf "25 Largest Top-Level Directories\n\n"
+du -sk * |
+	sort -k 1nr |
+	head -25 |
+	while read Size Name
+	do
+		((Percent=$Size*100/$Total))
+		printf "%10d KB %3d%% %s\n" $Size $Percent "$Name"
+	done
+printf "\n------------------------------------------------------------\n"
+printf "50 Largest Files\n\n"
+find . -type f -size +500000c -ls |
+	sort -k7nr |
+	head -50 |
+	awk '{gsub("\\","");gsub("/","\\\\");print}' |
+	while read x1 x2 x3 x4 x5 x6 size x8 x9 x10 name
+	do
+		name="${name#.\\}"
+		((size=size/1024))
+		printf "%10d KB %-3s %-2s %-5s %s\n" $size $x8 $x9 $x10 "$name"
+	done

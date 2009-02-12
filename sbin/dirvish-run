@@ -1,0 +1,378 @@
+#!/usr/bin/perl
+
+use LogOutput;
+use ProcessOptions;
+use Text::ParseWords;
+# override CORE::glob in current package
+use File::DosGlob 'glob';    # override CORE::glob in ALL packages (use with extreme caution!)
+use File::DosGlob 'GLOBAL_glob';
+use File::Find;
+use Fcntl qw(:flock);
+#use strict;
+use warnings;
+
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
+
+# Initialize variables.
+our $Prog=$0;                           # Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            # Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    # Trim off the path, if present.
+#@Args=@ARGV;                        # Preserve orig command for ref.
+my $Errors=0;   	                    # No errors so far.
+my $Syslog='user';                         # Name of Syslog facility.  '' for none.
+my $BaseDir="/usr/local/etc";		# Set our base directory.
+my $LogFile="";				# Name of the log file.
+my $ConfigFile="$BaseDir/${Prog}.cfg";     # Name of config file.
+my @Banks=("/usr/local/dirvish","/mnt/dirvish/offsite","/mnt/dirvish/offsite2");
+our $opt_B = '';		# -B: begin script (initialization).
+our @opt_B;			# List of initialization scripts.
+our $opt_D = '';		# Additional dirvish options.
+our $opt_e;
+our $opt_m;			# Mail.
+our $opt_O;
+our $opt_p;
+our $opt_P;
+our $opt_R;
+our $opt_s;
+our $opt_t;			# Test
+our $opt_v;
+our $opt_N = '';
+our %Config;
+my $MachineDirectory;		# Base directory for this dirvish item.
+#
+
+# Note: general purpose script - don't change current directory.
+#chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+
+# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
+#       1) We define a new type l (lowercase L), which is a list (i.e. if
+#          specified multiple times, values are concatenated & blank separated.o
+#          Normal =s and =i would replace values instead of concatenate.
+#       2) We don't support long option names, except as aliases.
+# These are the standard production options.  Add more options here as needed.
+$OptSpec='B=l D=l h m=l N=s e=l O=s p=l P=l s R t v';
+
+# Load the config file.
+if (-e $ConfigFile) {
+	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+	# Build a hash of settings found in the config file.
+	while (<CONFIG>) {
+		next if (/^\s*#/);      # Comment.
+		next if (/^\s*$/);      # Blank line.
+		chomp;
+		($name,$settings)=split(/:?\s+/,$_,2);
+		$name=~tr/[a-z]/[A-Z]/;
+		$Config{$name}.=$settings . ',' ;
+	}
+	close CONFIG;
+	foreach (keys(%Config)) {
+		$Config{$_} =~ s/,$//;	# Remove trailing comma
+	}
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Process the command line options, if any.
+if (@ARGV) {
+	# Process the command line arguments.
+	ProcessOptions($OptSpec);
+} else {
+	# No command line options.  Run the default job.
+	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
+		if (defined($Config{'DEFAULTJOB'}));
+}
+	
+# Set up our logging and output filtering.
+$RunDate=`date +%m/%d`;
+chomp $RunDate;
+if ($opt_N) {
+	$LogOutput::Subject="$Prog $RunDate $opt_N" ;
+} elsif (@Parms == 1) {
+	$LogOutput::Subject="$Prog $RunDate $Parms[0]" ;
+} else {
+	$LogOutput::Subject="$Prog $RunDate";
+};
+
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+
+foreach (@opt_B) {
+	# Run any initialization scripts.
+	print "Running: $_\n";
+	RunDangerousCmd($_) &&
+		die "$_ returned status $?: $!\n";
+}
+
+foreach $Target (@Parms) {
+	# Make sure they gave us a valid vault.
+	if ($Target =~ m"^/") {
+		# They gave us a full path.  See if it's valid.
+		($MachineDirectory=$Target) =~ s":"/";
+		$MachineDirectory =~ s"^(.*)[^/]*$"$1";
+		$Target =~ s"^.*([^/]*$)"$1";
+		if (! -d $MachineDirectory) {
+			warn "$MachineDirectory not found\n";
+			$Errors++;
+			next;
+		};
+	} else {
+		# No full path.  Hunt for it.
+		$MachineDirectory='';
+		foreach (@Banks) {
+			if (-d "$_/$Target/dirvish") {
+				$MachineDirectory = "$_/$Target";
+				last;
+			}
+		}
+		if (! $MachineDirectory) {
+			warn "Unable to locate $Target in dirvish banks.\n";
+			$Errors++;
+			next;
+		}
+	}
+
+	# Insert separators between tasks.
+	print "_"x60 . "\n";
+	print "Starting $Target...\n";
+
+	if (!chdir $MachineDirectory) {
+		warn "Unable to CD to $MachineDirectory: $!\n";
+		$Errors++;
+		next;
+	}
+
+	# Make sure there's not another copy of us running against this.
+	my $LockFile = "$MachineDirectory/dirvish/$Prog.lock";
+	my $LOCK;
+	if (!open($LOCK,'>>',$LockFile)) {
+		warn "Unable to create/open $LockFile: $!";
+		$Errors++;
+		next;
+	}
+	if (!flock($LOCK, LOCK_EX | LOCK_NB)) {
+		warn "Unable to lock $LockFile: $!";
+		$Errors++;
+		next;
+	}
+
+	# Is this a rerun?
+	if ($opt_R and -d './latest') {
+		RunDangerousCmd("mv ./latest ./latest.old") && die "Unable to rename 'latest' in response to -R: $!";
+		RunDangerousCmd("rm -rf ./latest.old &");
+	}
+
+	# Do we need to initialize this disk?
+	system('/bin/ls ./*/tree > /dev/null');
+	my $Status = $?;
+	my $Init = ($Status eq 0?'':'--init');	# Add --init if no trees.
+
+	# Run the back-up.
+	my $AdditionalOptions = join(' ',@opt_D);
+	$Status = RunDangerousCmd("dirvish --vault $Target $Init $AdditionalOptions");
+	if ($Status == 0) {
+		foreach (`ls -tr $MachineDirectory`) {
+			chomp;
+			my $Dir = "$MachineDirectory/$_";
+			my $ModTime=(-M "$Dir");
+			Summarize("$Dir") 
+				if ($ModTime < 0);	# Newer than this job.
+		}
+	} else {
+		print "dirvish failed with status $Status\n";
+		$Errors++;
+	}
+
+	# Clean up the lock file.
+	unlink($LockFile);
+	
+	# Report on disk space status.
+	print "\n";		# Insert a blank line before disk space rept.
+	RunDangerousCmd("df -hP $MachineDirectory");
+}
+
+# Print a final separator.
+print "_"x60 . "\n";
+
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+$ExitCode=$Errors?10:0;
+exit($ExitCode);
+
+sub Summarize {
+	my($Directory);			# Current directory we're processing.
+	foreach $Directory (@_) {
+		# Document any errors in the execution report.
+		system("cat $Directory/rsync_error") if (-f "$Directory/rsync_error");
+		$TotalItems=0;
+		$TotalSize=0;
+		$NewItems=0;
+		$NewSize=0;
+		find(\&FoundItem,$Directory);
+		$TotalSize=$TotalSize/1024/1024;
+		my $TotalUnits='M';
+		if ($TotalSize > 1024) {
+			$TotalSize /= 1024;
+			$TotalUnits='G';
+		}
+		$NewSize=$NewSize/1024/1024;
+		my $NewUnits='M';
+		if ($NewSize > 1024) {
+			$NewSize /= 1024;
+			$NewUnits='G';
+		}
+		printf "$Target $Directory: " . 
+			"Total Items: %d (%.1f%s), " .
+			"New Items: %d (%.1f%s)\n",
+			$TotalItems, $TotalSize, $TotalUnits,
+			$NewItems, $NewSize, $NewUnits;
+	}
+}
+
+sub FoundItem {
+	
+	my($Links);			# Number of hardlinks.
+	my($Size);			# Number of bytes.
+	my($Name)=$File::Find::name;	# Name of tile.
+	chomp;
+	($Links,$Size)=(lstat($Name))[3,7];
+	$TotalItems++;
+	$TotalSize+=$Size;
+	if ($Links eq 1) {
+		$NewItems++;
+		$NewSize+=$Size;
+	}
+}
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($opt_t) {
+		print "Test: $Cmd\n";
+		return 0;
+	} else {
+		print "Executing: $Cmd\n" if ($opt_v);
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - Zip selected shared folders onto the snap server.
+
+Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] vault
+	$Prog -h
+
+Flags:
+	-D parms	Dirvish: Pass the following parameters and options
+			directly to dirvish.  Spaces need to be escaped or
+			quoted.
+	-e mailid:      Error: Send an execution report to this e-mail address
+			if errors are detected.
+	-m mailid:      Mailid: Send an execution report to this e-mail address.
+	-p mailid:      Page: Send a very brief message (suitable for a pager)
+			to this e-mail address when this job completes.
+	-P mailid:      Page error: Send a very brief message to this e-mail 
+			address if errors are detected in this job.
+	-O config:      Insert the "config" configuration options from
+			$ConfigFile.
+			the command line at this point.
+	-t	:	Test: echo commands instead of running them.
+	-v	:	Verbose: echo commands before running them.
+	-h      :       Help: display this panel
+
+Parameters:
+	vault	:	A vault name (assumed to bin in /usr/local/dirvish), or
+			a fully-qualified path to the vault.  A branch may be 
+			included.
+
+Return codes:
+	0       :       Normal termination
+	1       :       Help panel displayed.
+	2       :       Invalid or unrecognized command line options.
+	3       :       Invalid or unrecognized command line option value.
+	4       :       Incorrect command line parameters.
+	5       :       Unexpected message found in output.
+	10      :       Some delete's failed.
+ENDUSAGE
+close PAGENATER;
+exit 1;
+}
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:        Ignore - Don't display this message, it's not interesting.
+#               LogOnly - Write this message to the syslog and log file, but
+#                       don't display it on STDOUT.
+#               Show - Display this message, but it's not an error condition.
+#               # - This is a comment, ignore it.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given score
+#               are joined by logical OR conditions.
+#
+#  Notes:
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#       2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY /^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW	"^\s*[-_]+\s*$"
+SHOW	"^\s*Starting \S+...\s*$"
+SHOW	"^\S+ \S+: Total Items: \d+ \(\d+\.\d[GM]\), New Items: \d+ \(\d+\.\d[GM]\)$"
+SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
+# The disk space report is normal unless capacity reaches 90% full.
+SHOW	"^\s*Filesystem            Size  Used Avail Use% Mounted on"
+SHOW	"^\s*/dev/...\d\s+\d+[GMK]\s+\d+[GMK]\s+\d+[GMK]\s+(\d|[1-8])%"
+SHOW	"^\s*/dev/[a-z0-9/-]+\s+[0-9.]+[GMK]\s+[0-9.]+[GMK]\s+[0-9.]+[GMK]\s+(\d|[1-8]\d|9[0-5])%"
+IGNORE	"^\s*\*\*\* Execution cycle \d \*\*\*\s*$"
+IGNORE	"^\s*Copyright \(c\) \d\d\d\d Water Technologies Inc.\s*$"
+IGNORE	"^\s*All access is prohibited unless expressly authorized.$"
+# Unexplained error 24 is "file vanished".  Ok if remote files are deleted while we run.
+IGNORE	"^\s*rsync error: unexplained error \(code 24\) at main.c\(1045\)\s*$"
+IGNORE	"^\s*rsync warning: some files vanished before they could be transferred"
+SHOW	"^\s*Running:"
+SHOW	"^\s*Running offsite back-ups to disk #\d+\s*$"
+SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
+SHOW    /^Test:/
+SHOW    /^Executing:/
+SHOW	/^\s*debug:/
+SHOW  /^\s*$/
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.

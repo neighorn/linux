@@ -1,0 +1,15 @@
+# fmtdate data file used by autoresponder.
+#
+# Date & time, with slashes.
+%m/%d/%y %H:%M
+%m/%d/%Y %H:%M
+#
+# Date & time, with dashes.
+%m-%d-%y %H:%M
+%m-%d-%Y %H:%M
+#
+# Month name, day, year, time
+%b %d %y %H:%M
+%b %d, %y %H:%M
+%b %d %Y %H:%M
+%b %d, %Y %H:%M

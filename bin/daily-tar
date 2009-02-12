@@ -1,0 +1,248 @@
+#!/usr/bin/perl -w
+
+use LogOutput;
+use ProcessOptions;
+use Text::ParseWords;
+
+# Set up the environment.
+$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin';
+
+# Initialize variables.
+$Prog=$0;			# Get our name, for messages.
+$Prog=~s/^.*\///;		# Trim off the path, if present.
+@Args=@ARGV;			# Preserve orig command for ref.
+@Args=@Args;			# Suppress -w msg, in case we never use this.
+$ErrorFlag=0;			# No errors so far.
+$Syslog='user';			# Name of Syslog facility.  '' for no logging.
+$LogFile='';			# Log file name, or null for none.
+$BaseDir="/usr/local/etc";	# Set our base directory.
+$ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+$opt_l=0;			# Assume a dump level zero.
+$opt_m='';
+$opt_e='';
+$opt_p='';
+$opt_P='';
+$opt_t='';
+$opt_v='';
+
+# Set our base directory.
+chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
+
+# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
+#	1) We define a new type l (lowercase L), which is a list (i.e. if
+#	   specified multiple times, values are concatenated & blank separated.o
+#	   Normal =s and =i would replace values instead of concatenate.
+#	2) We don't support long option names, except as aliases.
+# These are the standard production options.  Add more options here as needed.
+$OptSpec='d h t v m=l e=l p=l P=l O=s l=s';
+
+# Load the config file.
+if (-e $ConfigFile) {
+        open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+        # Build a hash of settings found in the config file.
+        while (<CONFIG>) {
+                next if (/^\s*#/);      # Comment.
+                next if (/^\s*$/);      # Blank line.
+                ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
+                $name=~tr/[a-z]/[A-Z]/;
+                $Config{$name}=$settings;
+        }
+	close CONFIG;
+}
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Process the command line options, if any.
+if (@ARGV) {
+	# Process the command line arguments.
+	ProcessOptions($OptSpec);
+} else {
+	# No command line options.  Run the default job.
+	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
+		if (defined($Config{'DEFAULTJOB'}));
+}
+
+# Set up our logging and output filtering.
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+
+# Check for stray arguments.
+die "Unexpected parameters: " . join(" ",@Parms) if (@Parms);
+
+# Set the default day limit if none was set.
+$opt_l = 1 unless ($opt_l);
+die ("$opt_l is an invalid value for the -l option\n") 
+	unless ( $opt_l =~ /[0-9]+/);
+	
+# Now get down to the work at hand.
+$date=`/bin/date +\%Y-\%m-\%d`;
+chomp $date;
+
+# Set our directory to root, then back up ..  This is important, because
+# if we want to restore an old copy of a production file under another
+# name we can do so.  Since all the files are backed up as ./something,
+# we just need to CD to a different directory before doing the restore.
+# The downside is that we have to remember to CD to / before doing a restore
+# if we really want it to overwrite the current files.
+chdir('/') || die "Unable to cd to /: $!\n";
+
+# First, list all files on the system to a file.  This helps in recovery
+# situations, but determine which files were deleted as opposed to those that
+# simply didn't change -- both of which would not appear on an incremental.
+RunDangerousCmd("find / -fstype ext3 -print > /usr/local/backup/daily/${date}.all-files");
+
+# Now build a list of all files that have changed in the last $opt_l days.
+RunDangerousCmd("find . \\( \\( -name proc -o -name media -o -name mnt \\) -prune \\) -o \\! -type d -mtime -$opt_l -print > /usr/local/backup/daily/${date}.tarin") &&
+	die "find command failed: $!\n";
+
+# Now tar those files up, unless they're in our exclude list.
+RunDangerousCmd("tar -czf /usr/local/backup/daily/${date}.tgz -X /usr/local/backup/exclude.dat -T /usr/local/backup/daily/${date}.tarin");
+
+# Now lets see how many we got.
+$EndCount=`tar -tzf /usr/local/backup/daily/${date}.tgz | wc -l`;
+chomp $EndCount;
+
+print "$EndCount files backed up.\n";
+
+if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
+exit 0;
+	
+
+#
+# RunDangerousCmd - run a command, unless we're testing.
+#	Note: Returns status code, in which 0 (false) commonly means OK.
+#
+sub RunDangerousCmd {
+
+	my($Command)=@_;		# Get our calling arguments.
+	my($FH);			# Autovivified file handle.
+
+	if ($opt_t) {
+		print "test: $Command\n";
+		return 0;
+	} else {
+		print "Executing: $Command\n" if ($opt_v);
+		if (open($FH, "$Command 2>&1 |")) {
+			while (<$FH>) {print;};
+			close $FH;
+		} else {
+			($CmdName = $Command) =~ s/^\s*(\S+)/$1/;
+			warn "$CmdName failed to start with status $?: $!\n";
+		}
+		return $?;
+	}
+}
+
+
+
+#
+# Untaint  -- use very carefully!
+#
+
+sub untaint {
+        local(@parms) = @_;
+        foreach (@parms) {
+                s/^(.*)$/$1/;
+                $_=$1;
+        }
+        if (@parms == 1) {
+                # Return scalar
+                return $parms[$[];
+        } else {
+                # Return list
+                return (@parms);
+        }
+}
+
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	open (PAGENATER,$ENV{'PAGER'}?"| $ENV{'PAGER'}":"| more") || die("Unable to start pagenater: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - (1 line description here)
+
+Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
+		[-l days]
+	$Prog [-h]
+
+Flags:
+	-e mailid:	Error: Send an execution report to this e-mail address
+			if errors are detected.
+	-h	:	Help: display this panel
+	-l days:	Limit: get files that have changed in the last "days"
+			days.  Default is 1.
+			pages for "dump" for details.  Defaults to level 0.
+	-m mailid:	Mailid: Send an execution report to this e-mail address.
+	-O config:	Insert the "config" configuration options from
+			$ConfigFile into
+			the command line at this point.
+	-p mailid:	Page: Send a very brief message (suitable for a pager)
+			to this e-mail address when this job completes.
+	-P mailid:	Page error: Send a very brief message to this e-mail 
+			address if errors are detected in this job.
+	-v: 		Verbose: display each command before executing it.
+
+Examples:
+	$Prog -e joejones\@example.com -l 5
+		- back up all files changed in the last 5 days.  Send an
+		  execution report to joejones only if there are errors.
+Return codes:
+	0	:	Normal termination
+	1	:	Help panel displayed.
+	2	:	Invalid or unrecognized command line options.
+	3	:	Invalid or unrecognized command line option value.
+	4	:	Incorrect command line parameters.
+	5	:	Unexpected message found in output.
+ENDUSAGE
+close PAGENATER;
+exit 1;
+}
+
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:	Ignore - Don't display this message, it's not interesting.
+#		LogOnly - Write this message to the syslog and log file, but
+#			don't display it on STDOUT.
+#		Show - Display this message, but it's not an error condition.
+#		# - This is a comment, ignore it.
+#
+#  Pattern:	an ordinary perl pattern.  All patterns for a given score
+#		are joined by logical OR conditions.
+#
+#  Notes:
+#	1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#	2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+IGNORE	/^\s*$/
+IGNORE	"^\s*expected next file \d+, got \d+$"
+# Ignore attempts to back-up sockets.
+IGNORE  "^\s*tar: .*: socket ignored$"
+# Following two occur together.
+IGNORE  "^\s*tar: ./var/log.* file changed as we read it$"
+IGNORE	"^\s*tar: Error exit delayed from previous errors\s*$"
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY	"^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY	/^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW	/^Job ended normally with status 0 and signal 0$/
+SHOW	/^debug:/
+SHOW	/^test:/
+SHOW	/^Executing:/
+SHOW	"[0-9]+ files backed up.$"
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.

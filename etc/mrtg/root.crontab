@@ -1,0 +1,3 @@
+#
+# Keep mrtg up to date.
+00-59/5 * * * * /usr/local/sbin/sensors-to-mrtg -e sysadmin && /usr/bin/mrtg /usr/local/etc/mrtg/mrtg.cfg > /dev/null

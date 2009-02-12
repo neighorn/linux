@@ -1,0 +1,741 @@
+#!/usr/bin/perl
+
+use LogOutput;
+use ProcessOptions;
+use Text::ParseWords;
+
+# Set up the environment.
+$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin';
+
+# Initialize variables.
+$Prog=$0;			# Get our name, for messages.
+$Prog=~s/^.*\///;		# Trim off the path, if present.
+@Args=@ARGV;			# Preserve orig command for ref.
+$ErrorFlag=0;			# No errors so far.
+$Syslog='user';			# Name of Syslog facility.  '' for no logging.
+$LogFile='';			# Log file name, or null for none.
+$BaseDir="/usr/local/etc";	# Set our base directory.
+$ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+$SysInfo="/sysinfo.$Prog";
+$opt_l=0;			# Assume a dump level zero.
+$opt_b=512;			# Set our block size (may be changed if -z).
+$TmpDir="/tmp/" . $Prog . '.' . $$;	# Dir. to restore sysinfo for compare.
+$opt_B=1;			# Assume we'll do back-ups.
+$opt_C=1;			# Assume we'll do compares.
+
+# Set our base directory.
+chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
+
+# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
+#	1) We define a new type l (lowercase L), which is a list (i.e. if
+#	   specified multiple times, values are concatenated & blank separated.o
+#	   Normal =s and =i would replace values instead of concatenate.
+#	2) We don't support long option names, except as aliases.
+# These are the standard production options.  Add more options here as needed.
+$OptSpec='d h t v z b=s l=s m=l e=l p=l P=l O=s x=s f=s K C B';
+
+# Load the config file.
+if (-e $ConfigFile) {
+        open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+        # Build a hash of settings found in the config file.
+        while (<CONFIG>) {
+                next if (/^\s*#/);      # Comment.
+                next if (/^\s*$/);      # Blank line.
+                ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
+                $name=~tr/[a-z]/[A-Z]/;
+                $Config{$name}=$settings;
+        }
+	close CONFIG;
+}
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Process the command line options, if any.
+if (@ARGV) {
+	# Process the command line arguments.
+	ProcessOptions($OptSpec);
+} else {
+	# No command line options.  Run the default job.
+	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
+		if (defined($Config{'DEFAULTJOB'}));
+}
+$opt_f='/dev/nst0' unless (defined($opt_f));
+(@ARGV)=split(/\s+/,$Parms);
+
+if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
+	
+# Set up our logging and output filtering.
+$LogOutput::Mail{From}="root\@stlukeproductions.com";
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+
+# Make sure our dump level is 0-9.
+die "Invalid dump level: $opt_l\n" unless ($opt_l =~ /^\d$/);
+
+# Set some flags if we're doing compression.
+if ($opt_z) {
+	$CompressFlag='-z9';
+	$opt_b = 0;		# Block size should be zero for compression.
+} else {
+	$CompressFlag='';
+}
+
+
+# Build a list of mount points.  Dump and Compare both need to know which are
+# complete file systems, and which are just files or directories.
+if (open ($MOUNT,"mount |")) {
+	while (<$MOUNT>) {
+		(undef,undef,$MountName,undef)=split(/\s+/);
+		$MountList{$MountName}=1;
+	}
+} else {
+	warn "Unable to determine mount points: $!\n";
+}
+close $MOUNT;
+
+# Figure out what to back up.
+unshift @ARGV, $SysInfo;	# Always back up our system information first.
+if (@ARGV == 1) {
+	# They didn't give us a list, so do everything.
+	open(DF,"df -P | sort -k6 |") || die "Unable to read current df data: $!\n";
+	while (<DF>) {
+		($Device,$FileSystem)=m"^\s*(/dev/\S+)\s.*%\s+(\S+)$";
+		next unless (defined($FileSystem));
+		# This leaves out LVMs: next unless ($FileSystem =~ q<^/> && $Device =~ q<^/dev/[shm]d>);
+		push @ARGV, $FileSystem;
+	}
+	close (DF);
+	# Move /usr to the end of the list if it's present, in case we run out of tape.
+	$|=1;
+	foreach (0..@ARGV-1) {
+		if ($ARGV[$_] eq '/usr') {
+			# Do /usr last, in case we run out of tape.  /usr rarely changes.
+			splice(@ARGV,$_,1);
+			push @ARGV, '/usr';
+			next;
+		}
+	}
+}
+
+# Remove any excluded items from our argument list.
+foreach (0..$#ARGV) {
+	splice(@ARGV,$_,1) if ($Exclude{$ARGV[$_]});
+}
+	
+RunBackup() if ($opt_B);
+
+RunCompare() if ($opt_C);
+
+exit(0);
+
+
+
+#
+# Run Back-up.
+#
+sub RunBackup {
+
+	#Capture basic system info.
+	#	Following line to try to resolve compare error.
+	my $SYSINFO;			# File handle.
+	RunDangerousCmd("rm -f $SysInfo") if (-e $SysInfo);
+	open($SYSINFO,'>',"$SysInfo") || die "Unable to open $SysInfo: $!\n";
+	print $SYSINFO `date;uname -a`;
+	print $SYSINFO <<ENDPROLOG;
+This file contains system configuration information as of the time of the
+back-up.  Major sections of this report are:
+	1) Back-up tape sequence - order of back-ups on tape (if tape was used)
+	2) Partition tables
+	3) /etc/raidtab
+	4) /proc/mdstat
+	5) Current file systems mounted
+	6) DF - output from df
+	7) Long listing of /dev and subdirectories
+	8) Installed RPMs
+	9) Files - a list of all files currently on the system.  This can be
+	   used with an incremental restore to delete files that were deleted
+	   between the base full back-up and the incremental.
+
+This tape was written with a block size of $opt_b.
+ENDPROLOG
+	print $SYSINFO "\nBack-up tape sequence:\n";
+	# Note: trailing null character is used by future fr routines to 
+	# locate the tape map information.
+	foreach (0..$#ARGV) {
+		printf $SYSINFO " %2d %s \0\n", $_+1, $ARGV[$_];
+	}
+
+	# Document partition tables.
+	printf $SYSINFO "\nPartition tables:\n";
+	foreach (split("\n",`cd /proc/ide;ls -d hd*`)) {
+		next unless (/^[a-zA-Z0-9]+$/);
+		print $SYSINFO "/dev/$_:";
+		open($FDISK, "fdisk -l /dev/$_ |") || warn "Unable to open fdisk pipe: $!\n";
+		while (<$FDISK>) {
+			print $SYSINFO "	$_";
+		}
+		close $FDISK;
+		print $SYSINFO "\n";
+	}
+	@CommandList=<<ENDCOMMANDLIST;
+		echo
+		echo */proc/mdstat
+		cat /proc/mdstat
+		echo
+		echo "*/etc/raidtab (warning - not required for later MDs - may be obsolete)"
+		cat /etc/raidtab
+		echo
+		echo "*Current mounts:"
+		mount
+		echo
+		echo "*df output:"
+		df
+		echo
+		echo "*/dev:"
+		find /dev -ls
+		echo
+		echo "*Installed RPMs:"
+		rpm -q -a
+		echo
+		echo "*Current file list - all files currently on system"
+		find / -ls
+ENDCOMMANDLIST
+	foreach (@CommandList) {
+		if (open(COMMAND, "$_ |")) {
+			while (<COMMAND>) {
+				print $SYSINFO ($_ =~/^\*/?"$_":"	$_");};
+		} else {
+			warn q("$_" command failed: $!\n);
+		}
+		close COMMAND;
+	}
+	close $SYSINFO || warn "Close $SYSINFO failed: $!\n";
+
+	#Prepare the device.
+	if (! -e($opt_f)) {
+		die "Device $opt_f does not exist.\n" if ($opt_f =~ m"^/dev/");
+		# Not a device.  Must be a directory.
+		RunDangerousCmd("mkdir $opt_f") && die "Unable to create directory $opt_f: $!\n";
+		RunDangerousCmd("chmod 0600 $opt_f") &&
+				die "Unable to set the permissions on $opt_f: $!\n";
+	}
+	
+	if (! -d $opt_f) {
+		# Assume it is a tape drive.
+		#RunDangerousCmd("insmod aic7xxx");	# Make sure drvr loaded
+		RunDangerousCmd("mt -f $opt_f rewind") &&
+			die "Unable to rewind the tape drive: $!\n";
+		RunDangerousCmd("mt -f $opt_f setblk $opt_b") &&
+			die "Unable to set the block size on $opt_f: $!\n";
+	}
+
+	# Let's run some back-ups!
+	$Count=0;
+	$Total=@ARGV;
+	foreach $DumpItem (@ARGV) {
+		# We have an item to dump.
+		$Count++;
+		print "Dumping $DumpItem ($Count of $Total)\n";
+	
+		# Parse the item to figure out what we're going to dump.
+		($ParentDir,$Source)=ParseItemName($DumpItem);
+	
+		# Place ourselves in the parent directory, so we can do
+		# relative dumps.  This is important, in case we want to
+		# restore something without overwriting the current
+		# version.
+		if (! chdir $ParentDir) {
+			warn "$!\nUnable to cd to $ParentDir.  This was not backed up!\n";
+			next;
+		}
+	
+		$Target=BackupDevice($opt_f,$DumpItem);	# Get our output name.
+	
+		# Delete any prior output if it exists and is a file (not tape).
+		RunDangerousCmd("rm -f $Target") if (-f $Target);
+	
+		# If we're backing up a directory or file system, place a marker file
+		# in it.  These help us position the tape correctly when we're doing
+		# restores, and also tag the tape as to when it was written.
+		if (! -f $DumpItem) {
+			# Backing up a directory.  Create a marker file.
+			(my $NoSlashes=$DumpItem) =~ s'/'-'g;
+			$NoSlashes='root' if ($NoSlashes eq '-');
+			my $DateStamp=`date +%m-%d-%Y-%T`;
+			chomp $DateStamp;
+			$MarkerFile="./.\\\$${Prog}-File-$Count-$NoSlashes-$DateStamp";
+			if (RunDangerousCmd("touch $MarkerFile") != 0 ) {
+				warn "Unable to create marker file in $DumpItem:$!\n";
+			}
+
+			# Construct the dump command.  Respect requests for
+			# incremental dumps.  Update /etc/dumpdates if it's a filesystem.
+			$Update=($MountList{$DumpItem}?"-u":"");
+			$DumpCmd="dump -$opt_l $CompressFlag -a $Update -f $Target $Source";
+
+			RunDangerousCmd($DumpCmd) &&
+				warn "Dump of $DumpItem failed.\n";
+			if (-e $MarkerFile) {
+				RunDangerousCmd("rm $MarkerFile") &&
+					warn "Unable to delete $MarkerFile\n";
+			}
+		} else {
+			# Dumping a file.  Can't do incrementals or update
+			# /etc/dumpdates.
+			$DumpCmd="dump -0 $CompressFlag -a -f $Target $Source";
+			RunDangerousCmd($DumpCmd) &&
+				warn "Dump of $DumpItem failed.\n";
+		}
+	# Gzip the output if it's a file, and they asked us to.
+	RunDangerousCmd ("gzip $Target") if (-f $Target && $opt_z);
+	}
+	
+}
+
+
+
+#
+# RunCompare - compare the output media to the disk
+#
+sub RunCompare {
+
+	print "\nBeginning back-up verification.\n";
+
+	# Is this a tape?
+	if (! -d $opt_f) {
+		# Rewind the tape.
+		RunDangerousCmd("mt -f $opt_f rewind") &&
+			die("Unable to rewind $opt_f: $!\nComparison failed.\n");
+	}
+
+	# Get our list of items we backed up.
+	RunDangerousCmd("mkdir $TmpDir");
+	die ("Unable to create a temporary directory: $!\n") unless (-d $TmpDir);
+	RunDangerousCmd("chmod 600 $TmpDir") &&
+		die ("Unable to set permissions on $TmpDir: $!\n");
+	$opt_t || chdir($TmpDir) ||
+		die("Unable to cd to $TmpDir: $!\n");
+	if (-f "./sysinfo.fbu" ) {
+		RunDangerousCmd("rm -f ./sysinfo.fbu") &&
+			die ("Unable to delete existing $TmpDir/sysinfo.fbu: $!\n");
+	}
+	RunDangerousCmd("echo n | restore -xaf $opt_f ./sysinfo.fbu") &&
+		die ("Unable to restore sysinfo.fbu: $!\n");
+	print "\n";		# To close "set mode for ." prompt.
+	my @RestoreList;
+	open($SYSINFO,'<',"$TmpDir/sysinfo.fbu") ||
+		die ("Unable to open $TmpDir/sysinfo.fbu: $!\n");
+	while (<$SYSINFO>) {
+		push (@RestoreList,$1) if (/\s(\S+)\s*\0$/);
+	}
+	close $SYSINFO;
+	
+	RunDangerousCmd("rm -rf $TmpDir") &&
+		warn("Unable to delete $TmpDir: $!\n");
+
+	# Rewind the tape again.
+	if (! -d $opt_f) {
+		# Rewind the tape.
+		RunDangerousCmd("mt -f $opt_f rewind") &&
+			die("Unable to rewind $opt_f: $!\nComparison failed.\n");
+	}
+
+	# Get our list of items we backed up.
+	$Count=0;
+	$Total=@RestoreList;
+
+	foreach $DumpItem (@RestoreList) {
+		# If the input is a tape, have to do some tape positioning.
+		#if ((! -d $opt_f) && ($DumpItem ne $ARGV[0])) {
+			#RunDangerousCmd("mt -f $opt_f fsf 1");
+		#}
+		$Count++;
+	
+		if (! $MountList{$DumpItem}) {
+			print "Skipping $DumpItem -- can't compare single files or directories.\n";
+			if (! -d $opt_f) {
+				# If we're dumping to tape, skip to the next
+				# tape mark.
+				RunDangerousCmd("mt -f $opt_f fsf 1") &&
+					die("Unable to position $opt_f: $!\n" .
+						"Comparison failed.\n");
+			}
+			next;
+		}
+	
+		($ParentDir,undef) = ParseItemName($DumpItem);
+		if (! chdir($ParentDir)) {
+			warn "$!\nUnable to chdir to $ParentDir -- " .
+				"comparison skipped.\n";
+			next;
+		}
+	
+		print "Comparing $DumpItem ($Count of $Total)\n";
+	
+		# Run the compare.
+		$Source=BackupDevice($opt_f,$DumpItem);
+		$RestoreCmd="restore -Cf $Source";
+		if ($opt_t) {
+			print "test: $RestoreCmd\n";
+			next;
+		}
+		$RetryCount=0;
+		print "Executing: $RestoreCmd\n" if ($opt_v);
+		COMPARE: while ($RetryCount < 1)
+		{
+			open (RESTORE,"$RestoreCmd 2>&1 |") ||
+				die "Unable to run comparison: $!\n";
+			while ($Line=<RESTORE>) {
+				# We frequently get errors due to mispositioned
+				# tapes (not over tape mark to next file).
+				# Allow one retry if this occurs.
+				chomp $Line;
+				if ($Line =~ /^restore: Tape read error on first record/) {
+					print "$Line\nRetrying...\n"
+						if ($opt_V || $RetryCount);
+					$RetryCount++;
+					close RESTORE;
+					next COMPARE;
+				}
+
+				# Clean up msgs a bit.  Replace ./ with file sys path.
+				$Line=~s"^\."$DumpItem";
+				$Line=~s"^restore: ./"restore: $DumpItem/";
+				$Line=~s'//'/';		# But no // for root.
+				next if (m"restore: /.-File-\d+-");	# Skip markers.
+				$Line=~s/^\s*restore: //;
+				print "$Line\n";
+			}
+			close RESTORE;
+		}
+	#	if (! -d $opt_f) {
+	#	# Tape.  Skip over EOF.
+	#	RunDangerousCmd("$RestoreCmd > /dev/null 2>&1");
+	}
+}
+
+#
+# BackupDevice - build the back-up device name.
+#
+sub BackupDevice {
+
+	my($opt_f, $DumpItem)=@_;
+	my($Target);
+
+	# Determine our output device.  If they gave us a directory, we have to
+	# create a file name within it.  Otherwise we just use the device.
+	if (-d $opt_f) {
+		# Output is a directory.  Create an output file name within it.
+		$Target = $DumpItem;		# Base output file name on sourc
+		$Target =~ s"/"_"g;		# Can't have slashes in filename
+		$Target =~ s"^[._]*"";		# Remove leading dots, slashes.
+		$Target = "root" if ($Target eq '');	# Handle root.
+		$Target="$opt_f/$Target";	# Prepend output directory.
+	} else {
+		# Nothing fancy, just a tape drive name.
+		$Target=$opt_f;
+	}
+	return $Target;
+}
+
+
+#
+# ParseItemName - figure out the parent directory and item name.
+#
+sub ParseItemName {
+
+	my($DumpItem)=@_;
+	my($ParentDir,$Item);
+
+	if (-f $DumpItem) {
+		# This is a file, not a directory.  Figure out what directory
+		# it's in, and what the name of the file is.
+		($ParentDir=$DumpItem) =~ s'[^/]*$'';
+		$ParentDir='/' if ($ParentDir eq '');
+		($Item=$DumpItem) =~ s".*/(.*)"./$1";
+	} else {
+		# This is a directory.
+		$ParentDir=$DumpItem;
+		$Item='.'
+	}
+	return ($ParentDir,$Item);
+}
+
+
+
+#
+# RunDangerousCmd - run a command, unless we're testing.
+#	Note: Returns status code, in which 0 (false) commonly means OK.
+#
+sub RunDangerousCmd {
+
+	my($Command)=@_;		# Get our calling arguments.
+	my($FH);			# Autovivified file handle.
+
+	if ($opt_t) {
+		print "test: $Command\n";
+		return 0;
+	} else {
+		print "Executing: $Command\n" if ($opt_v);
+		if (open($FH, "$Command 2>&1 |")) {
+			while (<$FH>) {print;};
+			close $FH;
+		} else {
+			($CmdName = $Command) =~ s/^\s*(\S+)/$1/;
+			warn "$CmdName failed to start with status $?: $!\n";
+		}
+		return $?;
+	}
+}
+
+
+
+#
+# Untaint  -- use very carefully!
+#
+
+sub untaint {
+        local(@parms) = @_;
+        foreach (@parms) {
+                s/^(.*)$/$1/;
+                $_=$1;
+        }
+        if (@parms == 1) {
+                # Return scalar
+                return $parms[$[];
+        } else {
+                # Return list
+                return (@parms);
+        }
+}
+
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	open (PAGENATER,$ENV{'PAGER'}?"| $ENV{'PAGER'}":"| more") || die("Unable to start pagenater: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - (1 line description here)
+
+Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
+		[-K] [-l level] [-x filesystem] [directory...]
+	$Prog [-h]
+
+Flags:
+	-B	:	Backup: run backup (default).
+	-C	:	Compare: run compare (default).
+	-e mailid:	Error: Send an execution report to this e-mail address
+			if errors are detected.
+	-h	:	Help: display this panel
+	-K	:	Keep: do not unload the tape at the end of the job.
+	-l level:	Level: run a "digit" level dump (0-9).  See the man
+			pages for "dump" for details.  Defaults to level 0.
+	-m mailid:	Mailid: Send an execution report to this e-mail address.
+	-O config:	Insert the "config" configuration options from
+			$ConfigFile into
+			the command line at this point.
+	-p mailid:	Page: Send a very brief message (suitable for a pager)
+			to this e-mail address when this job completes.
+	-P mailid:	Page error: Send a very brief message to this e-mail 
+			address if errors are detected in this job.
+	-v: 		Verbose: display each command before executing it.
+	-x filesystem:	eXclude: do not back-up this file system.  This is
+			primarily used when no parameters are supplied, 
+			in which case $Prog backs up all file systems by
+			default.  "$Prog -x /tmp" would back up everything
+			except /tmp (assuming /tmp is a file system).
+	-z		Zip: gzip the output files when going to disk.
+
+Examples:
+
+Return codes:
+	0	:	Normal termination
+	1	:	Help panel displayed.
+	2	:	Invalid or unrecognized command line options.
+	3	:	Invalid or unrecognized command line option value.
+	4	:	Incorrect command line parameters.
+	5	:	Unexpected message found in output.
+ENDUSAGE
+close PAGENATER;
+exit 1;
+}
+
+#
+# opt_x: handle exclude list.
+#
+sub opt_x {
+	my($Directory)=@_;
+	$Exclude{$Directory}=1;
+}
+
+#
+# Clean-up routine.
+#
+sub Cleanup {
+	if (! -d $opt_f) {
+		if ($opt_K) {
+			# Rewind the tape, but keep it loaded.
+			RunDangerousCmd("mt -f $opt_f rewind &");
+		} else {
+			# Unload the tape.
+			RunDangerousCmd("mt -f $opt_f offline &");
+		}
+	}
+	# Clean up any marker files that may have been left around.
+	# Run it as a loop so RDC can respect -v and -t options for 
+	# each delete individually.
+	if (open ($FIND,"find / \\( -name proc -o -name media -prune \\) -o -fstype ext3 -name '.\$${Prog}-File-*' -print |")) {
+		while (<$FIND>) {
+			s/\$/\\\$/g;
+			RunDangerousCmd("rm $_");
+		}
+		close $FIND;
+	}
+
+	# Make sure the TmpDir got deleted.
+	RunDangerousCmd("rm -rf $TmpDir") if ( -d $TmpDir );
+}
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:	Ignore - Don't display this message, it's not interesting.
+#		LogOnly - Write this message to the syslog and log file, but
+#			don't display it on STDOUT.
+#		Show - Display this message, but it's not an error condition.
+#		# - This is a comment, ignore it.
+#
+#  Pattern:	an ordinary perl pattern.  All patterns for a given score
+#		are joined by logical OR conditions.
+#
+#  Notes:
+#	1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#	2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+IGNORE	/^\s*$/
+SHOW	"^\s*Dumping \S+ \(\d+ of \d+\)"
+IGNORE	"^\s*DUMP: Date of this level 0 dump: "
+IGNORE	"^\s*DUMP: Dumping \S+ \(.*\) to \S+$"
+#IGNORE	"^\s*DUMP: Added inode \d+ to exclude list \(journal inode\)$"
+#IGNORE	"^\s*DUMP: Added inode \d+ to exclude list \(resize inode\)$"
+IGNORE	"^\s*DUMP: Label: "
+IGNORE	"^\s*DUMP: mapping \(Pass I\) \[regular files\]$"
+IGNORE	"^\s*DUMP: mapping \(Pass II\) \[directories\]$"
+IGNORE	"^\s*DUMP: estimated \d+ blocks\.$"
+IGNORE	"^\s*DUMP: Volume \d+ started with block \d+ at: "
+IGNORE	"^\s*DUMP: Volume \d+ \d+ blocks \(\d+\.\d+MB\)$"
+IGNORE	"^\s*DUMP: dumping \(Pass III\) \[directories\]$"
+IGNORE	"^\s*DUMP: dumping \(Pass IV\) \[regular files\]$"
+IGNORE	"^\s*DUMP: [0-9.]+% done at \d+ kB/s, finished in \d+:\d+$"
+IGNORE	"^\s*DUMP: Closing /dev/"
+IGNORE	"^\s*DUMP: Volume \d+ completed at: "
+IGNORE	"^\s*DUMP: Volume \d+ took "
+IGNORE	"^\s*DUMP: Volume \d+ transfer rate: \d+ kB/s$"
+IGNORE	"^\s*DUMP: \d+ blocks \(\S+MB\) on \d+ volume\(s\)$"
+IGNORE	"^\s*DUMP: finished in less than a second$"
+IGNORE	"^\s*DUMP: finished in \d+ seconds, throughput \d+ kBytes/sec$"
+IGNORE	"^\s*DUMP: Date of this level \d+ dump: "
+IGNORE	"^\s*DUMP: Date this dump completed:  "
+IGNORE	"^\s*DUMP: Average transfer rate: \d+ kB/s"
+#IGNORE	"^\s*DUMP: Date of last level \d dump:"
+#IGNORE	"^\s*DUMP: Compressing output at compression level \d+ \(zlib\)"
+#IGNORE	"^\s*DUMP: Volume \d \d+kB uncompressed, \d+kB compressed, [0-9.]+:1"
+IGNORE	"^Dump   date: "
+IGNORE	"^Dumped from: "
+IGNORE	"^Level \d dump of \S+ on "
+IGNORE	"^Label: \S+"
+IGNORE	"^filesys = /"
+IGNORE	"^Some files were modified!$"
+#IGNORE	"^\s*restoring ./sysinfo.fbu\s*$"
+IGNORE	"^\s*set owner/mode for "
+IGNORE	"^\s*DUMP: Writing \d+ Kilobyte records$"
+# Following are items we expect to have change.
+IGNORE	".\$fbu-File-.*: does not exist \(-1\): No such file or directory"
+# Followng database file is always different while RPM is up apparently.
+IGNORE	"^\s*/etc/cups/certs/0: tape and disk copies are different$"
+IGNORE	"^\s*/etc/blkid.tab.*: tape and disk copies are different$"
+IGNORE	"^\s*/etc/dumpdates: size has changed.$"
+IGNORE	"^\s*/etc/dumpdates: tape and disk copies are different$"
+# Samba seems to turn the user execute bit on and off a bit.
+IGNORE	"^\s*/home/shareusr/documents/.*: mode changed from 0[76]44 to 0[76]44."
+IGNORE	"^\s*/root/.bash_history: size has changed.$"
+IGNORE	"^\s*/root/.bash_history: tape and disk copies are different$"
+IGNORE	"^\s*/root/.viminfo: tape and disk copies are different$"
+IGNORE	"^\s*/root/.Xauthority: size has changed.$"
+IGNORE	"^\s*/root/.Xauthority: tape and disk copies are different$"
+IGNORE	"^\s*/tmp/.*: size has changed.$"
+IGNORE	"^\s*/tmp/.*: tape and disk copies are different$"
+IGNORE	"^\s*/usr/local/backup/file\.system\..*: does not exist"
+IGNORE	"^\s*/usr/local/etc/samba/secrets.tdb: tape and disk copies are different"
+IGNORE	"^\s*/var/cache/\S+: size has changed.$"
+IGNORE	"^\s*/var/cache/\S+: tape and disk copies are different$"
+IGNORE	"^\s*/var/cache/\S+: does not exist"
+IGNORE	"^\s*/var/lib/dhcp/db/dhcpd.leases.?: tape and disk copies are different$"
+IGNORE	"^\s*/var/lib/dhcp/db/dhcpd.leases.?: size has changed.$"
+IGNORE	"^\s*/var/lib/locatedb: tape and disk copies are different$"
+IGNORE	"^\s*/var/lib/logrotate.status: tape and disk copies are different$"
+IGNORE	"^\s*/var/lib/ntp/drift/ntp.drift: size has changed.$"
+IGNORE	"^\s*/var/lib/ntp/drift/ntp.drift: tape and disk copies are different$"
+IGNORE	"^\s*/var/lib/rpm/__db.\d+: tape and disk copies are different$"
+IGNORE	"^\s*/var/lib/samba/.*: tape and disk copies are different"
+IGNORE	"^\s*/var/lib/samba/.*: size has changed."
+IGNORE	"^\s*/var/lib/slocate/slocate.db: tape and disk copies are different$"
+IGNORE	"^\s*/var/lib/YaST2/.*: tape and disk copies are different"
+IGNORE	"^\s*/var/log/\S+: size has changed.$"
+IGNORE	"^\s*/var/log/\S+: tape and disk copies are different$"
+IGNORE	"^\s*/var/log/.*: does not exist"
+IGNORE	"^\s*/var/run/nscd/.*: tape and disk copies are different$"
+IGNORE	"^\s*/var/run/utmp: size has changed.$"
+IGNORE	"^\s*/var/run/utmp: tape and disk copies are different$"
+IGNORE	"^\s*/var/spool/\S+: does not exist"
+IGNORE	"^\s*/var/spool/\S+: size has changed.$"
+IGNORE	"^\s*/var/spool/\S+: tape and disk copies are different$"
+IGNORE	"^\s*/var/tmp/\S+: size has changed.$"
+IGNORE	"^\s*/var/tmp/\S+: tape and disk copies are different$"
+IGNORE	"^\s*Using /lib/modules/.*/aic7xxx.o$"
+IGNORE	"^\s*Skipping .* -- can't compare single files or directories.$"
+# Haven't been able to determine if this is a problem, but doesn't seem to hurt.
+# I restored the last file from an affected file set without difficulty. 4/4/05.
+IGNORE	"^\s*Cannot find file removal list$"
+# Following occurs because this file is normally mounted over.
+IGNORE	"file.system.is.not.mounted:"
+IGNORE	"^\s*\(-1\): No such file or directory\s*$"
+# Following occurs on compare because a file got created after it's directory
+# had already been backed up, so the inode exists without any directory entry.
+IGNORE	"^\s*expected next file \d+, got \d+$"
+# Following occurs if we've already loaded the SCSI driver.
+IGNORE	"^\s*insmod: a module named aic7xxx already exists$"
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY	"^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY	/^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW	/^Job ended normally with status 0 and signal 0$/
+SHOW	/^debug:/
+SHOW	/^test:/
+SHOW	/^Executing:/
+# "restore -C" apparently leaves tape at an unpredictible position (before or
+# after EOF mark).  Internal logic deals with this, and echos the error
+# message only if -v is requested.
+#SHOW	"^restore: Tape read error on first record"
+#SHOW	"^Retrying...$"
+#SHOW	"^\s*DUMP: Wrote \d+kB uncompressed, \d+kB compressed, [0-9.]+:1"
+SHOW	"^\s*DUMP: DUMP IS DONE$"
+SHOW	"^Beginning back-up verification.$"
+SHOW	"^Comparing \S+ \(\d+ of \d+\)$"
+SHOW	"^Skipping .* -- can't compare single files.$"
+#SHOW	"^\s*DUMP: Volume \d+ \d+ tape blocks \(\S+MB\)$"
+SHOW	"^\s*\d+ blocks \(\d+\.\d+MB\) on 1 volume\(s\)$"
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.

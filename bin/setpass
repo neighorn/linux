@@ -1,0 +1,144 @@
+#!/usr/ods/bin/perl -T
+
+# Set up the environment.
+$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/ods/sbin:/usr/ods/bin:/usr/bin:/bin';
+
+#local($a,$b,...);				# Declare local variables.
+
+# Initialize variables.
+$Prog=$0;					# Get our name, for messages.
+$Prog=~s/^.*\///;				# Trim off the path, if present.
+@Args=@ARGV;					# Preserve orig command for ref.
+$ErrorFlag=0;					# No errors so far.
+
+# Set the default values for options.
+$opt_m="";					# Assume -m not specified.
+$opt_e="";					# Assume -e not specified.
+
+# Process the command line options, if any.
+use Getopt::Mixed "nextOption";
+Getopt::Mixed::init("h");
+while (($option, $value) = nextOption()) {
+	if ($option eq "h")	{
+		# -h specified.  Show them the usage and exit.
+		&Usage;
+		exit 1;
+	}
+	print STDERR "Unrecognized option: \"$option\".  Enter \"$Prog -h\"".
+		"for usage information.\n";
+	$ErrorFlag=2;
+}
+if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
+
+# Make sure we have at least one user ID.
+if (@Args == 0) {
+	print STDERR "No user IDs were specified.  Enter \"$Prog -h\" for help.\n";
+	exit 4;
+}
+
+# Make sure we have root authority for this.
+if ($> != 0) {
+        # We need to run this as root.
+        $MyModule='/usr/ods/sbin/setpass';
+        chomp $MyModule;
+	(@Args)=&untaint(@Args);
+        exec("sudo $MyModule @Args");
+        exit $?;
+}
+
+# Process each user.
+# User-IDs are on the command line.
+for (@ARGV) {
+	$RetCode=&SetUserPass($_);
+	$ErrorFlag=$RetCode if ($ErrorFlag < $RetCode);
+	print "\n";
+}
+
+
+
+
+#
+# SetUserPass - set a user's password.
+#
+sub SetUserPass {
+
+	#local($a,$b,...)			# Declare local variables.
+
+	$UserID=$_;
+
+        # Find this ID in /etc/passwd.
+        ($UserID2,$trash,$UID,$trash,$trash,$trash,$UserName,$HomeDir,$trash)=
+                getpwnam($UserID);
+        if ($UserID ne $UserID2) {
+                print STDERR "\"$UserID\" is not a valid user-ID on this system.\n";
+                return 10;
+        }
+        $UserID=untaint($UserID2);
+
+        if ($UID < 100 && $< != 0) {
+                print STDERR "$UserID is a critical system ID. " .
+                        "You do not have authority to modify it.\n";
+                return 10;
+	} else {
+		system("passwd $UserID");
+		$Status=$?>>8;			# Get the return status.
+		$ErrorFlag = 11 if ($? > 0 && $ErrorFlag == 0);
+        }
+}
+
+
+
+#
+# Untaint
+#
+
+sub untaint {
+        local(@parms) = @_;
+	local($tmp);
+	foreach (@parms) {
+		s/^(.*)$/$1/;
+		$_=$1;
+	}
+	if (@parms == 1) {
+		# Return scalar
+		return $parms[$[];
+	} else {
+		# Return list
+        	return (@parms);
+	}
+}
+
+
+
+#
+# Usage
+#
+sub Usage {
+
+	open (PAGENATER,"| less -c -E") || die("Unable to start less: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - set a user's password
+
+Usage:	$Prog user1...
+	$Prog [-h]
+
+Flags:
+	-h	:	Help: display this panel
+
+Parameters:
+	user1...:	One or more user-IDS that should have their
+			passwords changed.
+
+Examples:
+
+Return codes:
+	0	:	Normal termination
+	1	:	Help panel displayed.
+	2	:	Invalid or unrecognized command line options.
+	3	:	Invalid or unrecognized command line option value.
+	4	:	Incorrect command line parameters.
+	10	:	Unauthorized attempt to change a system ID.
+	11	:	Password change failed.
+ENDUSAGE
+close PAGENATER;
+}

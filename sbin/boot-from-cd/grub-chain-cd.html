@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head><title>Grub - Booting an El-Torito CD</title></head><body>
+<h1>Disclaimer</h1>
+<p>
+The standard disclaimer applies. The document is provided on an 
+"as is" basis. The author provides no warranty whatsoever, either 
+express or implied, regarding the work, including warranties with 
+respect to its merchantability or fitness for any particular purpose.
+You can easily ruin your hard disk when trying to do something similar
+to what I am reporting here.
+</p>
+<p>
+This is a kind of a field report about my (Bernhard Treutwein)
+experiences with Grub and other boot managers. Although it worked
+for me, there is some chance that it might ruin your system.
+</p>
+<h1>Grub - Booting an El-Torito CD</h1>
+<p>
+I succeeded to "chainload" from Grub into an El-Torito CD with the help of two tools 
+from other boot-manager projects: 
+<b>memdisk </b>
+(see: <a href="http://syslinux.zytor.com/memdisk.php">
+               http://syslinux.zytor.com/memdisk.php</a>) 
+from the Syslinux project and <b>sbm</b> 
+(see: <a href="http://btmgr.sourceforge.net/about.html">
+               http://btmgr.sourceforge.net/about.html</a>) 
+from the Smart Bootmanager project (sbm appears to be orphaned, 
+and the maintainer of Syslinux seems  to be a bit hostile to Grub).
+</p>
+<p>
+If you need both (the usual disclaimer holds here: Use them completely on your own 
+risk, be warned that you can ruin your hard disk with only some keystrokes. Do not 
+blame me, if it does not work for you, I only report what I have done successfully) 
+you can find here <a href="http://www.lrz-muenchen.de/%7Ebernhard/memdisk.bin">memdisk</a> and a bare version of 
+<a href="http://www.lrz-muenchen.de/%7Ebernhard/sbootmgr.dsk">sbm</a>. 
+</p>
+<p>
+This sbm image has only the following options left in its menu:
+</p><ul>
+<li>Reboot</li>
+<li>Power Down </li>
+<li>Exit to BIOS</li>
+<li>Boot from CD</li>
+</ul>
+<p></p>
+<p>
+It defaults to booting from CD directly (without a delay, resp. with a delay of zero seconds). 
+If you need to enter the menu you have to hold down the Ctrl key during loading sbm. 
+</p>
+<p>
+The menu entry for Chainloading an El Torito disk in my menu.lst file is:
+</p><blockquote>
+    <tt>
+      title Boot "El Torito" CD with the help of memdisk/smart boot manager<br>
+      kernel /boot/grub/memdisk.bin<br>
+      initrd /boot/grub/sbootmgr.dsk<br>
+    </tt>
+</blockquote>
+<p></p>
+<p>
+If there is no CD in the drive, sbm complains about a "Disk error! 0xAA" and if
+you hit any key, SBM enters its Boot menu. The same happens, if the directory of 
+the CD is not yet loaded, or if the drive cannot read it (e.g. RW disk in an older 
+drive), so it is worth while to retry loading the CD by hitting any key in response 
+to the "Disk error! 0xAA" message and Enter on the (highlighted) CD-ROM line in SBMs 
+Boot Menu.
+</p>
+
+<p>
+With memdisk version 2.03 and later you can compress the disk image with gzip
+and memdisk transparently decompresses the image:
+</p><blockquote>
+    <tt>
+      title Boot "El Torito" CD with the help of memdisk/smart boot manager<br>
+      kernel /boot/grub/memdisk.bin<br>
+      initrd /boot/grub/sbm.dsk.gz<br>
+    </tt>
+</blockquote>
+<p></p>
+
+<p>
+I changed the options of the SBM image by creating a boot floppy with sbm and
+saving the changed settings to the floppy. Then I extracted the first 18k bytes 
+from the floppy. 
+</p>
+<p>
+Special thanks to 
+<a href="http://lists.gnu.org/archive/html/bug-grub/2003-07/msg00004.html">Paul Hedderly</a>
+and <a href="http://lists.gnu.org/archive/html/bug-grub/2004-05/msg00099.html">A V Le Blanc</a> 
+for their postings on the Grub mailing list.
+</p>
+<p align="right">
+Bernhard Treutwein, 9. Aug. 2004, last changes: 10. April 2006<br>
+bernhard treutwein (at) verwaltung uni-muenchen de
+</p>
+
+</body></html>

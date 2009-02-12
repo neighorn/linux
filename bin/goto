@@ -1,0 +1,8 @@
+if [[ $# -ne 1 ]]
+then
+	print -u2 "Usage: goto userid"
+	exit 1
+else
+	/usr/ods/bin/sudo su - $1
+	exit $?
+fi

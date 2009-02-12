@@ -1,0 +1,25 @@
+#! /bin/bash
+
+export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/usr/X11R6/bin:/root/bin
+
+if [[ $# -eq 0 ]]
+then
+	echo "usage: $0 name [...]" 1>&2
+	exit 4
+fi
+
+if [[ `id -un` != root ]]
+then
+	sudo "$0" "$@"
+	((ExitRC-$?))
+else
+	((ExitRC=0))
+	for name in $*
+	do
+		eval /etc/rc.d/$name start
+		((Status=$?))
+		[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
+	done
+fi
+
+exit $ExitRC

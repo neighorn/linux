@@ -1,0 +1,524 @@
+#! /usr/bin/perl
+#
+# Copyright (c) 2005, Martin Consulting Services, Inc.
+# Licensed under the Lesser Gnu Public License (LGPL).
+# 
+# ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
+# CODE IS STRICTLY AT YOUR OWN RISK.
+#
+use strict;
+package	LogOutput;
+require	Exporter;
+use Mail::Sendmail;
+use LogOutput_cfg;
+
+our @ISA	= qw(Exporter);
+our @EXPORT	= qw(LogOutput);
+our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
+our $Version	= 2.5;
+
+our($ExitCode);			# Exit-code portion of child's status.
+our($RawRunTime);		# Unformatted run time.
+our($MailServer);		# Who sends our mail.
+our($MailDomain);		# What's our default domain (i.e. "example.com").
+our($READLOGFILE_FH);		# File handle.
+our($WRITELOGFILE_FH);		# File handle.
+our($Verbose);			# Do we print diagnostics?
+our($Subject);			# Do they want to alter the subject line?
+
+#
+# LogOutput - log output and filter it to detect errors.
+#
+# Calling parameters:
+#	FilterFile:	File name a file containing filter information, or
+#			"", indicating the DATA file handle.
+#	Syslog:		Syslog facility ("user", "local0", etc.).  "" for no
+#			logging to syslog.  This facility is not available in Windows.
+#	MailFile	Name of a file to write filtered, logged messages
+#			into, or "" for no file. If a MailList or ErrorList (below)
+#			is specified but no MailFile is provided, a temporary file
+#			will be used and deleted on exit.  Messages matching the 
+#			"MAILONLY" or "SHOW" filters are written to this file.
+#	MailList	String of blank separated e-mail IDs that should receive
+#			a filtered report.  Addresses in ErrorList are appended
+#			to the list supplied here.
+#	ErrorList	String of blank-separated e-mail IDs that should receive
+#			a filtered report only if errors are detected.
+#	PageList	String of blank separated e-mail IDs that should receive
+#			a brief message when the job has completed.  Addresses
+#			in PageErrorList are automatically appended to this
+#			list.
+#	PageErrorList	String of blank-separated e-mail IDs that should receive
+#			a brief message if errors are detected.
+#
+#
+# FilterFile file format:  Type Pattern
+#	Type:		One of "SHOW", "MAILONLY", "LOGONLY", or "IGNORE".
+#	Pattern:	Standard Perl pattern
+#
+#	The Type field determines where the matching pattern is displayed,
+#	as follows:
+#		SHOW:		Syslog, LogFile, StdOut
+#		MAILONLY:	Syslog and LogFile
+#		LOGONLY:	Syslog and LogFile (deprecated equivalent to MAILONLY).
+#		IGNORE:		Syslog
+#
+# Any line not matching any pattern is considered an error.  It will be output
+# to all three destinations, prefixed with "->".
+
+sub LogOutput {
+
+	use Sys::Syslog;
+
+	# Declare our local variables.
+	my($FilterHandle);		# Handle, in case they don't use DATA.
+	my($PID);			# PID of the child, that will do the
+					# productive work while we monitor it.
+	my($DeleteLog);			# Do we delete the log file on exit?
+	my($ErrorDetected);		# Were there any errors detected?
+	my($StdOut);			# Should this message go to STDOUT?
+	my($Prefix);			# Message prefix ("   " or "-> ");
+	my($NormalTest);		# Reference to anonymous subroutine.
+	my($IgnoreTest);		# Reference to anonymous subroutine.
+	my($MailOnlyTest);		# Reference to anonymous subroutine.
+	my($Type);			# Type of pattern from FilterHandle file
+	my($Pattern);			# Pattern from FilterHandle file.
+	my($PatternNum);		# Pattern record number.
+	my(@IgnorePatterns);		# Collected patterns from FilterHandle.
+	my(@NormalPatterns);		# Collected patterns from FilterHandle.
+	my(@MailOnlyPatterns);		# Collected patterns from FilterHandle.
+	my($Status);			# Returned status from child process.
+	my($SignalCode);		# Signal code portion of child's status.
+	my($HostName);			# Our host name.
+	my($RunTime);			# How long we ran.
+	my($day,$hour,$min,$sec);	# RunTime calculation variables.
+	my($TimeStamp);			# Start/stop time stamp
+	my($StopTime);			# Stop time.
+	my($ErrorsDetected);		# Flags whether errors were detected.
+
+	# Local default definitions.
+	($MailServer, $MailDomain)=LogOutput_cfg();	# Load our site-specific data.
+	$Subject= "$main::Prog" unless ($Subject);
+
+	my($FilterFile,$Syslog,$LogFile,$MailList,$ErrorList,
+		$PageList,$PageErrorList)=@_; # Get our calling arguments.
+	$ErrorList.= " $MailList" if ($MailList);	# Send errors to reg. folks
+	$MailList =~ s/\s*(.*)\s*/$1/;
+	$ErrorList =~ s/\s*(.*)\s*/$1/;
+	$PageErrorList.= " $PageList" if ($PageList);
+
+	# Make sure $Verbose is set, to avoid perl -w errors.
+	$Verbose=0 if (!defined($Verbose));
+
+	# Record our start time.
+	my($StartTime)=time();
+
+	# LogOutput can't run under debug mode.  Can't figure out the fork logic.
+	if ($main::opt_d || defined($DB::single)) {
+		warn "$main::Prog in debug mode - LogOutput call suppressed.\n";
+		return;
+	}
+
+	# Set our host name.
+	if ($^O eq 'MSWin32') {
+		$HostName = $ENV{'COMPUTERNAME'};
+	} else {
+		$HostName = `hostname`;	# Get host name.
+		chomp $HostName;	# Remove trailing \n;
+		$HostName =~ s/\..*//;	# Remove domain name.
+	}
+
+	# Make sure we can read our filter file.
+	if ($FilterFile) {
+		# They provided us with a filter file.
+		open($FilterHandle,$FilterFile) ||
+			die("Unable to open $FilterFile: $!\n");
+		print "LogOutput: Loading filters from $FilterFile\n" if $Verbose;
+	} else {
+		# They didn't provide us with a filter file.  Use DATA.
+		$FilterHandle=*main::DATA{IO};
+		print "LogOutput: Loading filters from DATA\n" if $Verbose;
+	}
+
+	# Unbuffer stdout.
+	select STDOUT;
+	$|=1;
+
+	# Set up our log file.
+	if (!$LogFile && $MailList.$ErrorList) {
+		# They didn't provide a log file, but we need one for e-mail.
+		if ($ eq 'MSWin32') {
+			($LogFile="$ENV{'TEMP'}/${main::Prog}.$$.log") =~ s'\\'/'g;
+		} else {
+			$LogFile="/tmp/$main::Prog.$$.log";
+		}
+		$DeleteLog=1;		# Don't keep it after we're done.
+	} else {
+		# They provided a log file, or we don't need one.
+		$DeleteLog=0;
+	}
+
+	# If we're logging, Make sure the file name is valid.
+	if ($LogFile) {
+		# Make sure it's valid.
+		if ($LogFile =~ /^([a-zA-Z]:)?[a-zA-Z0-9_\\\/.-]+$/) {
+			$LogFile=untaint($LogFile);
+		} else {
+			warn "Unable to open $LogFile: invalid symbol in file name\n";
+			$LogFile='';
+			$DeleteLog=0;
+		}
+	}
+
+	# If we're logging, delete the existing log file.
+	if ($LogFile) {
+		# Make sure it doesn't already exist.
+		if (-e $LogFile) {
+			# File already exists.  Delete it.  Can't just write
+			# over it for security reasons (may have wrong perms).
+			if (! unlink($LogFile)) {
+				# Couldn't kill it.
+				warn("Unable to delete $LogFile: $!\n");
+				$LogFile='';		#We can't log.
+				$DeleteLog=0;
+			}
+		}
+	}
+
+	# If we're logging, open the log.
+	if ($LogFile) {
+		# Open the log file.
+		umask(0077);	# Set our umask.
+		if (open($WRITELOGFILE_FH, '>', $LogFile)) {
+			select $WRITELOGFILE_FH;
+			$|=1;		# Keep this file unbuffered.
+			select STDOUT;	# Undo prior select.
+		} else {
+			warn("Unable to open $LogFile: $!\n");
+				$LogFile='';		#We can't log.
+				$DeleteLog=0;
+		}
+	}
+
+	# If we're going to the Syslog, set that up now.
+	if ($Syslog) {
+		if ($^O =~ /^(os2|MSWin32|MacOS)$/) {
+			warn "Syslog is not supported under this operating system.\n";
+			$Syslog=0;
+		} else {
+			openlog($main::Prog,"",$Syslog);
+		}
+	}
+
+	# Build arrays of our scoring patterns.
+	$PatternNum=0;
+	while (<$FilterHandle>) {
+		$PatternNum++;
+		print "LogOutput: read $PatternNum: $_\n"
+			if ($Verbose >= 2);
+		chomp;
+		($Type,$Pattern)=split('\s+',$_,2);
+		next if ($Type =~ /^\s*#/);	# Comment.
+		$Pattern=~s/\s+$//;		# Strip trailing whitespace.
+		if ($Type =~ /ignore/i) {
+			# Add it to this array.
+			$IgnorePatterns[@IgnorePatterns] = $Pattern;
+		} elsif ($Type =~ /show/i) {
+			# Add it to this array.
+			$NormalPatterns[@NormalPatterns] = $Pattern;
+		} elsif ($Type =~ /mailonly|logonly/i) {
+			# Add it to this array.
+			$MailOnlyPatterns[@MailOnlyPatterns] = $Pattern;
+		} else {
+			print STDERR "Invalid type $Type in pattern record $PatternNum -- ignored.\n";
+		}
+	}
+	close ($FilterHandle);
+
+	# Now turn them in to patterns within three anonymous subroutines.  This
+	# means the patterns only get compiled once, making our pattern
+	# matches run much faster.
+	$Pattern=join('||',map {"m$IgnorePatterns[$_]o"} 0..$#IgnorePatterns);
+	print "LogOutput: IgnorePatterns=$Pattern\n" if $Verbose;
+	$IgnoreTest=eval "sub {$Pattern}";
+	die("Invalid pattern in \"Ignore\" message filters: $@\n") if $@;
+	$Pattern=join('||',map {"m$NormalPatterns[$_]o"} 0..$#NormalPatterns);
+	print "LogOutput: NormalPatterns=$Pattern\n" if $Verbose;
+	$NormalTest=eval "sub {$Pattern}";
+	die("Invalid pattern in \"Show\" message filters: $@\n") if $@;
+	$Pattern=join('||',map {"m$MailOnlyPatterns[$_]o"} 0..$#MailOnlyPatterns);
+	print "LogOutput: MailOnlyPatterns=$Pattern\n" if $Verbose;
+	$MailOnlyTest=eval "sub {$Pattern}";
+	die("Invalid pattern in \"MailOnly\" message filters: $@\n") if $@;
+	$ErrorsDetected=0;
+
+	# Now that we made it this far, we're safe to spin off the child process
+
+	# Fork off child process to run the real job.  Parent will stay here
+	# to monitor child's sysout and exit code.
+	if ($ eq 'MSWin32') {
+		# We're windows.  Don't have -|
+		pipe LOGREADHANDLE, LOGWRITEHANDLE or die;
+		$PID = fork();
+		die "fork() failed: $!" unless defined $PID;
+		if ($PID) {
+			# In parent.
+			close LOGWRITEHANDLE;
+		} else {
+			# In child.
+			close LOGREADHANDLE;
+		}
+	} else {
+		open(LOGWRITEHANDLE,">&=STDOUT"); #Duplicate this for code shared with windows.
+		$PID=open(LOGREADHANDLE, "-|");	# Fork off a child and read it's output.
+	}
+	if ($PID == 0) {
+		# We're the child.  Close files only needed by the parent.
+		close($WRITELOGFILE_FH) if ($LogFile);
+		closelog() if ($Syslog);
+
+		# Redirect STDERR to STDOUT, so we get it all.
+		select LOGWRITEHANDLE; $|=1; select STDOUT; # Unbuffer LWH.
+		close STDOUT; # This is critical in Win32. Hangs otherwise on 2nd write.
+		open(STDOUT, ">&=LOGWRITEHANDLE") or
+                die("Unable to open STDOUT: $!\n");
+		close STDERR; # This is critical, for the same reasons.
+		open(STDERR, ">&=LOGWRITEHANDLE") or
+                die("Unable to open STDERR: $!\n");
+
+		# Unbuffer STDERR & STDOUT.
+		select STDERR; #$|=1;
+		select STDOUT; #$|=1;
+
+		# Begin our log.
+		$TimeStamp=FormatTime($);
+		printf STDOUT "$main::Prog started on $HostName on %s\nCommand: $0 %s\n\n",
+        		"$TimeStamp", join(" ",@main::ARGV);
+
+		return;		# Run main code.
+	} elsif (!defined($PID)) {
+		# PID undefined.  We failed to fork.
+		die "Cannot fork LogOutput process: $!";
+	};
+
+	# We're the parent.
+	#$DB::fork_TTY='/dev/null';	# Turn off error tracing for us.
+	$ENV{'PERLDB_OPTS'}='';
+	#$DB::trace=0;
+	#$DB::frame=0;
+	$0="$main::Prog -- output logger";		# Make us easy to find in ps.
+	# Read and process everything from child's STDOUT.
+	while (<LOGREADHANDLE>) {
+		chomp;
+		print "LogOutput: Read: $_\n" if $Verbose > 5;
+
+		# Log everything through Syslog if requested.
+		if ($Syslog && !/^\s*$/) {
+			if (!(syslog("INFO", "%s", $_))) {
+				warn "Unable to write to syslog: $!\n";
+				$Syslog=0;
+			}
+		}
+
+		# See if we should put this message in our log and on STDOUT.
+		next if &$IgnoreTest;	# No.  Ignore it.
+
+		# We need to display it, but as a normal message or an error?
+		if (&$NormalTest) {
+			# This is normal.
+			$Prefix='   ';
+			$StdOut=1;
+		} elsif (&$MailOnlyTest) {
+			# This is normal.
+			$Prefix='   ';
+			$StdOut=0;
+		} else {
+			# This is not normal.
+			$Prefix='-> ';
+			$ErrorsDetected=1;
+			$StdOut=1;
+		}
+
+		# Write out the message.
+		WriteMessage($LogFile,$StdOut,$Prefix . $_);
+
+    }
+
+# The output is done.
+if ($ErrorsDetected == 1) {
+	WriteMessage(
+		$LogFile,
+		0,
+		"Unexpected messages (\"->\") detected in $main::Prog execution.\n"
+		);
+}
+
+# Check the status of the child.
+close LOGREADHANDLE; #Ignore return from close.  Always says child went away.
+$Status=$?;
+$ExitCode=$Status>>8;
+$SignalCode=$Status && 0x7F;
+
+$StopTime=time();
+$TimeStamp=FormatTime($StopTime);
+$RunTime=$StopTime-$;
+$sec = $RunTime % 60;
+$RunTime=($RunTime - $sec)/60;
+$min = $RunTime % 60;
+$RunTime=($RunTime - $min)/60;
+$hour = $RunTime % 24;
+$day=($RunTime - $hour)/24;
+$RunTime = "$sec second(s)";
+$RunTime = "$min minute(s), $RunTime" if ($day+$hour+$min);
+$RunTime = "$hour hour(s), $RunTime" if ($day+$hour);
+$RunTime = "$day day(s), $RunTime" if ($day);
+$RawRunTime="$day:$hour:$min:$sec";
+WriteMessage(
+	$LogFile,
+	0,
+	"\n   Job ended at $TimeStamp - run time: $RunTime"
+	);
+
+$ErrorsDetected = 1
+	if ($ErrorsDetected == 0 && ($ExitCode != 0 || $SignalCode ne '0'));
+if ($ErrorsDetected == 1) {
+	# Force a non-zero exit if there was an error the child didn't detect.
+	$ExitCode = 5 if ($ExitCode == 0);
+	WriteMessage(
+		$LogFile,
+		0,
+		"-> Job failed with status $ExitCode and signal $SignalCode");
+	close($WRITELOGFILE_FH) if ($LogFile);
+} else {
+	WriteMessage(
+		$LogFile,
+		0,
+		"   Job ended normally with status $ExitCode and signal $SignalCode");
+	close($WRITELOGFILE_FH) if ($LogFile);
+}
+
+# Send mail if requested.
+if ($ErrorsDetected) {
+	SetupMail($ErrorList, "* $Subject ended with errors",$LogFile);
+	SetupMail($PageErrorList, "* $Subject failed", "");
+} else {
+	SetupMail($MailList, "$Subject ended normally", $LogFile);
+	SetupMail($PageList, "$Subject ended normally", "");
+}
+unlink($LogFile) if (-e $LogFile && $DeleteLog);
+
+&main::Cleanup($ExitCode) if (defined(&main::Cleanup));
+
+exit $ExitCode;
+
+*main::DATA{IO};	# Dummy ref. to main::DATA to resolve false -w alert.
+}
+
+
+#
+# WriteMessage - write a message to the proper destinations.
+#
+sub WriteMessage {
+
+	#my($a,$b,...)			# Declare local variables.
+	my($LogFile,$StdOut,$Message)=@_;	# Get our calling arguments.
+
+	# Write it to the log file if requested.
+	if ($LogFile) {
+		if (!(printf $WRITELOGFILE_FH "%s\n", $Message)) {
+			warn "Unable to write to $LogFile: $!\n";
+			$LogFile='';
+		}
+	}
+
+	# Print it to STDOUT.
+	printf STDOUT "%s\n", $Message if ($StdOut);
+}
+
+
+#
+# SetupMail - prepare and send out a mail message.
+#
+sub SetupMail {
+
+	#my($a,$b,...)			# Declare local variables.
+	my($To,$Subject,$LogFile)=@_;	# Get our calling arguments.
+	my($HostName);			# A place to hold our host name.
+	my(%Mail);			# Hash that's passed to SendMail routine.
+
+	print "In SetupMail: To=$To, Subject=$Subject, LogFile=$LogFile\n" if ($Verbose);
+	return if($To =~ /^\s*$/);	# Exit if we have no one to mail to.
+
+	$Mail{To}='';			# Don't keep list from prior runs.
+	# Add each addressee, appending mail domain if necessary.
+	foreach (split(/\s+/,$To)) {
+		$_ .="\@$MailDomain" if ($_ !~ /@.+\../); # Add domain if not something@something.something
+		$Mail{To} .= ' ' . $_;
+	}
+	$Mail{To} =~ s/^\s+//;		# Strip leading space.
+	if ($^O eq 'MSWin32') {
+		$Mail{From}=$ENV{'USERNAME'} . '@' . $ENV{'COMPUTERNAME'}
+			. ".$MailDomain";
+	} elsif ($^O =~ /^(aix|linux)$/) {
+		$HostName=`hostname`;
+		chomp $HostName;
+		$HostName=~tr/A-Za-z0-9_.-//c;	# So we can untaint it safely.
+		$HostName=untaint($HostName);
+		$Mail{From}=$ENV{'LOGNAME'} . "\@$HostName.$MailDomain";
+	}
+	$Mail{Server}=$MailServer;
+	$Mail{Subject}=$Subject;
+	$Mail{'X-JOBSUMMARY'}="Name=$main::Prog Status=$ExitCode RunTime=$RawRunTime";
+	$Mail{'X-JOBEXIT'}="$ExitCode";
+	if ($LogFile) {
+		open($READLOGFILE_FH, $LogFile) or die "Unable to reopen log file: $!\n";
+		$Mail{Message}=join("",<$READLOGFILE_FH>);
+		close $READLOGFILE_FH;
+	} else {
+		$Mail{Message}='';	# Null message; subject line says it all.
+	}
+	if ($Verbose) {
+		print "Sending mail.  Mail parameters:\n";
+		foreach (keys(%Mail)) {
+			printf "\t%-12.12s %s\n", $_, $Mail{$_};
+		}
+	}
+	$Mail{debug}=6 if $Verbose;
+	sendmail(%Mail) || warn "Unable to send e-mail: $Mail::Sendmail::error\n";
+}
+#
+# Untaint  -- use very carefully!
+#
+
+sub untaint {
+	my(@parms) = @_;
+	foreach (@parms) {
+		s/^(.*)$/$1/;
+		$_=$1;
+	}
+	if (@parms == 1) {
+		# Return scalar
+		return $parms[$[];
+	} else {
+		# Return list
+		return (@parms);
+	}
+}
+
+
+
+sub FormatTime {
+	
+	my ($Time) = @_;
+	my($sec,$min,$hour,$mday,$mon,$year,undef)=localtime($Time);
+	$sec="0$sec" if $sec < 10;		# Force two digits.
+	$min="0$min" if $min < 10;		# Force two digits.
+	$hour="0$hour" if $hour < 10;		# Force two digits.
+	$mon++;		# Change 0-11 to 1-12.
+	$mon='0' . $mon if $mon < 10;		# Force two digits.
+	$mday='0' . $mday if $mday < 10;	# Force two digits.
+	$year+=1900;
+	return "$mon/$mday/$year at $hour:$min:$sec";
+}
+
+1;

@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+#
+# Add IP address(es) to our abuser list and IP tables.
+#require "syslog.pl"
+
+# Set up our environment.
+$ENV{'PATH'}="/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin";
+
+# First, load today's table of known abusers.
+if (open(ABUSERS, "/var/run/AbuseCheck")) {
+	while (<ABUSERS>) {
+		(undef, undef, $IPAddress, undef) = split;
+		$Abusers{$IPAddress}=1;
+	}
+}
+close ABUSERS;
+
+# Next, load the list currently in IPTables.
+open(IPTABLE,"iptables -L AbuseCheck -n |") || die("Unable to read IP Tables");
+#target     prot opt source               destination
+#LogDrop    all  --  200.45.247.158       0.0.0.0/0
+while (<IPTABLE>) {
+        ($target,$protocol,$options,$source,$dest)=split(/\s+/);
+        $IPTables{$source}=1
+                if ($source =~ /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
+}
+close(IPTABLE);
+
+# Why doesn't this work?
+#foreach $IPAddress (@ARGV) {
+for $Index (0..$#ARGV) {
+	if ($IPAddress =~ /^71.245.97.5[2-4]$/) {
+		print "Ignoring $IPAddress ... assuming nessus testing\n";
+		next;
+	}
+	$IPAddress=$ARGV[$Index];
+	print "Processing $IPAddress\n";
+	if ($IPAddress=~/([0-9]{1,3}\.){3}[0-9]{1,3}/) {
+		# This is valid. If it's not alrady in our tables/files, add it.
+ 		if (! $Abusers{$IPAddress}) {
+			# Add it to our table of today's violators.
+			print "Adding $IPAddress to AbuseCheck file.\n";
+			$Abusers{$IPAddress}=1;
+			`printf "%-15s %-10s %s\n" $IPAddress \$(date +%Y-%m-%d) watchhttpd >> /var/run/AbuseCheck`;
+		}
+		if (! $IPTables{$IPAddress}) {
+			# Add it to the IPTables list of violators.
+			#print SYSLOG "echo Adding $IPAddress to IPTables.\n";
+			print "Adding $IPAddress to IPTables.\n";
+			system("iptables -A AbuseCheck -s $IPAddress -j LogDrop");
+		}
+	} else {
+		warn("Invalid IP address: $IPAddress -- ignored.\n")
+	}
+}
+
+

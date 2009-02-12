@@ -1,0 +1,123 @@
+#!/bin/bash
+#
+# findkey - look up a key
+#
+# Usage: enter "findkey -h" or see Usage function immediately below.
+#
+# $Log: findkey,v $
+# Revision 1.2  2000/05/23 21:36:13  martinb
+# Change awk so that keys with one or more blanks in them are returned properly
+#
+#
+
+
+
+#
+# Function Usage - display usage message.
+#
+function Usage
+{
+
+more >&2 <<ENDUSAGE
+$Prog - look up a key from a keyid.
+
+Usage: $Prog [-qhd] [-f keyfile] keyid
+
+Flags:
+	-q		:	Quiet: suppress "not authorized" message.
+	-h		:	Help: display the usage panel
+	-d		:	Diagnostics: display a diagnostic trace
+	-f keyfile	:	Key file - data file containing key ids and
+				keys.  No default.
+
+Parameters:
+	keyid		:	Data identification key.
+
+This script is intended for use by other scripts to eliminate hardcoded
+passwords.  The keyfile must be adequately protected.  Keys are returned 
+via stdout.
+
+KeyIDs may be any arbitrary string, but must be unique within the keyfile.
+Each keyfile contains one or more records.  Each record consists of a KeyID
+and a key, separated by white space.  Records starting with # are ignored.
+
+Example:
+
+The keyfile might appear as:
+
+sys1	apple
+sys3	banana
+
+To retrieve the key for sys1, enter "findkey -f $HOME/keyfile sys1".
+ENDUSAGE
+}
+
+
+#
+# Mainline code
+#
+# Set reference information (my name for messages, usage variable).
+ 
+. /etc/profile > /dev/null
+# . $HOME/.profile
+
+Prog=${0##*/}
+PATH="/usr/local/sbin:/usr/local/bin:/usr/ods/sbin:/usr/ods/bin:/usr/sbin:/sbin:/etc:/usr/bin:/bin"
+
+# Set defaults
+Trace=false
+Quiet=false
+KeyFile=""
+
+# Process options
+while getopts :hdqf: opt
+do case $opt in
+	q)	Quiet=true;;
+	f)	KeyFile="$OPTARG";;
+	h)	clear
+		Usage
+		exit 1
+		;;
+        d)      set -xv			# Turn on a Trace for the main Program.
+		echo "Tracing $Prog..."	# Identify ourselves.
+                PS4='[$LINENO]: '	# Include line numbers in Trace.
+                Trace=true;;		# Set flag so functions Trace, too.
+	\?)	# Invalid option.
+		echo "\n$Prog: Unknown option \"-$OPTARG\".  " \
+			"Enter \"$Prog -h\" for usage.\n" 1>&2
+		exit 2			# Exit with an error code.
+		;;
+	:)	# Option is missing parameter.
+		echo "\n$Prog: Option \"-$OPTARG\" requires an argument." \
+			"  Enter \"$Prog -h\" for usage.\n" 1>&2
+		exit 3			# Exit with an error code.
+		;;
+        esac
+done
+shift $((OPTIND-1))
+
+if [[ $# -ne 1 ]]			# Are there too many parameters?
+then
+	echo "\n\n\t$Prog: Incorrect parameters - enter \"$Prog -h\" for usage.\n" 1>&2
+	exit 4
+fi
+
+if [[ ! -r $KeyFile ]]
+then
+	[[ $Quiet = false ]] && \
+		echo "$Prog: Not authorized to read $KeyFile" |
+			ir -elt $Prog
+	exit 5
+fi
+
+
+AwkProg='$1 !~ "^#" && $1==Key {X=$1 "[ \t]*";sub(X,"");print $0;exit 0} END{exit 1}'
+awk -vKey=$1 "$AwkProg" $KeyFile 
+
+if [[ $? -eq 0 ]]
+then
+	echo "$Prog: Unable to look up password for $1" |
+		ir -elt $Prog
+	exit 6
+fi
+exit 0

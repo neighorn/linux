@@ -1,0 +1,50 @@
+#! /bin/bash
+
+declare -i Count
+
+function PIDLIST {
+
+ps -e -opid,comm |
+	grep "^ *[0-9]* *$1" |
+	awk 'BEGIN{List=""} {List=List " " $1} END{print List}'
+}
+
+function CountWords {
+	echo $#
+}
+	
+
+if [[ $# -eq 0 ]]
+then
+	echo "Usage: hup {pid|command}" >2
+	exit 1
+fi
+
+for item in $*
+do
+	if [[ "$item" = [0-9]* ]]
+	then
+		kill -HUP $item
+	else
+		PIDList=`PIDLIST $item`
+		let Count=0
+		Count=`CountWords $PIDList`
+		if [[ $Count -eq 0 ]]
+		then
+			echo "\"$item\" not found." >2
+		elif [[ $Count -eq 1 ]]
+		then
+			kill -HUP $PIDList
+		else
+			echo "$Count processes found for $item.  HUP all?" >2
+			read response < /dev/tty
+			if [[ $response = [Yy]* ]]
+			then
+				kill -HUP $PIDList
+			else
+				echo "$item not hup'd" >2
+			fi
+		fi
+	fi
+done
+

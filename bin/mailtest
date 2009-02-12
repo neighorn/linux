@@ -1,0 +1,31 @@
+#! /bin/sh
+#
+# Send a test mail to one or more addresses.
+#
+Now=`date +%H:%M:%S\ %m/%d/%Y`
+Success=''
+Failure=''
+
+for mail in $*
+do
+	echo "This is a test e-mail.\nThe time is now $Now" |
+		mail -s "$Now" $mail
+	Status=$?
+	if [[ $Status -eq 0 ]]
+	then
+		Success="$Success $mail"
+	else
+		Failure="$Failure $mail"
+	fi
+done
+Success="${Success# }"
+Failure="${Failure# }"
+[[ "$Failure" != "" ]] && "Unable to send test mail to $Failure"
+if [[ "$Success" != "" ]]
+then
+	echo "    Test mail sent to $Success"
+	echo "    The time is now $Now"
+fi
+
+[[ "$Failure" != "" ]] && exit 8
+exit 0

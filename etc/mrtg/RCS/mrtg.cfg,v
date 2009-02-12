@@ -1,0 +1,141 @@
+head	1.1;
+access;
+symbols;
+locks
+	root:1.1; strict;
+comment	@# @;
+
+
+1.1
+date	2008.03.28.01.16.07;	author root;	state Exp;
+branches;
+next	;
+
+
+desc
+@MRTG configuration.  Updated for OpenSUSE 10.3.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@# Created by 
+# /usr/bin/cfgmaker password@@127.0.0.1
+
+
+
+### Global Config Options
+
+#  for UNIX
+WorkDir: /usr/local/etc/apache2/pages/mrtg
+
+#  or for NT
+# WorkDir: c:\mrtgdata
+
+### Global Defaults
+
+#  to get bits instead of bytes and graphs growing to the right
+# Options[_]: growright, bits
+
+EnableIPv6:	no
+Refresh:	300
+Options[_]: growright
+Target[eth0]: 2:Glistron@@127.0.0.1:
+SetEnv[eth0]: MRTG_INT_IP="71.245.97.50" MRTG_INT_DESCR="eth0"
+MaxBytes[eth0]: 1250000
+Title[eth0]: eth0 Traffic Analysis
+PageTop[eth0]: <H1>Traffic Analysis for eth0</H1>
+ <TABLE>
+   <TR><TD>Description:</TD><TD>eth0  </TD></TR>
+ </TABLE>
+Options[eth0]: growright,bits
+
+### Temperature sensors
+Options[_]: growright,nopercent,gauge,noi,noinfo,nolegend,integer,nobanner
+YLegend[_]: Temperature (C)
+ShortLegend[_]: C
+LegendO[_]: Temp :
+YTics[_]: 10
+#
+Target[CPUTemp]: `cat /var/mrtg/it8712-isa-0290/CPU_Temp`
+MaxBytes[CPUTemp]: 200
+WithPeak[CPUTemp]: wm
+Title[CPUTemp]:  CPU temperature
+PageTop[CPUTemp]: <H1>CPU temperature</H1>
+#
+Target[Temp3]: `cat /var/mrtg/it8712-isa-0290/Temp3`
+MaxBytes[Temp3]: 200
+WithPeak[Temp3]: wm
+Title[Temp3]:  Sensor3 temperature
+PageTop[Temp3]: <H1>Sensor3 temperature</H1>
+#
+Target[MBTemp]: `cat /var/mrtg/it8712-isa-0290/M_B_Temp`
+MaxBytes[MBTemp]: 200
+WithPeak[MBTemp]: wm
+Title[MBTemp]:  Motherboard temperature
+PageTop[MBTemp]: <H1>Motherboard temperature</H1>
+#
+#   Fans
+#
+YLegend[_]: RPMs
+ShortLegend[_]: RPMs
+LegendO[_]: RPMs :
+#
+#Target[fan1]: `cat /var/mrtg/it8712-isa-0290/fan1`
+#MaxBytes[fan1]: 5000
+#WithPeak[fan1]: wm
+#Title[fan1]:  Fan 1
+#PageTop[fan1]: <H1>Fan 1</H1>
+#
+#Target[fan2]: `cat /var/mrtg/it8712-isa-0290/fan2`
+#MaxBytes[fan2]: 5000
+#WithPeak[fan2]: wm
+#Title[fan2]:  Fan 2
+#PageTop[fan2]: <H1>Fan 2</H1>
+#
+Target[fan3]: `cat /var/mrtg/it8712-isa-0290/fan3`
+MaxBytes[fan3]: 5000
+WithPeak[fan3]: wm
+Title[fan3]:  Fan 3
+PageTop[fan3]: <H1>Fan 3</H1>
+
+#
+# CPU
+#
+##WorkDir: /usr/local/etc/apache2/pages/mrtg
+##LoadMIBs: /usr/share/snmp/mibs/UCD-SNMP-MIB.txt,/usr/share/snmp/mibs/HOST-RESOURCES-MIB.txt
+##Target[localhost.cpu]:ssCpuRawUser.0&ssCpuRawUser.0:Glistron@@127.0.0.0 + ssCpuRawSystem.0&ssCpuRawSystem.0:Glistron@@127.0.0.1 + ssCpuRawNice.0&ssCpuRawNice.0:Glistron@@127.0.0.1
+##RouterUptime[localhost.cpu]: Glistron@@127.0.0.1
+##MaxBytes[localhost.cpu]: 100
+##Title[localhost.cpu]: CPU Load
+##PageTop[localhost.cpu]: <H1>Active CPU Load %</H1>
+##Unscaled[localhost.cpu]: ymwd
+##ShortLegend[localhost.cpu]: %
+##YLegend[localhost.cpu]: CPU Utilization
+##Legend1[localhost.cpu]: Active CPU in % (Load)
+##Legend2[localhost.cpu]:
+##Legend3[localhost.cpu]:
+##Legend4[localhost.cpu]:
+##LegendI[localhost.cpu]:  Active
+##LegendO[localhost.cpu]:
+##Options[localhost.cpu]: growright,nopercent
+#
+##
+## Swap
+##
+#Target[localhost.swap]: memAvailSwap.0&memAvailSwap.0:Glistron@@localhost
+#PageTop[localhost.swap]: <H1>Swap Memory</H1>
+#Options[localhost.swap]: nopercent,growright,gauge,noinfo
+#Title[localhost.swap]: Free Memory
+#MaxBytes[localhost.swap]: 1000000
+#kMG[localhost.swap]: k,M,G,T,P,X
+#YLegend[localhost.swap]: bytes
+#ShortLegend[localhost.swap]: bytes
+#LegendI[localhost.swap]:  Free Memory:
+#LegendO[localhost.swap]:
+#Legend1[localhost.swap]: Swap memory avail, in bytes
+#
+@

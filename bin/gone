@@ -1,0 +1,796 @@
+#!/usr/bin/perl
+
+require "getopts.pl";
+use Gone;
+
+# Set up the environment.
+$Prog=$0;
+$Prog=~s/^.*\///;
+$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/ods/sbin:/usr/ods/bin:/usr/bin:/bin';
+$FormatFile='/usr/local/bin/gone.fmt';
+@Command=@ARGV;					# Preserve orig command for sudo
+
+# Initialize these to prevent -w complaints.
+$opt_a=$opt_c=$opt_l=$opt_R=$opt_S=$opt_u=0;
+
+my($TempStart,$TempStop,$TempText);
+&Getopts("acClRSus:e:D:m:U:F:h");			# Process options
+
+if ($opt_a+$opt_c+$opt_l+$opt_R+$opt_S > 1) {
+	printf STDERR
+		"The -a, -c, -l, -R, and -S options are mutually exclusive.\n";
+	exit(8);
+} elsif ($opt_a+$opt_c+$opt_l+$opt_u+$opt_R+$opt_S == 0 && @ARGV == 1) {
+	# gone username.  Change to -U.
+	$opt_U = $ARGV[0];
+	shift;
+}
+
+if ($opt_U && $opt_U ne $ENV{'USER'}) {
+	# We want to run this as someone else (i.e. we're the help desk).
+	(undef,undef,undef,undef,undef,undef,$FullName)=getpwnam($opt_U);
+	if (!defined($FullName)) {
+		print STDERR "Unable to find $opt_U in the system database.\n";
+		exit 8;
+	} elsif ($FullName =~ /^\s*$/) {
+		$FullName=$opt_U;
+	}
+	$MyModule=`which $Prog`;
+	chomp $MyModule;
+	print "Updating gone messages for $FullName\n";
+	exec("sudo -H -u $opt_U $MyModule @Command");
+	exit $?;
+}
+if ($opt_h) {
+	# -h = help.
+	&Usage;
+	exit 1;
+}
+
+# Get our current time stamp.
+$Now=`date +%Y-%m-%d\\ %H:%M`;	# Get the current date and time.
+chomp $Now;			# Remove the trailing \n.
+	
+# Load the existing file, if any.
+ReadGone();
+
+#
+# Run the right subroutine based on which mode we're in.
+MODE: {
+	if ($opt_a)			{$ExitCode=&AddResponse; last MODE};
+	if ($opt_c)			{$ExitCode=&CancelResponse; last MODE};
+	if ($opt_l)			{$ExitCode=&ListResponses; last MODE};
+	if ($opt_R)			{$ExitCode=&ResumeResponse; last MODE};
+	if ($opt_S)			{$ExitCode=&SuspendResponse; last MODE};
+	if ($opt_u)			{print STDERR "The update (-u) option has not been implemented yet.\nPerhaps you meant -U (user) instead.\n";$ExitCode=15; last MODE};
+	$ExitCode=&InteractiveSession;
+	
+}
+
+#
+# Rewrite the data file if necessary, and if we can write to it.
+WriteGone() if ($NeedRewrite);
+
+exit $ExitCode;
+
+
+#
+# a - AddResponse
+#
+sub AddResponse {
+
+	my($Start, $Stop, $Response, $Demo, $DemoMonth, $DemoYear, $Days, $Interactive);
+
+	# Make sure we have the directory, at least.
+	if (! -d $ResponseDir) {
+		mkdir($ResponseDir,02700) ||
+			die("Unable to create $ResponseDir: $!\n");
+	}
+
+	$Interactive=1;		# Assume we'll prompt for stuff.
+	# Get the start time.  Start by assuming we got it off the command line.
+	if ($opt_s) {
+		# Supplied on the command line.
+		$Interactive=0;		# Remember that we're using cmdline parms.
+		$Start=&ValidateStart($opt_s);
+		exit 7 if ($Start eq "");
+	} else {
+		$Start='';
+		$Demo=`date +%m-%d-%y`;
+		chomp $Demo;
+		$Demo .= " 17:00";
+		
+		while (! $Start) {
+			# Prompt for it.
+			print "\nWhen should this automatic response go into ".
+				"effect?\n".
+				"Enter one of the following:\n".
+				"\t- the starting date and time,(i.e. \"$Demo\"),\n".
+				"\t- \"now\" to start immediately,\n".
+				"\t- \"none\" for a permanent automatic response,\n".
+				"\t- or \"Q\" to quit (cancel)\n";
+			$Start=<STDIN>;
+			chomp $Start;
+			$Start=&ValidateStart($Start);
+			return if ($Start eq "Q");
+		}
+	}
+
+	# Get the end time.
+	if ($opt_e) {
+		# Supplied on the command line.
+		$Interactive=0;		# Remember that we're using cmdline parms.
+		$Stop=&ValidateStop($Start,$opt_e,$Now);
+		exit 8 if ($Stop == "");
+	} else {
+		$DemoMonth=`date +%m`+1;
+		$DemoYear=`date +%y`;
+		chomp $DemoYear;
+		if ($DemoMonth > 12) {
+			$DemoMonth -= 12;
+			$DemoYear++;
+		}
+		$Demo="$DemoMonth-1-$DemoYear 8:00";
+		while (! $Stop) {
+			# Prompt for it.
+			print "\nWhen should this automatic response expire?\n".
+				"Enter one of the following:\n".
+				"\t- the ending date and time,(i.e. \"$Demo)\",\n".
+				"\t- \"none\" for a permanent automatic response,\n".
+				"\t- or \"Q\" to quit (cancel)\n";
+			$Stop=<STDIN>;
+			chomp $Stop;
+			$Stop=&ValidateStop($Start,$Stop,$Now);
+			return if ($Stop eq "Q");
+		}
+	}
+
+	# Get the days (i.e. only on Friday) if present.
+	if ($opt_D) {
+		# Supplied on the command line.
+		$Days=ValidateDays($opt_D);
+		$Interactive=0;
+	} elsif ($Interactive) {
+		# We've been prompting for stuff, so prompt for this.
+		$Days="error";
+		do {
+			print "\nWould you like to restrict this response to certain days of the week?\n" .
+				"Enter one of the following:\n".
+				"\t- one or more days of the week separated by spaces or\n".
+				"\t  commas, such as \"Friday\" or \"Mon,Tue\",\n".
+				"\t- a blank line if you do not want to restrict this response,\n".
+				"\t- or \"Q\" to quite (cancel)\n";
+			$Days=<STDIN>;
+			$Days=ValidateDays($Days);
+			return if ($Days eq "Q");
+		} until ($Days ne "error");
+	} else {
+		$Days="";
+	}
+
+	# Get forwarding data.
+# This code was never finished.  This portion works OK, but autoresponder
+# needs logic to actually forward the message.  Considered having it display a
+# list of forward addresses, and having procmailrc do the actual forward.  Also need
+# to add the formatting back at the bottom of this code to display forward data.
+#	if ($opt_F) {
+#		# Supplied on the command line.
+#		$Forward=ValidateForward($opt_F);
+#		$Interactive=0;
+#	} elsif ($Interactive) {
+#		# Prompt for forwarding information.
+#		undef $Forward;
+#		do {
+#			print "\nWould you like to have your e-mail forwarded to someone else?\n" .
+#				"Enter one of the following:\n".
+#				"\t- one or more e-mail addresses separated by spaces or\n".
+#				"\t  commas,\n".
+#				"\t- a blank line if you do not want e-mail forwarded,\n".
+#				"\t- or \"Q\" to quite (cancel)\n";
+#			$Forward=<STDIN>;
+#			$Forward=ValidateForward($Forward);
+#			return if ($Forward eq "Q");
+#		} until (defined($Forward));
+#	} else { 
+		$Forward="";
+#	}
+
+	# Get the message text.
+	if ($opt_m) {
+		# They supplied it on the command line.
+		$Response=$opt_m;
+		$Interactive=0;
+	} else {
+		# Prompt for it.
+		$Response="";
+		print "\nPlease enter the text of the e-mail to be sent back to each\n".
+			"sender telling them you're away.\n".
+			"Enter one of the following:\n".
+			"\t- One or more lines of text to be sent back to anyone who\n".
+			"\t  sends e-mail to you.  When finished, enter a \".\" on a\n".
+			"\t  line by itself to indicate you're done.\n".
+			"\t- A \"Q\" to quit (cancel)\n> ";
+		INPUTLOOP: while ($Input=<STDIN>) {
+			chomp $Input;
+			return 3 if ($Input=~/^\s*"?[Qq]\s*$/);		#Q means cancel.
+			last INPUTLOOP if ($Input=~/^\s*\.\s*$/ and $Response =~ /[A-Za-z]/);	#. means done.
+			last INPUTLOOP
+				if (($Input.$Response) =~ /^\s*$/);#Blank.
+			$Response.=$Input."\001";	# Real text. 
+			print "> ";
+		}
+	}
+	
+	# If this matches another entry, replace it.  Otherwise add it.
+	REPLACEBLOCK: {
+		# Look for prior entries that match the dates and times.
+		for ($[..$#StartDate) {
+			if ($Start eq $StartDate[$_] &&
+				$Stop eq $StopDate[$_] &&
+				$Days eq $Days[$_])
+			{
+				$Text[$_]=$Response;
+				last REPLACEBLOCK;
+			}
+		}
+
+		# No matches.  Add it.
+		$Index=++$#StartDate;
+		$StartDate[$Index]=$Start;
+		$StopDate[$Index]=$Stop;
+		$Text[$Index]=$Response;
+		$Serial[$Index]=++$LastSerial;
+		$Forward[$Index]=$Forward;
+		$Days[$Index]=$Days;
+		$Suspended[$Index]=0;
+	}
+	$NeedRewrite=1;			# Flag we've made updates.
+	print "Your automatic e-mail response has been added.\n";
+}
+
+
+#
+# ValidateStart - validate the entered start time
+#
+sub ValidateStart {
+	
+	my($Start)=@_;
+	my($Temp);
+
+	# Look for keywords.
+	#    Check for "Q" to quit.
+	if ($Start =~ /"?[Qq].*/) {
+		#User quit.
+		return "Q";
+	}
+	#    Check for "Now".
+	if ($Start =~ /"?[Nn][Oo][Ww]"?/) {
+		# Keyword "now" - immediate.
+		$Start=`date "+%Y-%m-%d %H:%M"`;
+		chomp $Start;
+		return $Start;
+	}
+	#    Check for "None", meaning this is their default response.
+	if ($Start =~ /"?[Nn][Oo][Nn][Ee]"?/) {
+		# Keyword "none"
+		$Start='0000-00-00 00:00';
+		return $Start;
+	}
+
+	# Must be a real date and optionally a time. Set a default time,
+	# if they didn't specify one.
+	if ($Start !~ /:/) {$Start.=" 17:00";}
+
+	# See if we can make sense of their date and time.
+	$Temp=`fmtdate -f $FormatFile "$Start" "%Y-%m-%d %H:%M" 2> /dev/null`;
+	chomp $Temp;
+	if ($Temp eq "") {
+		printf STDERR "\n* \"%s\" is not a valid starting date and time.\n", $Start;
+		return "";
+	}
+	return $Temp;
+}
+
+
+
+
+#
+# ValidateStop - validate the entered end time
+#
+sub ValidateStop {
+
+	my($Start,$Stop, $Now)=@_;
+	my($Temp);
+	# Look for keywords.
+	#    Check for "Q" to quit.
+	if ($Stop =~ /^\s*"?[Qq].*/) {
+		#User quit.
+		return "Q";
+	}
+	#    Check for "None", meaning this is their default response.
+	if ($Stop =~ /"?[Nn][Oo][Nn][Ee]"?/) {
+		# Keyword "none"
+		$Stop='9999-99-99 99:99';
+		return $Stop;
+	}
+
+	# Set default end time, if they didn't specify one.
+	$Stop="$Stop 08:00" if ($Stop !~ /:/);
+	$Temp=`fmtdate -f $FormatFile "$Stop" "%Y-%m-%d %H:%M"`;
+	chomp $Temp;
+	if ($Temp eq "") {
+		printf STDERR "\n* \"%s\" is not a valid ending date and time.\n", $Stop;
+		return "";
+	}
+	$Stop=$Temp;
+	if ($Stop lt $Now) {
+		print "\n* The expiration date has already passed.\n";
+		return "";
+	}
+	if ($Stop lt $Start) {
+		print "\n* The expiration date is before the start date.\n";
+		$Stop='';
+		return "";
+	}
+	return $Temp;
+}
+
+
+
+
+#
+# ValidateDays - validate the entered weekdays
+#
+sub ValidateDays {
+	my ($Input) = @_;
+	my @DayList;
+	my $ReturnList;
+
+	return "" if ($Input =~ /^\s*$/);	# No restrictions.
+	return "Q" if ($Input =~ /^\s*"?[Qq]/);
+
+	$Input=~s/^\s*(.*)\s*$/$1/;	# Strip leading/trailing spaces.
+	$Input=~s/[ ,]+/ /g;		# Deal with multiple spaces, etc.
+	foreach (split(/ /,$Input)) {
+		if	("Sunday"    =~ /^\Q$_/i && $+[0] >= 2) {$DayList[0]=1;}
+		elsif	("Monday"    =~ /^\Q$_/i) {$DayList[1]=1;}
+		elsif	("Tuesday"   =~ /^\Q$_/i && $+[0] >= 2) {$DayList[2]=1;}
+		elsif	("Wednesday" =~ /^\Q$_/i) {$DayList[3]=1;}
+		elsif	("Thursday"  =~ /^\Q$_/i && $+[0] >= 2) {$DayList[4]=1;}
+		elsif	("Friday"    =~ /^\Q$_/i) {$DayList[5]=1;}
+		elsif	("Saturday"  =~ /^\Q$_/i && $+[0] >= 2) {$DayList[6]=1;}
+		elsif	($_ =~ /^\s*[0-6]\s*$/) {$DayList[$_+0]=1;}
+		else {
+			print qq<"$_" is an invalid weekday.\n>;
+			return "error";
+		}
+	}
+	for (0..$#DayList) {
+		$ReturnList.=$_ if ($DayList[$_]);
+	}
+	$ReturnList="" if ($ReturnList eq "0123456");
+
+	return $ReturnList;
+}
+
+
+
+#
+# ValidateForward - Validate e-mail addresses (minimally)
+#
+sub ValidateForward {
+	my ($Input) = @_;
+	my $ReturnList;
+
+	return "" if ($Input =~ /^\s*$/);	# No forwarding.
+	return "Q" if ($Input =~ /^\s*"?[Qq]/);
+	
+	$Input=~s/^\s*(.*)\s*$/$1/;	# Strip leading/trailing spaces.
+	$Input=~s/[ ,]+/ /g;		# Deal with multiple spaces, etc.
+	
+	if ($Input =~ /^[a-zA-Z0-9_.@-]+$/) {
+		return $Input;
+	} else {
+		print qq<"$Input" is not a valid address or list addresses.\n>;
+		return undef;
+	}
+}
+	
+
+#
+# Select Items
+#
+sub SelectItems {
+
+	my($Verb)=@_;		# Describes what we'll do (cancel, suspend, etc.)
+	my($Input);		# User's keyboard input.
+	my(@List);		# List of items selected.
+	
+	# Make sure we have some automatic responses to to select
+	if (@StartDate < 1) {
+		print STDERR "You do not currently have any automatic e-mail responses.\n";
+		return ();
+	}
+
+	# See if they provided the list on the command line.
+	if (@ARGV > 0) {
+		foreach (@ARGV) {
+			if (/^\s*\d+\s*$/ && $_ > 0 && $_ <= $#StartDate+1) {
+				push @List,($_-1);
+			} else {
+				die qq<Invalid item number "$_" specified on command line.\n>;
+			}
+		}
+		return(@List);
+	}
+
+	# They didn't provide us a list of items.  Ask for them.
+	for (;;) {
+		&ListResponses;		# Show then the current list.
+		print "\nEnter\n" .
+			" - the number of the response(s) you wish to $Verb\n".
+			" - or Q to quit.\n> ";
+		$Input=<STDIN>;
+		chomp $Input;
+		return () if ($Input =~ /[Qq].*/);
+		if ($Input !~ /^\s*[0-9]+\s*$/ ||
+			$Input < 1 ||
+			$Input > $#StartDate+1) {
+			print "\n* \"$Input\" is not a valid item number.\n";
+		} else {
+			return(($Input-1));
+		}
+	}
+}
+		
+		
+#
+# CancelResponses
+#
+sub CancelResponse {
+
+	do {
+		my @List = SelectItems("cancel");
+		Cancel(@List) if (@List);
+	} until (@List == 0);
+}
+
+#
+# Cancel - actual code to remove one or more items from the list.
+#
+sub Cancel {
+
+	my(@List)=@_;
+	my($Count,$Index,$LastSave);
+	$Count=0;			# Count how many we deleted.
+	
+	for $Index (@List) {
+		# If it's a valid number tag it for deletion. Otherwise complain
+		if ($Index <= $#StartDate) {
+			$StartDate[$Index]='deleted';
+			$Count++;			# Count number deleted.
+		} else {
+			printf STDERR "You do not have a response number %d -- ignored.\n", $Index+1;
+		}
+	}
+
+	printf "%d item(s) deleted.\n", $Count;
+
+	# Did we do anything?
+	if ($Count == 0) {return};
+
+	$LastSave=-1;		#Haven't saved any, yet.
+	for $Index ($[..$#StartDate) {
+		if ($StartDate[$Index] ne "deleted") {
+			# Want to keep this one.
+			$LastSave++;
+			if ($LastSave < $Index) {
+				# Move this back to fill in the gap.
+				$StartDate[$LastSave]=$StartDate[$Index];
+				$StopDate[$LastSave]=$StopDate[$Index];
+				$Text[$LastSave]=$Text[$Index];
+			}
+		}
+	}
+
+	# Now make the ones on the end go away.
+	$#StartDate=$LastSave;
+	$#StopDate=$LastSave;
+	$#Text=$LastSave;
+	$NeedRewrite=1;			# Remember to write updates back out.
+}
+
+
+#
+# ListResponses
+#
+sub ListResponses {
+
+	if (@StartDate == 0) {
+		print "You do not have any automatic e-mail responses.\n";
+		return;
+	};
+
+	local ($StartYear, $StartMonth, $StartDay, $StartTime, 
+		$StopYear, $StopMonth, $StopDay, $StopTime, $Index, $TempMsg);
+
+	$-=0;			# Reset the page count (for Cancel).
+	$^L="\n\n\n";		# Formfeed covers Cancel error messages.
+	for $Index ($[..$#StartDate) {
+		($StartYear, $StartMonth, $StartDay, $StartTime) =
+			$StartDate[$Index] =~ /^(\d+)-(\d+)-(\d+) (\d+:\d+)/;
+		$ThisStart="$StartMonth-$StartDay-$StartYear $StartTime";
+		($StopYear, $StopMonth, $StopDay, $StopTime) =
+			$StopDate[$Index] =~ /^(\d+)-(\d+)-(\d+)\s+(\d+:\d+)/;
+		$ThisStop="$StopMonth-$StopDay-$StopYear $StopTime";
+
+		$ThisStart = "Default" if ($ThisStart eq "00-00-0000 00:00");
+		$ThisStop = "     (none)     " if ($ThisStop eq "99-99-9999 99:99");
+		
+		$TempMsg=$Text[$Index];
+		if ($opt_C) {
+			$TempMsg=~s/\001/\nTEXT=/g;	# Reformat multiline txt
+			printf 
+				"*\n" .			# Flags start of new item.
+				"INDEX=%s\n" .
+				"START=%s\n" .
+				"STOP=%s\n" .
+				"DAYS=%s\n" .
+				"SUSPENDED=%s\n" .
+				"SERIAL=%s\n" .
+				"FORWARD=%s\n" .
+				"TEXT=%s\n",
+				$Index,
+				$ThisStart,
+				$ThisStop,
+				$Days[$Index],
+				$Suspended[$Index],
+				$Serial[$Index],
+				$Forward[$Index],
+				$TempMsg;
+		} else {
+			# Following doesn't work.  "write" strips \n, combining
+			# and rewrapping text as needed.  \r is supposed to
+			# work, but results in only the first line displayed.
+			$TempMsg=~s/\001/\n/g;		# Reformat multiline txt
+			if ($Suspended[$Index]) {
+				$SusFlag="*"
+			} else {
+				$SusFlag=" "
+			}
+			$TheseDays="";
+			if ($Days[$Index] ne "0123456") {
+				@DayArray=("Su","M","Tu","W","Th","F","Sa");
+				for (0..length($Days[$Index])-1) {
+					$Day=substr($Days[$Index],$_,1);
+					$TheseDays.=$DayArray[$Day];
+				}
+			}
+
+			write;				# Display this line of the list.
+		}
+	}
+}
+
+		
+#
+# SuspendResponse
+#
+sub SuspendResponse {
+
+	do {
+		my @List = SelectItems("suspend");
+		for (@List) {
+			if ($Suspended[$_]) {
+				printf "\nItem %d is already suspended.\n", $_+1;
+			} else {
+				$Suspended[$_]=1;
+				printf "\nItem %d has been suspended.\n", $_+1;
+				$NeedRewrite=1;
+			}
+		}
+	} until (@List == 0);
+}
+
+		
+#
+# ResumeResponse
+#
+sub ResumeResponse {
+
+	do {
+		my @List = SelectItems("reactivate");
+		for (@List) {
+			if ($Suspended[$_]) {
+				$Suspended[$_]=0;
+				printf "\nItem %d has been reactivated.\n", $_+1;
+				$NeedRewrite=1;
+			} else {
+				printf "\nItem %d is already active.\n", $_+1;
+			}
+		}
+	} until (@List == 0);
+}
+
+
+#
+# Introduction - display background information.
+#
+sub Introduction {
+
+	my($Input);
+	system("clear");
+	print <<"PROLOG";
+
+
+    This is "$Prog".  "$Prog" allows you to set up automatic e-mail responses.
+These responses are sent automatically to anyone who sends e-mail to you.
+Typically these automatic responses are used to notify senders that you 
+will be out of the office for an extended period of time, such as on
+vacation or traveling on business.  You can use the message to tell 
+the sender how best to reach you, or when you will return.  "$Prog" does
+not interfere with the e-mail that's sent to you.  It will still be in your
+mail box when you return.
+    "$Prog" allows you to specify the date and time range for a message.  This
+permits you to schedule an automatic response in advance of actually
+leaving the office, and to have the message automatically deleted on the
+date you expect to return.  You may schedule multiple messages in advance,
+and each will be used during its respective time period.  If two messages
+have overlapping time periods, the one with the most recent start date will
+be used.
+    "$Prog" also allows you to schedule a permanent message.  The permanent
+message will be used if no other message is currently active.  A permanent
+message might be used to advise senders of a that you prefer them to use a
+different e-mail address.
+
+(Press ENTER to continue)
+PROLOG
+	print "> ";
+	$_=<STDIN>;
+	return 3 if (/^\s*[Qq]/);
+
+}
+
+
+#
+# Interactive Session - User didn't tell us what they want to do.
+#
+sub InteractiveSession {
+
+	system("clear");
+	for (;;) {
+		print <<"PROMPT";
+
+What would you like to do?
+	Enter "I" for an introduction to the "$Prog" program
+	Enter "L" to list your current automatic response messages
+	Enter "A" to add a new automatic response
+	Enter "C" to cancel an existing automatic response
+	Enter "S" to temporarily suspend an automatic response
+	Enter "R" to resume a suspended automatic response
+	Enter "Q" to quit
+
+PROMPT
+		print "> ";
+		$_=<STDIN>;
+		chomp;
+		CHOICE: {
+			if (/^\s*[Ii].*$/)
+				{$ExitCode=&Introduction; last CHOICE};
+			if (/^\s*[Aa].*$/)
+				{$ExitCode=&AddResponse; last CHOICE};
+			if (/^\s*[Cc].*$/)
+				{$ExitCode=&CancelResponse; last CHOICE};
+			if (/^\s*[Ll].*$/)
+				{$ExitCode=&ListResponses; last CHOICE};
+			if (/^\s*[Ss].*$/)
+				{$ExitCode=&SuspendResponse; last CHOICE};
+			if (/^\s*[Rr].*$/)
+				{$ExitCode=&ResumeResponse; last CHOICE};
+			if (/^\s*[Qq].*$/)
+				{return 0};
+			print "I'm sorry.  \"$_\" is not L, A, C, S, R, or Q.\n\n";
+		}
+	}
+}
+
+
+#
+# Usage
+#
+sub Usage {
+
+	open (PAGENATER,"| less -c -E") || die("Unable to start less: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - set up automatic e-mail response messages
+
+Usage:	$Prog [-a] [-s start] [-e expiration] [-D days] [-m message] [-U username] 
+	$Prog [-c] [-U username] [resp# ...]
+	$Prog [-l] [-U username] [-C]
+	$Prog [-R] [-U username] [resp# ...]
+	$Prog [-S] [-U username] [resp# ...]
+	$Prog username 
+	$Prog [-h]
+
+Flags:
+	-a	:	Add: add a new automatic e-mail response
+	-s start:	Start: specify the starting date and time for 
+			a new automatic response.  If only a date is 
+			provided, the time will default to 17:00 (5 PM).
+			If -s is not specified, you will be prompted for
+			a starting date and time.
+	-e expiration:	Expiration: specify the expiration date and time for 
+			a new automatic response.  If only a date is 
+			provided, the time will default to 8:00 AM.
+			If -e is not specified, you will be prompted for
+			an expiration date and time.
+	-D	:	This message is only active on the specified weekdays.
+			Weekdays are specified using at least enough letters to
+			be unique (i.e. Su, M, Tu, W, Th, F, Sa).
+			multiple days may be separated by commas.
+	-m message:	Message: message to automatically send back to anyone
+			sending you e-mail.  This should be quoted.  If not
+			provided, you will be prompted for the message text.
+	-U username:	User: Run $Prog as user "username".  This allows 
+			authorized users to run $Prog on behalf of other users.
+	-c	:	Cancel: cancel one or more e-mail responses
+	-S	:	Suspend: suspend (but don't delete) one or more
+			messages
+	-R	:	Resume: resume one or more suspended messages
+	-l	:	List: list existing e-mail responses
+	-C	:	Display listing in a computer-friendly (rather than user
+			friendly) format.
+	-h	:	Help: display this panel
+
+Notes:
+	- If none of -a (add), -c (cancel), -l (list) or -h (help) are
+	specified, "$Prog" will prompt for an action.
+	- The "$Prog username" format is equivalent to "$Prog -U username".
+
+Examples:
+	1) Add a new response.  You will be prompted for the starting date and
+	time, expiration date and time, and message text:
+
+		$Prog -a
+	
+	2) Add a new response to began on 10/15/03 at 4 PM, expire on 10/22/03
+	at 8:00 AM (default), with the specified text:
+		
+		$Prog -a -s "10/15/03 16:00" -e 10/22/03 -m \\
+			"I will be out of the office until Oct. 15th."
+
+	3) Add a new response on behalf of user "jsmith":
+
+		$Prog -U jsmith -a
+	
+	4) Cancel automatic responses.  $Prog will present a list of 
+	current responses, and prompt for items to be deleted.
+
+		$Prog -c
+
+	5) Cancel automatic responses #3 and 4 (as determined from a previous
+	$Prog -l):
+
+		$Prog -c 3 4
+		
+	6) Cancel automatic responses on behalf of "jsmith":
+
+		$Prog -U jsmith -c
+ENDUSAGE
+close PAGENATER;
+}
+
+
+format STDOUT_TOP =
+
+                          Automatic E-Mail Responses
+   # Starts            Expires           Suspended  Days        
+---- ----------------  ----------------  ---------  ----------  
+.
+format STDOUT =
+@>>> @<<<<<<<<<<<<<<<  @<<<<<<<<<<<<<<<      @      ^<<<<<<<<< 
+$Index+1, $ThisStart,  $ThisStop,       $SusFlag,  $TheseDays
+~~   ^<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+$TempMsg
+
+.

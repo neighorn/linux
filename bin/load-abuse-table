@@ -1,0 +1,47 @@
+#!/usr/bin/perl
+#require "syslog.pl"
+
+# Set up our environment.
+$Prog=$0;
+$Prog=~s-^.*/(.*)-$1-;
+$ENV{'PATH'}="/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin";
+$PIDFile="/var/run/${Prog}.pid";
+
+# First, make sure we're not already running.
+if (open (PIDFILE,"< $PIDFile") ) {
+	# File exists.
+	$pid=<PIDFILE>;
+	chop $pid;
+	if ( `ps -o command -p $pid 2> /dev/null` =~ /$Prog/ ) {
+		#The process exists and is running watchhttpd.
+		for $KillType (-15,-9) {
+			if (-d "/proc/$pid") {
+				# We're already running.  Kill that one.
+				kill $KillType, $pid;
+				#Tried following - killed all iptables
+				#$pgroup=`ps -p $pid -o pgrp --no-headers`;
+				#kill $KillType,$pgroup;
+				sleep(2);
+			}		# End IF -d
+		}			# End FOR $KillType
+	}				# End IF -f
+}					# End IF open
+close(PIDFILE);
+open(PIDFILE,"> $PIDFile") || die("Unable to open $PIDFile: $!\n");
+print PIDFILE "$$\n";
+close PIDFILE;
+
+#&openlog($program,'cons','user');
+
+# Next flush the existing table.
+`iptables -F AbuseCheck`;
+
+# Now, rebuild it.
+open(ABUSEDATA,"cat /var/run/AbuseCheck* |") || die("Unable to create process.\n");
+
+while (<ABUSEDATA>) {
+	($IPAddress,undef)=split(/\s+/,$_);
+	`iptables -A AbuseCheck -s $IPAddress -j LogDrop`;
+	}
+close ABUSEDATA;
+

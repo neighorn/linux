@@ -1,0 +1,45 @@
+#! /bin/bash
+
+declare -i Count
+
+if [[ $# -eq 0 ]]
+then
+	print -u2 "Usage: hup {pid|command}"
+	exit 1
+fi
+
+for item in $*
+do
+	if [[ "$item" = [0-9]* ]]
+	then
+		kill -HUP $item
+	else
+		PIDList=""
+		let Count=0
+		ps -C $item | 
+			while read pid trash
+			do
+				PIDList="$PIDList $pid"
+				let Count++
+				echo $Count
+				export Count
+			done
+		echo $Count
+		if [[ $Count -eq 0 ]]
+		then
+			print -u2 "\"$item\" not found."
+		elif [[ $Count -eq 1 ]]
+		then
+			kill -HUP $PIDList
+		else
+			print "$Count processes found for $item.  HUP all?"
+			read response < /dev/tty
+			if [[ $response = [Yy]* ]]
+			then
+				kill -HUP $PIDList
+			else
+				print -u2 "$item not hup'd"
+			fi
+		fi
+	fi
+done

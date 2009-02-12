@@ -1,0 +1,229 @@
+@rem =3D '--*-Perl-*--
+@echo off
+rem if not exist y:\PerlScripts\Perl net use y: \\Snap1\Share1 /persistent:no
+rem if not exist b:\ net use b: \\Snap1\Sysbackups /persistent:no
+path %SYSTEMDRIVE%\bin;%WINDIR%\system32;%WINDIR%;%WINDIR%\System32\Wbem;d:\bin\Perl\Bin
+perl -x -S %0 %*
+goto :EOF
+@rem ';
+#!perl
+#line 11
+#
+# Copyright (c) 2005, Martin Consulting Services, Inc.
+# Licensed under the Lesser Gnu Public License (LGPL).
+# 
+# ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
+# CODE IS STRICTLY AT YOUR OWN RISK.
+#
+
+#
+# =====Description====
+#
+use strict;
+use warnings;
+use LogOutput;
+use ProcessOptions;
+use Text::ParseWords;
+use FindBin qw($RealBin $RealScript);
+use File::DosGlob 'GLOBAL_glob';
+
+# Initialize variables.
+our $Prog=$RealScript;              	# Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+our $Errors=0;                       # No errors so far.
+our $Syslog='';                         # Name of Syslog facility.  '' for none.
+our $BaseDir=$RealBin;			# Set our base directory.
+our $LogFile="";			# Name of the log file.
+our $ConfigFile="$BaseDir/${Prog}.cfg";     # Name of config file.
+our @Parms;				# Array of remaining cmdline parms.
+our %Config;				# Our configuration options.
+my $ExitCode;				# Code we'll exit with.
+#
+our $opt_h;				# -h (help) option.
+our $opt_e;				# -e (error mail) option.
+our $opt_m;				# -m (mail) option.
+our $opt_p;				# -p (pager mail) option.
+our $opt_P;				# -P (pager error mail) option.
+our $opt_t;				# -t (test) option.
+our $opt_v;				# -v (verbose) option.
+#
+
+# Note: general purpose script - don't change current directory.
+#chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+
+# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
+#       1) We define a new type l (lowercase L), which is a list (i.e. if
+#          specified multiple times, values are concatenated & blank separated.o
+#          Normal =s and =i would replace values instead of concatenate.
+#       2) We don't support long option names, except as aliases.
+# These are the standard production options.  Add more options here as needed.
+my $OptSpec='e=l h m=l O=s p=l P=l t v';
+
+# Load the config file.
+if (-e $ConfigFile) {
+	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+	# Build a hash of settings found in the config file.
+	while (<CONFIG>) {
+		next if (/^\s*#/);      # Comment.
+		next if (/^\s*$/);      # Blank line.
+		chomp;
+		my ($name,$settings)=split(/:?\s+/,$_,2);
+		$name=~tr/[a-z]/[A-Z]/;
+		$Config{$name}.=$settings . ',' ;
+	}
+	close CONFIG;
+	foreach (keys(%Config)) {
+		$Config{$_} =~ s/,$//;	# Remove trailing comma
+	}
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Process the command line options, if any.
+if (@ARGV) {
+	# Process the command line arguments.
+	ProcessOptions($OptSpec);
+} else {
+	# No command line options.  Run the default job.
+	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
+		if (defined($Config{'DEFAULTJOB'}));
+}
+if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
+	
+# Set up our logging and output filtering.
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+
+# Verify the command line.
+die("No files specified on the command line.  See \"$Prog -h\" for usage.")
+	unless (@Parms > 0);
+
+
+# Expand file list, in case there are wild cards.
+my @Files=();
+foreach (@Parms) {
+	push @Files, glob $_;
+}
+
+# =========== Add code here =============
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+$ExitCode=$Errors?10:0;
+exit($ExitCode);
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($opt_t) {
+		print "Test: $Cmd\n";
+	} else {
+		print "Executing: $Cmd\n" if ($opt_v);
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	my $Pagenater=$ENV{PAGENATER};
+	$Pagenater="more" unless ($Pagenater);
+	system("pod2text $RealScript | $Pagenater");
+	exit(1);
+}
+
+=pod
+=head1 $Prog - >>description<<
+
+=head3 Usage:  
+	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
+
+	$Prog -h
+
+=head3 Flags:
+	-e mailid:      Error: Send an execution report to this e-mail address
+			if errors are detected.
+	-m mailid:      Mailid: Send an execution report to this e-mail address.
+	-p mailid:      Page: Send a very brief message (suitable for a pager)
+			to this e-mail address when this job completes.
+	-P mailid:      Page error: Send a very brief message to this e-mail 
+			address if errors are detected in this job.
+	-O config:      Insert the "config" configuration options from
+			$ConfigFile.
+			the command line at this point.
+	-t	:	Test: echo commands instead of running them.
+	-v	:	Verbose: echo commands before running them.
+	-h      :       Help: display this panel
+
+=head3 Parameters:
+	files	:	one or more files to process.
+
+=head3 Return codes:
+	0       :       Normal termination
+	1       :       Help panel displayed.
+	2       :       Invalid or unrecognized command line options.
+	3       :       Invalid or unrecognized command line option value.
+	4       :       Incorrect command line parameters.
+	5       :       Unexpected message found in output.
+
+=cut
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:        Ignore - Don't display this message, it's not interesting.
+#               LogOnly - Write this message to the syslog and log file, but
+#                       don't display it on STDOUT.
+#               Show - Display this message, but it's not an error condition.
+#               # - This is a comment, ignore it.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given score
+#               are joined by logical OR conditions.
+#
+#  Notes:
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#       2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+IGNORE  /^\s*$/
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY /^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW    /^Job ended normally with status 0 and signal 0$/
+SHOW    /^Test:/
+SHOW    /^Executing:/
+SHOW	/^\s*debug:/
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.

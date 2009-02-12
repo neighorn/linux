@@ -1,0 +1,12 @@
+#! /usr/bin/perl
+
+use DB_File;
+die "usage: $0 dbmfile\n" unless (@ARGV == 1);
+
+dbmopen(%Hash,$ARGV[0],undef) || die "Unable to open $ARGV[0]: $!\n";
+
+foreach (sort(keys(%Hash))) {
+	printf "-16s: %s\n", $_, $Hash{$_};
+}
+
+dbmclose %Hash;

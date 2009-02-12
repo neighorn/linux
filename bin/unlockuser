@@ -1,0 +1,277 @@
+#!/usr/ods/bin/perl -T
+#############################################################################
+#                                                                           #
+# unlockuser - unlock a locked user-ID, recreate their home directory, etc. #
+#                                                                           #
+#############################################################################
+
+# Set up the environment.
+$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/ods/sbin:/usr/ods/bin:/usr/sbin:/usr/bin:/bin';
+
+#local($a,$b,...);				# Declare local variables.
+
+# Initialize variables.
+$Prog=$0;					# Get our name, for messages.
+$Prog=~s/^.*\///;				# Trim off the path, if present.
+@Args=@ARGV;					# Preserve orig command for ref.
+$ErrorFlag=0;					# No errors so far.
+$Today=`date +%Y-%m-%d`;			# Date used for expirations.
+chomp $Today;
+$Relocated='/etc/postfix/relocated';		# Postfix e-mail reject list.
+
+# Set the default values for options.
+$opt_i="";					# Assume -i not specified.
+
+# Process the command line options, if any.
+$ErrorFlag=&ProcessOptions;
+if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
+
+# Make sure the input file is a normal file (no pipes or redirects) and that
+# we can read it as our current user.  This assures that when we open it as
+# root we don't give something away that we shouldn't have.
+if ($opt_i) {
+        if (! -f $opt_i || ! -r $opt_i) {
+                # Can't read this file.
+                print STDERR "$Unable to read \"$opt_i\"\n";
+                exit 12;
+        }
+}
+
+# Make sure we have root authority for this.
+if ($> != 0) {
+        # We need to run this as root.
+	$MyModule='/usr/ods/sbin/unlockuser';
+        (@Args)=&untaint(@Args);
+	exec("sudo $MyModule @Args");
+        exit $?;
+}
+
+# Process each user, either from the file or from the command line.
+if ($opt_i) {
+	# Reading in user-IDs from a file.
+	sysopen (INPUT,$opt_i, O_RDONLY) || die("Unable to open $opt_i: $!\n");
+	while (<$INPUT>) {
+		# Parse the UserID off the front of the record.  Skip comments.
+		next if (/^\s*\#/);	# Skip comments.
+		($UserID)=split(/\s*(\S+)/);
+
+		$RetCode=&UnlockUser($UserID);
+		$ErrorFlag=$RetCode if ($ErrorFlag < $RetCode);
+		print "\n";
+	}
+} else {
+	# User-IDs are on the command line.
+	for (@ARGV) {
+		$RetCode=&UnlockUser($_);
+		$ErrorFlag=$RetCode if ($ErrorFlag < $RetCode);
+		print "\n";
+	}
+}
+
+exit $ErrorFlag;
+
+
+
+#
+# UnlockUser - unlock a user.
+#
+sub UnlockUser {
+
+	local($UserID)=@_;			# Get calling parms.
+
+	local($PWent, $UID, $HomeDir, $MailFile, $Grep);# Declare local variables.
+
+	# Find this user in /etc/passwd.
+	($UserID2,$trash,$UID,$GID,$trash,$trash,$UserName,$HomeDir,$trash)=
+		getpwnam($UserID);
+	if ($UserID ne $UserID2) {
+		print STDERR "\"$UserID\" is not a valid user on this system.\n";
+		return 10;
+	}
+	$UserID=&untaint($UserID2);
+	$UID=&untaint($UID);
+	$GID=&untaint($GID);
+	$HomeDir=&untaint($HomeDir);
+
+	if ($UID < 100 && $< != 0) {
+		print STDERR "$UserID is a critical system ID. " .
+			"You do not have authority to delete it.\n";
+		return 10;
+	}
+
+	# Unlock the ID.
+	if (`passwd -S $UserID` =~ /$UserID LK/) {
+		&RunDangerous("passwd -u $UserID",
+				"Unable to unlock $UserID") ||
+			print "$UserID has been unlocked.\n";
+	} else {	
+		print "$UserID is not locked.\n"
+	}
+
+	# Recreate the home directory.
+	if (-d $HomeDir) {
+		print "${UserID}'s home directory already exists.\n";
+	} else {
+		&RunDangerous("mkdir $HomeDir", "Unable to create $HomeDir") ||
+			print "$HomeDir created.\n";
+		&RunDangerous("chown $UserID $HomeDir",
+			"Unable to change ownership for $HomeDir") ||
+			print "Ownership of $HomeDir has been set.\n";
+		&RunDangerous("chgrp $GID $HomeDir",
+			"Unable to change ownership for $HomeDir") ||
+			print "Group membership for $HomeDir has been set.\n";
+		&RunDangerous("chmod u=rwx,g=rwxs,o= $HomeDir",
+			"Unable to change permissions for $HomeDir") ||
+			print "Permissions for $HomeDir have been set.\n";
+	}
+
+	# Unlock their e-mail delivery.
+	if (-f $Relocated) {
+		$Grep="grep -q '^${UserID}[ 	]' $Relocated";
+                if (system($Grep) == 0) {
+                        &RunDangerous(
+                                "grep -v '^${UserID}\[ 	\]' $Relocated >>" .
+                                "$Relocated.tmp &&" .
+				"mv $Relocated.tmp $Relocated &&" .
+                                "postmap $Relocated &&" .
+                                "postfix reload > /dev/null",
+                                "Unable to update postfix.") ||
+                                print "Future e-mail for $UserID will be accepted.\n";
+                } else {
+                        print "${UserID}'s e-mail is already being accepted.\n";
+                }
+        }
+
+	
+}
+
+
+
+#
+# RunDangerous - run a dangerous command, unless -t has been set.
+#
+sub RunDangerous {
+
+	local($RunCommand, $ErrorText)=@_;
+	local($Prefix,$ErrorMsg,$Status);	
+	if ($opt_t) {
+		# Testing - don't really do it.
+		print "[Test]: $RunCommand\n";
+		$Status=0;
+	} else {
+		# This is for real.
+		$ErrorMsg=`$RunCommand`;
+		$Status=$?;
+		if ($Status) {
+			($Prefix,$trash)=split(" ",$RunCommand,2);
+			print STDERR "$ErrorMsg\n$ErrorText   " .
+				"$Prefix returned status $Status\n";
+			$ErrorFlag=11 if ($ErrorFlag < 11);
+			$Status=11;
+		}
+	}
+	return $Status;
+}
+
+
+
+#
+# Untaint
+#
+
+sub untaint {
+        local(@parms) = @_;
+        local($tmp);
+        foreach (@parms) {
+                s/^(.*)$/$1/;
+                $_=$1;
+        }
+        if (@parms == 1) {
+                # Return scalar
+                return $parms[$[];
+        } else {
+                # Return list
+                return (@parms);
+        }
+}
+
+
+
+#
+# ProcessOptions
+#
+sub ProcessOptions {
+
+	local($option,$value);
+	use Getopt::Mixed "nextOption";
+	Getopt::Mixed::init("m=s e=s h i y t");
+	while (($option, $value) = nextOption()) {
+		if ($option eq "h")	{
+			# -h specified.  Show them the usage and exit.
+			&Usage;
+			exit 1;
+		}
+		if ($option eq "i")	{
+			# -i specified.  Use file as input instead of cmdline.
+			if ($opt_i) {
+				print STDERR "The \"-i\" option may not be used " .
+					"more than once.\n";
+				$ErrorFlag=2;
+			} else {
+				$opt_i=$value;
+			}
+			next;
+		}
+	
+		if ($option eq "y")	{
+			# -y specified.  Remember not to prompt for everything.
+			$opt_y = 1;
+			next;
+		}
+			
+		if ($option eq "t")	{
+			# -t specified.  Remember that we're only testing.
+			$opt_t = 1;
+			next;
+		}
+			
+		print STDERR "Unrecognized option: \"$option\".  Enter " .
+			"\"$Prog -h\" for usage information.\n";
+		$ErrorFlag=2;
+	}
+	Getopt::Mixed::cleanup();
+	return $ErrorFlag;
+}
+
+
+#
+# Usage
+#
+sub Usage {
+
+	open (PAGENATER,"| less -c -E") || die("Unable to start less: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - unlock locked login accounts.
+
+Usage:	$Prog [-i file] [-t] [-h]
+	$Prog [-h]
+
+Flags:
+	-i file	:	Input: read user-IDs to delete from "file".
+	-t	:	Test: don't really do anything.
+	-h	:	Help: display this panel
+
+Examples:
+
+Return codes:
+	0	:	Normal termination
+	1	:	Help panel displayed.
+	2	:	Invalid or unrecognized command line options.
+	3	:	Invalid or unrecognized command line option value.
+	4	:	Incorrect command line parameters.
+	10	:	UserID(s) skipped - warning message issued.
+	11	:	Unable to unlock UserID(s) completely - warning
+			messages issued.
+ENDUSAGE
+close PAGENATER;
+}
