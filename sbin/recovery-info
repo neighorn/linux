@@ -113,6 +113,10 @@ RunDangerousCmd("lvm vgcfgbackup -f $opt_o/vg-%s.out");
 RunDangerousCmd("pvdisplay > $opt_o/pvdisplay.out");
 RunDangerousCmd("vgdisplay > $opt_o/vgdisplay.out");
 RunDangerousCmd("lvdisplay > $opt_o/lvdisplay.out");
+
+# Capture network configuration.
+RunDangerousCmd("ifconfig -a > $opt_o/ifconfig.out");
+RunDangerousCmd("netstat -nr > $opt_o/netstat.out");
 	
 exit(0);
 
