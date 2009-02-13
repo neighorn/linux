@@ -5,8 +5,8 @@
 #	eth1 is the 1nside network
 #
 
-ifconfig eth0 | grep -q 00:50:BA:4C:FA:E5 || exit 8  #Eth0 has incorrect MAC
-ifconfig eth1 | grep -q 00:20:78:11:32:75 || exit 8  #Eth1 has incorrect MAC
+verify eth0 xx:xx:xx:xx:xx:xx 
+verify eth1 xx:xx:xx:xx:xx:xx
 
 /sbin/depmod -a
 /sbin/lsmod | /bin/grep -q ipchains && /sbin/rmmod ipchains || /bin/cat /dev/null
@@ -26,7 +26,7 @@ iptables -P FORWARD DROP
 iptables -P OUTPUT ACCEPT
 iptables -F
 iptables -X
-iptables -N IntToFW
+iptables -N IntToMe
 iptables -N IntToExt
 iptables -N ExtToFW
 iptables -N AbuseCheck
@@ -55,7 +55,7 @@ iptables -A INPUT    -i lo				-j ACCEPT
 iptables -A INPUT -p tcp --tcp-flags ALL ALL		-j LogDrop
 iptables -A INPUT -p tcp --tcp-flags ALL NONE		-j LogDrop
 #    Determine which subset this access belongs to.
-iptables -A INPUT -i eth1 -p all            		-j IntToFW
+iptables -A INPUT -i eth1 -p all            		-j IntToMe
 iptables -A INPUT -i ! eth1 -p all          		-j ExtToFW
 iptables -A INPUT                                       -j LogReject
 #
@@ -64,50 +64,50 @@ iptables -A INPUT                                       -j LogReject
 #
 #
 #    Allow ongoing conversations
-iptables -A IntToFW    -p udp -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A IntToFW    -p tcp -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A IntToMe    -p udp -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A IntToMe    -p tcp -m state --state ESTABLISHED,RELATED -j ACCEPT
 #    Allow all icmp traffic from inside.
-iptables -A IntToFW    -p icmp                -j ACCEPT
+iptables -A IntToMe    -p icmp                -j ACCEPT
 ###    Reject Samba traffic without logging to keep the log clear of SMB traffic.
-##iptables -A IntToFW    -p tcp --destination-port 137       -j REJECT
-##iptables -A IntToFW    -p udp --destination-port 137       -j REJECT
-##iptables -A IntToFW    -p tcp --destination-port 138       -j REJECT
-##iptables -A IntToFW    -p udp --destination-port 138       -j REJECT
+##iptables -A IntToMe    -p tcp --destination-port 137       -j REJECT
+##iptables -A IntToMe    -p udp --destination-port 137       -j REJECT
+##iptables -A IntToMe    -p tcp --destination-port 138       -j REJECT
+##iptables -A IntToMe    -p udp --destination-port 138       -j REJECT
 ##                   -- OR --
 ###    Accept Samba traffic
-##iptables -A IntToFW    -p tcp --destination-port 137       -j ACCEPT
-##iptables -A IntToFW    -p udp --destination-port 137       -j ACCEPT
-##iptables -A IntToFW    -p tcp --destination-port 138       -j ACCEPT
-##iptables -A IntToFW    -p udp --destination-port 138       -j ACCEPT
-##iptables -A IntToFW    -p tcp --destination-port 139       -j ACCEPT
-##iptables -A IntToFW    -p udp --destination-port 139       -j ACCEPT
-##iptables -A IntToFW    -p tcp --destination-port 445       -j ACCEPT
-##iptables -A IntToFW    -p udp --destination-port 445       -j ACCEPT
+##iptables -A IntToMe    -p tcp --destination-port 137       -j ACCEPT
+##iptables -A IntToMe    -p udp --destination-port 137       -j ACCEPT
+##iptables -A IntToMe    -p tcp --destination-port 138       -j ACCEPT
+##iptables -A IntToMe    -p udp --destination-port 138       -j ACCEPT
+##iptables -A IntToMe    -p tcp --destination-port 139       -j ACCEPT
+##iptables -A IntToMe    -p udp --destination-port 139       -j ACCEPT
+##iptables -A IntToMe    -p tcp --destination-port 445       -j ACCEPT
+##iptables -A IntToMe    -p udp --destination-port 445       -j ACCEPT
 #    Allow ssh, smtp, http, https, pop, imap, popssl, and imapssl
-iptables -A IntToFW    -p tcp --destination-port ssh	   -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port smtp	   -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port domain    -j ACCEPT
-iptables -A IntToFW    -p udp --destination-port domain    -j ACCEPT
-##iptables -A IntToFW    -p tcp --destination-port bootps    -j ACCEPT
-##iptables -A IntToFW    -p udp --destination-port bootps    -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port http      -j ACCEPT
-iptables -A IntToFW    -p udp --destination-port http      -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port pop3      -j ACCEPT
-iptables -A IntToFW    -p udp --destination-port pop3      -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port auth      -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port imap2     -j ACCEPT
-iptables -A IntToFW    -p udp --destination-port imap2     -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port imap3     -j ACCEPT
-iptables -A IntToFW    -p udp --destination-port imap3     -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port https     -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port imaps     -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port pop3s     -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port ftp       -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port ftp-data  -j ACCEPT
-iptables -A IntToFW    -p tcp --destination-port ntp       -j ACCEPT
-iptables -A IntToFW    -p udp --destination-port ntp       -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port ssh	   -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port smtp	   -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port domain    -j ACCEPT
+iptables -A IntToMe    -p udp --destination-port domain    -j ACCEPT
+##iptables -A IntToMe    -p tcp --destination-port bootps    -j ACCEPT
+##iptables -A IntToMe    -p udp --destination-port bootps    -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port http      -j ACCEPT
+iptables -A IntToMe    -p udp --destination-port http      -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port pop3      -j ACCEPT
+iptables -A IntToMe    -p udp --destination-port pop3      -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port auth      -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port imap2     -j ACCEPT
+iptables -A IntToMe    -p udp --destination-port imap2     -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port imap3     -j ACCEPT
+iptables -A IntToMe    -p udp --destination-port imap3     -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port https     -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port imaps     -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port pop3s     -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port ftp       -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port ftp-data  -j ACCEPT
+iptables -A IntToMe    -p tcp --destination-port ntp       -j ACCEPT
+iptables -A IntToMe    -p udp --destination-port ntp       -j ACCEPT
 ### Allow squid.
-##iptables -A IntToFW    -p tcp --destination-port 3128      -j ACCEPT
+##iptables -A IntToMe    -p tcp --destination-port 3128      -j ACCEPT
 #
 #
 #
@@ -199,7 +199,7 @@ iptables -A IntToExt    -p tcp --destination-port domain    -j ACCEPT
 iptables -A IntToExt    -p udp --destination-port domain    -j ACCEPT
 iptables -A IntToExt    -p tcp --destination-port http      -j ACCEPT
 iptables -A IntToExt    -p tcp --destination-port pop3      -j LogSyn
-iptables -A IntToExt    -p tcp --destination-port imap2     -j LogSyn
+iptables -A IntToExt    -p tcp --destination-port imaps     -j LogSyn
 iptables -A IntToExt    -p tcp --destination-port imap3     -j LogSyn
 iptables -A IntToExt    -p tcp --destination-port https     -j ACCEPT
 iptables -A IntToExt    -p tcp --destination-port ftp       -j LogSyn
