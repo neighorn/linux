@@ -1,0 +1,14 @@
+Alias /mrtg /usr/local/etc/apache2/pages/mrtg
+<Directory /usr/local/etc/apache2/pages/mrtg>
+   DirectoryIndex index.html index.shtml index.html.var
+   Options +Includes
+   ExpiresActive On
+   ExpiresDefault A300
+   order deny,allow
+   deny from all
+   allow from 127.0.0.1
+   allow from 192.168.xxx.0/16
+   AddType text/html .shtml
+   AddHandler server-parsed .shtml
+</Directory>
+

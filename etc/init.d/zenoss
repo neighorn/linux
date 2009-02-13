@@ -1,0 +1,176 @@
+#! /usr/bin/env bash
+#
+#############################################################################
+# This program is part of Zenoss Core, an open source monitoring platform.
+# Copyright (C) 2007, Zenoss Inc.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 as published by
+# the Free Software Foundation.
+#
+# For complete information please visit: http://www.zenoss.com/oss/
+#############################################################################
+
+#
+# chkconfig: 2345 80 30
+#
+
+# zenctl        This init.d script starts and stops Zenoss
+#               
+# description: Zenoss is a monitoring program written by Zenoss, Inc.
+#
+# Most of the time this script simply delegates to
+# ${ZENHOME}/bin/zenoss to actually execute the requested command
+# (start/stop).  But, in some situations it behaves differently.  
+#
+# This script also checks for the fresh_install or upgraded flags.  If
+# they are present the script will delegate to the pre/post-install or
+# upgrade scripts as appropriate.  A normal chain of events is
+# documented below:
+#
+# <fresh install>
+# zenoss_init_pre
+# zenoss start
+# zenoss_init_post
+# ... time goes by ...
+# zenoss stop
+# <upgrade occurs>
+# zenoss_upgrade_pre
+# zenoss start
+# zenoss_upgrade_pos
+#
+# --Christopher Blunck
+#
+
+# environment variables
+export ZENHOME="/opt/zenoss"
+export RUNUSER="zenoss"
+export SNMPD_CONF="/etc/snmp/snmpd.conf"
+export MY_CNF="/etc/my.cnf"
+export ZOPE_USERNAME="admin"
+export ZOPE_PASSWORD="zenoss"
+export ZOPE_LISTEN_PORT="8080"
+
+# signature of zenoss having been installed for the first time (but
+# not configured yet)
+export FRESH_INSTALL=${ZENHOME}/.fresh_install
+
+# signature of zenoss having been upgraded from a previous install
+export UPGRADED=${ZENHOME}/.upgraded
+
+
+# changes the owners and permissions for the zenoss files
+set_perms() {
+    for dir in \
+        ${ZENHOME}/log \
+        ${ZENHOME}/etc \
+        ${ZENHOME}/var
+    do
+        if [ ! -d ${dir} ]; then
+            continue
+        fi
+
+        chown -R ${RUNUSER}:${RUNUSER} ${dir}
+        chmod -R 775 ${dir}
+    done
+}
+
+# these commands are run when zenoss was installed for the first time
+# and BEFORE the zenoss processes are started
+fresh_install_pre() {
+    echo "Zenoss not initialized.  Performing first-boot initialization..."
+
+    # location of where we copy configuration items to
+    ZEN_ETC=${ZENHOME}/etc
+
+    # update the snmpd.conf file
+    SNMPD_CONF_DIR=`dirname ${SNMPD_CONF}`
+    BACKUP=${SNMPD_CONF_DIR}/`basename ${SNMPD_CONF}`.orig
+    if [ -f ${SNMPD_CONF} ]; then
+        cp ${SNMPD_CONF} ${BACKUP}
+    fi
+    if [ ! -d ${SNMPD_CONF_DIR} ]; then
+        mkdir -p ${SNMPD_CONF_DIR}
+    fi
+    cp ${ZEN_ETC}/snmpd.conf ${SNMPD_CONF}
+    
+    # run the first time initialization pre-run script
+    set_perms
+    ${ZENHOME}/bin/zenoss_init_pre
+    set_perms
+
+    echo "Zenoss initialization complete."
+}
+
+
+# these commands are run when zenoss was installed for the first time
+# but AFTER the zenoss processes are started
+fresh_install_post() {
+    # run the first time initialization post-run script
+    ${ZENHOME}/bin/zenoss_init_post
+}
+
+
+# these commands are run when zenoss is started after being upgraded
+# and BEFORE the zenoss processes are started
+upgrade_pre() {
+    echo "Zenoss upgraded.  Running data migration scripts..."
+
+    # run the first time initialization pre-run script
+    set_perms
+    ${ZENHOME}/bin/zenoss_upgrade_pre
+    set_perms
+
+    echo "Zenoss upgrade complete."
+}
+
+
+# these commands are run when zenoss is started after being upgraded
+# but AFTER the zenoss processes are started
+upgrade_post() {
+
+    # run the first time initialization post-run script
+    ${ZENHOME}/bin/zenoss_upgrade_post
+
+}
+
+
+#
+# main script starts here
+#
+# basically we check if the fresh_install/upgraded flag exists.  if it
+# does then we run the pre functions prior to starting up zenoss.
+# this allows us to do things like zeneventbuild, or zenmigrate.  then
+# we start up zenoss.  lastly we run the post functions after zenoss
+# is up and running.  this allows us to do things like "add localhost
+# to the zenoss database through the web UI"
+#
+
+# run the firstboot if this is the first time zenoss was started
+if [ -f ${FRESH_INSTALL} ]; then
+    fresh_install_pre
+fi
+
+# run the upgrade if this is the first time zenoss was started since
+# an upgrade occurred
+if [ -f ${UPGRADED} ]; then
+    upgrade_pre
+    rm ${UPGRADED}
+fi
+
+
+# delegate to the main zenoss script for control functions
+su - ${RUNUSER} sh -c "${ZENHOME}/bin/zenoss $@"
+
+
+# run the post-script for firstboot and remove the firstboot flag
+if [ -f ${FRESH_INSTALL} ]; then
+    fresh_install_post
+    rm ${FRESH_INSTALL}
+fi
+
+# run the post-script for upgrade and remove the upgradeflag
+if [ -f ${UPGRADED} ]; then
+    upgrade_post
+    rm ${UPGRADED}
+fi

@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+    <TITLE>
+	<!--#echo var="SERVER_NAME"-->
+	MRTG Index Page
+    </TITLE>
+    <!-- Command line is easier to read using "View Page Properties" of your browser -->
+    <!-- But not all browsers show that information. :-(                             -->
+    <META NAME="Command-Line" CONTENT="/usr/bin/indexmaker mrtg.cfg">
+    <META HTTP-EQUIV="Refresh" CONTENT="300">
+    <META HTTP-EQUIV="Cache-Control" content="no-cache">
+    <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
+    <META HTTP-EQUIV="Expires" CONTENT="Fri, 06 Jul 2007 20:22:14 GMT">
+    <LINK HREF="/icons/favicon.ico" rel="shortcut icon" />
+    
+<style type="text/css">
+<!--
+/* commandline was: /usr/bin/indexmaker mrtg.cfg */
+/* sorry, no style, just abusing this to place the commandline and pass validation */
+-->
+</style>
+</HEAD>
+
+<BODY bgcolor="#ffffff" text="#000000" link="#000000" vlink="#000000" alink="#000000">
+
+
+<H1>
+    MRTG Index Page for
+    <!--#echo var="SERVER_NAME"-->
+</H1>
+<!--#include file="updated.html" -->
+
+<TABLE BORDER=0 CELLPADDING=0 CELLSPACING=10>
+<tr>
+<td><DIV><B>Traffic Analysis for eth0</B></DIV>
+<DIV><A HREF="eth0.html"><IMG BORDER=1 ALT="eth0 Traffic Graph" SRC="eth0-day.png"></A><BR>
+<SMALL><!--#flastmod file="eth0.html" --></SMALL></DIV>
+</td><td><DIV><B>Traffic Analysis for eth1</B></DIV>
+<DIV><A HREF="eth1.html"><IMG BORDER=1 ALT="eth1 Traffic Graph" SRC="eth1-day.png"></A><BR>
+<SMALL><!--#flastmod file="eth1.html" --></SMALL></DIV>
+</td></tr>
+<tr>
+<td><DIV><B>CPU temperature</B></DIV>
+<DIV><A HREF="cputemp.html"><IMG BORDER=1 ALT="cputemp Traffic Graph" SRC="cputemp-day.png"></A><BR>
+<SMALL><!--#flastmod file="cputemp.html" --></SMALL></DIV>
+</td><td><DIV><B>Sensor3 temperature</B></DIV>
+<DIV><A HREF="temp3.html"><IMG BORDER=1 ALT="temp3 Traffic Graph" SRC="temp3-day.png"></A><BR>
+<SMALL><!--#flastmod file="temp3.html" --></SMALL></DIV>
+</td></tr>
+<tr>
+<td><DIV><B>Motherboard temperature</B></DIV>
+<DIV><A HREF="mbtemp.html"><IMG BORDER=1 ALT="mbtemp Traffic Graph" SRC="mbtemp-day.png"></A><BR>
+<SMALL><!--#flastmod file="mbtemp.html" --></SMALL></DIV>
+</td><td><DIV><B>Fan 3</B></DIV>
+<DIV><A HREF="fan3.html"><IMG BORDER=1 ALT="fan3 Traffic Graph" SRC="fan3-day.png"></A><BR>
+<SMALL><!--#flastmod file="fan3.html" --></SMALL></DIV>
+</td></tr>
+<tr>
+<td></td>
+</tr>
+</TABLE>
+
+<BR>
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+  <TR>
+    <TD WIDTH=63><A
+    HREF="http://oss.oetiker.ch/mrtg/"><IMG
+    BORDER=0 SRC="/icons/mrtg-l.png" WIDTH=63 HEIGHT=25 ALT="MRTG"></A></TD>
+    <TD WIDTH=25><A
+    HREF="http://oss.oetiker.ch/mrtg/"><IMG
+    BORDER=0 SRC="/icons/mrtg-m.png" WIDTH=25 HEIGHT=25 ALT=""></A></TD>
+    <TD WIDTH=388><A
+    HREF="http://oss.oetiker.ch/mrtg/"><IMG
+    BORDER=0 SRC="/icons/mrtg-r.png" WIDTH=388 HEIGHT=25
+    ALT="Multi Router Traffic Grapher"></A></TD>
+  </TR>
+</TABLE>
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+  <TR VALIGN=top>
+  <TD WIDTH=88 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2>
+  version 2.14.7</FONT></TD>
+  <TD WIDTH=388 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2>
+  <A HREF="http://tobi.oetiker.ch/">Tobias Oetiker</A>
+  <A HREF="mailto:tobi+mrtglink@oetiker.ch">&lt;tobi@oetiker.ch&gt;</A>
+  and&nbsp;<A HREF="http://www.bungi.com/">Dave&nbsp;Rand</A>&nbsp;<A HREF="mailto:dlr@bungi.com">&lt;dlr@bungi.com&gt;</A></FONT>
+  </TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>
