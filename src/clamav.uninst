@@ -1,0 +1,4 @@
+#!/bin/sh -v
+cd /usr/local/src/clamav.current &&
+stopsys clamd &&
+make uninstall

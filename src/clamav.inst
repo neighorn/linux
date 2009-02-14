@@ -1,0 +1,10 @@
+#!/bin/sh -v
+./configure --with-user=vscan --with-group=vscan &&
+make &&
+make install &&
+ldconfig &&
+freshclam
+startsys clamd
+rm ../clamav.current
+ln -sf $PWD ../clamav.current
+mail -s vtest bmartin < ~bmartin/mailtests/eicar.com

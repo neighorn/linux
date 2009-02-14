@@ -1,0 +1,22 @@
+#! /usr/bin/perl -T
+use strict;
+
+my $item;		# Item we're looking for.
+my $dir;		# Directory we're looking for it in.
+my $candidate;		# Full path of possible location of item.
+my $count;		# Number of times we found it.
+
+foreach $item (@ARGV) {
+	$item =~ s"::"/"g;
+	$item .= ".pm" unless ($item =~ /.pm$/);
+	$count=0;
+	foreach $dir (@INC) {
+		$candidate="$dir/$item";
+		if (-e "$candidate") {
+			print "$candidate\n";
+			$count++;
+		}
+	}
+	print "$item not found\n" if ($count == 0);
+}
+			
