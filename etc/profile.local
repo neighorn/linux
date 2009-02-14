@@ -1,0 +1,2 @@
+PERL5LIB="/usr/local/lib/perl5/site_perl"
+export PERL5LIB

@@ -1,0 +1,4 @@
+#%PAM-1.0
+auth       required     pam_userdb.so db=/usr/local/etc/security/imap.passwd
+account    include	common-account
+session    include      common-session
