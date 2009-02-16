@@ -2,9 +2,21 @@
 
 declare -i Count
 
+function PIDLIST {
+
+ps -e -opid,comm |
+	grep "^ *[0-9]* *$1" |
+	awk 'BEGIN{List=""} {List=List " " $1} END{print List}'
+}
+
+function CountWords {
+	echo $#
+}
+	
+
 if [[ $# -eq 0 ]]
 then
-	print -u2 "Usage: hup {pid|command}"
+	echo "Usage: hup {pid|command}" >2
 	exit 1
 fi
 
@@ -14,32 +26,25 @@ do
 	then
 		kill -HUP $item
 	else
-		PIDList=""
+		PIDList=`PIDLIST $item`
 		let Count=0
-		ps -C $item | 
-			while read pid trash
-			do
-				PIDList="$PIDList $pid"
-				let Count++
-				echo $Count
-				export Count
-			done
-		echo $Count
+		Count=`CountWords $PIDList`
 		if [[ $Count -eq 0 ]]
 		then
-			print -u2 "\"$item\" not found."
+			echo "\"$item\" not found." >2
 		elif [[ $Count -eq 1 ]]
 		then
 			kill -HUP $PIDList
 		else
-			print "$Count processes found for $item.  HUP all?"
+			echo "$Count processes found for $item.  HUP all?" >2
 			read response < /dev/tty
 			if [[ $response = [Yy]* ]]
 			then
 				kill -HUP $PIDList
 			else
-				print -u2 "$item not hup'd"
+				echo "$item not hup'd" >2
 			fi
 		fi
 	fi
 done
+
