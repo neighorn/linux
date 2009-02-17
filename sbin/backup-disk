@@ -1,0 +1,92 @@
+function DD {
+
+	dd $*
+	((Status = $?))
+	((OldStatus=0))
+	[[ -f $TmpFile ]] && ((OldStatus=`cat $TmpFile`))
+	[[ $Status -ge $OldStatus ]] && echo $Status > $TmpFile
+}
+
+function CopyDisk {
+	echo "======================================================================"
+	echo "Copying $1 to $DiskImageFile"
+	date
+	((MaxRC = 0))
+	set -v
+	fdisk -l $BaseDisk > $DiskPartitionMap
+	DD if=$BaseDisk bs=512 count=1 > $Sector0
+	DD if=$1 bs=512 | gzip -c > $DiskImageFile
+	set +v
+	date
+	echo "======================================================================"
+}
+
+function RunBackup {
+while [[ $# -gt 0 ]]
+do
+	if [[ $1 != /dev/* ]]
+	then
+		echo "$1 is not a device file -- skipped."
+		continue
+	fi
+	echo "$Date $SystemName $1 $Comment" >> $TargetDir/comments
+	DiskImageFile="$TargetDir$SystemName-$Date-${1##*/}.image.gz"
+	BaseDisk="${1%%[0-9]}"
+	hdparm -d $BaseDisk | grep -q off
+	if [[ $? -eq -0 ]]
+	then
+		echo "Turning on dma for $BaseDisk"
+		hdparm -d1 $BaseDisk
+	fi
+	DiskPartitionMap="$TargetDir$SystemName-$Date-${BaseDisk##*/}.partitions"
+	Sector0="$TargetDir$SystemName-$Date-${BaseDisk##*/}.sector0"
+	time CopyDisk $1
+	shift
+done
+Status=`cat $TmpFile`
+echo "Ended with exit code $Status"
+return $Status
+}
+
+function StatusReport {
+
+# Get the process ID of the dd process.
+sleep 60	# Give dd time to start.
+PID=`ps --no-heading -o pid,cmd -e | grep 'dd if' | grep -v grep | awk '{print $1}' | tail -1`
+
+# Run as a separate process.  Show amount processed every 5 minutes.
+((Count=1))
+while ps -p $PID > /dev/null 2>&1
+do
+    sleep 60
+    ((Count = $Count + 1))
+    if [[ $Count -ge 5 ]]
+    then
+        kill -USR1 $PID 2> /dev/null
+        ((Count = 0))
+    fi
+done
+}
+
+
+if [[ $# -lt 2 ]]
+then
+	echo "Usage: $0 systemname /dev/devname "
+	echo "Example: $0 office /dev/hda "
+	exit 8
+fi
+Date=`date +%Y-%m-%d`
+Prog=${0##*/}
+TargetDir=${0%$Prog}
+SystemName=$1
+shift
+TmpFile="/tmp/backup-disk.$$"
+
+echo "Comment? "
+read Comment
+
+# Launch the status monitoring process.
+StatusReport $$ &
+
+RunBackup $* 2>&1 | tee ./backup-disk.log
+exit $?
