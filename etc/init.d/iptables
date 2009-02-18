@@ -24,7 +24,13 @@ flushall()
         for i in $chains; do iptables -t $i -X; done
 }
 
-stop() 
+stop()
+{
+	# Lock us down.
+	panic
+}
+
+acceptall() 
 {
         echo -n "Resetting built-in chains to the default ACCEPT policy:"
 	flushall
@@ -72,7 +78,7 @@ panic() {
 rc_reset
 
 case "$1" in
-    start)
+  start)
 	echo -n "Loading IPTables"
 	flushall
 	/usr/local/sbin/load-iptables -q || panic
@@ -82,7 +88,9 @@ case "$1" in
   stop)
 	stop
 	;;
-
+  acceptall) 
+	acceptall
+	;;
   restart)
 	# "restart" is really just "start" as this isn't a daemon,
 	#  and "start" clears any pre-defined rules anyway.
@@ -92,8 +100,6 @@ case "$1" in
 
   condrestart)
 	[ -e /var/lock/subsys/iptables ] && start
-	;;
-
   status)
 	echo "Table: filter"
 	iptables --list
@@ -107,7 +113,7 @@ case "$1" in
 	panic
         ;;
   *)
-	echo "Usage: $0 {start|stop|restart|condrestart|status|panic}"
+	echo "Usage: $0 {start|stop|restart|acceptall|status|panic}"
 	exit 1
 esac
 

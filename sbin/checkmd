@@ -60,6 +60,25 @@ if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
 # Set up our logging and output filtering.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
+if ($Config{DISABLEUNTIL}) {
+	if ($Config{DISABLEUNTIL} =~ m"^(\d\d?)[/-](\d\d?)[/-](\d\d(\d\d)?)") {
+		my($AMonth,$ADay, $AYear) = ($1,$2,$3);
+		my($CDay,$CMonth,$CYear) =(localtime())[3..5];
+		$CMonth++;
+		$CYear+=1900;
+		$AYear += (int($CYear/100)*100) if ($AYear < 100);
+		$CDate = $CYear * 10000 + $CMonth * 100 + $CDay;
+		$ADate = $AYear * 10000 + $AMonth * 100 + $ADay;
+		if ($CDate < $ADate) {
+			print "Checks disabled until $AMonth/$ADay/$AYear per config file.\n";
+			exit 0;
+		}
+	}
+	else {
+              print "Invalid DisableUntil date specified in config file: $Config{DISABLEUNTIL} -- ignored.\n";
+	}
+}
+
 # Typical /proc/mdstat records...
 # md1 : active raid1 hda1[0] hdc1[1]
 #      261952 blocks [2/2] [UU]
@@ -68,7 +87,7 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 open (MDSTAT, '/proc/mdstat') || die("Unable to open /proc/mdstat: $!\n");
 while (<MDSTAT>) {
 	next if (/^\s*$/);
-	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+(\S+)\s+/) {
+	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+.*(raid\S+)\s+/) {
 		# This is a "mdx : active raid1" line.
 		($mdname, $status, $type) = ($1,$2,$3);
 		($mdindex=$mdname) =~s/^md//;
@@ -205,6 +224,8 @@ LOGONLY	/^Command: /
 #
 # These are normal messages that we want to see.
 #
+SHOW	/^\s*debug:/
+SHOW	/^\s*Checks disabled until/
 SHOW	/^Job ended normally with status 0 and signal 0$/
 #
 # Anything that doesn't match one of these three sets of patterns is considered

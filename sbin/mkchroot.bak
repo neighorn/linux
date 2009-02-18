@@ -28,7 +28,7 @@ REQUIRED_CHROOT_FILES="  /bin/cp \
                          /usr/bin/groups \
                          /usr/bin/id \
                          /bin/bash \
-			 /lib/libnss_compat.so* \
+			 /lib/libnss_compat.so.2 \
                          /usr/lib/ssh/sftp-server"
 
 REQUIRED_EMPTY_FILES="	/etc/security/limits.conf"
@@ -97,12 +97,8 @@ done
 cat <<-ENDNOTES
 
 Remaining manual tasks:
-1) Create the new user(s) that will run chrooted, preferably with minimal group 
-memberships.
-2) Install pam_chroot
-3) Update /etc/security/chroot.conf to direct the new users into the chroot jail.
-4) For sftp, you'll need to create a $CHROOT_DIR/etc/passwd entry for the user(s).
-5) For scp support (at least for winscp), you'll need to create /etc/group
+1) For sftp, you'll need to create a $CHROOT_DIR/etc/passwd entry for the user(s).
+2) For scp support (at least for winscp), you'll need to create /etc/group
 entries for the groups that the user(s) are in.
 
 ENDNOTES

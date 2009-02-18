@@ -1,0 +1,61 @@
+function restore {
+if [[ $# != 2 ]]
+then
+	echo "Usage: $0 filename /dev/devname filename2 /dev/devname2 ..."
+	echo "Example: $0 ./office-2004-01-01-hda.gz /dev/hda"
+	exit 8
+fi
+if [[ ! -r $1 ]]
+then
+	echo "Unable to read $1" 1>&2
+	exit 8
+fi
+if [[ $1 != *.gz ]]
+then
+	echo "$1 is not a gzip file." 1>&2
+	exit 8
+fi
+if [[ ! -b $2 ]]
+then
+	echo "$2 is not a block device" 1>&2
+	exit 8
+fi
+if [[ $2 != /dev/* ]]
+then
+	echo "$2 is not located in /dev"
+	exit 8
+fi
+mydev=`df $0 | tail -1 | awk '{print substr($1,1,8)}'`
+if [[ $2 = ${mydev}* ]]
+then
+	echo "Can't restore on to back-up disk - would destroy backups"
+	exit 8
+fi
+
+echo "======================================================================"
+echo "Copying $1 to $2"
+echo "Starting restore at `date`"
+gunzip -c $1 | dd of=$2 bs=512
+((Status=$?))
+echo "Restore ended at `date`"
+echo "Exit status = $Status"
+echo "======================================================================"
+}
+
+if [[ $# < 2 ]]
+then
+	echo "Usage: $0 filename /dev/devname filename2 /dev/devname2 ..."
+	echo "Example: $0 ./office-2004-01-01-hda.gz /dev/hda"
+	exit 8
+fi
+
+((ExitCode=0))
+while [[ $# > 0 ]]
+do
+	restore $1 $2
+	((Status = $?))
+	[[ $ExitCode < $Status ]] && ((ExitCode=$Status))
+	shift
+	shift
+done
+exit $ExitCode

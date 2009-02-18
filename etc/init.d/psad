@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# Startup script for psad
+#
+# chkconfig: 345 99 05
+# description: The Port Scan Attack Detector (psad)
+# processname: psad
+# pidfile: /var/run/psad.pid
+# config: /etc/psad/psad.conf
+#
+# $Id: psad-init.redhat 1368 2005-06-14 01:00:35Z mbr $
+
+# Shell functions sourced from /etc/rc.status:
+#      rc_check         check and set local and overall rc status
+#      rc_status        check and set local and overall rc status
+#      rc_status -v     be verbose in local rc status and clear it afterwards
+#      rc_status -v -r  ditto and clear both the local and overall rc status
+#      rc_status -s     display "skipped" and exit with status 3
+#      rc_status -u     display "unused" and exit with status 3
+#      rc_failed        set local and overall rc status to failed
+#      rc_failed <num>  set local and overall rc status to <num>
+#      rc_reset         clear both the local and overall rc status
+#      rc_exit          exit appropriate to overall rc status
+#      rc_active        checks whether a service is activated by symlinks
+. /etc/rc.status
+
+restart() {
+    $0 stop
+    $0 start
+}
+
+# See how we were called.
+case "$1" in
+start)
+    echo -n "Starting psad: "
+    ### psad enables signature matching and auto
+    ### danger level assignment by default, so
+    ### command line args are not necessary here.
+    startproc /usr/sbin/psad
+    RETVAL=$?
+    echo
+    if [ $RETVAL -eq 0 ]; then
+        touch /var/lock/subsys/psad
+    fi
+    ;;
+stop)
+    echo -n "Shutting down the psad psadwatchd daemon: "
+        killproc psadwatchd
+        echo
+        echo -n "Shutting down the psad daemon: "
+        killproc psad
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/psad
+    echo
+    if [ -f /var/run/psad/kmsgsd.pid ]; then
+        echo -n "Shutting down the psad kmsgsd daemon: "
+        killproc kmsgsd
+        echo
+    fi
+    ;;
+status)
+    if [ -f /var/run/psad/kmsgsd.pid ]; then
+        status kmsgsd
+    fi
+    status psad
+    status psadwatchd
+    ;;
+restart|reload)
+    restart
+    ;;
+condrestart)
+    [ -f /var/lock/subsys/psad ] && restart || :
+    ;;
+*)
+    echo "Usage: psad {start|stop|status|restart|reload|condrestart}"
+    exit 1
+esac
