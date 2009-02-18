@@ -1,15 +1,15 @@
-@rem =3D '--*-Perl-*--
-@echo off
-rem if not exist y:\PerlScripts\Perl net use y: \\Snap1\Share1 /persistent:no
-rem if not exist b:\ net use b: \\Snap1\Sysbackups /persistent:no
-path %SYSTEMDRIVE%\bin;%WINDIR%\system32;%WINDIR%;%WINDIR%\System32\Wbem;d:\bin\Perl\Bin
-perl -x -S %0 %*
-goto :EOF
-@rem ';
+#@rem =3D '--*-Perl-*--
+#@echo off
+#rem if not exist y:\PerlScripts\Perl net use y: \\Snap1\Share1 /persistent:no
+#rem if not exist b:\ net use b: \\Snap1\Sysbackups /persistent:no
+#path %SYSTEMDRIVE%\bin;%WINDIR%\system32;%WINDIR%;%WINDIR%\System32\Wbem;d:\bin\Perl\Bin
+#perl -x -S %0 %*
+#goto :EOF
+#@rem ';
 #!perl
 #line 11
 #
-# Copyright (c) 2005, Martin Consulting Services, Inc.
+# Copyright (c) 2005,2009, Martin Consulting Services, Inc.
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -220,10 +220,10 @@ LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
-SHOW    /^Job ended normally with status 0 and signal 0$/
-SHOW    /^Test:/
-SHOW    /^Executing:/
-SHOW	/^\s*debug:/
+SHOW    "^\s*Job ended normally with status 0 and signal 0$"
+SHOW    "^\s*Test:"
+SHOW    "^\s*Executing:"
+SHOW	"^\s*debug:"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
