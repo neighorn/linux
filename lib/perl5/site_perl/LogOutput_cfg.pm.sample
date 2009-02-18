@@ -18,13 +18,13 @@ our $Version	= 3.0;
 sub LogOutput_cfg {
 
 # Insert name of mail server here.
-my($MailServer)="mail.in.silverflash.net";
+my($MailServer)="xxx.in.example.com";
 
 # Insert your mail domain (i.e. "example.com" if your mail comes from
 # joe@example.com) here.  An @ and this value are appended to any e-mail
 # addresses that don't contain a mail domain (i.e. mail addressed to "joe" gets
 # readdressed to "joe@example.com).
-my($MailDomain)="MartinConsulting.com";
+my($MailDomain)="example.com";
 
 # Pass back the machine that handles our mail, and our domain name.
 warn "MailServer has not been set in LogOutput_cfg.\n" unless ($MailServer);
