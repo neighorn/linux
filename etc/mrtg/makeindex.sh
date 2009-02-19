@@ -6,7 +6,7 @@ hostname=`hostname`
 hostname=${hostname%%.*}
 indexmaker \
 	--title="$hostname statistics"				\
-	--subtitle='<!--#include file="updated.htm" -->'	\
+	--subtitle='<!--#include file="updated.html" -->'	\
 	/usr/local/etc/mrtg/mrtg.cfg				\
 	> /usr/local/etc/apache2/pages/mrtg/index.shtml
 
