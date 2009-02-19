@@ -8,4 +8,6 @@ indexmaker \
 	--title="$hostname statistics"				\
 	--subtitle='<!--#include file="updated.htm" -->'	\
 	/usr/local/etc/mrtg/mrtg.cfg				\
-	> /usr/local/etc/apache2/pages/ts/mrtg/index.shtml
+	> /usr/local/etc/apache2/pages/mrtg/index.shtml
+
+ln -s /var/mrtg/updated.html /usr/local/etc/apache2/pages/mrtg/updated.html
