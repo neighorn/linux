@@ -1,0 +1,117 @@
+#! /bin/sh
+#
+# bigdirs - find the directories within a filesystem that use lots of disk space
+#
+# Usage: enter "bigdirs -h" or see Usage function immediately below.
+#
+# $Log$
+#
+
+
+
+#
+# Function Usage - display usage message.
+#
+function Usage
+{
+
+more -e >&2 <<ENDUSAGE
+Usage: $Prog [-d] [-m days] [directory1...]
+
+Flags:
+	-m days		:	Modification days: restrict the report to files
+				modified in the last "days" days.  "days" is
+				specified as in the -mtime option of the find
+				command (-days is within the last "days" days,
+				+days is "days" days or more, no sign indicates
+				exactly "days" days).
+	-h		:	Help: display the usage panel
+	-d		:	Diagnostics: display a diagnostic trace
+
+Parameters:
+	directory1...	:	One or more file systems or directories.
+Notes:
+	Since this script is typically used in response to file-system full
+	conditions, $Prog will not summarize across file system boundries.
+
+ENDUSAGE
+}
+
+#
+# Function TotalDirectory - total up the file space in this directory
+#
+function TotalDirectory
+{
+
+if $Trace
+then
+	set -xv
+fi
+
+while read Dir
+do
+	ls -l "$Dir" |
+	/usr/bin/awk -v"Dir=$Dir"				\
+		'BEGIN {Total=0}			\
+			substr($1,1,1) != d {Total+=$5}	\
+		END	{print Dir, Total}' 
+done
+}
+
+#
+# Mainline code
+#
+# Set reference information (my name for messages, usage variable).
+ 
+prog=${0##*/}
+usage="\n\tUsage: $prog [-d] \n"
+
+# Set defaults
+Trace=false
+list="$PWD"
+ModTime=""
+
+# Process options
+while getopts :hdm: opt
+do case $opt in
+	m)	ModTime="-mtime $OPTARG";;
+	h)	clear
+		Usage
+		exit 1
+		;;
+        d)      set -xv			# Turn on a Trace for the main Program.
+		echo "Tracing $Prog..."	# Identify ourselves.
+                PS4='[$LINENO]: '	# Include line numbers in Trace.
+                Trace=true;;		# Set flag so functions Trace, too.
+	\?)	# Invalid option.
+		print -u2 "\n$Prog: Unknown option \"-$OPTARG\".  " \
+			"Enter \"$Prog -h\" for usage.\n"
+		exit 2			# Exit with an error code.
+		;;
+	:)	# Option is missing parameter.
+		print -u2 "\n$Prog: Option \"-$OPTARG\" requires an argument." \
+			"  Enter \"$Prog -h\" for usage.\n"
+		exit 3			# Exit with an error code.
+		;;
+        esac
+done
+shift $((OPTIND-1))
+
+if [[ $# -gt 0 ]]
+then
+    list="$*"
+fi
+
+for subtree in $list 
+do
+    # Find all the directories in this tree
+	# For each directory, list all the files.
+	# Extract the interesting fields (owner, size, change date, name)
+	# Sort based on size (field 2)
+	# Print the top 60.
+    find $subtree -xdev $ModTime -type d -print | 
+	TotalDirectory  |
+	/usr/bin/sort -k 2,2nr |
+	/usr/bin/awk '{printf "%-40s %14d\n", $1, $2}' |
+	/usr/bin/head -20
+done

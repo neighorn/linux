@@ -1,0 +1,107 @@
+#!/bin/sh
+#
+# bigusers - find the big files in a file system or directory tree.
+#
+# Usage: enter "bigusers -h" or see Usage function immediately below.
+#
+# $Log$
+#
+
+
+
+#
+# Function Usage - display usage message.
+#
+function Usage
+{
+
+more -e >&2 <<ENDUSAGE
+Usage: $Prog [-d] [directory1...]
+
+Flags:
+	-h		:	Help: display the usage panel
+	-d		:	Diagnostics: display a diagnostic trace
+	-m days		:	Add "-mtime days" to find command.  This
+				limits totals to those files changed within
+				the specified days.  "days" is specified
+				as in the find "-mtime" option (i.e. -days
+				for files changed in less than or equal to 
+				"days" days, +days for >= days, no sign for
+				files changed exactly "days" days ago.
+
+Parameters:
+	directory1...	:	One or more file systems or directories.
+
+Notes:
+	$Prog will not summarize across file system boundries.
+
+ENDUSAGE
+}
+
+
+#
+# Mainline code
+#
+# Set reference information (my name for messages, usage variable).
+ 
+prog=${0##*/}
+usage="\n\tUsage: $prog [-d] \n"
+
+# Set defaults
+trace=false
+list="."
+ModTime=""
+
+# Process options
+while getopts :m:hd opt
+do case $opt in
+	m)	ModTime="-mtime $OPTARG";;
+	h)	clear
+		Usage
+		exit 1
+		;;
+        d)      set -xv			# Turn on a Trace for the main Program.
+		echo "Tracing $Prog..."	# Identify ourselves.
+                PS4='[$LINENO]: '	# Include line numbers in Trace.
+                Trace=true;;		# Set flag so functions Trace, too.
+	\?)	# Invalid option.
+		print -u2 "\n$Prog: Unknown option \"-$OPTARG\".  " \
+			"Enter \"$Prog -h\" for usage.\n"
+		exit 2			# Exit with an error code.
+		;;
+	:)	# Option is missing parameter.
+		print -u2 "\n$Prog: Option \"-$OPTARG\" requires an argument." \
+			"  Enter \"$Prog -h\" for usage.\n"
+		exit 3			# Exit with an error code.
+		;;
+        esac
+done
+shift $((OPTIND-1))
+
+if [[ $# -gt 0 ]]
+then
+    list="$*"
+fi
+
+#UserTotal[*]=0
+UserList=""
+for subtree in $list 
+do
+
+#   Find all the files in this tree bigger than the minimum.
+#   Extract the user name and file size.  Sort these by user name.
+#   Use awk to total up all the file sizes by user name, printing each
+#   time a user name changes.  Sort the results backwards by total and print
+#   the worst 60.
+    find $subtree -xdev -type f $ModTime -ls | \
+	/usr/bin/awk '{print $5, $7}' | \
+	/usr/bin/sort -k 1,1 | \
+	/usr/bin/awk 'BEGIN	{Prior="";Total=0} \
+		$1 != Prior && Prior != "" \
+				{print Prior, Total;Total=0} \
+				{Prior=$1;Total+=$2} \
+		END		{print Prior, Total}' |
+	/usr/bin/sort -k 2,2nr |
+	/usr/bin/awk '{printf "%-8s %14d\n", $1, $2}' |
+	/usr/bin/head -20
+done
