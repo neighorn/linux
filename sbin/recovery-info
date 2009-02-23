@@ -77,7 +77,7 @@ if (! -d $opt_o) {
 }
 
 # Capture sector 0 of each disk.
-open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -v '/dev/md' |") ||
+open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(md|dm-' |") ||
 	die("Unable to start fdisk process: $!\n");
 while (<$FDISK>) {
 	chomp;
@@ -90,7 +90,7 @@ while (<$FDISK>) {
 		if (-f $OutputName);
 	RunDangerousCmd("dd if=$InputName of=$OutputName bs=512 count=1");
 	$OutputName =~ s"\.sector0"";	# Two steps make sure we don't ...
-	$OutputName =. ".info";		# ... fail and overwrite sector0 file.
+	$OutputName .= ".info";		# ... fail and overwrite sector0 file.
 	RunDangerousCmd("smartctl -i $InputName > $OutputName");
 }
 close $FDISK;
