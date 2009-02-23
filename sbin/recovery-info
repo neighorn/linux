@@ -89,12 +89,15 @@ while (<$FDISK>) {
 	RunDangerousCmd("mv $OutputName $OutputName.1")
 		if (-f $OutputName);
 	RunDangerousCmd("dd if=$InputName of=$OutputName bs=512 count=1");
+	$OutputName =~ s/\.[^/]$/.info/
+	RunDangerousCmd("smartctl -i $InputName > $OutputName");
 }
 close $FDISK;
 
-# Capture disk partition maps.
+# Document partition maps.  Note that fdisk and sfdisk work for all disks
+# if no specific disk is named.
 RunDangerousCmd("fdisk -l > $opt_o/fdisk.out");
-RunDangerousCmd("sfdisk -l > $opt_o/sfdisk.out");
+RunDangerousCmd("sfdisk -l -d > $opt_o/fdisk.out");
 
 # Document the current mounts and sizes.
 RunDangerousCmd("df -h > $opt_o/df.out");
