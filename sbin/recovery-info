@@ -89,7 +89,8 @@ while (<$FDISK>) {
 	RunDangerousCmd("mv $OutputName $OutputName.1")
 		if (-f $OutputName);
 	RunDangerousCmd("dd if=$InputName of=$OutputName bs=512 count=1");
-	$OutputName =~ s/\.[^/]$/.info/
+	$OutputName =~ s"\.sector0"";	# Two steps make sure we don't ...
+	$OutputName =. ".info";		# ... fail and overwrite sector0 file.
 	RunDangerousCmd("smartctl -i $InputName > $OutputName");
 }
 close $FDISK;
