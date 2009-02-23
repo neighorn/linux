@@ -31,8 +31,8 @@ Options[eth0]: growright,bits
 
 ### Temperature sensors
 Options[_]: growright,nopercent,gauge,noi,noinfo,nolegend,integer,nobanner
-YLegend[_]: Temperature (F)
-ShortLegend[_]: F
+YLegend[_]: Temperature (C)
+ShortLegend[_]: C
 LegendO[_]: Temp :
 YTics[_]: 10
 #
