@@ -28,9 +28,9 @@ iptables -F
 iptables -X
 iptables -N IntToMe
 iptables -N IntToExt
-iptables -N ExtToFW
+iptables -N ExtToMe
 iptables -N AbuseCheck
-iptables -N FromFW
+iptables -N FromMe
 iptables -N LogDrop
 iptables -N LogAccept
 iptables -N LogReject
@@ -56,7 +56,7 @@ iptables -A INPUT -p tcp --tcp-flags ALL ALL		-j LogDrop
 iptables -A INPUT -p tcp --tcp-flags ALL NONE		-j LogDrop
 #    Determine which subset this access belongs to.
 iptables -A INPUT -i eth1 -p all            		-j IntToMe
-iptables -A INPUT -i ! eth1 -p all          		-j ExtToFW
+iptables -A INPUT -i ! eth1 -p all          		-j ExtToMe
 iptables -A INPUT                                       -j LogReject
 #
 #
@@ -114,42 +114,42 @@ iptables -A IntToMe    -p udp --destination-port ntp       -j ACCEPT
 # Input chains for external connections to the firewall  -----------------------
 #
 #    Allow ongoing conversations
-iptables -A ExtToFW    -p udp -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A ExtToFW    -p tcp -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A ExtToFW    -p icmp -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A ExtToMe    -p udp -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A ExtToMe    -p tcp -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A ExtToMe    -p icmp -m state --state ESTABLISHED,RELATED -j ACCEPT
 #
 #    Allow most icmp traffic, but not time queries or redirects
-iptables -A ExtToFW    -p icmp --icmp-type timestamp-request	-j LogReject
-iptables -A ExtToFW    -p icmp --icmp-type timestamp-reply	-j LogReject
-iptables -A ExtToFW    -p icmp --icmp-type redirect		-j LogReject
-iptables -A ExtToFW    -p icmp 					-j ACCEPT
+iptables -A ExtToMe    -p icmp --icmp-type timestamp-request	-j LogReject
+iptables -A ExtToMe    -p icmp --icmp-type timestamp-reply	-j LogReject
+iptables -A ExtToMe    -p icmp --icmp-type redirect		-j LogReject
+iptables -A ExtToMe    -p icmp 					-j ACCEPT
 #
 #    Reject these quietly, to keep down the noise in the log.
-iptables -A ExtToFW -p tcp --destination-port 137 -j REJECT
-iptables -A ExtToFW -p udp --destination-port 137 -j REJECT
+iptables -A ExtToMe -p tcp --destination-port 137 -j REJECT
+iptables -A ExtToMe -p udp --destination-port 137 -j REJECT
 #
 #    Allow ssh, dns, smtp from anywhere.
-iptables -A ExtToFW    -p tcp --destination-port ssh    -j ACCEPT 
-iptables -A ExtToFW    -p tcp --destination-port smtp    -j ACCEPT
-iptables -A ExtToFW    -p tcp --destination-port http    -j ACCEPT
-iptables -A ExtToFW    -p tcp --destination-port https    -j ACCEPT
+iptables -A ExtToMe    -p tcp --destination-port ssh    -j ACCEPT 
+iptables -A ExtToMe    -p tcp --destination-port smtp    -j ACCEPT
+iptables -A ExtToMe    -p tcp --destination-port http    -j ACCEPT
+iptables -A ExtToMe    -p tcp --destination-port https    -j ACCEPT
 # Let our timeserver sources talk to us.
 #	time-a.nist.gov has address 129.6.15.28
 #	time-b.nist.gov has address 129.6.15.29
 #	time.nist.gov has address 192.43.244.18
-iptables -A ExtToFW    -p tcp -s 129.6.15.28  --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p udp -s 129.6.15.28  --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p tcp -s 129.6.15.29  --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p udp -s 129.6.15.29  --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p tcp -s 192.43.244.18 --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p udp -s 192.43.244.18 --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p tcp -s 131.216.18.4  --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p udp -s 131.216.18.4  --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p tcp -s 140.142.16.34 --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p udp -s 140.142.16.34 --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p tcp -s 164.67.62.194 --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW    -p udp -s 164.67.62.194 --destination-port ntp    -j ACCEPT
-iptables -A ExtToFW                -j LogReject
+iptables -A ExtToMe    -p tcp -s 129.6.15.28  --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p udp -s 129.6.15.28  --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p tcp -s 129.6.15.29  --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p udp -s 129.6.15.29  --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p tcp -s 192.43.244.18 --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p udp -s 192.43.244.18 --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p tcp -s 131.216.18.4  --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p udp -s 131.216.18.4  --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p tcp -s 140.142.16.34 --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p udp -s 140.142.16.34 --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p tcp -s 164.67.62.194 --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe    -p udp -s 164.67.62.194 --destination-port ntp    -j ACCEPT
+iptables -A ExtToMe                -j LogReject
 #
 #
 # Output chains ------------------------------------------------------------
@@ -212,7 +212,7 @@ iptables -A IntToExt    				-j LogReject
 #
 #
 #    Anything else, just accept as is.
-iptables -A FromFW                        -j ACCEPT
+iptables -A FromMe                        -j ACCEPT
 #
 #
 # LogReject - log it, then reject it.

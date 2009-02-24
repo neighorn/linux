@@ -164,7 +164,7 @@ foreach $Target (@Parms) {
 	}
 
 	# Do we need to initialize this disk?
-	system('/bin/ls ./*/tree > /dev/null');
+	system('/bin/ls ./*/tree > /dev/null 2>&1');
 	my $Status = $?;
 	my $Init = ($Status eq 0?'':'--init');	# Add --init if no trees.
 
