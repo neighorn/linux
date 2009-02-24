@@ -18,7 +18,7 @@ no strict "refs";
 our @ISA        = qw(Exporter);
 our @EXPORT     = qw(ProcessOptions);
 our @EXPORT_OK  = qw(Debug);
-our $Version    = 1.3;
+our $Version    = 1.5;
 
 our($Debug);			# Show diagnostic data.
 
@@ -110,6 +110,8 @@ sub ProcessOptions {
 			if (defined($main::Config{$Value})) {
 				unshift @ARGV,
 					quotewords(" ",0,$main::Config{$Value});
+				$$opt_name=$Value if(defined($$opt_name));
+				push @$opt_name,$Value if (defined(@$opt_name));
 			} else {
 				warn "$Value configuration not found in $main::ConfigFile.\n";
 				$ErrorFlag=3;
@@ -118,15 +120,20 @@ sub ProcessOptions {
 		}
 		if ($Option =~ /${YesNoOpts}/) {
 			# Handle our binary options en masse.
+			#   Is this +x or -x.
 			$Value=($FullOption =~ /^\+/)?0:1;
-			&$opt_name($Value) if defined(&$opt_name);
+			#   If -x and $opt_x already set, increment it.
+			$Value += $$opt_name
+				if ($Value == 1 and defined($$opt_name));
+			#   Pass new value off to sub &opt_x if present.
+			$Value = &$opt_name($Value) if defined(&$opt_name);
+			#   Assign new value back to $opt_x.
 			$$opt_name=$Value if (defined($Value));
 			next;
 		}
 		if ($Option =~ /${ValueOpts}/) {
 			# Handle simple settings en masse.
-			&$opt_name($Value) if defined(&$opt_name);
-			#eval "\$$opt_name='$Value';" if(defined($Value));
+			$Value = &$opt_name($Value) if defined(&$opt_name);
 			$$opt_name=$Value if(defined($Value));
 			next;
 		};
@@ -145,11 +152,11 @@ sub ProcessOptions {
 				unshift @ARGV, $Value;
 			} else {
 				# Append new item to existing list.
-				&$opt_name($Value) if defined(&$opt_name);
+				$Value = &$opt_name($Value)
+					if defined(&$opt_name);
 				$$opt_name .= " $Value" if (defined($Value));
 				push @$opt_name,$Value;
 				# Strip leading and trailing spaces off of options.
-				#eval "\$$opt_name=~s/^\\s*(.*)\\s*\$/\$1/;";
 				$$opt_name=~s/^\s+//;
 				$$opt_name=~s/\s+$//;
 			}
@@ -160,8 +167,15 @@ sub ProcessOptions {
 		$ErrorFlag=2;
 	}
 
-	# Anything left is part of our parms.
+	# Close up Getopt::Mixed.
 	Getopt::Mixed::cleanup();
+
+	# Clean up @ARGV.  Getopt somtimes leaves null first args.
+	while (0+@ARGV && $ARGV[0] eq '') {
+		shift @ARGV;
+	}
+
+	# Treat the rest as parameters.
 	$main::Parms.=join(" ",@ARGV);
 	push @main::Parms,@ARGV;
 
@@ -181,13 +195,8 @@ ProcessOptions  - process command line or config file options.
 
 =head1 SYNOPSIS
 
-use ProcessOptions;
-ProcessOptions($OptionSpec,@Args);
-
-=head1 GLOBAL VARIABLES
-
-$ProcessOptions::Debug may be set to 1 to provide diagnostic information
-during any subsequent calls to ProcessOptions.
+    use ProcessOptions;
+    ProcessOptions($OptionSpec,@Args);
 
 =head1 DESCRIPTION
 
@@ -235,6 +244,11 @@ The second argument (@Args) above is an optional array of arguments
 to process.  This is typically @ARGV, and if not specified, @main::ARGV
 will be used.  
 
+=head1 GLOBAL VARIABLES
+
+$ProcessOptions::Debug may be set to 1 to provide diagnostic information
+during any subsequent calls to ProcessOptions.
+
 =head1 RETURNED DATA
 
 =head2 Boolean Options
@@ -242,13 +256,17 @@ will be used.
 Consistent with many other option processing packages, ProcessOptions will
 return data by modifying or creating variables in the "main" namespace.  For
 any boolean option "x" (like a, b, and e above), a variable $opt_x will 
-either be set to 1 if the option was specified, or left undefined if it was
-not.  A + before an option on the command line is equivalent to leaving it
-unset, and is handy in some kinds of override situations.  So the command line:
+either be set to true (1) if the option was specified, or false
+(left undefined) if it was
+not.  A "+" before an option on the command line instead of a "-" sets it to
+false (zero). 
+In case an option is set more than once, later settings override earlier ones.
+This is handy in some kinds of override situations.  So the command line:
 
-	commandname -a +b -e
+	commandname -a -b -e +b
 
-would result in $opt_a and $opt_e being set to 1, and $opt_b being undefined.
+would result in $opt_a and $opt_e being set to 1, and $opt_b being set finally
+to zero.
 
 =head2 String Options
 
@@ -263,7 +281,7 @@ would cause $opt_a to be set to 1 (it's a boolean), and $opt_c to be set to
 
 =head2 List Options
 
-For any given list option x, (like d above), @opt_x will contain each of
+For any given list option x, (like "d" above), @opt_x will contain each of
 the values provided.  For example,
 
 	commandname -d file1 -d file2 -d file9
