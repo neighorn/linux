@@ -1,0 +1,13 @@
+
+our %ExcludeList;
+
+# The 127.0.0.100 below is just an example.  You can delete it. Any mail
+# originating from any IP address in this list will be exempt from greylisting
+# delays.  In practice, greylisting doesn't cause much trouble for most people
+# so there's no need to prepopulate this with all of your frequent senders.
+# Just add them if an issue comes up.
+
+$ExcludeList{"127.0.0.100"} = 1;
+$ExcludeList{"71.245.97.50"} = 1;
+$ExcludeList{"71.245.97.51"} = 1;
+
