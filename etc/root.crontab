@@ -1,0 +1,17 @@
+# Set up the environment
+PERL5LIB="/usr/local/lib/perl5/site_perl"
+#
+# Monitor software RAID devices.
+05 * * * * /usr/local/sbin/checkmd > /dev/null
+#
+# Update ClamAV
+12 * * * * /usr/local/bin/freshclam > /dev/null
+#
+# Keep mrtg up to date.
+00-59/5 * * * * (/usr/local/sbin/sensors-to-mrtg -e sysadmin || /usr/local/sbin/startsys lm_sensors) && /usr/bin/mrtg /usr/local/etc/mrtg/mrtg.cfg > /dev/null
+#
+# Document disk space utilization.
+0 0,6,12,18 * * * /bin/df -h | /bin/logger -t cron.df
+#
+# Take weekly back-ups of critical systems
+0 2 * * 0 /usr/local/sbin/sysbackup > /dev/null
