@@ -1,0 +1,1 @@
+Note that the link to /usr/local/etc/snmpd.conf belongs in /etc/snmp, not in /etc.
