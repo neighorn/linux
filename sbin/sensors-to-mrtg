@@ -2,7 +2,8 @@
 #
 # =====Description====
 #
-#use strict;
+use strict;
+use warnings;
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
@@ -24,7 +25,27 @@ my($DataFile)="$DataDir/sensors.dat";	# Name of our data file.
 our($Scale)="";				# Defaults to Celcius.
 our(%Reference);			# A list of reference values.
 my($RefValue)="0";			# A specific reference value.
+our %Config;
+our $opt_e;
+our $opt_m;
+our $opt_p;
+our $opt_P;
+our @opt_r;
+our $opt_t;
+our $opt_v;
+our $ExitCode=0;
+our $Errors=0;
+our @Parms;
 #
+our $HostName = `hostname`;
+chomp $HostName;
+$HostName =~ s/\.*//;
+
+my $Data;
+#   6:52pm  up   4:28,  3 users,  load average: 1.24, 1.09, 1.03
+($Data = `uptime`) =~ s/^.*?up\s+(\S.*?),\s.*load average:\s*(\S+),\s*(\S+)\s.*$/$1,$2,$3/;
+my($UpTime,$OneMin,$FiveMin) = split(',',$Data);
+
 
 chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 
@@ -34,7 +55,7 @@ chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-$OptSpec='h t m=l e=l O=s p=l P=l s t v f c r=l';
+my $OptSpec='h t m=l e=l O=s p=l P=l s t v f c r=l';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -44,7 +65,7 @@ if (-e $ConfigFile) {
 		next if (/^\s*#/);      # Comment.
 		next if (/^\s*$/);      # Blank line.
 		chomp;
-		($name,$settings)=split(/:?\s+/,$_,2);
+		my($name,$settings)=split(/:?\s+/,$_,2);
 		$name=~tr/[a-z]/[A-Z]/;
 		$Config{$name}.=$settings . ',' ;
 	}
@@ -79,7 +100,7 @@ die("Incorrect number of values requested.  See \"$Prog -h\" for usage.")
 
 # Build up our table of reference values.
 foreach ((@opt_r)) {
-	($Item,$Value)=split(/=/);
+	my($Item,$Value)=split(/=/);
 	if ($Value =~ /^[0-9]*.?[0-9]*/) {
 		$Reference{$Item}=$Value;
 	} else {
@@ -94,37 +115,37 @@ RunDangerousCmd("rm -rf $DataDir/*") &&
 
 umask(0022);
 
+my $FH_SENSOR;
 open($FH_SENSOR,"sensors $Scale |") ||
 	die "Unable to open sensors process: $!\n";
+my $Adapter;
 while (<$FH_SENSOR>) {
 	chomp;
 	next if (/^\s*$/);	# Skip blank lines.
 	if ($_ !~ /:/) {
 		# No colon.  Must be the adaptor name.  Save it
 		# without any special characters.
-		($Adaptor=$_) =~ s/[^a-zA-Z0-9-]/_/g;
-		if (! -d "$DataDir/$Adaptor") {
-			RunDangerousCmd("mkdir -m 655 -p $DataDir/$Adaptor") &&
-				die("Unable to create $DataDir/$Adaptor: $!\n");
+		($Adapter=$_) =~ s/[^a-zA-Z0-9-]/_/g;
+		if (! -d "$DataDir/$Adapter") {
+			RunDangerousCmd("mkdir -m 655 -p $DataDir/$Adapter") &&
+				die("Unable to create $DataDir/$Adapter: $!\n");
 		}
-		next;
+
+		# Write the uptime data here, too.
+		WriteValue("$DataDir/$Adapter/LoadAvg",$OneMin,"0");
 	}
-	# Has a colon.  Must be a data value.
-	/^\s*(.*)\s*:\s*(\S+)/;
-	my($Item,$Value)=($1,$2);
-	$Item=~s/[^a-zA-Z0-9+-]/_/g;		# Replace special symbols.
-	$RefValue=$Reference{"$Adaptor/$Item"};
-	$RefValue=$RefValue?$RefValue:0;
-	if (sysopen($DATAFH,"$DataDir/$Adaptor/$Item",O_CREAT | O_WRONLY | O_EXCL)) {
-		print $DATAFH "$RefValue\n$Value\nBat OK\ndummy string\n";
-	} else {
-		warn "Unable to open $DataDir/$Adaptor/$Item: $!\n";
-		RunDangerousCmd("rm -f $DataDir/$Adaptor/$Item") if (-e "$DataDir/$Adaptor/$Item");
+	else {
+		# Has a colon.  Must be a data value.
+		/^\s*(.*)\s*:\s*(\S+)/;
+		my($Item,$Value)=($1,$2);
+		$Item=~s/[^a-zA-Z0-9+-]/_/g;		# Replace special symbols.
+		$RefValue=$Reference{"$Adapter/$Item"};
+		$RefValue=$RefValue?$RefValue:0;
+		WriteValue("$DataDir/$Adapter/$Item",$Value, $RefValue);
 	}
-	close $DATAFH;
 }
 
-if (!$ExitCode and sysopen($DATAFH,"$DataDir/updated.html", O_CREAT | O_WRONLY, 0644)) {
+if (!$ExitCode and sysopen(my $DATAFH,"$DataDir/updated.html", O_CREAT | O_WRONLY, 0644)) {
 	print $DATAFH
 		strftime(
 			"<p>Last updated at %H:%M:%S on %m/%d/%Y</p>\n",
@@ -141,6 +162,23 @@ if ($ExitCode) {
 
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
+
+#
+# WriteValue
+#
+sub WriteValue {
+	my ($FileName,$Value1, $Value2)=@_;
+
+	if (sysopen(my $DATAFH,$FileName,O_CREAT | O_WRONLY | O_EXCL)) {
+		print $DATAFH "$Value1\n$Value2\n$UpTime\n$HostName\n";
+		close $DATAFH;
+	} else {
+		warn "Unable to open $FileName: $!\n";
+		RunDangerousCmd("rm -f $FileName") if (-e "$FileName");
+	}
+}
+
+
 
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
