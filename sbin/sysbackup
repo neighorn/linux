@@ -9,8 +9,6 @@ use Text::ParseWords;
 #use File::DosGlob 'glob';    # override CORE::glob in ALL packages (use with extreme caution!)
 #use File::DosGlob 'GLOBAL_glob';
 
-
-
 # Initialize variables.
 $Prog=$0;			# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
@@ -23,6 +21,7 @@ $LogFile="";			# Name of the log file.
 $ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
 our @opt_x;
 our $opt_D;
+our $opt_C=5;		# Number of cycles to keep.
 
 my $HostName = `hostname`;
 chomp $HostName;
@@ -38,7 +37,7 @@ chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin:
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-$OptSpec='D=s h t m=l e=l O=s p=l P=l x=l t v';
+$OptSpec='C=s D=s h t m=l e=l O=s p=l P=l x=l t v';
 
 # ---------------------------------------------------------
 #
@@ -86,6 +85,8 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 # Verify the command line.
 die("Excess parameters on the command line.  See \"$Prog -h\" for usage.")
 	if ($Parms);
+die("Invalid number \"$opt_C\" for -C.  See \"$Prog -h\" for usage.")
+	unless ($opt_C =~ /^\s*/d+\s*$/);
 
 # ---------------------------------------------------------
 #
@@ -108,13 +109,13 @@ chdir $OutputDir || die "Unable to change directories to $OutputDir: $!\n";
 
 # ---------------------------------------------------------
 #
-# Keep the most recent five back-ups.
+# Keep the most recent $opt_C back-ups.
 #
 if (open($FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
         my $Count=0;
 	while (<$FHLS>) {
 		$Count++;
-                RunDangerousCmd("rm -rf $_") if ($Count > 5);
+                RunDangerousCmd("rm -rf $_") if ($Count > $opt_C);
 	}
 	close $FHLS;
 } else {
@@ -222,14 +223,18 @@ sub opt_h {
 
 	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
 	print PAGENATER <<"ENDUSAGE";
-$Prog - Zip selected shared folders onto the snap server.
+$Prog - Back-up key file-systems
 
-Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
+Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] [-D output-dir] [-x mountpoint] [-C cycle-count]
 	$Prog -h
 
 Flags:
+	-C cycle-count:	Cycles: Keep "cycle-count" cycles.  Default is 5.
+	-D output-dir:	Write to "output-dir".  Default is:
+			/usr/local/backup/`hostname`/mm-dd
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
+	-h      :       Help: display this panel
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
@@ -240,10 +245,10 @@ Flags:
 			the command line at this point.
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
-	-h      :       Help: display this panel
+	-x mountpoint: 	eXclude: exclude this mount point.  May be repeated.
 
 Parameters:
-	files	:	one or more files to zip.
+	(none)
 
 Return codes:
 	0       :       Normal termination
@@ -252,7 +257,6 @@ Return codes:
 	3       :       Invalid or unrecognized command line option value.
 	4       :       Incorrect command line parameters.
 	5       :       Unexpected message found in output.
-	10      :       Some delete's failed.
 ENDUSAGE
 close PAGENATER;
 exit 1;
