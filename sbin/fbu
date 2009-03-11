@@ -67,7 +67,6 @@ $opt_f='/dev/nst0' unless (defined($opt_f));
 if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
 	
 # Set up our logging and output filtering.
-$LogOutput::Mail{From}="root\@stlukeproductions.com";
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 # Make sure our dump level is 0-9.

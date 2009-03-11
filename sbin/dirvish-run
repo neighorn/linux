@@ -134,7 +134,7 @@ foreach $Target (@Parms) {
 
 	# Insert separators between tasks.
 	print "_"x60 . "\n";
-	print sprintf("Starting $Target at %H:%M:%S ...\n",localtime());
+	print strftime("Starting $Target at %H:%M:%S ...\n",localtime());
 
 	if (!chdir $MachineDirectory) {
 		warn "Unable to CD to $MachineDirectory: $!\n";
