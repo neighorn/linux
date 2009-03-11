@@ -86,7 +86,7 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 die("Excess parameters on the command line.  See \"$Prog -h\" for usage.")
 	if ($Parms);
 die("Invalid number \"$opt_C\" for -C.  See \"$Prog -h\" for usage.")
-	unless ($opt_C =~ /^\s*/d+\s*$/);
+	unless ($opt_C =~ /^\s*\d+\s*$/);
 
 # ---------------------------------------------------------
 #

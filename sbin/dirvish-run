@@ -4,12 +4,11 @@ use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 # override CORE::glob in current package
-use File::DosGlob 'glob';    # override CORE::glob in ALL packages (use with extreme caution!)
-use File::DosGlob 'GLOBAL_glob';
 use File::Find;
 use Fcntl qw(:flock);
 #use strict;
 use warnings;
+use POSIX qw(strftime);
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -135,7 +134,7 @@ foreach $Target (@Parms) {
 
 	# Insert separators between tasks.
 	print "_"x60 . "\n";
-	print "Starting $Target...\n";
+	print sprintf("Starting $Target at %H:%M:%S ...\n",localtime());
 
 	if (!chdir $MachineDirectory) {
 		warn "Unable to CD to $MachineDirectory: $!\n";
@@ -353,7 +352,7 @@ LOGONLY /^Command: /
 # These are normal messages that we want to see.
 #
 SHOW	"^\s*[-_]+\s*$"
-SHOW	"^\s*Starting \S+...\s*$"
+SHOW	"^\s*Starting \S+ at \S+ ...\s*$"
 SHOW	"^\S+ \S+: Total Items: \d+ \(\d+\.\d[GM]\), New Items: \d+ \(\d+\.\d[GM]\)$"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
