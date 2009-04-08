@@ -1,4 +1,4 @@
-# Copyright (c) 2005, Martin Consulting Services, Inc.
+# Copyright (c) 2005-2009, Martin Consulting Services, Inc.
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -18,7 +18,7 @@ use Sys::Syslog;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.0;
+our $Version	= 3.1;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -154,7 +154,7 @@ sub LogOutput {
 			$_ = '' unless defined($_)
 		};
 		printf STDOUT "$Options{PROGRAM_NAME} started on $HostName on %s\nCommand: $0 %s\n\n",
-        		"$TimeStamp", join(@ArgList);
+        		"$TimeStamp", join(' ',@ArgList);
 
 		return;		# Run main code.
 	} elsif (!defined($PID)) {
