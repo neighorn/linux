@@ -104,8 +104,8 @@ chomp $OutputDir;
 RunDangerousCmd("mkdir -p --mode=750 $OutputDir") unless (-e $OutputDir);
 RunDangerousCmd("chgrp sys $OutputDir") &&
 	die "Unable to set group for $OutputDir: $!\n";
-if (! $opt_t && chdir $OutputDir) {
-	die "Unable to change directories to $OutputDir: $!\n";
+if (! $opt_t ) {
+	chdir $OutputDir || die "Unable to change directories to $OutputDir: $!\n";
 }
 
 
@@ -291,7 +291,7 @@ IGNORE	"^tar: Removing leading `/' from member names$"
 IGNORE	"^tar: /var/lib/mysql/maia/maia_mail.MYD: file changed as we read it$"
 IGNORE	"^tar: Error exit delayed from previous errors$"
 IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+ s(econds)?, \d+(\.\d+)? [kmgKMG]B$"
-IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+(e-\d+)? s, \d+\.(\d+)? [kmgKMG]B/s"
+IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+(e-\d+)? s, \d+(\.\d+)? [kmgKMG]B/s$"
 IGNORE	"^\s*recovery-info started on \S+ on"
 IGNORE  /^\s*$/
 #
