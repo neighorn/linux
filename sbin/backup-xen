@@ -1,0 +1,302 @@
+#! /usr/bin/perl
+#
+# Copyright (c) 2005,2009, Martin Consulting Services, Inc.
+# Licensed under the Lesser Gnu Public License (LGPL).
+# 
+# ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
+# CODE IS STRICTLY AT YOUR OWN RISK.
+#
+
+#
+# =====Description====
+#
+use strict;
+use warnings;
+use LogOutput;
+use ProcessOptions;
+use Text::ParseWords;
+use FindBin qw($RealBin $RealScript);
+use POSIX qw(strftime);
+
+# Initialize variables.
+our $Prog=$RealScript;              	# Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+our $Errors=0;                       # No errors so far.
+our $Syslog='USER';                         # Name of Syslog facility.  '' for none.
+our $BaseDir=$RealBin;			# Set our base directory.
+our $LogFile="";			# Name of the log file.
+our $ConfigFile="$BaseDir/${Prog}.cfg";     # Name of config file.
+our @Parms;				# Array of remaining cmdline parms.
+our %Config;				# Our configuration options.
+my $ExitCode;				# Code we'll exit with.
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin';
+#
+our $opt_C;				# -C (cycles) option.
+our $opt_h;				# -h (help) option.
+our $opt_e;				# -e (error mail) option.
+our $opt_m;				# -m (mail) option.
+our $opt_p;				# -p (pager mail) option.
+our $opt_P;				# -P (pager error mail) option.
+our $opt_t;				# -t (test) option.
+our $opt_v;				# -v (verbose) option.
+#
+
+# Note: general purpose script - don't change current directory.
+#chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+
+# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
+#       1) We define a new type l (lowercase L), which is a list (i.e. if
+#          specified multiple times, values are concatenated & blank separated.o
+#          Normal =s and =i would replace values instead of concatenate.
+#       2) We don't support long option names, except as aliases.
+# These are the standard production options.  Add more options here as needed.
+my $OptSpec='e=l h m=l O=s p=l P=l t v';
+
+# Load the config file.
+if (-e $ConfigFile) {
+	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+	# Build a hash of settings found in the config file.
+	while (<CONFIG>) {
+		next if (/^\s*#/);      # Comment.
+		next if (/^\s*$/);      # Blank line.
+		chomp;
+		my ($name,$settings)=split(/:?\s+/,$_,2);
+		$name=~tr/[a-z]/[A-Z]/;
+		$Config{$name}.=$settings . ',' ;
+	}
+	close CONFIG;
+	foreach (keys(%Config)) {
+		$Config{$_} =~ s/,$//;	# Remove trailing comma
+	}
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Process the command line options, if any.
+if (@ARGV) {
+	# Process the command line arguments.
+	ProcessOptions($OptSpec);
+} else {
+	# No command line options.  Run the default job.
+	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
+		if (defined($Config{'DEFAULTJOB'}));
+}
+if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
+	
+# Set up our logging and output filtering.
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+
+# Verify the command line.
+die("Insufficent parameters specified on the command line.  See \"$Prog -h\" for usage.")
+	unless (@Parms > 0);
+
+foreach (@Parms) {
+	$Errors += Backup_VM($_);
+}
+
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+$ExitCode=$Errors?10:0;
+exit($ExitCode);
+
+#
+# Backup_VM
+#
+sub Backup_VM {
+	my $VM = shift;
+	my $Errors = 0;			# Errors in backing up this VM.
+
+	# Set up the output directory.
+	my $ParentDir = "/mnt/dirvish/offsite/xen/$VM";
+	my $OutputDir = strftime("$ParentDir/%Y-%m-%d",localtime());
+	print strftime("Backing up $VM to $OutputDir at %H:%M:%S\n",localtime());
+	if ( ! -d $OutputDir) {
+		# Does not exist.  First clean up any old cycles, then create it.
+		if ($opt_C and -d $ParentDir) {
+			my $FH;
+			my $Count = 0;
+			open ($FH,'ls -t |') || warn "Unable to get directory of $ParentDir: $!";
+			while (<$FH>) {
+				chomp;
+				$Count++;
+				RunDangerousCmd("rm -rf $ParentDir/$_") if ($Count >= $opt_C);
+			}
+		}
+		# Create the new output directory.
+		my $Status = RunDangerousCmd("mkdir -m 640 -p $OutputDir");
+		if ($Status) {
+			warn "Unable to create $OutputDir: $!\n";
+			warn "Back-up of $VM has been aborted.";
+			return 1;
+		}
+	}
+
+	# Find out what devices this machine has.
+	my $FH;
+	if (!open($FH,'xm list $VM -l|')) {
+		warn "Unable to list devices for $VM: $!";
+		warn "Back-up of $VM has been aborted.";
+		return 1;
+	}
+	my @Devices;
+	while (<$FH>) {
+		chomp;
+		next unless (/^\s*\(\s*uname\s+(phy|file):(.*)\s*\)\s*$/);
+		push @Devices,$2;
+	}
+	close $FH;
+	if (@Devices == 0) {
+		warn "Unable to find any devices for $VM";
+		return 1;
+	}
+
+	# Shut down the VM.
+	RunDangerousCmd("stopsys $VM > /dev/null");
+	if (!$opt_t and system("ping -c1 $VM > /dev/null") == 0) {
+		warn "$VM failed to shut down -- continuing back-up, but data quality is doubtful";
+		$Errors++;
+	}
+
+	# Back up the devices.
+	foreach my $source (@Devices) {
+		my $target = "$source.img";
+		$target =~ s"^.*/"$OutputDir/";
+		my $Status = RunDangerousCmd("cp -p \"$source\" \"$target\"");
+		if ($Status) {
+			warn "Unable to copy $source: $!\n";
+			$Errors++;
+		}
+	}
+
+	# Restart the machine.
+	RunDangerousCmd("startsys $VM > /dev/null");
+
+	# Wrap up.
+	print "Backup of $VM finished " . ($Errors?"with errors at ":"normally at ")
+		. strftime("%H:%M:%S",localtime()) . "\n";
+	return ($Errors?1:0);
+}		
+		
+		
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($opt_t) {
+		print "Test: $Cmd\n";
+		return 0;
+	} else {
+		print "Executing: $Cmd\n" if ($opt_v);
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	my $Pagenater=$ENV{PAGENATER};
+	$Pagenater="more" unless ($Pagenater);
+	system("pod2text $RealScript | $Pagenater");
+	exit(1);
+}
+
+=pod
+=head1 $Prog - back up one or more Xen virtual machines.
+
+=head3 Usage:  
+	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] VM1...
+
+	$Prog -h
+
+=head3 Flags:
+	-C count: 	Cycles: keep the last "count" cycles.
+	-e mailid:      Error: Send an execution report to this e-mail address
+			if errors are detected.
+	-m mailid:      Mailid: Send an execution report to this e-mail address.
+	-p mailid:      Page: Send a very brief message (suitable for a pager)
+			to this e-mail address when this job completes.
+	-P mailid:      Page error: Send a very brief message to this e-mail 
+			address if errors are detected in this job.
+	-O config:      Insert the "config" configuration options from
+			$ConfigFile.
+			the command line at this point.
+	-t	:	Test: echo commands instead of running them.
+	-v	:	Verbose: echo commands before running them.
+	-h      :       Help: display this panel
+
+=head3 Parameters:
+	VM1...	:	one or more virtual machines to back up.
+
+=head3 Return codes:
+	0       :       Normal termination
+	1       :       Help panel displayed.
+	2       :       Invalid or unrecognized command line options.
+	3       :       Invalid or unrecognized command line option value.
+	4       :       Incorrect command line parameters.
+	5       :       Unexpected message found in output.
+
+=cut
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:        Ignore - Don't display this message, it's not interesting.
+#               LogOnly - Write this message to the syslog and log file, but
+#                       don't display it on STDOUT.
+#               Show - Display this message, but it's not an error condition.
+#               # - This is a comment, ignore it.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given score
+#               are joined by logical OR conditions.
+#
+#  Notes:
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#       2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+IGNORE  /^\s*$/
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+SHOW	"^\s*Backing up \S+ to \S+ at \d+:\d+\:\d+$"
+SHOW	"^\s*Backup of \S+ finished normally at \d+:\d+:\d+$"
+LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY /^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW    "^\s*Job ended normally with status 0 and signal 0$"
+SHOW    "^\s*Test:"
+SHOW    "^\s*Executing:"
+SHOW	"^\s*debug:"
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.

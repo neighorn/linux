@@ -5,9 +5,6 @@
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
-# override CORE::glob in current package
-#use File::DosGlob 'glob';    # override CORE::glob in ALL packages (use with extreme caution!)
-#use File::DosGlob 'GLOBAL_glob';
 
 # Initialize variables.
 $Prog=$0;			# Get our name, for messages.
@@ -20,13 +17,11 @@ $Syslog='user';			# Name of Syslog facility.  '' for none.
 $LogFile="";			# Name of the log file.
 $ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
 our @opt_x;
-our $opt_D;
-our $opt_C=5;		# Number of cycles to keep.
+our $opt_o;			# Name of our output file.
+our $opt_C=5;			# Number of cycles to keep.
 
-my $HostName = `hostname`;
-chomp $HostName;
 $HostName =~ s/\..*$//;		# Strip domain.
-$BaseDir="/usr/local/backup/$HostName";	# Set our base directory.
+$BaseDir="/usr/local/backup/ldap";	# Set our base directory.
 #
 
 chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin: $!\n";
@@ -37,7 +32,7 @@ chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin:
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-$OptSpec='C=s D=s h t m=l e=l O=s p=l P=l x=l t v';
+$OptSpec='C=s o=s h t m=l e=l O=s p=l P=l x=l t v';
 
 # ---------------------------------------------------------
 #
@@ -90,22 +85,22 @@ die("Invalid number \"$opt_C\" for -C.  See \"$Prog -h\" for usage.")
 
 # ---------------------------------------------------------
 #
-# Identify the output directory and create it if necessary.
+# Identify the output file.
 #
-my $OutputDir;
-if ($opt_D) {
-	$OutputDir = $opt_D;
+my $OutputFile;
+if ($opt_o) {
+	$OutputFile = $opt_o;
 }
 else {
-	$OutputDir=`date +$BaseDir/%m-%d`;
+	$OutputFile=`date +$BaseDir/%m-%d.ldif`;
 }
-chomp $OutputDir;
+chomp $OutputFile;
 
-RunDangerousCmd("mkdir -p --mode=750 $OutputDir") unless (-e $OutputDir);
-RunDangerousCmd("chgrp sys $OutputDir") &&
-	die "Unable to set group for $OutputDir: $!\n";
-if (! $opt_t && chdir $OutputDir) {
-	die "Unable to change directories to $OutputDir: $!\n";
+RunDangerousCmd("mkdir -p --mode=750 $BaseDir") unless (-e $BaseDir);
+RunDangerousCmd("chgrp sys $BaseDir") &&
+	die "Unable to set group for $BaseDir: $!\n";
+if (! $opt_t) {
+	chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 }
 
 
@@ -113,7 +108,7 @@ if (! $opt_t && chdir $OutputDir) {
 #
 # Keep the most recent $opt_C back-ups.
 #
-if (open($FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
+if (open($FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9].ldif |")) {
         my $Count=0;
 	while (<$FHLS>) {
 		$Count++;
@@ -126,63 +121,12 @@ if (open($FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
 
 # ---------------------------------------------------------
 #
-# Use the mount command to determine what to back up.
+# Run back-up.
 #
-if (open($FHMOUNT,'mount |')) {
-	MOUNT: while (<$FHMOUNT>) {
-		chomp;
-
-		# Skip transient file systems based on type.
-		next if (/type (sysfs|proc|tmpfs|devpts|subfs|usbfs|sysfs|debugfs|securityfs)/);
-
-		# Skip anything under /mnt as being temporary.
-		next if (m"^\S+ on /mnt/");
-
-		# Skip our own output area.
-		next if (m"^\S+ on $BaseDir");
-		
-		# Get the mount point, and compare to our exclude list.
-		my $MountPt;
-		($MountPt)=(split(/\s+/))[2];
-		foreach $ExcludedMount (@opt_x) {
-			next MOUNT if ($MountPt =~ m"^$ExcludedMount(/.*)?$");
-		}
-
-		# Build the output file name.
-		my $OutputFile;
-		my $OutputName;
-                ($OutputName="$MountPt") =~ s"^.*/"";
-                $OutputName="root" if ($OutputName eq '');
-                $OutputFile="$OutputName.tgz";
-
-		# Do it.
-		my $ExcludeFile = "$BaseDir/$OutputName.exclude";
-		if (-f $ExcludeFile) {
-			$ExcludeFile = "-X $ExcludeFile";
-		} else {
-			$ExcludeFile = "";
-		}
-			
-                RunDangerousCmd("tar -cz --one-file-system " .
-			"-f $OutputDir/$OutputFile " .
-			"-C $MountPt " .
-                        "$ExcludeFile ."
-                        );
-	}
-} else {
-	die "Unable to issue mount command: $!\n";
-}
-
-# ---------------------------------------------------------
-#
-# Capture recovery information here, also.
-#
-RunDangerousCmd("recovery-info -o $OutputDir/recovery");
-
-if ($ExitCode) {
-	warn "$Prog failed.\n";
-} else {
-	#print "$Prog ended normally.\n";
+my $Status = RunDangerousCmd("slapcat -l $OutputFile");
+if ($Status) {
+	warn "slapcat failed with status $Status\n";
+	$Errors++;
 }
 
 $ExitCode=$Errors?10:0;
@@ -286,14 +230,15 @@ __END__
 # The following are normal messages we don't need to see.
 #
 IGNORE	/^tar: .* socket ignored$/
-SHOW	/^.*.: file changed as we read it$/
 IGNORE	"^tar: Removing leading `/' from member names$"
 IGNORE	"^tar: /var/lib/mysql/maia/maia_mail.MYD: file changed as we read it$"
 IGNORE	"^tar: Error exit delayed from previous errors$"
-IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+ s(econds)?, \d+(\.\d+)? [kmgKMG]B$"
-IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+(e-\d+)? s, \d+\.(\d+)? [kmgKMG]B/s"
+IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+ seconds, \d+\.\d+ [kmgKMG]B$"
+IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+(e-\d+)? s, \d+\.\d+ [kmgKMG]B/s"
 IGNORE	"^\s*recovery-info started on \S+ on"
 IGNORE  /^\s*$/
+IGNORE	"ls: cannot access /usr/local/backup/ldap/[01][0-9]-[0-3][0-9].ldif: No such file or directory$"
+IGNORE	"bdb_monitor_db_open: monitoring disabled; configure monitor database to enable"
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
