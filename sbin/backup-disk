@@ -13,7 +13,8 @@ function CopyDisk {
 	date
 	((MaxRC = 0))
 	set -v
-	fdisk -l $BaseDisk > $DiskPartitionMap
+	sfdisk -l $BaseDisk > $DiskPartitionMap
+	sfdisk -d $BaseDisk > $SFDiskPartitionMap
 	DD if=$BaseDisk bs=512 count=1 > $Sector0
 	DD if=$1 bs=512 | gzip -c > $DiskImageFile
 	set +v
@@ -39,6 +40,7 @@ do
 		hdparm -d1 $BaseDisk
 	fi
 	DiskPartitionMap="$TargetDir$SystemName-$Date-${BaseDisk##*/}.partitions"
+	SFDiskPartitionMap="$TargetDir$SystemName-$Date-${BaseDisk##*/}.sfdisk"
 	Sector0="$TargetDir$SystemName-$Date-${BaseDisk##*/}.sector0"
 	time CopyDisk $1
 	shift
@@ -71,16 +73,33 @@ done
 
 if [[ $# -lt 2 ]]
 then
-	echo "Usage: $0 systemname /dev/devname "
+	echo "Usage: $0 [-r|-s] systemname /dev/devname "
 	echo "Example: $0 office /dev/hda "
 	exit 8
 fi
 Date=`date +%Y-%m-%d`
 Prog=${0##*/}
 TargetDir=${0%$Prog}
+TmpFile="/tmp/backup-disk.$$"
+RebootFile=./.reboot
+ShutdownFile=./.shutdown
+
+# Handle reboot/shutdown flags.  Use files so they can
+# change their mind while we're running.
+[[ -e $RebootFile ]] && rm $RebootFile
+[[ -e $ShutdownFile ]] && rm $ShutdownFile
+if [[ $1 -eq "-r" ]]
+then
+	touch $RebootFile
+	shift
+elif [[$1 -eq "-s" ]]
+then
+	touch $ShutdownFile
+	shift
+fi
+
 SystemName=$1
 shift
-TmpFile="/tmp/backup-disk.$$"
 
 echo "Comment? "
 read Comment
@@ -88,5 +107,16 @@ read Comment
 # Launch the status monitoring process.
 StatusReport $$ &
 
-RunBackup $* 2>&1 | tee ./backup-disk.log
+RunBackup $* 2>&1 | tee ./$SystemName-$Date.log
+
+if [[ -e $RebootFile ]]
+then
+	rm $RebootFile
+	shutdown -r now
+elif [[ -e $ShutdownFile ]]
+then
+	rm $ShutdownFile
+	shutdown -h now
+fi
+
 exit $?
