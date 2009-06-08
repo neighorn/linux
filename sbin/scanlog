@@ -2,24 +2,38 @@
 #
 # scan-log - scan syslog log.
 #
-use lib '/usr/local/lib/perl5/site_perl';
+use strict;
+use warnings;
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 
 use FindBin;
 
-
 # Initialize variables.
-our $Prog=$FindBin::RealScript;         # Get our name, for messages.
-$Prog=~s/\.pl$|\.bat$//;            # Trim off the suffix, if present.
-$Prog=~s".*[/\\]"";     	    # Trim off the path, if present.
-my $ErrorFlag=0;                       # No errors so far.
-my $Syslog='';                     # No logging - we just create more traffic we flag.
+our $Prog=$FindBin::RealScript;		# Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;		# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";			# Trim off the path, if present.
+my $ExitCode=0;			# No errors so far.
+my $Syslog='';                  	# No logging - we just create more traffic we flag.
 our $BaseDir=$FindBin::Bin;		# Set our base directory.
-my $LogFile='';			# Name of the log file.
-my $ConfigFile="$BaseDir/../etc/$Prog/${Prog}.cfg";     # Name of config file.
-my $FilterDir="$BaseDir/../etc/${Prog}";     # Name of filter directory.
+my $LogFile='';				# Name of the log file.
+my @ConfigFiles=(
+	"/usr/localhosts/etc/$Prog/${Prog}.cfg",
+	"/usr/local/etc/$Prog/${Prog}.cfg",
+);     # Name of config files.
+our %Config;				# Config parms.
+our @Parms;				# Command line parms.
+our $opt_f;				# Filter file.
+our $opt_h;				# Help.
+our $opt_m;				# Mail.
+our $opt_e;				# Error-only mail.
+our $opt_p;				# Page.
+our $opt_P;				# Error-only page.
+our $opt_t;				# Test.
+our $opt_v;				# Verbose.
+
+my $FilterDir="/usr/local/etc/${Prog}";	# Name of filter directory.
 my $Hostname = `hostname`;
 chomp $Hostname;
 $Hostname =~ s/(.*?)(\..*$)$/$1/;
@@ -35,26 +49,32 @@ $Hostname =~ s/(.*?)(\..*$)$/$1/;
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-$OptSpec='h t m=l e=l O=s p=l P=l s r t v f=s';
+my $OptSpec='f=s h m=l e=l O=s p=l P=l t v';
 
 # Load the config file.
-if (-e $ConfigFile) {
-	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-	# Build a hash of settings found in the config file.
-	while (<CONFIG>) {
-		next if (/^\s*#/);      # Comment.
-		next if (/^\s*$/);      # Blank line.
-		chomp;
-		($name,$settings)=split(/:?\s+/,$_,2);
-		$name=~tr/[a-z]/[A-Z]/;
-		$Config{$name}.=$settings . ',' ;
-	}
-	close CONFIG;
-	foreach (keys(%Config)) {
-		$Config{$_} =~ s/,$//;	# Remove trailing comma
+print "debug: @ConfigFiles\n";
+foreach my $ConfigFile (@ConfigFiles) {
+	print "debug: $ConfigFile\n";
+	if (-e $ConfigFile) {
+		open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+		# Build a hash of settings found in the config file.
+		while (<CONFIG>) {
+			next if (/^\s*#/);      # Comment.
+			next if (/^\s*$/);      # Blank line.
+			chomp;
+			print "debug:    $_\n";
+			my ($name,$settings)=split(/:?\s+/,$_,2);
+			$name=~tr/[a-z]/[A-Z]/;
+			$Config{$name}.=$settings . ',' ;
+		}
+		close CONFIG;
+		foreach (keys(%Config)) {
+			$Config{$_} =~ s/,$//;	# Remove trailing comma
+		}
 	}
 }
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+print "debug: " . %Config . "\n";
 
 # Process the config file defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
@@ -69,26 +89,31 @@ if (@ARGV) {
 	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
 		if (defined($Config{'DEFAULTJOB'}));
 }
-if ($ErrorFlag) {exit $ErrorFlag;}      # Exit if errors were detected.
 	
 # Verify the command line.
 die(qq<Incorrect number of parameters.  See "$Prog -h" for usage.\n">)
 	unless (@Parms >= 1);
 
 # Set up our logging and output filtering.
+my $BaseFileName;
 ($BaseFileName=$Parms[0]) =~ s"^(.*/)?([^-]+)(-.+)?$"$2";
 $opt_f="$FilterDir/$BaseFileName.filter" unless ($opt_f);
-my $RunDate = `date +%m/%d`;
-chomp $RunDate;
-$LogOutput::Subject="$Prog $Hostname $RunDate $BaseFileName";
-LogOutput("$opt_f",$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+
+LogOutput({
+	ALWAYS_MAIL_LIST => $opt_m,
+	ALWAYS_PAGE_LIST => $opt_p,
+	ERROR_MAIL_LIST => $opt_e,
+	ERROR_PAGE_LIST => $opt_P,
+	FILTER_FILE => $opt_f,
+	PROGRAM_NAME => $Prog,
+	SUBJECT => "%* %N %C %m/%d $BaseFileName ended %E",
+});
 
 # Verify the command line.
 die "No files specified to scan.\n" unless (@Parms > 0);
 
-
 # Expand file list, in case there are wild cards.
-@Files=();
+my @Files;
 foreach (@Parms) {
 	push @Files, glob $_;
 }
@@ -104,7 +129,9 @@ foreach (@Files) {
 		warn "$_ is not a regular file -- skipped\n";
 	}
 	else {
-		RunDangerousCmd("cat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
+		my $Status =
+			RunDangerousCmd("cat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
+		$ExitCode = $Status if ($Status > $ExitCode);
 	}
 }
 
@@ -114,7 +141,6 @@ if ($ExitCode) {
 	#print "$Prog ended normally.\n";
 }
 
-$ExitCode=$Errors?10:0;
 exit($ExitCode);
 
 #
@@ -166,7 +192,7 @@ Flags:
 	-P mailid:      Page error: Send a very brief message to this e-mail 
 			address if errors are detected in this job.
 	-O config:      Insert the "config" configuration options from
-			$ConfigFile.
+			@ConfigFiles.
 			the command line at this point.
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
