@@ -7,11 +7,25 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 # Update ClamAV
 12 * * * * /usr/local/bin/freshclam > /dev/null
 #
+# Local virus scan.
+00 18 * * 0 /usr/local/sbin/scanav > /dev/null
+#
 # Keep mrtg up to date.
 00-59/5 * * * * (/usr/local/sbin/sensors-to-mrtg -e sysadmin || /usr/local/sbin/startsys lm_sensors) && /usr/bin/mrtg /usr/local/etc/mrtg/mrtg.cfg > /dev/null
 #
 # Document disk space utilization.
-0 0,6,12,18 * * * /bin/df -h | /bin/logger -t cron.df
+05 0,6,12,18 * * * /bin/df -hP | /bin/grep -vE '/mnt/|/cd-roms/' | /bin/logger -t cron.df
 #
 # Take weekly back-ups of critical systems
 0 2 * * 0 /usr/local/sbin/sysbackup > /dev/null
+#
+# On-site back-ups
+00 18 * * * (ls /mnt/dirvish/offsite;ls /mnt/dirvish/offsite2) > /dev/null 2>&1;/usr/local/sbin/dirvish-expire 2>&1 | /usr/local/bin/ir -lt dirvish-expire
+00 02 * * mon,tue,wed,thu,fri dirvish-run -N On-site xxx yyy zzz > /dev/null
+#
+# Back up the MySQL databases.
+00 02 * * * /usr/local/sbin/dbbu > /dev/null
+#
+#
+# Clean up log files that aren't beeing cleaned some other way.
+00 01 * * * /usr/bin/find /var/log /var/spool/amavis/virusmails -type f -mtime +60 -exec echo Deleting {} \; -exec rm {} \; 2>&1 | /bin/logger -t cron.logs
