@@ -128,6 +128,11 @@ foreach (@Files) {
 	elsif (! -f $_) {
 		warn "$_ is not a regular file -- skipped\n";
 	}
+	elsif (/.gz$/ {
+		my $Status =
+			RunDangerousCmd("zcat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
+		$ExitCode = $Status if ($Status > $ExitCode);
+	}
 	else {
 		my $Status =
 			RunDangerousCmd("cat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
