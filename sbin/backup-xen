@@ -51,7 +51,7 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l t v';
+my $OptSpec='C=s e=l h m=l O=s p=l P=l t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
