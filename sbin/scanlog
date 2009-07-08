@@ -133,6 +133,11 @@ foreach (@Files) {
 			RunDangerousCmd("zcat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
 		$ExitCode = $Status if ($Status > $ExitCode);
 	}
+	elsif (/.bzip2$/ {
+		my $Status =
+			RunDangerousCmd("bunzip2 -c $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
+		$ExitCode = $Status if ($Status > $ExitCode);
+	}
 	else {
 		my $Status =
 			RunDangerousCmd("cat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
