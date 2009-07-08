@@ -99,7 +99,7 @@ die "No BANKS defined in configuration file(s)"
 	unless (defined($Config{BANKS}) 
 		and exists($Config{BANKS})
 		and $Config{BANKS});
-my @Banks = shellwords([$Config{BANKS}]);
+my @Banks = shellwords(($Config{BANKS}));
 
 foreach (@opt_B) {
 	# Run any initialization scripts.

@@ -128,12 +128,12 @@ foreach (@Files) {
 	elsif (! -f $_) {
 		warn "$_ is not a regular file -- skipped\n";
 	}
-	elsif (/.gz$/ {
+	elsif (/.gz$/) {
 		my $Status =
 			RunDangerousCmd("zcat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
 		$ExitCode = $Status if ($Status > $ExitCode);
 	}
-	elsif (/.bzip2$/ {
+	elsif (/.bzip2$/) {
 		my $Status =
 			RunDangerousCmd("bunzip2 -c $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
 		$ExitCode = $Status if ($Status > $ExitCode);
