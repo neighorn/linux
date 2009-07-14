@@ -52,9 +52,7 @@ $Hostname =~ s/(.*?)(\..*$)$/$1/;
 my $OptSpec='f=s h m=l e=l O=s p=l P=l t v';
 
 # Load the config file.
-print "debug: @ConfigFiles\n";
 foreach my $ConfigFile (@ConfigFiles) {
-	print "debug: $ConfigFile\n";
 	if (-e $ConfigFile) {
 		open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
 		# Build a hash of settings found in the config file.
@@ -62,7 +60,6 @@ foreach my $ConfigFile (@ConfigFiles) {
 			next if (/^\s*#/);      # Comment.
 			next if (/^\s*$/);      # Blank line.
 			chomp;
-			print "debug:    $_\n";
 			my ($name,$settings)=split(/:?\s+/,$_,2);
 			$name=~tr/[a-z]/[A-Z]/;
 			$Config{$name}.=$settings . ',' ;
@@ -74,7 +71,6 @@ foreach my $ConfigFile (@ConfigFiles) {
 	}
 }
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
-print "debug: " . %Config . "\n";
 
 # Process the config file defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
