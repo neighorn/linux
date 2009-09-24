@@ -1,22 +1,26 @@
 #! /bin/bash
 
-# startsys/stopsys/restartsys - easy interface to /etc/init.d
-
-Prog=${0##*/}
-Verb="${Prog%sys}"
-if [[ " start stop restart " != *\ $Verb\ * ]]
-then
-	print -u2 "Internal error - verb $Verb not recognized."
-	exit 8
-fi
+export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/usr/X11R6/bin:/root/bin
 
 if [[ $# -eq 0 ]]
 then
-	print -u2 "usage: $Prog service1 ..."
-	exit 9
+	echo "usage: $0 name [...]" 1>&2
+	exit 4
+fi
+
+if [[ `id -un` != root ]]
+then
+	sudo "$0" "$@"
+	((ExitRC-$?))
 else
-	for Service in $*
+	((ExitRC=0))
+	for name in $*
 	do
-		/etc/init.d/$Service $Verb
+		eval /etc/init.d/$name stop
+		eval /etc/init.d/$name start
+		((Status=$?))
+		[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
 	done
 fi
+
+exit $ExitRC
