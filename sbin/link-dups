@@ -1,0 +1,38 @@
+#! /usr/bin/sh
+#
+# quick code to replace duplicate files in dirvish trees with hardlinks.
+#
+# Assumes the same relative name.
+
+if (( $# != 2 ))
+then
+    echo "usage: $0 file1 file2"
+    exit 8
+fi
+
+if [[ ! -d $1 ]]
+then
+    echo "Unable to find $1 or $1 is not a directory"
+    exit 9
+fi
+
+if [[ ! -d $2 ]]
+then
+    echo "Unable to find $2 or $2 is not a directory"
+    exit 9
+fi
+
+find $1 -type f -print |
+    sort |
+    while read filename
+    do
+       trailing_name=${filename#$1}
+       candidate="$2$trailing_name"
+       [[ ! -f $candidate ]] && continue
+       cmp -s "$filename" "$candidate"
+       if (( $? == 0 ))
+       then
+           echo "Match: $trailing_name"
+           ln -f "$candidate" "$filename"
+       fi
+    done
