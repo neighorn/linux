@@ -1,0 +1,4 @@
+#! /bin/sh
+dbus-send --dest=org.kde.ksmserver /KSMServer org.kde.KSMServerInterface.saveCurrentSession
+
+kquitapp plasma && (sleep 2;plasma || (sleep 2; plasma) )
