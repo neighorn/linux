@@ -88,11 +88,11 @@ ShutdownFile=./.shutdown
 # change their mind while we're running.
 [[ -e $RebootFile ]] && rm $RebootFile
 [[ -e $ShutdownFile ]] && rm $ShutdownFile
-if [[ "$1" -eq "-r" ]]
+if [[ "$1" = "-r" ]]
 then
 	touch $RebootFile
 	shift
-elif [[ "$1" -eq "-s" ]]
+elif [[ "$1" = "-s" ]]
 then
 	touch $ShutdownFile
 	shift
