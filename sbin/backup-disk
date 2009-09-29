@@ -27,12 +27,26 @@ while [[ $# -gt 0 ]]
 do
 	if [[ $1 != /dev/* ]]
 	then
-		echo "$1 is not a device file -- skipped."
-		continue
+		echo "$1 is not a device file -- skipped." >&2
+		return 8
 	fi
+
 	echo "$Date $SystemName $1 $Comment" >> $TargetDir/comments
+
 	DiskImageFile="$TargetDir$SystemName-$Date-${1##*/}.image.gz"
-	BaseDisk="${1%%[0-9]}"
+        if [[ "$1" = *\/[sh]da[0-9] ]]
+        then
+	    BaseDisk="${1%%[0-9]}"
+        elif [[ "$1" = *\/[sh]da ]]
+        then
+            BaseDisk="$1"
+        elif [[ "$1" = *_part[0-9] ]]
+        then 
+            BaseDisk="${1%%_part[0-9]}"
+        else
+            echo "Warning: Unable to identify base disk for sector0.  Using $1 which may be incorrect." >&2
+            BaseDisk="$1"
+        fi
 	hdparm -d $BaseDisk | grep -q off
 	if [[ $? -eq -0 ]]
 	then
@@ -51,6 +65,8 @@ return $Status
 }
 
 function StatusReport {
+
+set +xv		# Don't trace the background process.
 
 # Get the process ID of the dd process.
 sleep 60	# Give dd time to start.
@@ -107,7 +123,11 @@ read Comment
 # Launch the status monitoring process.
 StatusReport $$ &
 
-RunBackup $* 2>&1 | tee ./$SystemName-$Date.log
+for Disk in $*
+do
+	RunBackup $System $Disk 2>&1
+done |
+	tee ./$SystemName-$Date.log
 
 if [[ -e $RebootFile ]]
 then
