@@ -16,7 +16,7 @@ else
 	((ExitRC=0))
 	for name in $*
 	do
-		eval /etc/rc.d/$name start
+		eval /etc/init.d/$name start
 		((Status=$?))
 		[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
 	done

@@ -10,17 +10,16 @@ fi
 
 if [[ `id -un` != root ]]
 then
-	Prefix="sudo "
+	sudo "$0" "$@"
+	((ExitRC-$?))
 else
-	Prefix=""
+	((ExitRC=0))
+	for name in $*
+	do
+		eval /etc/init.d/$name stop
+		((Status=$?))
+		[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
+	done
 fi
-
-((ExitRC=0))
-for name in $*
-do
-	eval $Prefix/etc/init.d/$name stop
-	((Status=$?))
-	[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
-done
 
 exit $ExitRC
