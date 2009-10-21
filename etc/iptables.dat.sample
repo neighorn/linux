@@ -95,10 +95,6 @@ iptables -A IntToMe    -p udp --destination-port http      -j ACCEPT
 iptables -A IntToMe    -p tcp --destination-port pop3      -j ACCEPT
 iptables -A IntToMe    -p udp --destination-port pop3      -j ACCEPT
 iptables -A IntToMe    -p tcp --destination-port auth      -j ACCEPT
-iptables -A IntToMe    -p tcp --destination-port imap2     -j ACCEPT
-iptables -A IntToMe    -p udp --destination-port imap2     -j ACCEPT
-iptables -A IntToMe    -p tcp --destination-port imap3     -j ACCEPT
-iptables -A IntToMe    -p udp --destination-port imap3     -j ACCEPT
 iptables -A IntToMe    -p tcp --destination-port https     -j ACCEPT
 iptables -A IntToMe    -p tcp --destination-port imaps     -j ACCEPT
 iptables -A IntToMe    -p tcp --destination-port pop3s     -j ACCEPT
