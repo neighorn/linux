@@ -14,13 +14,13 @@ use POSIX qw(strftime);
 our($Prog)=$0;				# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;		# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";			# Trim off the path, if present.
-my(@Args)=@ARGV;				# Preserve orig command for ref.
-my($ErrorFlag)=0;				# No errors so far.
+my(@Args)=@ARGV;			# Preserve orig command for ref.
+my($ErrorFlag)=0;			# No errors so far.
 my($Syslog)='';				# Name of Syslog facility.  '' for none.
 my($BaseDir)="/usr/local/sbin";		# Set our base directory.
-my($LogFile)="";				# Name of the log file.
-my($ConfigFile)="$BaseDir/${Prog}.cfg";     # Name of config file.
-my($DataDir)="/var/mrtg";		# Where we store our data files.
+my($LogFile)="";			# Name of the log file.
+my($ConfigFile)="$BaseDir/${Prog}.cfg"; # Name of config file.
+my($DataDir)="/var/mrtg/sensors";	# Where we store our data files.
 my($DataFile)="$DataDir/sensors.dat";	# Name of our data file.
 our($Scale)="";				# Defaults to Celcius.
 our(%Reference);			# A list of reference values.
