@@ -287,6 +287,7 @@ __END__
 #
 IGNORE	/^tar: .* socket ignored$/
 SHOW	/^.*.: file changed as we read it$/
+IGNORE	"^\s*ls: cannot access /usr/local/backup/\S+/\[01\]\[0-9\]-\[0-3\]\[0-9\]: No such file or directory$"
 IGNORE	"^tar: Removing leading `/' from member names$"
 IGNORE	"^tar: /var/lib/mysql/maia/maia_mail.MYD: file changed as we read it$"
 IGNORE	"^tar: Error exit delayed from previous errors$"
