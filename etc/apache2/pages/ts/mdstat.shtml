@@ -1,0 +1,16 @@
+<HTML>
+<HEAD>
+<TITLE >Metadisk device status</TITLE>
+<META HTTP-EQUIV="Refresh" CONTENT="60">
+</HEAD>
+<BODY>
+<H2>
+	<!--#config timefmt="%T" -->
+        <!--#exec cmd="hostname" -->
+	/proc/mdstat as of <!--#echo var="DATE_LOCAL" -->
+</H2>
+<pre>
+<!--#exec cmd="cat /proc/mdstat" -->
+</pre>
+</BODY>
+<HTML>

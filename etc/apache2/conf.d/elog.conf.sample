@@ -1,0 +1,7 @@
+Redirect permanent /elog http://ts.watertech.com/ts/elog/
+Redirect permanent /ts/elog http://ts.watertech.com/ts/elog/
+
+<Location /ts/elog/>
+        Include /usr/local/etc/apache2/conf.d/admin-only.inc
+	ProxyPass http://127.0.0.1:8080/
+</Location>

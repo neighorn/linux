@@ -13,8 +13,12 @@ function CopyDisk {
 	date
 	((MaxRC = 0))
 	set -v
+        # Document partition layouts
 	sfdisk -l $BaseDisk > $DiskPartitionMap
 	sfdisk -d $BaseDisk > $SFDiskPartitionMap
+	# Launch the background status monitoring process.
+	StatusReport $$ &
+	# OK, launch the copy.
 	DD if=$BaseDisk bs=512 count=1 > $Sector0
 	DD if=$1 bs=512 | gzip -c > $DiskImageFile
 	set +v
@@ -44,8 +48,8 @@ do
         then 
             BaseDisk="${1%%_part[0-9]}"
         else
-            echo "Warning: Unable to identify base disk for sector0.  Using $1 which may be incorrect." >&2
-            BaseDisk="$1"
+            echo "Error: Unable to identify base disk for sector0 and partition map of $1" >&2
+            exit 8
         fi
 	hdparm -d $BaseDisk | grep -q off
 	if [[ $? -eq -0 ]]
@@ -120,11 +124,9 @@ shift
 echo "Comment? "
 read Comment
 
-# Launch the status monitoring process.
-StatusReport $$ &
-
 for Disk in $*
 do
+	# Run the back-up.
 	RunBackup $System $Disk 2>&1
 done |
 	tee ./$SystemName-$Date.log
