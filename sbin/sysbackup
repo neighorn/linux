@@ -133,7 +133,8 @@ if (open($FHMOUNT,'mount |')) {
 		chomp;
 
 		# Skip transient file systems based on type.
-		next if (/type (sysfs|proc|tmpfs|devpts|subfs|usbfs|sysfs|debugfs|securityfs)/);
+		next if (/type (binfmt_misc|debugfs|devpts|fusectl|none|proc|securityfs|subfs|sysfs|sysfs|tmpfs|usbfs)/);
+
 
 		# Skip anything under /mnt as being temporary.
 		next if (m"^\S+ on /mnt/");
