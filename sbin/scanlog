@@ -4,6 +4,7 @@
 #
 use strict;
 use warnings;
+use lib '/usr/local/lib/perl5/site_perl'; # Required to run via logrotate.
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
@@ -129,7 +130,7 @@ foreach (@Files) {
 			RunDangerousCmd("zcat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
 		$ExitCode = $Status if ($Status > $ExitCode);
 	}
-	elsif (/.bzip2$/) {
+	elsif (/.bz2$/) {
 		my $Status =
 			RunDangerousCmd("bunzip2 -c $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
 		$ExitCode = $Status if ($Status > $ExitCode);
