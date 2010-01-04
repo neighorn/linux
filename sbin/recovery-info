@@ -98,7 +98,7 @@ close $FDISK;
 # Document partition maps.  Note that fdisk and sfdisk work for all disks
 # if no specific disk is named.
 RunDangerousCmd("fdisk -l > $opt_o/fdisk.out");
-RunDangerousCmd("sfdisk -l -d > $opt_o/fdisk.out");
+RunDangerousCmd("sfdisk -l -d > $opt_o/sfdisk.out");
 
 # Document the current mounts and sizes.
 RunDangerousCmd("df -h > $opt_o/df.out");

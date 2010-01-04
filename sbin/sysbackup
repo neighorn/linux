@@ -5,9 +5,7 @@
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
-# override CORE::glob in current package
-#use File::DosGlob 'glob';    # override CORE::glob in ALL packages (use with extreme caution!)
-#use File::DosGlob 'GLOBAL_glob';
+use lib '/usr/local/lib/perl5/site_perl';
 
 # Initialize variables.
 $Prog=$0;			# Get our name, for messages.
