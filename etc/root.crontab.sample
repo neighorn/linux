@@ -29,3 +29,7 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 #
 # Clean up log files that aren't beeing cleaned some other way.
 00 01 * * * /usr/bin/find /var/log /var/spool/amavis/virusmails -type f -mtime +60 -exec echo Deleting {} \; -exec rm {} \; 2>&1 | /bin/logger -t cron.logs
+#
+#
+# Update spamassassin
+00 01 * * * (/usr/bin/sa-update && /usr/local/sbin/restartsys spamd) > /dev/null
