@@ -1,0 +1,555 @@
+From:	root [root@silverflash.net]
+Sent:	Sunday, December 13, 2009 12:14 PM
+To:	bmartin@silverflash.net
+Subject:	messages.filter
+
+Flag Status:	Flagged
+
+Categories:	Uncategorized Mail
+
+IGNORE	"^... .. ..:..:.. \S+ /etc/init.d/ntp: runtime configuration: 
+keyid \d+ passwd e\d+e\d+d\d+a addserver \S+ quit$"
+IGNORE	"^... .. ..:..:.. \S+ /usr/sbin/cron\[\d+\]: \(CRON\) STARTUP 
+\(V\d+.\d+\)$"
+IGNORE	"^... .. ..:..:.. \S+ audispd: af_unix plugin initialized$"
+IGNORE	"^... .. ..:..:.. \S+ audispd: audispd initialized with 
+q_depth=\d+ and \d+ active plugins$"
+IGNORE	"^... .. ..:..:.. \S+ audispd: max_restarts_parser called with: 
+\d+$"
+IGNORE	"^... .. ..:..:.. \S+ audispd: priority_boost_parser called with: 
+\d+$"
+SHOW	"^... .. ..:..:.. \S+ auditd\[\d+\]: Init complete, auditd \d+.\d+.\d+ 
+listening for events \(startup state disable\)$"
+IGNORE	"^... .. ..:..:.. \S+ auditd\[\d+\]: Started dispatcher: 
+/sbin/audispd pid: \d+$"
+SHOW	"^... .. ..:..:.. \S+ auditd\[\d+\]: The audit daemon is exiting.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Found user 'avahi' 
+\(UID \d+\) and group 'avahi' \(GID \d+\).$"
+SHOW	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Got SIGTERM, quitting.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Interface eth\d+.IPv\d+ 
+no longer relevant for mDNS.$"
+SHOW	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Joining mDNS multicast group 
+on interface eth\d+.IPv\d+ with address \d+.\d+.\d+.\d+.$"
+SHOW	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Leaving mDNS multicast group 
+on interface eth\d+.IPv\d+ with address \d+.\d+.\d+.\d+.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Loading service file 
+/etc/avahi/services/sftp-ssh.service.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Loading service file 
+/etc/avahi/services/ssh.service.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Network interface 
+enumeration completed.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: New relevant interface 
+eth\d+.IPv\d+ for mDNS.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Registering HINFO 
+record with values 'I\d+'/'LINUX'.$"
+SHOW	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Registering new address 
+record for \d+.\d+.\d+.\d+ on eth\d+.IPv\d+.$"
+SHOW	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Registering new address 
+record for \S+ on eth\d+.*.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Server startup 
+complete. Host name is \S+.local. Local service cookie is \d+.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Service \"SFTP File 
+Transfer on \S+\" \(/etc/avahi/services/sftp-ssh.service\) successfully 
+established.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Service \"\S+\" 
+\(/etc/avahi/services/ssh.service\) successfully established.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Successfully dropped 
+root privileges.$"
+SHOW	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Withdrawing address record 
+for \d+.\d+.\d+.\d+ on eth\d+.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: Withdrawing address 
+record for \S+ on eth\d+.$"
+IGNORE	"^... .. ..:..:.. \S+ avahi-daemon\[\d+\]: avahi-daemon 
+\d+.\d+.\d+ starting up.$"
+IGNORE	"^... .. ..:..:.. \S+ checkall: .*up$"
+IGNORE	"^... .. ..:..:.. \S+ checkmd:\s+Command:"
+IGNORE	"^... .. ..:..:.. \S+ checkmd:\s+Job ended normally"
+IGNORE	"^... .. ..:..:.. \S+ checkmd:\s+Job ended on"
+IGNORE	"^... .. ..:..:.. \S+ checkmd:\s+checkmd started"
+IGNORE	"^... .. ..:..:.. \S+ cron.df: Filesystem\s+Size"
+IGNORE	"^... .. ..:..:.. \S+ 
+cron.df:\s+\S+\s+\d+(\.\d+)?[GM]\s+\d+(\.\d+)?[GM]\s+\d+(\.\d+)?[GM]\s+([0-
+8]\d|[0-9])%\s+\S+$"
+IGNORE	"^... .. ..:..:.. \S+ dhcrelay: All rights reserved.$"
+IGNORE	"^... .. ..:..:.. \S+ dhcrelay: Copyright \d+-\d+ Internet Systems 
+Consortium.$"
+IGNORE	"^... .. ..:..:.. \S+ dhcrelay: For info, please visit 
+http://www.isc.org/sw/dhcp/$"
+IGNORE	"^... .. ..:..:.. \S+ dhcrelay: Internet Systems Consortium DHCP 
+Relay Agent V\d+.\d+.\d+p\d+$"
+IGNORE	"^... .. ..:..:.. \S+ dhcrelay: Listening on LPF/eth\S+$"
+IGNORE	"^... .. ..:..:.. \S+ dhcrelay: Sending on   LPF/eth\S+$"
+IGNORE	"^... .. ..:..:.. \S+ dhcrelay: Sending on   Socket/fallback$"
+IGNORE	"^... .. ..:..:.. \S+ dhcrelay: receive_packet failed on eth\d+: 
+Network is down$"
+IGNORE	"^... .. ..:..:.. \S+ dovecot-auth: pam_warn"
+IGNORE	"^... .. ..:..:.. \S+ dovecot-auth: pam_userdb\(dovecot:auth\): 
+user '\S+' granted access$"
+SHOW	"^... .. ..:..:.. \S+ ifdown:\s+eth\d+"
+SHOW	"^... .. ..:..:.. \S+ ifup:\s+eth\d+\s+device:"
+SHOW	"^... .. ..:..:.. \S+ init: Switching to runlevel: \d+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] NET: Registered 
+protocol family \d+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] \[drm\] Initialized 
+drm \d+.\d+.\d+ \d+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] \[drm\] Initialized 
+i\d+ \d+.\d+.\d+ \d+ for \d+:\d+:\d+.\d+ on minor \d+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] ip_tables: \(C\) \d+-
+\d+ Netfilter Core Team$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] nf_conntrack version 
+\d+.\d+.\d+ \(\d+ buckets, \d+ max\)$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] nf_conntrack.acct=\d+ 
+kernel parameter, acct=\d+ nf_conntrack module option or$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] powernow: This module 
+only works with AMD K\d+ CPUs$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] sysctl 
+net.netfilter.nf_conntrack_acct=\d+ to enable it.$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] tun: \(C\) \d+-\d+ 
+Max Krasnyansky <maxk\@qualcomm.com>$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[   \d+.\d+\] tun: Universal 
+TUN/TAP device driver, \d+.\d+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[\s*\d+.\d+\] type=\d+ 
+audit\(\d+.\d+:\d+\): operation=\"profile_load\" pid=\d+ name=\S+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[  \d+.\d+\] NET: Registered 
+protocol family \d+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[  \d+.\d+\] bootsplash: status on 
+console \d+ changed to on$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[  \d+.\d+\] tun: \(C\) \d+-\d+ Max 
+Krasnyansky <maxk\@qualcomm.com>$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[  \d+.\d+\] tun: Universal TUN/TAP 
+device driver, \d+.\d+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[ \d+.\d+\] Bluetooth: Core ver 
+\d+.\d+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[ \d+.\d+\] Bluetooth: HCI device 
+and connection manager initialized$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[ \d+.\d+\] Bluetooth: HCI socket 
+layer initialized$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[ \d+.\d+\] NET: Registered 
+protocol family \d+$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[ \d+.\d+\] RAID\d+ conf 
+printout:$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[ \d+.\d+\] psmouse.c: Explorer 
+Mouse at isa\d+/serio\d+/input\d+ lost synchronization, throwing \d+ bytes 
+away.$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[ \d+.\d+\] psmouse.c: bad data 
+from KBC - bad parity$"
+IGNORE	"^... .. ..:..:.. \S+ kernel: \[\d+.\d+\] bootsplash: status on 
+console \d+ changed to on$"
+IGNORE	"^... .. ..:..:.. \S+ ntpd\[\d+\]: new interface\(s\) found: 
+waking up resolver$"
+IGNORE	"^... .. ..:..:.. \S+ ntpd\[\d+\]: ntp_io: estimated max 
+descriptors: \d+, initial socket boundary: \d+$"
+SHOW	"^... .. ..:..:.. \S+ ntpd\[\d+\]: ntpd exiting on signal \d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: /bin/ip addr add dev tun\d+ 
+local \d+.\d+.\d+.\d+ peer \d+.\d+.\d+.\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: /bin/ip addr del dev tun\d+ 
+local \d+.\d+.\d+.\d+ peer \d+.\d+.\d+.\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: /bin/ip link set dev tun\d+ 
+up mtu \d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: /bin/ip route add 
+\d+.\d+.\d+.\d+/\d+ via \d+.\d+.\d+.\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: /bin/ip route del 
+\d+.\d+.\d+.\d+/\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Attempting to establish TCP 
+connection with \d+.\d+.\d+.\d+:\d+ \[nonblock\]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Closing TUN/TAP interface$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Control Channel MTU parms \[ 
+L:\d+ D:\d+ EF:\d+ EB:\d+ ET:\d+ EL:\d+ \]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Control Channel: TLSv\d+, 
+cipher TLSv\d+/SSLv\d+ DHE-RSA-AES\d+-SHA, \d+ bit RSA$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Data Channel Decrypt: Cipher 
+'BF-CBC' initialized with \d+ bit key$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Data Channel Decrypt: Using 
+\d+ bit message hash 'SHA\d+' for HMAC authentication$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Data Channel Encrypt: Cipher 
+'BF-CBC' initialized with \d+ bit key$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Data Channel Encrypt: Using 
+\d+ bit message hash 'SHA\d+' for HMAC authentication$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Data Channel MTU parms \[ 
+L:\d+ D:\d+ EF:\d+ EB:\d+ ET:\d+ EL:\d+ AF:\d+/\d+ \]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: GID set to nobody$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Initialization Sequence 
+Completed$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: LZO compression 
+initialized$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Listening for incoming TCP 
+connection on \[undef\]:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Local Options hash 
+\(VER=V\d+\): '\d+'$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Local Options hash 
+\(VER=V\d+\): '\d+d\d+'$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Local Options hash 
+\(VER=V\d+\): 'c\d+fa\d+'$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: OPTIONS IMPORT: --
+ifconfig/up options modified$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: OPTIONS IMPORT: route 
+options modified$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: OPTIONS IMPORT: timers 
+and/or timeouts modified$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: OpenVPN \d+.\d+_rc\d+ i\d+-
+suse-linux \[SSL\] \[LZO\d+\] \[EPOLL\] \[PKCS\d+\] built on Oct \d+ \d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: PUSH: Received control 
+message: 'PUSH_REPLY,route \d+.\d+.\d+.\d+,ping \d+,ping-restart \d+,ifconfig 
+\d+.\d+.\d+.\d+ \d+.\d+.\d+.\d+'$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: ROUTE 
+default_gateway=\d+.\d+.\d+.\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Re-using SSL/TLS context$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: SENT CONTROL \[server\]: 
+'PUSH_REQUEST' \(status=\d+\)$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: SENT CONTROL 
+\[svr\d+.dinihanian.com\]: 'PUSH_REQUEST' \(status=\d+\)$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: SIGTERM\[hard,\] received, 
+process exiting$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: Socket Buffers: R=\[\d+-
+>\d+\] S=\[\d+->\d+\]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TCP connection established 
+with \d+.\d+.\d+.\d+:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TCP/UDP: Closing socket$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TCPv\d+_CLIENT link local: 
+\[undef\]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TCPv\d+_CLIENT link remote: 
+\d+.\d+.\d+.\d+:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TCPv\d+_SERVER link local 
+\(bound\): \[undef\]:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TCPv\d+_SERVER link local: 
+\[undef\]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TCPv\d+_SERVER link remote: 
+\[undef\]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TCPv\d+_SERVER link remote: 
+\d+.\d+.\d+.\d+:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TLS-Auth MTU parms \[ L:\d+ 
+D:\d+ EF:\d+ EB:\d+ ET:\d+ EL:\d+ \]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TLS: Initial packet from 
+\d+.\d+.\d+.\d+:\d+, sid=\S+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TLS: soft reset sec=-\d+ 
+bytes=\d+/\d+ pkts=\d+/\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TLS: soft reset sec=\d+ 
+bytes=\d+/\d+ pkts=\d+/\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TLS: tls_process: killed 
+expiring key$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TUN/TAP TX queue length set 
+to \d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: TUN/TAP device tun\d+ 
+opened$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: UDPv\d+ link local 
+\(bound\): \d+.\d+.\d+.\d+:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: UDPv\d+ link local: 
+\[undef\]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: UDPv\d+ link remote: 
+\[undef\]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: UDPv\d+ link remote: 
+\d+.\d+.\d+.\d+:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: UID set to nobody$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: VERIFY OK:"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \[server\] Peer Connection 
+Initiated with \d+.\d+.\d+.\d+:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \[svr\d+.dinihanian.com\] 
+Peer Connection Initiated with \d+.\d+.\d+.\d+:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ 
+Connection reset, restarting \[\d+\]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Control 
+Channel MTU parms \[ L:\d+ D:\d+ EF:\d+ EB:\d+ ET:\d+ EL:\d+ \]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Control 
+Channel: TLSv\d+, cipher TLSv\d+/SSLv\d+ DHE-RSA-AES\d+-SHA, \d+ bit RSA$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Data 
+Channel Decrypt: Cipher 'BF-CBC' initialized with \d+ bit key$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Data 
+Channel Decrypt: Using \d+ bit message hash 'SHA\d+' for HMAC authentication$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Data 
+Channel Encrypt: Cipher 'BF-CBC' initialized with \d+ bit key$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Data 
+Channel Encrypt: Using \d+ bit message hash 'SHA\d+' for HMAC authentication$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Data 
+Channel MTU parms \[ L:\d+ D:\d+ EF:\d+ EB:\d+ ET:\d+ EL:\d+ AF:\d+/\d+ \]$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Expected 
+Remote Options hash \(VER=V\d+\): '\d+'$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ LZO 
+compression initialized$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Local 
+Options hash \(VER=V\d+\): '\d+fdded'$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ Re-using 
+SSL/TLS context$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ VERIFY 
+OK: depth=\d+, "
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \d+.\d+.\d+.\d+:\d+ \[\S+\] 
+Peer Connection Initiated with \d+.\d+.\d+.\d+:\d+$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \S+/\d+.\d+.\d+.\d+:\d+ 
+Control Channel: TLSv\d+, cipher TLSv\d+/SSLv\d+ DHE-RSA-AES\d+-SHA, \d+ bit 
+RSA$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \S+/\d+.\d+.\d+.\d+:\d+ Data 
+Channel Decrypt: Cipher 'BF-CBC' initialized with \d+ bit key$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \S+/\d+.\d+.\d+.\d+:\d+ Data 
+Channel Decrypt: Using \d+ bit message hash 'SHA\d+' for HMAC authentication$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \S+/\d+.\d+.\d+.\d+:\d+ Data 
+Channel Encrypt: Cipher 'BF-CBC' initialized with \d+ bit key$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \S+/\d+.\d+.\d+.\d+:\d+ Data 
+Channel Encrypt: Using \d+ bit message hash 'SHA\d+' for HMAC authentication$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \S+/\d+.\d+.\d+.\d+:\d+ 
+VERIFY OK: depth=\d+,"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \S+/\d+.\d+.\d+.\d+:\d+ 
+\[gw-wks\d+\] Inactivity timeout \(--ping-restart\), restarting$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: \S+/\d+.\d+.\d+.\d+:\d+ 
+write UDPv\d+ \[\]: Invalid argument \(code=\d+\)$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: read UDPv\d+ 
+\[ECONNREFUSED\]: Connection refused \(code=\d+\)$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn\[\d+\]: read UDPv\d+ 
+\[EHOSTUNREACH\]: No route to host \(code=\d+\)$"
+IGNORE	"^... .. ..:..:.. \S+ openvpn[\d+]: \S+/\d+.\d+.\d+.\d+:\d+ 
+\[\S+\] Inactivity timeout \(--ping-restart\), restarting"
+IGNORE	"^... .. ..:..:.. \S+ psad: \[+\]$"
+IGNORE	"^... .. ..:..:.. \S+ psad: flushed: PSAD_BLOCK_FORWARD$"
+IGNORE	"^... .. ..:..:.. \S+ psad: flushed: PSAD_BLOCK_INPUT$"
+IGNORE	"^... .. ..:..:.. \S+ psad: flushed: PSAD_BLOCK_OUTPUT$"
+IGNORE	"^... .. ..:..:.. \S+ psad: flushing existing psad iptables auto-
+response chains$"
+IGNORE	"^... .. ..:..:.. \S+ psad: imported Snort classification.config$"
+IGNORE	"^... .. ..:..:.. \S+ psad: imported TOS-based passive OS 
+fingerprinting signatures$"
+IGNORE	"^... .. ..:..:.. \S+ psad: imported \d+ psad Snort signatures 
+from /etc/psad/signatures$"
+IGNORE	"^... .. ..:..:.. \S+ psad: imported \d+ scanning IP addresses 
+from previous psad instance$"
+IGNORE	"^... .. ..:..:.. \S+ psad: imported auto_dl, got \d+ IP addresses 
+and \d+ networks$"
+IGNORE	"^... .. ..:..:.. \S+ psad: imported original Snort rules in 
+/etc/psad/snort_rules/ for reference info$"
+IGNORE	"^... .. ..:..:.. \S+ psad: imported p\d+f-based passive OS 
+fingerprinting signatures$"
+IGNORE	"^... .. ..:..:.. \S+ psad: imported valid icmp types and codes$"
+IGNORE	"^... .. ..:..:.. \S+ psad: shutting down psad daemons$"
+IGNORE	"^... .. ..:..:.. \S+ pulseaudio\[\d+\]: pid.c: Stale PID file, 
+overwriting.$"
+IGNORE	"^... .. ..:..:.. \S+ python: hp-systray\[\d+\]: error: hp-systray 
+cannot be run as root. Exiting.$"
+IGNORE	"^... .. ..:..:.. \S+ python: hp-systray\[\d+\]: warning: hp-
+systray should not be run as root/superuser.$"
+IGNORE	"^... .. ..:..:.. \S+ rchal: CPU frequency scaling is not 
+supported by your processor.$"
+IGNORE	"^... .. ..:..:.. \S+ rchal: Cannot load cpufreq governors - No 
+cpufreq driver available$"
+IGNORE	"^... .. ..:..:.. \S+ rchal: boot with 'CPUFREQ=no' in to avoid 
+this warning.$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Configuration file 
+/etc/smartd.conf was parsed, found DEVICESCAN, scanning devices$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], 
+SMART Prefailure Attribute: \d+ Seek_Error_Rate changed from \d+ to \d+$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], 
+SMART Usage Attribute: \d+ Airflow_Temperature_Cel changed from \d+ to \d+$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], 
+SMART Usage Attribute: \d+ Hardware_ECC_Recovered changed from \d+ to \d+$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], 
+SMART Usage Attribute: \d+ Temperature_Celsius changed from \d+ to \d+$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], 
+SMART Usage Attribute: \d+ Unknown_Attribute changed from \d+ to \d+$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], is 
+SMART capable. Adding to "monitor" list.$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], not 
+found in smartd database.$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], 
+opened$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], 
+state read from /var/lib/smartmontools/smartd.ST\d+AS-\d+VH\d+C\d+.ata.state$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd. \[SAT\], 
+state written to /var/lib/smartmontools/smartd.ST\d+AS-
+\d+VH\d+C\d+.ata.state$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sd., type 
+changed from 'scsi' to 'sat'$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Device: /dev/sdb, type 
+changed from 'scsi' to 'sat'$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Drive: DEVICESCAN, implied '-
+a' Directive on line \d+ of file /etc/smartd.conf$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Monitoring \d+ ATA and \d+ 
+SCSI devices$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: Opened configuration file 
+/etc/smartd.conf$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: smartd \d+.\d+ \d+-\d+-\d+ 
+r\d+~ \[i\d+-pc-linux-gnu\] \(openSUSE RPM\) Copyright \(C\) \d+-\d+ by Bruce 
+Allen, http://smartmontools.sourceforge.net$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: smartd has fork\(\)ed into 
+background mode. New PID=\d+.$"
+SHOW	"^... .. ..:..:.. \S+ smartd\[\d+\]: smartd is exiting \(exit status 
+\d+\)$"
+IGNORE	"^... .. ..:..:.. \S+ smartd\[\d+\]: smartd received signal \d+: 
+Terminated$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:         \d+ Duplicate URLs 
+purged.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:         \d+ Invalid entries.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:         \d+ Objects 
+cancelled.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:         \d+ Objects expired.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:         \d+ Swapfile clashes 
+avoided.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:         \d+ With invalid 
+flags.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:        \d+ Objects 
+cancelled.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:      \d+ Entries scanned$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:      \d+ Objects loaded.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:   Completed Validation 
+Procedure$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:   Finished.  Wrote \d+ 
+entries.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:   Took \d+.\d+ seconds 
+\(\d+.\d+ entries/sec\).$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:   Took \d+.\d+ seconds 
+\(\d+.\d+ objects/sec\).$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:   Validated \d+ Entries$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]:   store_swap_size = \d+$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Accepting  HTTP connections at 
+\d+.\d+.\d+.\d+, port \d+, FD \d+.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Accepting ICP messages at 
+\d+.\d+.\d+.\d+, port \d+, FD \d+.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Adding domain 
+guest.silverflash.net from /etc/resolv.conf$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Adding domain 
+in.silverflash.net from /etc/resolv.conf$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Adding nameserver 
+\d+.\d+.\d+.\d+ from /etc/resolv.conf$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Beginning Validation 
+Procedure$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Closing Pinger socket on FD 
+\d+$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Closing unlinkd pipe on FD 
+\d+$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: DNS Socket created at 
+\d+.\d+.\d+.\d+, port \d+, FD \d+$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Done reading /var/cache/squid 
+swaplog \(\d+ entries\)$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: FD \d+ Closing HTTP 
+connection$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: FD \d+ Closing ICP 
+connection$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Finished rebuilding storage 
+from disk.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: HTCP Disabled.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Killing RunCache, pid \d+$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Loaded Icons.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Local cache digest enabled; 
+rebuild/rewrite every \d+/\d+ sec$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Max Mem  size: \d+ KB$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Max Swap size: \d+ KB$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: NETDB state saved; \d+ 
+entries, \d+ msec$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Pinger socket opened on FD 
+\d+$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Preparing for shutdown after 
+\d+ requests$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Process ID \d+$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Ready to serve requests.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Rebuilding storage in 
+/var/cache/squid \(\S+\)$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Referer logging is disabled.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Set Current Directory to 
+/var/cache/squid$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Shutting down...$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Squid Cache \(Version 
+\d+.\d+.STABLE\d+\): Exiting normally.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Squid Parent: child process 
+\d+ started$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Starting Squid Cache version 
+\d+.\d+.STABLE\d+ for i\d+-suse-linux-gnu...$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Swap maxSize \d+ + \d+ KB, 
+estimated \d+ objects$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Target number of buckets: 
+\d+$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Unlinkd pipe opened on FD 
+\d+$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: User-Agent logging is 
+disabled.$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Using Least Load store dir 
+selection$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Using \d+ Store buckets$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Version \d+ of swap file with 
+LFS support detected...$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Waiting \d+ seconds for active 
+connections to finish$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: With \d+ file descriptors 
+available$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: icmpRecv: recv: \(\d+\) 
+Connection refused$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: storeDirWriteCleanLogs: 
+Starting...$"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: storeLateRelease: released \d+ 
+objects$"
+IGNORE	"^... .. ..:..:.. \S+ sshd\[\d+\]: Accepted publickey for mcsiweb 
+from \d+.\d+.\d+.\d+ port \d+ ssh\d+$"
+IGNORE	"^... .. ..:..:.. \S+ sshd\[\d+\]: Accepted publickey for root 
+from \d+.\d+.\d+.\d+ port \d+ ssh\d+$"
+IGNORE	"^... .. ..:..:.. \S+ sshd\[\d+\]: Server listening on 
+\d+.\d+.\d+.\d+ port \d+.$"
+IGNORE	"^... .. ..:..:.. \S+ sysbackup:\s+tar: .*: file changed as we 
+read it$"
+IGNORE	"^... .. ..:..:.. \S+ sysbackup:\s+tar: .*: socket ignored$"
+IGNORE	"^... .. ..:..:.. \S+ syslog-ng\[\d+\]: Configuration reload 
+request received, reloading configuration;$"
+IGNORE	"^... .. ..:..:.. \S+ syslog-ng\[\d+\]: Log statistics; "
+IGNORE	"^... .. ..:..:.. \S+ syslog-ng\[\d+\]: New configuration 
+initialized;$"
+IGNORE	"^... .. ..:..:.. \S+ syslog-ng\[\d+\]: Termination requested via 
+signal, terminating;$"
+SHOW	"^... .. ..:..:.. \S+ syslog-ng\[\d+\]: syslog-ng shutting down; 
+version='\d+.\d+.\d+'$"
+SHOW	"^... .. ..:..:.. \S+ syslog-ng\[\d+\]: syslog-ng starting up; 
+version='\d+.\d+.\d+'$"
+IGNORE	"^... .. ..:..:.. \S+ /usr/sbin/cron\[\d+\]: \(\S+\) CMD"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: adjusted limit on open files 
+from \d+ to \d+"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: automatic empty zone: \S+"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: built with "
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: command channel listening on "
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: found \d+ CPUs, using \d+ 
+worker threads"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: listening on IPv\d+ interface "
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: loading configuration from 
+'/etc/named.conf'"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: no longer listening on ::#\d+"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: no longer listening on 
+\d+.\d+.\d+.\d+#\d+"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: received control channel 
+command 'stop'"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: running"
+SHOW	"^... .. ..:..:.. \S+ named[\d+\]: shutting down: flushing changes"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: starting BIND \d+.\d+.\d+-P\d+ 
+-t /var/lib/named -u named"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: stopping command channel on 
+::\d+#\d+"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: stopping command channel on 
+\d+.\d+.\d+.\d+#\d+"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: the working directory is not 
+writable"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: using default UDP/IPv\d+ port 
+range: \[\d+, \d+\]"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: using up to \d+ sockets"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: zone \d+.\d+.\d+.in-
+addr.arpa/IN: loaded serial \d+"
+IGNORE	"^... .. ..:..:.. \S+ named[\d+\]: zone localhost/IN: loaded 
+serial \d+"
+IGNORE	"^... .. ..:..:.. \S+ ntpd[\d+\]: Listening on interface #"
+IGNORE	"^... .. ..:..:.. \S+ ntpd[\d+\]: kernel time sync status \d+"
+IGNORE	"^... .. ..:..:.. \S+ ntpd[\d+\]: ntpd \d+.\d+.\d+p\d+@\d+.\d+-o 
+Sat Oct \d+ \d+:\d+:\d+ UTC \d+ \(\d+\)"
+IGNORE	"^... .. ..:..:.. \S+ ntpd[\d+\]: precision = \d+.\d+ usec"
+IGNORE	"^... .. ..:..:.. \S+ psad: \[+\]"
+IGNORE	"^... .. ..:..:.. \S+ .*pam_unix2\(\S+:account\): 
+pam_sm_acct_mgmt\(\) called$"
+IGNORE	"^... .. ..:..:.. \S+ .*pam_unix2\(\S+:account\): 
+username=\[\S+\]$"
+IGNORE	"^... .. ..:..:.. \S+ .*pam_unix2\(\S+:account\): expire\(\) 
+returned with 0$"
+IGNORE	"^... .. ..:..:.. \S+ .*Job ended normally with status 0 and 
+signal 0$"
+IGNORE	"^... .. ..:..:.. \S+ .*Job ended on \d+/\d+/\d+ at \d+:\d+:\d+ - 
+run time:( \d+ hours?,)?( \d+ minutes?,)? \d+ seconds?$"
+SHOW	"^... .. ..:..:.. \S+ rpcbind: rpcbind terminating on signal. Restart 
+with "rpcbind -w$"
+IGNORE	"^... .. ..:..:.. \S+ shutdown\[\d+\]: shutting down for system 
+halt"
+IGNORE	"^... .. ..:..:.. \S+ squid\[\d+\]: Swap maxSize \d+ + \d+ KB, 
+estimated \d+ objects"
+IGNORE	"^... .. ..:..:.. \S+ sshd\[\d+\]: Accepted keyboard-
+interactive/pam for bmartin from \d+.\d+.\d+.\d+ port \d+ ssh\d+"
+IGNORE	"^... .. ..:..:.. \S+ sshd\[\d+\]: Did not receive identification 
+string from \d+.\d+.\d+.\d+"
+IGNORE	"^... .. ..:..:.. \S+ sshd\[\d+\]: Received signal \d+; 
+terminating."
+IGNORE	"^... .. ..:..:.. \S+ su: (to nobody) root on none"
