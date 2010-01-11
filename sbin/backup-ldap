@@ -7,15 +7,15 @@ use ProcessOptions;
 use Text::ParseWords;
 
 # Initialize variables.
-$Prog=$0;			# Get our name, for messages.
+our $Prog=$0;			# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off the path, if present.
 $ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
-@Args=@ARGV;			# Preserve orig command for ref.
-$ErrorFlag=0;			# No errors so far.
-$Syslog='user';			# Name of Syslog facility.  '' for none.
-$LogFile="";			# Name of the log file.
-$ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
+our @Args=@ARGV;			# Preserve orig command for ref.
+my $ErrorFlag=0;			# No errors so far.
+my $Syslog='user';			# Name of Syslog facility.  '' for none.
+my $LogFile="";			# Name of the log file.
+my $ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
 our @opt_x;
 our $opt_o;			# Name of our output file.
 our $opt_C=5;			# Number of cycles to keep.
