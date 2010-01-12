@@ -11,7 +11,7 @@ use warnings;
 package	LogOutput;
 require	Exporter;
 use Mail::Sendmail;
-use ScriptTool::LogOutput_cfg;
+use LogOutput_cfg;
 use POSIX qw(strftime);
 use Sys::Syslog;
 

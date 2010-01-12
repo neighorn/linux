@@ -1,7 +1,2 @@
-From:	root [root@mail.dinihanian.com]
-Sent:	Thursday, September 24, 2009 1:55 PM
-To:	brian@Martinconsulting.com
-Subject:	unison
-
 ALLJOBS: -m jobrept
 SCANLOG: /usr/local/etc/scanlog ssh://svr10//usr/local/etc/scanlog
