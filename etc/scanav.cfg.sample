@@ -1,0 +1,2 @@
+# scanav sample configuration file.
+ALLJOBS: -m jobrept -x /mnt -x /media -x /proc -x /sys -x /dev/pts
