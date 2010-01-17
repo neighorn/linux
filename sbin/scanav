@@ -160,7 +160,7 @@ sub opt_h {
 	print PAGENATER <<"ENDUSAGE";
 $Prog - Scan a file or directory tree for viruses using ClamAV.
 
-Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] dir
+Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] [dir...] 
 	$Prog -h
 
 Flags:
@@ -183,9 +183,7 @@ Flags:
 			repeated.
 
 Parameters:
-	vault	:	A vault name (assumed to bin in /usr/local/dirvish), or
-			a fully-qualified path to the vault.  A branch may be 
-			included.
+	dir...	:	Zero or more directories to scan.  The default is "/".
 
 Return codes:
 	0       :       Normal termination
