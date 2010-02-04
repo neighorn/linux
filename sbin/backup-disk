@@ -13,8 +13,12 @@ function CopyDisk {
 	date
 	((MaxRC = 0))
 	set -v
+        # Document partition layouts
 	sfdisk -l $BaseDisk > $DiskPartitionMap
 	sfdisk -d $BaseDisk > $SFDiskPartitionMap
+	# Launch the background status monitoring process.
+	StatusReport $$ &
+	# OK, launch the copy.
 	DD if=$BaseDisk bs=512 count=1 > $Sector0
 	DD if=$1 bs=512 | gzip -c > $DiskImageFile
 	set +v
@@ -27,12 +31,26 @@ while [[ $# -gt 0 ]]
 do
 	if [[ $1 != /dev/* ]]
 	then
-		echo "$1 is not a device file -- skipped."
-		continue
+		echo "$1 is not a device file -- skipped." >&2
+		return 8
 	fi
+
 	echo "$Date $SystemName $1 $Comment" >> $TargetDir/comments
+
 	DiskImageFile="$TargetDir$SystemName-$Date-${1##*/}.image.gz"
-	BaseDisk="${1%%[0-9]}"
+        if [[ "$1" = *\/[sh]da[0-9] ]]
+        then
+	    BaseDisk="${1%%[0-9]}"
+        elif [[ "$1" = *\/[sh]da ]]
+        then
+            BaseDisk="$1"
+        elif [[ "$1" = *_part[0-9] ]]
+        then 
+            BaseDisk="${1%%_part[0-9]}"
+        else
+            echo "Error: Unable to identify base disk for sector0 and partition map of $1" >&2
+            exit 8
+        fi
 	hdparm -d $BaseDisk | grep -q off
 	if [[ $? -eq -0 ]]
 	then
@@ -51,6 +69,8 @@ return $Status
 }
 
 function StatusReport {
+
+set +xv		# Don't trace the background process.
 
 # Get the process ID of the dd process.
 sleep 60	# Give dd time to start.
@@ -88,11 +108,11 @@ ShutdownFile=./.shutdown
 # change their mind while we're running.
 [[ -e $RebootFile ]] && rm $RebootFile
 [[ -e $ShutdownFile ]] && rm $ShutdownFile
-if [[ $1 -eq "-r" ]]
+if [[ "$1" = "-r" ]]
 then
 	touch $RebootFile
 	shift
-elif [[$1 -eq "-s" ]]
+elif [[ "$1" = "-s" ]]
 then
 	touch $ShutdownFile
 	shift
@@ -104,10 +124,12 @@ shift
 echo "Comment? "
 read Comment
 
-# Launch the status monitoring process.
-StatusReport $$ &
-
-RunBackup $* 2>&1 | tee ./$SystemName-$Date.log
+for Disk in $*
+do
+	# Run the back-up.
+	RunBackup $System $Disk 2>&1
+done |
+	tee ./$SystemName-$Date.log
 
 if [[ -e $RebootFile ]]
 then
@@ -118,5 +140,7 @@ then
 	rm $ShutdownFile
 	shutdown -h now
 fi
+
+/usr/bin/aplay /usr/share/sounds/linphone/rings/orig.wav >/dev/null 2>&1
 
 exit $?

@@ -26,7 +26,7 @@ our $Errors=0;                       # No errors so far.
 our $Syslog='USER';                         # Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
-our $ConfigFile="$BaseDir/${Prog}.cfg";     # Name of config file.
+our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
@@ -115,7 +115,19 @@ sub Backup_VM {
 	my $Errors = 0;			# Errors in backing up this VM.
 
 	# Set up the output directory.
-	my $ParentDir = "/mnt/dirvish/offsite/xen/$VM";
+	my $LSFH;
+	my $ParentDir;
+	# Find the current offsite directory.
+	open($LSFH,'ls -d /mnt/dirvish/offsite* 2> /dev/null |')
+		or die "Unable to list offsite directories: $!";
+	while (<$LSFH>) {
+		chomp;
+		$ParentDir = "$_/xen";
+		last if (-d $ParentDir);
+	}
+	close $LSFH;
+	die "Unable to locate /mnt/dirvish/offsite*/xen" unless ($ParentDir);
+	$ParentDir .= "/$VM";
 	my $OutputDir = strftime("$ParentDir/%Y-%m-%d",localtime());
 	print strftime("Backing up $VM to $OutputDir at %H:%M:%S\n",localtime());
 	if ( ! -d $OutputDir) {
@@ -123,10 +135,11 @@ sub Backup_VM {
 		if ($opt_C and -d $ParentDir) {
 			my $FH;
 			my $Count = 0;
-			open ($FH,'ls -t |') || warn "Unable to get directory of $ParentDir: $!";
+			open ($FH,"ls -t $ParentDir |") || warn "Unable to get directory of $ParentDir: $!";
 			while (<$FH>) {
 				chomp;
 				$Count++;
+				next unless (/^\d\d\d\d-\d\d\-\d\d$/);	# Safety check.  Only get yyyy-mm-dd files.
 				RunDangerousCmd("rm -rf $ParentDir/$_") if ($Count >= $opt_C);
 			}
 		}
