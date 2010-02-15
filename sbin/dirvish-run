@@ -163,7 +163,7 @@ foreach $Target (@Parms) {
 	# Is this a rerun?
 	if ($opt_R and -d './latest') {
 		RunDangerousCmd("mv ./latest ./latest.old") && die "Unable to rename 'latest' in response to -R: $!";
-		RunDangerousCmd("rm -rf ./latest.old &");
+		RunDangerousCmd("echo rm -rf ./latest.old | at now");
 	}
 
 	# Do we need to initialize this disk?
@@ -373,6 +373,8 @@ IGNORE	"^\s*rsync warning: some files vanished before they could be transferred"
 IGNORE	"^\s*file has vanished: "
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+\s*$"
+IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
+IGNORE	"^\s*job \d+ at \d+-\d+-\d+\s+\d+:\d+$"
 SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
 SHOW    /^Test:/
 SHOW    /^Executing:/

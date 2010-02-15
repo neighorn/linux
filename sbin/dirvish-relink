@@ -1,0 +1,44 @@
+#! /bin/bash
+
+if [[ $# -ne 1 ]]
+then
+    echo "Usage: dirvish-relink /usr/local/dirvish/xxx/basedir"
+    echo " "
+    echo "Where /usr/local/dirvish/xxx/basedir is the directory tree that"
+    echo "subsequent back-ups should link to"
+    exit 1
+fi
+
+dir=${1%/}		# Save dir name.  Remove trailing slash, if any.
+
+if [[ ! -d $dir ]]
+then
+    echo "Unable to locate $dir"
+    exit 8
+fi
+
+if [[ ! -d "$dir/tree" ]]
+then
+    echo "$dir does not contain a successful back-up"
+    exit 12
+fi
+
+if [[ "$dir" == */* ]]	# Do we have a path?
+then
+	# Yes.
+	parent=${dir%/*}	# Remove trailing node.
+	basenode=${dir##*/}	# Save trailing node.
+else
+	# No path.  Just a directory name in our current directory.
+	parent="."
+	basenode=$dir
+fi
+
+ls $parent |
+    while read name
+    do
+	[[ $basenode > $name ]] && continue
+	[[ -e "$name/tree" ]] || continue
+  	[[ -n "$prior" ]] && link-dups $name/tree $prior/tree
+	prior=$name
+    done
