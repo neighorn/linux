@@ -22,17 +22,41 @@ then
     exit 9
 fi
 
+((CheckCount=0))
+((MatchCount=0))
+((AlreadyLinked=0))
+tty -s
+TTYStat=$?
 find $1 -type f -print |
     sort |
-    while read filename
+    while read candidate
     do
-       trailing_name=${filename#$1}
-       candidate="$2$trailing_name"
-       [[ ! -f $candidate ]] && continue
-       cmp -s "$filename" "$candidate"
-       if (( $? == 0 ))
+       ((CheckCount=$CheckCount+1))
+       trailing_name=${candidate#$1}
+       filename="$2$trailing_name"
+       if [[ -f "$filename" ]]
        then
-           echo "Match: $trailing_name"
-           ln -f "$candidate" "$filename"
+	       # Same file name in both trees.  Are they already linked?
+	       if [[ `stat -c %d-%i "$filename"` -eq `stat -c %d-%i "$candidate"` ]]
+	       then
+		   # Already linked.
+	           ((AlreadyLinked=$AlreadyLinked+1))
+	       else
+		   # Not already linked.  Are they the same?
+		       cmp -s "$filename" "$candidate"
+		       if (( $? == 0 ))
+		       then
+		           ln -f "$candidate" "$filename"
+		           ((MatchCount=MatchCount+1))
+		       fi
+	       fi
        fi
-    done
+       if [[ ( $TTYStat -eq 0 ) && ( $CheckCount = *00 ) ]]
+       then
+		printf "\r$CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked\r" > /dev/tty
+       fi
+       echo "link-dups complete: $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked"
+    done |
+    tail -1
+exit 0
+

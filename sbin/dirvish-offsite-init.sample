@@ -1,0 +1,18 @@
+#! /bin/bash 
+
+# Update offsite config files at the beginning of each run.  Offsite disks
+# are normally offsite, making it difficult to maintain their dirvish
+# config files manually.
+
+# Document which disk we're using.
+
+ls /mnt/dirvish/offsite*/disk.* 2> /dev/null |
+        while read name
+        do
+                id=${name##*/disk.}
+                dir=${name%/*}
+                echo "Running offsite back-ups to disk #$id"
+                cp -rp /usr/local/etc/dirvish/offsite.d/* $dir
+		chmod o= $dir
+        done
+exit 0
