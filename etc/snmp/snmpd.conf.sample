@@ -18,6 +18,6 @@ syscontact Sysadmin (root@localhost)
 # These really aren't meant for production use.  They include all MIBS
 # and can use considerable resources.  See snmpd.conf(5) for information
 # on setting up groups and limiting MIBS.
-rocommunity zzzzzzzz 192.168.xxx.16
+rocommunity zzzzzzzz zenoss
 rocommunity zzzzzzzz 127.0.0.1
 # rwcommunity mysecret 127.0.0.1
