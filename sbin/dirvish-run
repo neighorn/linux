@@ -88,8 +88,8 @@ $RunDate=`date +%m/%d`;
 chomp $RunDate;
 if ($opt_N) {
 	$LogOutput::Subject="$Prog $RunDate $opt_N" ;
-} elsif (@Parms == 1) {
-	$LogOutput::Subject="$Prog $RunDate $Parms[0]" ;
+} elsif (@Parms >= 1) {
+	$LogOutput::Subject="$Prog $RunDate " . join(', ',@Parms) ;
 } else {
 	$LogOutput::Subject="$Prog $RunDate";
 };
@@ -300,12 +300,14 @@ Flags:
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
+	-N text		Name: insert "text" in the e-mail subject line instead
+                        of the vault name(s).
+	-O config:      Insert the "config" configuration options from
+			$ConfigFile.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
 	-P mailid:      Page error: Send a very brief message to this e-mail 
 			address if errors are detected in this job.
-	-O config:      Insert the "config" configuration options from
-			$ConfigFile.
 			the command line at this point.
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
