@@ -18,7 +18,7 @@ use Sys::Syslog;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.1;
+our $Version	= 3.2;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -733,8 +733,14 @@ sub _SetupMail {
 	}
 	$Mail{To} =~ s/^\s+//;		# Strip leading space.
 	if ($^O eq 'MSWin32') {
-		$Mail{From}=$ENV{'USERNAME'} . '@' . $ENV{'COMPUTERNAME'}
+		if (defined($ENV{'USERNAME'}) and $ENV{'USERNAME'}) {
+			$Mail{From} = $ENV{'USERNAME'} . '@' . $ENV{'COMPUTERNAME'}
 			. ".$Options{MAIL_DOMAIN}";
+		}
+		else {
+			$Mail{From} = 'Administrator' . '@' . $ENV{'COMPUTERNAME'}
+			. ".$Options{MAIL_DOMAIN}";
+		}
 	} elsif ($^O =~ /^(aix|linux)$/) {
 		$HostName=`hostname`;
 		chomp $HostName;
