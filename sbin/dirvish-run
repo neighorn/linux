@@ -166,9 +166,9 @@ foreach $Target (@Parms) {
 		RunDangerousCmd("echo rm -rf ./latest.old | at now");
 	}
 
-	# Do we need to initialize this disk?
-	system('/bin/ls ./*/tree > /dev/null 2>&1');
-	my $Status = $?;
+	# Do we need to initialize this disk?  Need at least 1 tree and a hist file.
+	my $Status = system('/bin/ls ./*/tree > /dev/null 2>&1');
+	$Status = system('/bin/ls ./dirvish/*.hist > /dev/null 2>&1') if ($Status eq 0);
 	my $Init = ($Status eq 0?'':'--init');	# Add --init if no trees.
 
 	# Run the back-up.
