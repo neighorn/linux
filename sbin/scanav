@@ -243,12 +243,14 @@ IGNORE	"^\s*LibClamAV Warning: Not supported compression method"
 IGNORE	"^\s*LibClamAV Warning: Only text and application attachments are fully"
 # Partial message - starts attachment but doesn't finish.  Ignore.
 IGNORE	"^\s*LibClamAV Warning: Partial message received from MUA/MTA - message cannot be scanned"
+IGNORE	"^\s*LibClamAV Warning: TNEF - unknown"
 IGNORE	"^\s*LibClamAV Warning: Unknown VBA version signature"
 IGNORE	"^\s*LibClamAV Warning: uudecode: buffer overflow stopped"
 IGNORE	"Phishing.Heuristics.Email.SpoofedDomain FOUND$"
 SHOW	".mozilla/firefox/\S+/Cache/[A-Za-z0-9]+: ClamAV-Test-File FOUND$"
 SHOW	"Eicar-Test-Signature FOUND$"i
 IGNORE	"^\s*/etc/psad/snort_rules"
+IGNORE	"^\s*/usr/local/src/psad-"
 IGNORE	"^\s*/home/samba/common/downloads/AutoIT/SciTE4AutoIt3.exe"
 IGNORE	"^\s*/home/samba/common/AutoIT/"
 # Ignore our own AutoIT script.
