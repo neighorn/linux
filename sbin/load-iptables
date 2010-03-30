@@ -13,15 +13,26 @@ our $opt_q;
 
 Getopts("q");
 
+my $hostname = hostname;
 my $FH;
-open($FH,"/usr/local/etc/iptables.dat") ||
-	die("Unable to open /usr/local/etc/iptables.dat : $!\n");
+if (-f "/usr/local/etc/iptables.$hostname") {
+        open($FH,"/usr/local/etc/iptables.$hostname") ||
+                die("Unable to open /usr/local/etc/iptables.$hostname : $!");
+        print "Loading iptables.$hostname\n";
+}
+elsif (-f "/usr/local/etc/iptables.dat") {
+        open($FH,"/usr/local/etc/iptables.dat") ||
+                die("Unable to open /usr/local/etc/iptables.dat : $!");
+        print "Loading iptables.dat\n";
+}
+else {
+        die "Unable to find iptables.$hostname or iptables.dat";
+}
 
 my $Line=0;
 my $Errors=0;
 system("ifrename") if (-e "/etc/iftab");
 system("ifrename") if (-e "/etc/mactab");
-my $hostname = hostname;
 
 while (<$FH>) {
 	$Line++;		# Increment the line counter
