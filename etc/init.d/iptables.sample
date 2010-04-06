@@ -12,8 +12,8 @@ touch /iptables.start
 BIN=/usr/local/sbin/load-iptables
 test -x $BIN || exit 5
 
-DATAFILE=/usr/local/etc/iptables.dat
-test -r $DATAFILE || exit 6
+#DATAFILE=/usr/local/etc/iptables.dat
+#test -r $DATAFILE || exit 6
 
 . /etc/rc.status
 
