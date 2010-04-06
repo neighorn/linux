@@ -1,0 +1,6 @@
+backup/
+dirvish/
+!etc/*.sample
+!etc/*/*.sample
+etc/*
+man/
