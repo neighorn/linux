@@ -1,0 +1,14 @@
+#! /bin/bash
+export PATH="/usr/sbin:/usr/bin:/bin"
+
+Count=`iptables -nL | wc -l`
+
+if [[ $Count -lt 100 ]]
+then
+    logger -t check-iptables "iptables unconfigured.  Going into lockdown"
+    iptables -P INPUT REJECT
+    iptables -P FORWARD REJECT
+    iptables -P OUTPUT REJECT
+    /etc/init.d/network stop
+    ifconfig eth0 down
+fi
