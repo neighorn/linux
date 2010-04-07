@@ -4,3 +4,4 @@ dirvish/
 !etc/*/*.sample
 etc/*
 man/
+*~
