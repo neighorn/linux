@@ -3,7 +3,7 @@ export PATH="/usr/sbin:/usr/bin:/bin"
 
 Count=`iptables -nL | wc -l`
 
-if [[ $Count -lt 100 ]]
+if [[ $Count -lt 50 ]]
 then
     logger -t check-iptables "iptables unconfigured.  Going into lockdown"
     iptables -P INPUT REJECT
