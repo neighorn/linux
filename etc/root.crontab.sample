@@ -32,6 +32,8 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 # Back up the MySQL databases.
 00 02 * * * /usr/local/sbin/dbbu > /dev/null
 #
-#
 # Update spamassassin
 00 01 * * * (/usr/bin/sa-update && /usr/local/sbin/restartsys spamd) > /dev/null
+#
+# Make sure iptables is loaded.
+00 * * * * /usr/local/sbin/check-iptables > /dev/null
