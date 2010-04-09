@@ -5,10 +5,14 @@ Count=`iptables -nL | wc -l`
 
 if [[ $Count -lt 50 ]]
 then
-    logger -t check-iptables "iptables unconfigured.  Going into lockdown"
+    logger -t check-iptables "*** $Count rules found -- iptables is unconfigured.  Going into lockdown mode."
     iptables -P INPUT REJECT
     iptables -P FORWARD REJECT
     iptables -P OUTPUT REJECT
     /etc/init.d/network stop
     ifconfig eth0 down
+    exit 8
+else
+    echo "$Count rules found -- iptables is configured."
+    exit 0
 fi
