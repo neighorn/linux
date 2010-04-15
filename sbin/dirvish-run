@@ -382,6 +382,6 @@ SHOW    /^Test:/
 SHOW    /^Executing:/
 SHOW	/^\s*debug:/
 SHOW  /^\s*$/
-#
+# 
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
