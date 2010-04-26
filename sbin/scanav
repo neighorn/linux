@@ -250,6 +250,7 @@ IGNORE	"Phishing.Heuristics.Email.SpoofedDomain FOUND$"
 SHOW	".mozilla/firefox/\S+/Cache/[A-Za-z0-9]+: ClamAV-Test-File FOUND$"
 SHOW	"Eicar-Test-Signature FOUND$"i
 IGNORE	"^\s*/etc/psad/snort_rules"
+IGNORE	"^\s*/usr/local/src/clamav-"
 IGNORE	"^\s*/usr/local/src/psad-"
 IGNORE	"^\s*/home/samba/common/downloads/AutoIT/SciTE4AutoIt3.exe"
 IGNORE	"^\s*/home/samba/common/AutoIT/"
