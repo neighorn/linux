@@ -101,7 +101,8 @@ LogOutput('',$Syslog,$opt_l,$opt_m,$opt_e,$opt_p,$opt_P);
 # Build the exclude list.
 my $Exclude = "";
 foreach (@opt_x) {
-	$Exclude .= "--exclude $_ ";
+	my $opt=(-d $_?"--exclude-dir":"--exclude");
+	$Exclude .= "$opt $_ "
 }
 
 	
