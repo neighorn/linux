@@ -1,13 +1,4 @@
-#@rem =3D '--*-Perl-*--
-#@echo off
-#rem if not exist y:\PerlScripts\Perl net use y: \\Snap1\Share1 /persistent:no
-#rem if not exist b:\ net use b: \\Snap1\Sysbackups /persistent:no
-#path %SYSTEMDRIVE%\bin;%WINDIR%\system32;%WINDIR%;%WINDIR%\System32\Wbem;d:\bin\Perl\Bin
-#perl -x -S %0 %*
-#goto :EOF
-#@rem ';
-#!perl
-#line 11
+#! /usr/bin/perl
 #
 # Copyright (c) 2005,2009, Martin Consulting Services, Inc.
 # Licensed under the Lesser Gnu Public License (LGPL).
@@ -25,14 +16,13 @@ use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
-use File::DosGlob 'GLOBAL_glob';
 
 # Initialize variables.
 our $Prog=$RealScript;              	# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
-our $Errors=0;                       # No errors so far.
-our $Syslog='';                         # Name of Syslog facility.  '' for none.
+our $Errors=0;				# No errors so far.
+our $Syslog='';				# Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
 our $ConfigFile="$BaseDir/${Prog}.cfg";     # Name of config file.
@@ -100,13 +90,6 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 # Verify the command line.
 die("No files specified on the command line.  See \"$Prog -h\" for usage.")
 	unless (@Parms > 0);
-
-
-# Expand file list, in case there are wild cards.
-my @Files=();
-foreach (@Parms) {
-	push @Files, glob $_;
-}
 
 # =========== Add code here =============
 if ($ExitCode) {
