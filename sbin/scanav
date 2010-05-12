@@ -244,6 +244,7 @@ IGNORE	"^\s*LibClamAV Warning: Not supported compression method"
 IGNORE	"^\s*LibClamAV Warning: Only text and application attachments are fully"
 # Partial message - starts attachment but doesn't finish.  Ignore.
 IGNORE	"^\s*LibClamAV Warning: Partial message received from MUA/MTA - message cannot be scanned"
+IGNORE	"^\s*LibClamAV Warning: PE contains no sections"
 IGNORE	"^\s*LibClamAV Warning: TNEF - unknown"
 IGNORE	"^\s*LibClamAV Warning: Unknown VBA version signature"
 IGNORE	"^\s*LibClamAV Warning: uudecode: buffer overflow stopped"
