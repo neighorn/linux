@@ -37,3 +37,6 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 #
 # Make sure iptables is loaded.
 00 * * * * /usr/local/sbin/check-iptables > /dev/null
+#
+# Make sure dhcp is running
+05 7-18 * * * /usr/local/sbin/check-dhcp > /dev/null || /etc/init.d/dhcpd start
