@@ -25,7 +25,7 @@ our $Errors=0;				# No errors so far.
 our $Syslog='';				# Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
-our $ConfigFile="$BaseDir/${Prog}.cfg";     # Name of config file.
+our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.

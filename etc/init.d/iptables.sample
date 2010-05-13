@@ -11,10 +11,6 @@
 BIN=/usr/local/sbin/load-iptables
 test -x $BIN || exit 5
 
-# Let load-iptables decide what table to use.
-#DATAFILE=/usr/local/etc/iptables.dat
-#test -r $DATAFILE || exit 6
-
 . /etc/rc.status
 
 flushall()
