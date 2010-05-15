@@ -22,8 +22,7 @@ our $Prog=$RealScript;              	# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 our $Errors=0;                          # No errors so far.
-our $Syslog='USER';                     # Name of Syslog facility.  '' for 
-none.
+our $Syslog='USER';                     # Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
 our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
@@ -45,8 +44,7 @@ our $opt_v;				# -v (verbose) option.
 
 # Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
 #       1) We define a new type l (lowercase L), which is a list (i.e. if
-#          specified multiple times, values are concatenated & blank 
-separated.o
+#          specified multiple times, values are concatenated & blank separated.o
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
@@ -127,7 +125,7 @@ sub RunDangerousCmd {
 		print "Executing: $Cmd\n" if ($opt_v);
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
-				$Line=~s/[ 
+				$Line=~s/[
 ]//g;
 				chomp $Line;
 				print "$Line\n";
@@ -157,8 +155,7 @@ sub opt_h {
 =head1 $Prog - >>description<<
 
 =head3 Usage:  
-	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-
-v] files
+	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
 
 	$Prog -h
 
@@ -203,8 +200,7 @@ __END__
 #               are joined by logical OR conditions.
 #
 #  Notes:
-#       1) The "Type" parameter may be specified in upper, lower, or mixed 
-case.
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
 #       2) All messages go to the syslog, regardless of this filter.
 #
 #
@@ -231,13 +227,15 @@ IGNORE	"^\s*Propagating updates"
 IGNORE	"^\s*UNISON \d+\.\d+\.\d+ started propagating changes"
 IGNORE	"^\s*\[BGN\] Updating file"
 IGNORE	"^\s*\[END\] Updating file"
-IGNORE	"^\s*\d+%\s+\d+:\d+\s+ETA"
+IGNORE	"^\s*\d+%\s+[[0-9-]+:[0-9-]+\s+ETA"
+IGNORE	"^\s*scanning\s+\S+"
 SHOW	"^\s*Connected \[.*\]$"
 IGNORE	"^\s*Looking for changes$"
 IGNORE	"^\s*Waiting for changes from server$"
 IGNORE	"^\s*Reconciling changes$"
 SHOW	"^\s*Nothing to do: replicas have not changed since last sync.$"
+SHOW	"^\s*Synchronization complete  \(\d+ items? transferred, \d+ skipped, \d+ failures?\)$"
+SHOW	"^\s*<---- changed"
 #
-# Anything that doesn't match one of these three sets of patterns is 
-considered
+# Anything that doesn't match one of these three sets of patterns is considered
 # an error.
