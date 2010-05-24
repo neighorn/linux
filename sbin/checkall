@@ -1,0 +1,168 @@
+#! /usr/bin/perl
+
+use strict;
+use warnings;
+use Sys::Syslog;
+use Getopt::Std;
+use IO::Socket;
+use File::Temp qw(tempfile);
+use POSIX qw(strftime);
+
+my $opt_v;		# Verbose option.
+my $opt_t;		# Test option.
+my $opt_q;		# Quiet option.
+my $opt_P='pager@martinconsulting.com';		# Who to page on errors.
+my $opt_s;		# Alert subject
+
+my @NowDown;		# Newly down items.
+my @NowUp;		# Newly up items.
+my @StillDown;		# On-going down items.
+my %DownItems;		# List of items previously down.
+
+my $StatusFile="$ENV{HOME}/bin/checkall.dat";
+my $ServiceList="/usr/local/etc/checkall.list";
+my $RepeatThreshold=2;		# Set number of hours to re-report down items.
+
+my $HostName = `hostname`;
+chomp $HostName;
+
+getopts('qv:P:s:');
+
+if (!$opt_s) {
+	$opt_s = "$HostName alert";
+}
+
+openlog("checkall");
+
+# Load table of items that have already been reported down.
+if (open(STATUS,'<',$StatusFile)) {
+	# Load up any items that were previously down.
+	while (<STATUS>) {
+		my($Time,undef,$Desc)=split(/\s+/,$_,3);
+    		$Desc=~s/^\s*(.*)\s*$/$1/;
+		if ($Time + $RepeatThreshold*60*60 > time()) {
+			$DownItems{$Desc}=$Time;
+		}
+	}
+	close STATUS;
+}
+else {
+	warn "Open failed: $!\n";
+}
+
+my $DownMessages;
+if ($opt_q) {
+	# Prepare the Down-Message header text.
+	my($Minutes,$Hours)=(localtime())[1,2];
+	$Minutes="0$Minutes" if ($Minutes <= 9);
+	$DownMessages="The following services were detected down at 
+$Hours:$Minutes...";
+}
+
+my $errors=0;
+my $FH;
+if open($FH,'<',$ServiceList) {
+	while (<FH>) {
+		next if (/^\s*#/);		# skip comments.
+		chomp;
+		my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$_);	# break out data elements.
+		$Desc=~s/^\s*(.*)\s*$/$1/;
+		print "\nChecking $Desc\n" if ($opt_v);
+		my $GroupOK=0;
+		my $socket;
+		foreach (split(/,/,$TargetList)) {
+		my($host,$port)=split(/:/);
+			# try to connect.
+			if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>20)) {
+				# Connected OK.
+					printf "\t%s:%d OK - %s\n", $host, $port, $Desc if ($opt_v);
+					close($socket);
+				$GroupOK=1;		# One of this target group worked.
+				last;		# Don't need to do any further checking.
+			} else
+			{
+				# Connection is down.
+					printf "\t%d DOWN: $!\n", $Desc if ($opt_v);
+					close($socket) if ($socket);
+			}
+		}
+		if ($GroupOK) {
+			printf "%-40.40 OK\n", $Desc if (!$opt_q);
+			# Trigger up action if it was down before.
+			if ($DownItems{$Desc}) {
+				syslog('INFO','%s is now up',$Desc)
+					if ($^O !~ /MSWin/);
+				if ($UpAction) {
+					print "Triggering Up-action for $Desc\n" if ($opt_v);
+					$UpAction =~ s/%D/$Desc/g;
+					system($UpAction);
+				}
+				push @NowUp, $Desc;
+			} else
+			{
+				syslog('INFO','%s is still up',$Desc)
+					if ($^O !~ /MSWin/);
+			}
+			delete $DownItems{$Desc};	# No longer down, if it was before.
+		} elsif ($DownItems{$Desc}) {
+			# Connection failed, but we have already reported it.
+			syslog('INFO','%s is still down',$Desc);
+				printf "\t%s still DOWN\n", $Desc
+				if (!$opt_q);
+			push @StillDown, $Desc;
+		} else
+		{
+			# Connection is newly down.
+			syslog('INFO','%s is now down',$Desc);
+			if ($opt_q) {
+				$DownMessages.="\r\n\t$Desc";
+			} else
+			{
+				printf "%-40.40\tDOWN\n", $Desc;
+			}
+			if ($DownAction) {
+				print "Triggering down-action for $Desc\n" if ($opt_v);
+				$DownAction =~ s/%D/$Desc/g;
+				system($DownAction);		# Trigger action.
+			}
+			$DownItems{$Desc}=time();
+			push @NowDown,$Desc;
+			$errors=1;
+		}
+	}
+}
+else {
+	warn "Unable to open $ServiceList: $!";
+	push @NowDown,"Unable to open $ServiceList: $!";
+}
+
+if (@NowDown+@NowUp > 0 and $opt_P) {
+	my($MAIL,$MailFile) = tempfile();
+	
+	if (@NowDown) {
+		print $MAIL "Now down: " . join(', ',@NowDown) . "\n";
+	}
+	if (@StillDown) {
+		print $MAIL "Still down: " . join(', ',@StillDown) . "\n";
+	}
+	if (@NowUp) {
+		print $MAIL "Now up: " . join(', ',@NowUp) . "\n";
+	}
+	printf $MAIL strftime("Reported by $HostName @ %T on %D\n",localtime());
+	close $MAIL;
+	system("mail -s \"$opt_s\" $opt_P < $MailFile") && warn "Unable to send mail: $!\n";
+	unlink $MailFile;
+}
+
+# Update list of down items.
+if (open (STATUS,"> $StatusFile")) {
+	foreach (keys(%DownItems)) {
+		my ($sec,$min,$hour)=(localtime($DownItems{$_}))[0..2];
+		printf STATUS "%lu %02d:%02d:%02d %s\n",
+			$DownItems{$_},$hour,$sec,$min,$_;
+	}
+	close STATUS;
+} else {
+	warn("Unable to update $StatusFile: $!\n");
+	$errors=1;
+}
