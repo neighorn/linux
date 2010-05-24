@@ -61,8 +61,8 @@ $Hours:$Minutes...";
 
 my $errors=0;
 my $FH;
-if open($FH,'<',$ServiceList) {
-	while (<FH>) {
+if (open($FH,'<',$ServiceList)) {
+	while (<$FH>) {
 		next if (/^\s*#/);		# skip comments.
 		chomp;
 		my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$_);	# break out data elements.
@@ -71,23 +71,23 @@ if open($FH,'<',$ServiceList) {
 		my $GroupOK=0;
 		my $socket;
 		foreach (split(/,/,$TargetList)) {
-		my($host,$port)=split(/:/);
+			my($host,$port)=split(/:/);
 			# try to connect.
 			if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>20)) {
 				# Connected OK.
-					printf "\t%s:%d OK - %s\n", $host, $port, $Desc if ($opt_v);
-					close($socket);
+				printf "\t%s:%d OK - %s\n", $host, $port, $Desc if ($opt_v);
+				close($socket);
 				$GroupOK=1;		# One of this target group worked.
 				last;		# Don't need to do any further checking.
-			} else
-			{
+			}
+			else {
 				# Connection is down.
-					printf "\t%d DOWN: $!\n", $Desc if ($opt_v);
-					close($socket) if ($socket);
+				printf "\t%d DOWN: $!\n", $Desc if ($opt_v);
+				close($socket) if ($socket);
 			}
 		}
 		if ($GroupOK) {
-			printf "%-40.40 OK\n", $Desc if (!$opt_q);
+			printf "%-40.40s OK\n", $Desc if (!$opt_q);
 			# Trigger up action if it was down before.
 			if ($DownItems{$Desc}) {
 				syslog('INFO','%s is now up',$Desc)
@@ -98,27 +98,28 @@ if open($FH,'<',$ServiceList) {
 					system($UpAction);
 				}
 				push @NowUp, $Desc;
-			} else
-			{
+			}
+			else {
 				syslog('INFO','%s is still up',$Desc)
 					if ($^O !~ /MSWin/);
 			}
 			delete $DownItems{$Desc};	# No longer down, if it was before.
-		} elsif ($DownItems{$Desc}) {
+		}
+		elsif ($DownItems{$Desc}) {
 			# Connection failed, but we have already reported it.
 			syslog('INFO','%s is still down',$Desc);
 				printf "\t%s still DOWN\n", $Desc
 				if (!$opt_q);
 			push @StillDown, $Desc;
-		} else
-		{
+		}
+		else {
 			# Connection is newly down.
 			syslog('INFO','%s is now down',$Desc);
 			if ($opt_q) {
 				$DownMessages.="\r\n\t$Desc";
-			} else
-			{
-				printf "%-40.40\tDOWN\n", $Desc;
+			}
+			else {
+				printf "%-40.40s\tDOWN\n", $Desc;
 			}
 			if ($DownAction) {
 				print "Triggering down-action for $Desc\n" if ($opt_v);
