@@ -8,11 +8,11 @@ use IO::Socket;
 use File::Temp qw(tempfile);
 use POSIX qw(strftime);
 
-my $opt_v;		# Verbose option.
-my $opt_t;		# Test option.
-my $opt_q;		# Quiet option.
-my $opt_P='pager@martinconsulting.com';		# Who to page on errors.
-my $opt_s;		# Alert subject
+our $opt_v=0;		# Verbose option.
+our $opt_t=0;		# Test option.
+our $opt_q=0;		# Quiet option.
+our $opt_P='pager@martinconsulting.com';		# Who to page on errors.
+our $opt_s='';		# Alert subject
 
 my @NowDown;		# Newly down items.
 my @NowUp;		# Newly up items.
@@ -67,6 +67,7 @@ if (open($FH,'<',$ServiceList)) {
 		chomp;
 		my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$_);	# break out data elements.
 		$Desc=~s/^\s*(.*)\s*$/$1/;
+		$TargetList=~s/\s//g;
 		print "\nChecking $Desc\n" if ($opt_v);
 		my $GroupOK=0;
 		my $socket;
@@ -82,7 +83,7 @@ if (open($FH,'<',$ServiceList)) {
 			}
 			else {
 				# Connection is down.
-				printf "\t%d DOWN: $!\n", $Desc if ($opt_v);
+				printf "\t%s DOWN: $!\n", $Desc if ($opt_v);
 				close($socket) if ($socket);
 			}
 		}
