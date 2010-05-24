@@ -105,7 +105,9 @@ close $FH;
 
 if (! $Found) {
 	print "dhcpd is down.\n";
-	my $Msg = strftime("dhcpd is down on $ENV{HOSTNAME} at %T\n",localtime());
+	my $Hostname = `hostname`;
+	chomp $Hostname;
+	my $Msg = strftime("dhcpd is down on $Hostname at %T\n",localtime());
 	RunDangerousCmd("echo '' | mail -s '$Msg' $opt_P") if ($opt_P);
 	$ExitCode=8;
 }

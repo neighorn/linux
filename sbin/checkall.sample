@@ -6,6 +6,7 @@ use Sys::Syslog;
 use Getopt::Std;
 use IO::Socket;
 use File::Temp qw(tempfile);
+use POSIX qw(strftime);
 
 my $opt_v;		# Verbose option.
 my $opt_t;		# Test option.
@@ -134,6 +135,9 @@ if (@NowDown+@NowUp > 0 and $opt_P) {
 	if (@NowUp) {
 		print $MAIL "Now up: " . join(', ',@NowUp) . "\n";
 	}
+	my $Hostname=`hostname`;
+	chomp $Hostname;
+	printf $MAIL strftime("$Hostname @ %T on %D\n",localtime());
 	close $MAIL;
 	system("mail -s \"$opt_s\" $opt_P < $MailFile") && warn "Unable to send mail: $!\n";
 	unlink $MailFile;
