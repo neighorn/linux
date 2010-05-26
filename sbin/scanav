@@ -18,6 +18,7 @@ my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
 my $ConfigFile="$BaseDir/${Prog}.cfg";  # Name of config file.
 our @Parms;
+our @opt_A;			# Additional arguments.
 our $opt_e;			# Error mail.
 our $opt_i=1;			# Clamscan -i passthru option.  -i says only report infected.
 our $opt_l='';			# Logfile - defaults to none.
@@ -43,7 +44,7 @@ my $MachineDirectory;		# Base directory for this dirvish item.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='h e=l i l=s m=l N=s O=s p=l P=l q t v x=l';
+my $OptSpec='A=l h e=l i l=s m=l N=s O=s p=l P=l q t v x=l';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -113,6 +114,7 @@ foreach my $Target (@Parms) {
 		. ($opt_i?'-i ':'')
 		. ($opt_q?'--no-summary ':'')
 		. ($opt_v?'-v ':'')
+		. join(' ',@opt_A) . ' '
 		. qq<$Exclude "$Target" >;
 	my $Status = RunDangerousCmd ($Cmd);
 	if ($Status != 0) {
