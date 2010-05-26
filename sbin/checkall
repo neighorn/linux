@@ -150,9 +150,9 @@ if (@NowDown+@NowUp > 0 and $opt_P) {
 	if (@NowUp) {
 		print $MAIL "Now up: " . join(', ',@NowUp) . "\n";
 	}
-	printf $MAIL strftime("Reported by $HostName @ %T on %D\n",localtime());
+	printf $MAIL strftime("From $HostName at %T on %D\n",localtime());
 	close $MAIL;
-	system("mail -s \"$opt_s\" $opt_P < $MailFile") && warn "Unable to send mail: $!\n";
+	system("sed 's/  */ /g' $MailFile | mail -s \"$opt_s\" $opt_P") && warn "Unable to send mail: $!\n";
 	unlink $MailFile;
 }
 
