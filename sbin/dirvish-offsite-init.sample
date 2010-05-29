@@ -11,7 +11,15 @@ ls /mnt/dirvish/offsite*/disk.* 2> /dev/null |
         do
                 id=${name##*/disk.}
                 dir=${name%/*}
-                echo "Running offsite back-ups to disk #$id"
+                mount=`mount | grep "on $dir " | sed 's/ .*$//'`
+		serial=`smartctl -i $mount 2> /dev/null | grep -i '^Serial number' | sed 's/  */ /g'`
+		if [[ "$serial" = Serial\ Number:* ]]
+		then
+			serial=", serial number ${serial#Serial Number: }"
+		else
+			serial=""
+                fi
+                echo "Running offsite back-ups to disk #${id}$serial"
                 cp -rp /usr/local/etc/dirvish/offsite.d/* $dir
 		chmod o= $dir
         done

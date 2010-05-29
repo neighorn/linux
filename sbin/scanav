@@ -18,6 +18,7 @@ my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
 my $ConfigFile="$BaseDir/${Prog}.cfg";  # Name of config file.
 our @Parms;
+our @opt_A;			# Additional arguments.
 our $opt_e;			# Error mail.
 our $opt_i=1;			# Clamscan -i passthru option.  -i says only report infected.
 our $opt_l='';			# Logfile - defaults to none.
@@ -43,7 +44,7 @@ my $MachineDirectory;		# Base directory for this dirvish item.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='h e=l i l=s m=l N=s O=s p=l P=l q t v x=l';
+my $OptSpec='A=l h e=l i l=s m=l N=s O=s p=l P=l q t v x=l';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -101,7 +102,8 @@ LogOutput('',$Syslog,$opt_l,$opt_m,$opt_e,$opt_p,$opt_P);
 # Build the exclude list.
 my $Exclude = "";
 foreach (@opt_x) {
-	$Exclude .= "--exclude $_ ";
+	my $opt=(-d $_?"--exclude-dir":"--exclude");
+	$Exclude .= "$opt $_ "
 }
 
 	
@@ -112,6 +114,7 @@ foreach my $Target (@Parms) {
 		. ($opt_i?'-i ':'')
 		. ($opt_q?'--no-summary ':'')
 		. ($opt_v?'-v ':'')
+		. join(' ',@opt_A) . ' '
 		. qq<$Exclude "$Target" >;
 	my $Status = RunDangerousCmd ($Cmd);
 	if ($Status != 0) {
@@ -243,6 +246,7 @@ IGNORE	"^\s*LibClamAV Warning: Not supported compression method"
 IGNORE	"^\s*LibClamAV Warning: Only text and application attachments are fully"
 # Partial message - starts attachment but doesn't finish.  Ignore.
 IGNORE	"^\s*LibClamAV Warning: Partial message received from MUA/MTA - message cannot be scanned"
+IGNORE	"^\s*LibClamAV Warning: PE contains no sections"
 IGNORE	"^\s*LibClamAV Warning: TNEF - unknown"
 IGNORE	"^\s*LibClamAV Warning: Unknown VBA version signature"
 IGNORE	"^\s*LibClamAV Warning: uudecode: buffer overflow stopped"
@@ -250,6 +254,7 @@ IGNORE	"Phishing.Heuristics.Email.SpoofedDomain FOUND$"
 SHOW	".mozilla/firefox/\S+/Cache/[A-Za-z0-9]+: ClamAV-Test-File FOUND$"
 SHOW	"Eicar-Test-Signature FOUND$"i
 IGNORE	"^\s*/etc/psad/snort_rules"
+IGNORE	"^\s*/usr/local/src/clamav-"
 IGNORE	"^\s*/usr/local/src/psad-"
 IGNORE	"^\s*/home/samba/common/downloads/AutoIT/SciTE4AutoIt3.exe"
 IGNORE	"^\s*/home/samba/common/AutoIT/"

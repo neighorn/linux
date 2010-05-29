@@ -12,6 +12,7 @@
 #
 use strict;
 use warnings;
+use POSIX qw(strftime);
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
@@ -29,6 +30,7 @@ our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
+my @Args = @ARGV;
 #
 our $opt_h;				# -h (help) option.
 our $opt_e;				# -e (error mail) option.
@@ -88,10 +90,28 @@ if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 # Verify the command line.
-die("No files specified on the command line.  See \"$Prog -h\" for usage.")
-	unless (@Parms > 0);
+die("Extraneous parameters on the command line: " . join(' ',@Args))
+	if (@Parms > 0);
 
-# =========== Add code here =============
+my $FH;
+open($FH,'netstat -nap -A inet |') or die "Unable to start netstat command: $!";
+
+my $Found=0;
+while (<$FH>) {
+	$Found=m'^udp\s+\d+\s+\d+\s+\d+\.\d+\.\d+\.\d+:67\s.*/dhcpd\s*$';
+	last if $Found;
+}
+close $FH;
+
+if (! $Found) {
+	print "dhcpd is down.\n";
+	my $Hostname = `hostname`;
+	chomp $Hostname;
+	my $Msg = strftime("dhcpd is down on $Hostname at %T\n",localtime());
+	RunDangerousCmd("echo '' | mail -s '$Msg' $opt_P") if ($opt_P);
+	$ExitCode=8;
+}
+	
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {

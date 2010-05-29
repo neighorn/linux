@@ -32,7 +32,7 @@ our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin';
 #
-our $opt_C;				# -C (cycles) option.
+our $opt_C=6;				# -C (cycles) option.
 our $opt_h;				# -h (help) option.
 our $opt_e;				# -e (error mail) option.
 our $opt_m;				# -m (mail) option.
