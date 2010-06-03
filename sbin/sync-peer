@@ -239,7 +239,7 @@ SHOW	"^\s*Connected \[.*\]$"
 IGNORE	"^\s*Looking for changes$"
 IGNORE	"^\s*Waiting for changes from server$"
 IGNORE	"^\s*Reconciling changes$"
-SHOW	"^\s*Nothing to do: replicas have not changed since last sync.$"
+SHOW	"^\s*Nothing to do: "
 SHOW	"^\s*Synchronization complete  \(\d+ items? transferred, \d+ skipped, \d+ failures?\)$"
 SHOW	"^\s*<---- changed"
 #
