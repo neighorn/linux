@@ -95,7 +95,7 @@ die("No items specified on the command line.  See \"$Prog -h\" for usage.")
 if ($opt_a) {
 	warn("-a and command line parameters are redundant - command line parameters ignored.")
 		if (@Parms > 0);
-	@Parms = keys(@Config);
+	@Parms = keys(%Config);
 }
 
 foreach (@Parms) {
