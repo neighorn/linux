@@ -309,7 +309,7 @@ sub _SetOptions {
 	$Options{ERROR_PAGE_LIST}=[];
 	#$Options{LOG_FILE_PREFIX}='';
 	$Options{MAIL_FILE}='';
-	$Options{MAIL_FROM}='%U@%D';
+	$Options{MAIL_FROM}='%U@%O';
 	$Options{MAIL_SERVER}='127.0.0.1';
 	$Options{MAIL_DOMAIN}='';
 	$Options{MAIL_LIMIT}=undef();
@@ -625,7 +625,7 @@ sub _MakeSubstitutions {
 	$Text =~ s/%C/$HostName/g;
 	$Text =~ s/%N/$Options{PROGRAM_NAME}/g;
 	$Text =~ s/%P/$PID/g;
-	$Text =~ s/%D/$Options{MAIL_DOMAIN}/g;
+	$Text =~ s/%O/$Options{MAIL_DOMAIN}/g;
 
 	# Conditional substitutions (%E, %*).
 	if ($ErrorsDetected) {
@@ -845,8 +845,8 @@ Options and defaults are shown in the table below:
    			|		| the message filters.
    MAIL_FILE		| (temp file)	| Name of a file to write
    			|		| filtered messages to.
-   MAIL_FROM            | %U@%D         | Send e-mail with this From value.
-                        |               | 
+   MAIL_FROM            | %U@%O         | Send e-mail with this From value.
+                        |               | Defaults to user@domain
    MAIL_DOMAIN		| -none-	| Domain to append to unqualified
    			|		| e-mail addresses
    MAIL_SERVER		| 127.0.0.1	| Address of the SMTP server
@@ -945,9 +945,9 @@ Example:  MAIL_FILE => '/home/joeuser/log/jobname.log'
 =head2 MAIL_FROM
 
 This option specifies who any e-mail is sent from.  Symbol substitution
-is allowed.  The default is %U@%D (username@mail.domain).
+is allowed.  The default is %U@%O (username@mail.domain).
 
-Example:  MAIL_FROM => 'joe@%D'
+Example:  MAIL_FROM => 'joe@%O'
 
 =head2 ALWAYS_MAIL_LIST
 
@@ -1039,7 +1039,7 @@ symbols are as follows:
 		errors have been detected yet.
 	%p - percent, same as %%
 	%U - User name
-	%D - Mail domain
+	%O - Mail domain
 
 After local substitution, any remaining % strings are processed by strftime.
 
