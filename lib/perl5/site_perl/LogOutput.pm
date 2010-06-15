@@ -309,7 +309,7 @@ sub _SetOptions {
 	$Options{ERROR_PAGE_LIST}=[];
 	#$Options{LOG_FILE_PREFIX}='';
 	$Options{MAIL_FILE}='';
-	$Options{MAIL_FROM}='';
+	$Options{MAIL_FROM}='%U@%D';
 	$Options{MAIL_SERVER}='127.0.0.1';
 	$Options{MAIL_DOMAIN}='';
 	$Options{MAIL_LIMIT}=undef();
@@ -608,6 +608,9 @@ sub _CompilePatterns {
 # 		%P - Process ID of the child process
 # 		%* - Error flag: either "*" or "" depending on whether
 # 			errors have been detected yet.
+#               %p - percent, same as %%
+#               %U - User name
+#               %D - Mail domain
 # 		%anything else: any remaining % are processed by 
 # 			POSIX::strftime.
 # 		
@@ -618,9 +621,11 @@ sub _MakeSubstitutions {
 	return $Text unless ($Text =~ /%/);	# Exit unless % variables present.
 
 	# Simple substitutions.
+	$Text =~ s/%%/%p/g;		# Change %% to %p so it doesn't match other % constructs.
 	$Text =~ s/%C/$HostName/g;
 	$Text =~ s/%N/$Options{PROGRAM_NAME}/g;
 	$Text =~ s/%P/$PID/g;
+	$Text =~ s/%D/$Options{MAIL_DOMAIN}/g;
 
 	# Conditional substitutions (%E, %*).
 	if ($ErrorsDetected) {
@@ -632,7 +637,23 @@ sub _MakeSubstitutions {
 		$Text =~ s/%\*//g;
 	}
 
+	# User name.
+	my $UserName;
+	if ($^O eq 'MSWin32') {
+		if (defined($ENV{'USERNAME'}) and $ENV{'USERNAME'}) {
+			$UserName = $ENV{'USERNAME'};
+		}
+		else {
+			$UserName = 'Administrator';
+		}
+	}
+	else {
+		$UserName=$ENV{'LOGNAME'};
+	}
+	$Text =~ s/%U/$UserName/g;
+
 	# STRFTIME substitutions.
+	$Text =~ s/%p/%%/g;		# Change %% back for strftime.
 	if ($Text =~ /%/) {
 		# Still have percent signs.  Call strftime for the rest.
 		$Text = strftime($Text,localtime);
@@ -734,23 +755,9 @@ sub _SetupMail {
 		$Mail{To} .= ' ' . $_;
 	}
 	$Mail{To} =~ s/^\s+//;		# Strip leading space.
-	if ($From) {
-		$From .= "\@$Options{MAIL_DOMAIN}" unless ($From =~ /\@/);
-		$Mail{From} = $From;
-	}
-	elsif ($^O eq 'MSWin32') {
-		if (defined($ENV{'USERNAME'}) and $ENV{'USERNAME'}) {
-			$Mail{From} = $ENV{'USERNAME'} . "\@$Options{MAIL_DOMAIN}";
-		}
-		else {
-			$Mail{From} = 'Administrator' . "\@$Options{MAIL_DOMAIN}";
-		}
-	}
-	elsif ($^O =~ /^(aix|linux)$/) {
-		$Mail{From}=$ENV{'LOGNAME'} . "\@$Options{MAIL_DOMAIN}";
-	}
 	$Mail{Server}=$Options{MAIL_SERVER};
 	$Mail{Subject}=$Options{SUBJECT};
+	$Mail{From}=_MakeSubstitutions($Options{MAIL_FROM});
 	$Mail{'X-JOBSUMMARY'}="Name=$Options{PROGRAM_NAME} Status=$ExitCode RunTime=$RawRunTime";
 	$Mail{'X-JOBEXIT'}="$ExitCode";	
 	# Following added in V3, because non-zero exit codes now may now
@@ -838,6 +845,8 @@ Options and defaults are shown in the table below:
    			|		| the message filters.
    MAIL_FILE		| (temp file)	| Name of a file to write
    			|		| filtered messages to.
+   MAIL_FROM            | %U@%D         | Send e-mail with this From value.
+                        |               | 
    MAIL_DOMAIN		| -none-	| Domain to append to unqualified
    			|		| e-mail addresses
    MAIL_SERVER		| 127.0.0.1	| Address of the SMTP server
@@ -933,6 +942,13 @@ this file are always deleted.
 
 Example:  MAIL_FILE => '/home/joeuser/log/jobname.log'
 
+=head2 MAIL_FROM
+
+This option specifies who any e-mail is sent from.  Symbol substitution
+is allowed.  The default is %U@%D (username@mail.domain).
+
+Example:  MAIL_FROM => 'joe@%D'
+
 =head2 ALWAYS_MAIL_LIST
 
 This option holds is a scalar or a list containing one or more e-mail addresses.
@@ -1007,6 +1023,25 @@ flag the script as having ended with errors.  By default, zero is a normal exit 
 Example:  NORMAL_RETURN_CODES => [0,6,10]	# Zero, 6, and 10 are normal.
 
 =head2 PROGRAM_NAME
+
+=head1 SYMBOL SUBSTITUTION
+
+Some options (SUBJECT, MAIL_FROM) allow symbol substitution.  Substituted
+symbols are as follows:
+
+	%C - Computer name (aka host name -- H and h were taken)
+	%E - Error text: either "ended normally" or "ended with errors"
+		depending on whether have been detected yet.
+		See also %*.
+	%N - Name of the program
+	%P - Process ID of the child process
+	%* - Error flag: either "*" or "" depending on whether
+		errors have been detected yet.
+	%p - percent, same as %%
+	%U - User name
+	%D - Mail domain
+
+After local substitution, any remaining % strings are processed by strftime.
 
 =head1 GLOBAL VARIABLES
 
