@@ -18,7 +18,7 @@ use Sys::Syslog;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.2;
+our $Version	= 3.3;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -242,11 +242,11 @@ $Options{SUBJECT} =~ s/\s\s/ /g;	# Strip embedded multiple blanks.
 	
 # Send mail if requested.
 if ($ErrorsDetected) {
-	_SetupMail($Options{ERROR_MAIL_LIST}, $Options{SUBJECT} ,$Options{MAIL_FILE});
-	_SetupMail($Options{ERROR_PAGE_LIST}, $Options{SUBJECT}, '');
+	_SetupMail($Options{ERROR_MAIL_LIST}, $Options{SUBJECT}, $Options{MAIL_FILE}, $Options{MAIL_FROM});
+	_SetupMail($Options{ERROR_PAGE_LIST}, $Options{SUBJECT}, '', $Options{MAIL_FROM}) ;
 } else {
-	_SetupMail($Options{ALWAYS_MAIL_LIST}, $Options{SUBJECT}, $Options{MAIL_FILE});
-	_SetupMail($Options{ALWAYS_PAGE_LIST}, $Options{SUBJECT}, '');
+	_SetupMail($Options{ALWAYS_MAIL_LIST}, $Options{SUBJECT}, $Options{MAIL_FILE}, $Options{MAIL_FROM});
+	_SetupMail($Options{ALWAYS_PAGE_LIST}, $Options{SUBJECT}, '', $Options{MAIL_FROM});
 }
 
 my $CleanupSub = $Options{CLEAN_UP};
@@ -289,6 +289,7 @@ sub _SetOptions {
 		#LOG_FILE => 1,
 		#LOG_FILE_PREFIX => 1,
 		MAIL_FILE => 1,
+		MAIL_FROM => 1,
 		MAIL_DOMAIN => 1,
 		MAIL_LIMIT => 1,
 		MAIL_SERVER => 1,
@@ -308,6 +309,7 @@ sub _SetOptions {
 	$Options{ERROR_PAGE_LIST}=[];
 	#$Options{LOG_FILE_PREFIX}='';
 	$Options{MAIL_FILE}='';
+	$Options{MAIL_FROM}='';
 	$Options{MAIL_SERVER}='127.0.0.1';
 	$Options{MAIL_DOMAIN}='';
 	$Options{MAIL_LIMIT}=undef();
@@ -716,7 +718,7 @@ sub WriteMessage {
 sub _SetupMail {
 
 	#my($a,$b,...)			# Declare local variables.
-	my($ToArrayRef,$Subject,$MailFile)=@_;	# Get our calling arguments.
+	my($ToArrayRef,$Subject,$MailFile,$From)=@_;	# Get our calling arguments.
 	my($HostName);			# A place to hold our host name.
 	my(%Mail);			# Hash that's passed to SendMail routine.
 
@@ -732,21 +734,20 @@ sub _SetupMail {
 		$Mail{To} .= ' ' . $_;
 	}
 	$Mail{To} =~ s/^\s+//;		# Strip leading space.
-	if ($^O eq 'MSWin32') {
+	if ($From) {
+		$From .= "\@$Options{MAIL_DOMAIN}" unless ($From =~ /\@/);
+		$Mail{From} = $From;
+	}
+	elsif ($^O eq 'MSWin32') {
 		if (defined($ENV{'USERNAME'}) and $ENV{'USERNAME'}) {
-			$Mail{From} = $ENV{'USERNAME'} . '@' . $ENV{'COMPUTERNAME'}
-			. ".$Options{MAIL_DOMAIN}";
+			$Mail{From} = $ENV{'USERNAME'} . "\@$Options{MAIL_DOMAIN}";
 		}
 		else {
-			$Mail{From} = 'Administrator' . '@' . $ENV{'COMPUTERNAME'}
-			. ".$Options{MAIL_DOMAIN}";
+			$Mail{From} = 'Administrator' . "\@$Options{MAIL_DOMAIN}";
 		}
-	} elsif ($^O =~ /^(aix|linux)$/) {
-		$HostName=`hostname`;
-		chomp $HostName;
-		$HostName=~tr/A-Za-z0-9_.-//c;	# So we can untaint it safely.
-		$HostName=untaint($HostName);
-		$Mail{From}=$ENV{'LOGNAME'} . "\@$HostName.$Options{MAIL_DOMAIN}";
+	}
+	elsif ($^O =~ /^(aix|linux)$/) {
+		$Mail{From}=$ENV{'LOGNAME'} . "\@$Options{MAIL_DOMAIN}";
 	}
 	$Mail{Server}=$Options{MAIL_SERVER};
 	$Mail{Subject}=$Options{SUBJECT};
