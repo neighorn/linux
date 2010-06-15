@@ -95,7 +95,11 @@ die("No items specified on the command line.  See \"$Prog -h\" for usage.")
 if ($opt_a) {
 	warn("-a and command line parameters are redundant - command line parameters ignored.")
 		if (@Parms > 0);
-	@Parms = keys(%Config);
+	@Parms = ();
+	foreach (keys(%Config)) {
+		push @Parms,$_ unless (/ALLJOBS/i);
+	}
+	die "No synchronization items found in configuration file" unless (@Parms);
 }
 
 foreach (@Parms) {
