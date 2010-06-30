@@ -83,21 +83,24 @@ if (@ARGV) {
 push @Parms,"/" unless (@Parms > 0);
 	
 # Set up our logging and output filtering.
-my $RunDate=`date +%m/%d`;
-chomp $RunDate;
-my $HostName = `hostname`;
-chomp $HostName;
-$HostName =~ s/\..*$//;
+my $Subject;
 if ($opt_N) {
-	$LogOutput::Subject="$Prog $RunDate $HostName $opt_N" ;
+	$Subject="%m/%d %C %N $opt_N %E %*%*%*" ;
 } elsif (@Parms == 1) {
-	$LogOutput::Subject="$Prog $RunDate $HostName $Parms[0]" ;
+	$Subject="%m/%d %C %N $Parms[0] %E %*%*%*" ;
 } else {
-	$LogOutput::Subject="$Prog $RunDate $HostName";
+	$Subject="%m/%d %C %N %E %*%*%*";
 };
 
-$Syslog = '' if ($opt_l);
-LogOutput('',$Syslog,$opt_l,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput({
+        SYSLOG_FACILITY => $Syslog,
+        MAIL_FILE => $opt_l,
+        ALWAYS_MAIL_LIST => $opt_m,
+        ERROR_MAIL_LIST => $opt_e,
+        ALWAYS_PAGE_LIST => $opt_p,
+        ERROR_PAGE_LIST => $opt_P,
+        SUBJECT => $Subject,
+});
 
 # Build the exclude list.
 my $Exclude = "";
