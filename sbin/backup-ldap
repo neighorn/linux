@@ -75,7 +75,14 @@ if (@ARGV) {
 if ($ErrorFlag) {exit $ErrorFlag;}      # Exit if errors were detected.
 	
 # Set up our logging and output filtering.
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput(
+	SYSLOG_FACILITY => $Syslog,
+	MAIL_FILE => $LogFile,
+	ALWAYS_MAIL_LIST => $opt_m,
+	ERROR_MAIL_LIST => $opt_e,
+	ALWAYS_PAGE_LIST => $opt_p,
+	ERROR_PAGE_LIST => $opt_P,
+);
 
 # Verify the command line.
 die("Excess parameters on the command line.  See \"$Prog -h\" for usage.")
