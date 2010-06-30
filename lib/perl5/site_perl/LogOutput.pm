@@ -18,7 +18,7 @@ use Sys::Syslog;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.3;
+our $Version	= 3.4;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -827,6 +827,7 @@ to the syslog, a file, and/or e-mail recipients.
     LogOutput({option1 => value1, ...});
 
 Options and defaults are shown in the table below:
+
    OPTION NAME   	| DEFAULT VALUE	| DESCRIPTION
    ---------------------|---------------|----------------------------
    ALWAYS_MAIL_LIST	| -none-	| Always send a report
@@ -880,6 +881,7 @@ is maintained for backward compatibility only.
     );
 
 These calling arguments equate to the version 3 options as follows:
+
    $FilterFile		FILTER_FILE
    $Syslog		SYSLOG_FACILITY
    $MailFile		MAIL_FILE
