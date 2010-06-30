@@ -18,7 +18,7 @@ use Sys::Syslog;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.4;
+our $Version	= 3.5;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -314,7 +314,7 @@ sub _SetOptions {
 	$Options{MAIL_DOMAIN}='';
 	$Options{MAIL_LIMIT}=undef();
 	$Options{NORMAL_RETURN_CODES}=[0];
-	$Options{PROGRAM_NAME}=(caller(0))[1];	# Get the caller's filename.
+	$Options{PROGRAM_NAME}=(caller(1))[1];	# Get the caller's filename.
 	$Options{PROGRAM_NAME}=~ s"^.*[/\\]"";	# Strip path.
 	$Options{PROGRAM_NAME}=~ s"\..*?$"";	# Strip suffix.
 	$Options{SUBJECT} = "%* %C %m/%d %N %E";
