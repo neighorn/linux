@@ -31,7 +31,7 @@ our $opt_m;				# Mail.
 our $opt_e;				# Error-only mail.
 our $opt_p;				# Page.
 our $opt_P;				# Error-only page.
-our $opt_S = "%N %C %m/%d %C %N %F %E %*%*%*";
+our $opt_S = "%m/%d %C %N %F %E %*%*%*";
 our $opt_t;				# Test.
 our $opt_v;				# Verbose.
 
