@@ -31,6 +31,7 @@ our $opt_m;				# Mail.
 our $opt_e;				# Error-only mail.
 our $opt_p;				# Page.
 our $opt_P;				# Error-only page.
+our $opt_S = "%m/%d %C %N %F %E %*%*%*";
 our $opt_t;				# Test.
 our $opt_v;				# Verbose.
 
@@ -50,7 +51,7 @@ $Hostname =~ s/(.*?)(\..*$)$/$1/;
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='f=s h m=l e=l O=s p=l P=l t v';
+my $OptSpec='f=s h m=l e=l O=s p=l P=l S=s t v';
 
 # Load the config file.
 foreach my $ConfigFile (@ConfigFiles) {
@@ -95,6 +96,7 @@ die(qq<Incorrect number of parameters.  See "$Prog -h" for usage.\n">)
 my $BaseFileName;
 ($BaseFileName=$Parms[0]) =~ s"^(.*/)?([^-]+)(-.+)?$"$2";
 $opt_f="$FilterDir/$BaseFileName.filter" unless ($opt_f);
+$opt_S =~ s/%F/$BaseFileName/g;
 
 LogOutput({
 	ALWAYS_MAIL_LIST => $opt_m,
@@ -103,7 +105,7 @@ LogOutput({
 	ERROR_PAGE_LIST => $opt_P,
 	FILTER_FILE => $opt_f,
 	PROGRAM_NAME => $Prog,
-	SUBJECT => "%* %N %C %m/%d $BaseFileName ended %E",
+	SUBJECT => $opt_S,
 });
 
 # Verify the command line.
@@ -201,6 +203,10 @@ Flags:
 	-O config:      Insert the "config" configuration options from
 			@ConfigFiles.
 			the command line at this point.
+	-S subject:	Subject: set the subject line for any e-mails.  %F
+			will be replaced by the name of the file being 
+			scanned.  All other % substitutions are implemented
+			by LogOutput.pm.
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
 	-h      :       Help: display this panel

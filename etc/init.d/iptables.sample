@@ -1,5 +1,4 @@
 #! /bin/sh 
-touch /iptables.start
 #
 ### BEGIN INIT INFO
 # Provides: iptables
@@ -11,9 +10,6 @@ touch /iptables.start
 ### END INIT INFO
 BIN=/usr/local/sbin/load-iptables
 test -x $BIN || exit 5
-
-DATAFILE=/usr/local/etc/iptables.dat
-test -r $DATAFILE || exit 6
 
 . /etc/rc.status
 

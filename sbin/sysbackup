@@ -288,7 +288,8 @@ IGNORE	/^tar: .* socket ignored$/
 SHOW	/^.*.: file changed as we read it$/
 IGNORE	"^\s*ls: cannot access /usr/local/backup/\S+/\[01\]\[0-9\]-\[0-3\]\[0-9\]: No such file or directory$"
 IGNORE	"^tar: Removing leading `/' from member names$"
-IGNORE	"^tar: /var/lib/mysql/maia/maia_mail.MYD: file changed as we read it$"
+SHOW	"^tar: .*: file changed as we read it$"
+IGNORE	"^tar: .*: Cannot stat: No such file or directory$"
 IGNORE	"^tar: Error exit delayed from previous errors$"
 IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+ s(econds)?, \d+(\.\d+)? [kmgKMG]B$"
 IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+(e-\d+)? s, \d+(\.\d+)? [kmgKMG]B/s$"

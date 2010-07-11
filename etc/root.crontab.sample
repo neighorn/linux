@@ -19,17 +19,24 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 # Take weekly back-ups of critical systems
 0 2 * * 0 /usr/local/sbin/sysbackup > /dev/null
 #
+# Check on key system services
+05 * * * * /usr/local/sbin/checkall > /dev/null
+#
+# Clean up log files that aren't beeing cleaned some other way.
+00 01 * * * /usr/bin/find /var/log /var/spool/amavis/virusmails -type f -mtime +60 -exec echo Deleting {} \; -exec rm {} \; 2>&1 | /bin/logger -t cron.logs
+#
 # On-site back-ups
-00 18 * * * (ls /mnt/dirvish/offsite;ls /mnt/dirvish/offsite2) > /dev/null 2>&1;/usr/local/sbin/dirvish-expire 2>&1 | /usr/local/bin/ir -lt dirvish-expire
+00 18 * * * ls /mnt/dirvish/offsite* > /dev/null 2>&1;/usr/local/sbin/dirvish-expire 2>&1 | /usr/local/bin/ir -lt dirvish-expire
 00 02 * * mon,tue,wed,thu,fri dirvish-run -N On-site xxx yyy zzz > /dev/null
 #
 # Back up the MySQL databases.
 00 02 * * * /usr/local/sbin/dbbu > /dev/null
 #
-#
-# Clean up log files that aren't beeing cleaned some other way.
-00 01 * * * /usr/bin/find /var/log /var/spool/amavis/virusmails -type f -mtime +60 -exec echo Deleting {} \; -exec rm {} \; 2>&1 | /bin/logger -t cron.logs
-#
-#
 # Update spamassassin
 00 01 * * * (/usr/bin/sa-update && /usr/local/sbin/restartsys spamd) > /dev/null
+#
+# Make sure iptables is loaded.
+00 * * * * /usr/local/sbin/check-iptables > /dev/null
+#
+# Make sure dhcp is running
+05 7-18 * * * /usr/local/sbin/check-dhcp > /dev/null || /etc/init.d/dhcpd start

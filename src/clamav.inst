@@ -1,5 +1,5 @@
 #!/bin/sh -v
-./configure --with-user=vscan --with-group=vscan &&
+./configure --with-user=vscan --with-group=vscan --datadir=/var/lib/clamav &&
 make &&
 make install &&
 ldconfig &&

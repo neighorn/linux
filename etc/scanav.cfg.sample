@@ -1,2 +1,2 @@
 # scanav sample configuration file.
-ALLJOBS: -m jobrept -x /mnt -x /media -x /proc -x /sys -x /dev/pts -x /var/spool/amavis/virusmails
+ALLJOBS: -m jobrept -A --phishing-sigs=no -A --phishing-scan-urls=no -x /mnt -x /media -x /proc -x /sys -x /dev/pts -x /var/spool/amavis/virusmails

@@ -1,0 +1,8 @@
+backup/
+dirvish/
+!etc/*.sample
+!etc/*/*.sample
+etc/*
+man/
+*~
+apache2/pages/ts/index.*

@@ -86,15 +86,24 @@ if (@ARGV) {
 # Set up our logging and output filtering.
 $RunDate=`date +%m/%d`;
 chomp $RunDate;
+my $Subject;
 if ($opt_N) {
-	$LogOutput::Subject="$Prog $RunDate $opt_N" ;
-} elsif (@Parms == 1) {
-	$LogOutput::Subject="$Prog $RunDate $Parms[0]" ;
+	$Subject="%m/%d %C %N $opt_N %E %*%*%*" ;
+} elsif (@Parms >= 1) {
+	$Subject="%m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
 } else {
-	$LogOutput::Subject="$Prog $RunDate";
+	$Subject="%m/%d %C %N %E %*%*%*" ;
 };
 
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput({
+	SYSLOG_FACILITY => $Syslog,
+	MAIL_FILE => $LogFile,
+	ALWAYS_MAIL_LIST => $opt_m,
+	ERROR_MAIL_LIST => $opt_e,
+	ALWAYS_PAGE_LIST => $opt_p,
+	ERROR_PAGE_LIST => $opt_P,
+	SUBJECT => $Subject,
+});
 die "No BANKS defined in configuration file(s)" 
 	unless (defined($Config{BANKS}) 
 		and exists($Config{BANKS})
@@ -300,12 +309,14 @@ Flags:
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
+	-N text		Name: insert "text" in the e-mail subject line instead
+                        of the vault name(s).
+	-O config:      Insert the "config" configuration options from
+			$ConfigFile.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
 	-P mailid:      Page error: Send a very brief message to this e-mail 
 			address if errors are detected in this job.
-	-O config:      Insert the "config" configuration options from
-			$ConfigFile.
 			the command line at this point.
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
@@ -372,7 +383,7 @@ IGNORE	"^\s*rsync error: unexplained error \(code 24\) at main.c\(1045\)\s*$"
 IGNORE	"^\s*rsync warning: some files vanished before they could be transferred"
 IGNORE	"^\s*file has vanished: "
 SHOW	"^\s*Running:"
-SHOW	"^\s*Running offsite back-ups to disk #\d+\s*$"
+SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
 IGNORE	"^\s*job \d+ at \d+-\d+-\d+\s+\d+:\d+$"
 SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
@@ -380,6 +391,6 @@ SHOW    /^Test:/
 SHOW    /^Executing:/
 SHOW	/^\s*debug:/
 SHOW  /^\s*$/
-#
+# 
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.

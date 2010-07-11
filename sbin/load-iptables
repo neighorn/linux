@@ -13,52 +13,67 @@ our $opt_q;
 
 Getopts("q");
 
+my $Errors=0;
+
+my $hostname = hostname;
 my $FH;
-open($FH,"/usr/local/etc/iptables.dat") ||
-	die("Unable to open /usr/local/etc/iptables.dat : $!\n");
+if (-f "/usr/local/etc/iptables.$hostname") {
+        open($FH,"/usr/local/etc/iptables.$hostname") ||
+                die("Unable to open /usr/local/etc/iptables.$hostname : $!");
+        print "Loading iptables.$hostname\n";
+}
+elsif (-f "/usr/local/etc/iptables.dat") {
+        open($FH,"/usr/local/etc/iptables.dat") ||
+                die("Unable to open /usr/local/etc/iptables.dat : $!");
+        print "Loading iptables.dat\n";
+}
+else {
+        warn "Unable to find iptables.$hostname or iptables.dat";
+	$Errors++;
+}
 
 my $Line=0;
-my $Errors=0;
 system("ifrename") if (-e "/etc/iftab");
 system("ifrename") if (-e "/etc/mactab");
-my $hostname = hostname;
 
-while (<$FH>) {
-	$Line++;		# Increment the line counter
-	next if (/^ *#/);	# Skip comments
-	next if (/^ *$/);	# Skip blank lines
-	if (/^\s*verify\s/i) {
-		# Verify interfaces are assigned right.
-		my(undef,$interface,@desired_mac)=split(/\s+/,$_);
-		my $actual_mac =`ifconfig $interface|grep -i HWaddr`;
-		$actual_mac =~ s/.*HWaddr\s+(\S+)\s*$/\U$1/i;
-		chomp $actual_mac;
-		my $Found = 0;
-		foreach (@desired_mac) {
-			s/^\s*(\S+)\s*/\U$1/;
-			if ($_ eq $actual_mac) {
-				$Found = 1;
-				last;
+if (!$Errors) {
+	while (<$FH>) {
+		$Line++;		# Increment the line counter
+		next if (/^ *#/);	# Skip comments
+		next if (/^ *$/);	# Skip blank lines
+		if (/^\s*verify\s/i) {
+			# Verify interfaces are assigned right.
+			my(undef,$interface,@desired_mac)=split(/\s+/,$_);
+			my $actual_mac =`ifconfig $interface|grep -i HWaddr`;
+			$actual_mac =~ s/.*HWaddr\s+(\S+)\s*$/\U$1/i;
+			chomp $actual_mac;
+			my $Found = 0;
+			foreach (@desired_mac) {
+				s/^\s*(\S+)\s*/\U$1/;
+				if ($_ eq $actual_mac) {
+					$Found = 1;
+					last;
+				}
 			}
-		}
-		if (!$Found) {
-			print "$interface has a MAC of $actual_mac instead of "
-				. join(', ',@desired_mac)
-				. "\n";
-			$Errors++;
-		}
-	} elsif (/^\s*ifhost\s+(\S+)\s+(.*)$/i) {
-		# Only run this on particular hosts.
-		if ($hostname eq $1 and system($2)) {
+			if (!$Found) {
+				print "$interface has a MAC of $actual_mac instead of "
+					. join(', ',@desired_mac)
+					. "\n";
+				$Errors++;
+			}
+		} elsif (/^\s*ifhost\s+(\S+)\s+(.*)$/i) {
+			# Only run this on particular hosts.
+			if ($hostname eq $1 and system($2)) {
+				print STDERR "\tError detected on line $Line\n";
+				$Errors++;
+			}
+		} elsif (system($_)) {
 			print STDERR "\tError detected on line $Line\n";
 			$Errors++;
 		}
-	} elsif (system($_)) {
-		print STDERR "\tError detected on line $Line\n";
-		$Errors++;
 	}
+	close $FH;
 }
-close $FH;
 
 if ($Errors) {
 	# Errors detected.
@@ -106,10 +121,13 @@ if ($Errors) {
 				} else {
 					# Critical cmd failed.  Go to superlockdown.
 					warn "Going into super lockdown mode.\n";
-					system("ifconfig eth0 down");
-					system("ifconfig eth1 down");
-					system("ifconfig eth2 down");
-					system("ifconfig eth3 down");
+					foreach my $Count (0..99) {
+						system("ifconfig eth$Count down 2> /dev/null");
+						system("ifconfig tun$Count down 2> /dev/null");
+						system("ifconfig br$Count down 2> /dev/null");
+					}
+					system("/etc/init.d/network stop");
+					system("ifconfig -a");
 					last;
 				}
 			}
