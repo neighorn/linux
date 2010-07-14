@@ -102,7 +102,7 @@ LogOutput({
 	ERROR_MAIL_LIST => $opt_e,
 	ALWAYS_PAGE_LIST => $opt_p,
 	ERROR_PAGE_LIST => $opt_P,
-	SUBJECT => $Subject,
+	MAIL_SUBJECT => $Subject,
 });
 die "No BANKS defined in configuration file(s)" 
 	unless (defined($Config{BANKS}) 
