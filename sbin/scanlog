@@ -105,7 +105,7 @@ LogOutput({
 	ERROR_PAGE_LIST => $opt_P,
 	FILTER_FILE => $opt_f,
 	PROGRAM_NAME => $Prog,
-	SUBJECT => $opt_S,
+	MAIL_SUBJECT => $opt_S,
 });
 
 # Verify the command line.
