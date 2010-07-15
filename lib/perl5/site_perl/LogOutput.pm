@@ -18,7 +18,7 @@ use Sys::Syslog;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.2;
+our $Version	= 3.6;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -235,18 +235,18 @@ if ($ErrorsDetected > 0) {
 }
 
 # Tweak up the subject line, now that we know how we ended.
-$Options{SUBJECT} = _MakeSubstitutions($Options{SUBJECT});
-$Options{SUBJECT} =~ s/^\s*//;		# Strip leading blanks.
-$Options{SUBJECT} =~ s/\s*$//;		# Strip trailing blanks.
-$Options{SUBJECT} =~ s/\s\s/ /g;	# Strip embedded multiple blanks.
+$Options{MAIL_SUBJECT} = _MakeSubstitutions($Options{MAIL_SUBJECT});
+$Options{MAIL_SUBJECT} =~ s/^\s*//;		# Strip leading blanks.
+$Options{MAIL_SUBJECT} =~ s/\s*$//;		# Strip trailing blanks.
+$Options{MAIL_SUBJECT} =~ s/\s\s/ /g;	# Strip embedded multiple blanks.
 	
 # Send mail if requested.
 if ($ErrorsDetected) {
-	_SetupMail($Options{ERROR_MAIL_LIST}, $Options{SUBJECT} ,$Options{MAIL_FILE});
-	_SetupMail($Options{ERROR_PAGE_LIST}, $Options{SUBJECT}, '');
+	_SetupMail($Options{ERROR_MAIL_LIST}, $Options{MAIL_SUBJECT}, $Options{MAIL_FILE}, $Options{MAIL_FROM});
+	_SetupMail($Options{ERROR_PAGE_LIST}, $Options{MAIL_SUBJECT}, '', $Options{MAIL_FROM}) ;
 } else {
-	_SetupMail($Options{ALWAYS_MAIL_LIST}, $Options{SUBJECT}, $Options{MAIL_FILE});
-	_SetupMail($Options{ALWAYS_PAGE_LIST}, $Options{SUBJECT}, '');
+	_SetupMail($Options{ALWAYS_MAIL_LIST}, $Options{MAIL_SUBJECT}, $Options{MAIL_FILE}, $Options{MAIL_FROM});
+	_SetupMail($Options{ALWAYS_PAGE_LIST}, $Options{MAIL_SUBJECT}, '', $Options{MAIL_FROM});
 }
 
 my $CleanupSub = $Options{CLEAN_UP};
@@ -289,12 +289,13 @@ sub _SetOptions {
 		#LOG_FILE => 1,
 		#LOG_FILE_PREFIX => 1,
 		MAIL_FILE => 1,
+		MAIL_FROM => 1,
 		MAIL_DOMAIN => 1,
 		MAIL_LIMIT => 1,
 		MAIL_SERVER => 1,
+		MAIL_SUBJECT => 1,
 		NORMAL_RETURN_CODES => 1,
 		PROGRAM_NAME => 1,
-		SUBJECT => 1,
 		SYSLOG_FACILITY => 1,
 		VERBOSE => 1,
 	);
@@ -308,14 +309,15 @@ sub _SetOptions {
 	$Options{ERROR_PAGE_LIST}=[];
 	#$Options{LOG_FILE_PREFIX}='';
 	$Options{MAIL_FILE}='';
+	$Options{MAIL_FROM}='%U@%O';
 	$Options{MAIL_SERVER}='127.0.0.1';
 	$Options{MAIL_DOMAIN}='';
 	$Options{MAIL_LIMIT}=undef();
 	$Options{NORMAL_RETURN_CODES}=[0];
-	$Options{PROGRAM_NAME}=(caller(0))[1];	# Get the caller's filename.
+	$Options{PROGRAM_NAME}=(caller(1))[1];	# Get the caller's filename.
 	$Options{PROGRAM_NAME}=~ s"^.*[/\\]"";	# Strip path.
 	$Options{PROGRAM_NAME}=~ s"\..*?$"";	# Strip suffix.
-	$Options{SUBJECT} = "%* %C %m/%d %N %E";
+	$Options{MAIL_SUBJECT} = "%m/%d %C %N %E %*%*%*";
 	$Options{VERBOSE}=0;
 
 	# Now load our site defaults.  May be overridden by calling args.
@@ -355,7 +357,7 @@ sub _SetOptions {
 		}
 		# Copy V1/2 global variables into the Options hash if set.
 		$Options{VERBOSE} = $Verbose if ($Verbose);
-		$Options{SUBJECT} = '%*' . $Subject . ' %E' if ($Subject);
+		$Options{MAIL_SUBJECT} = '%*' . $Subject . ' %E' if ($Subject);
 		$Options{MAIL_SERVER} = $MailServer if ($MailServer);
 		$Options{MAIL_DOMAIN} = $MailDomain if ($MailDomain);
 		$Options{PROGRAM_NAME} = $main::Prog if ($main::Prog);
@@ -606,6 +608,9 @@ sub _CompilePatterns {
 # 		%P - Process ID of the child process
 # 		%* - Error flag: either "*" or "" depending on whether
 # 			errors have been detected yet.
+#               %p - percent, same as %%
+#               %U - User name
+#               %D - Mail domain
 # 		%anything else: any remaining % are processed by 
 # 			POSIX::strftime.
 # 		
@@ -616,9 +621,11 @@ sub _MakeSubstitutions {
 	return $Text unless ($Text =~ /%/);	# Exit unless % variables present.
 
 	# Simple substitutions.
+	$Text =~ s/%%/%p/g;		# Change %% to %p so it doesn't match other % constructs.
 	$Text =~ s/%C/$HostName/g;
 	$Text =~ s/%N/$Options{PROGRAM_NAME}/g;
 	$Text =~ s/%P/$PID/g;
+	$Text =~ s/%O/$Options{MAIL_DOMAIN}/g;
 
 	# Conditional substitutions (%E, %*).
 	if ($ErrorsDetected) {
@@ -630,7 +637,23 @@ sub _MakeSubstitutions {
 		$Text =~ s/%\*//g;
 	}
 
+	# User name.
+	my $UserName;
+	if ($^O eq 'MSWin32') {
+		if (defined($ENV{'USERNAME'}) and $ENV{'USERNAME'}) {
+			$UserName = $ENV{'USERNAME'};
+		}
+		else {
+			$UserName = 'Administrator';
+		}
+	}
+	else {
+		$UserName=$ENV{'LOGNAME'};
+	}
+	$Text =~ s/%U/$UserName/g;
+
 	# STRFTIME substitutions.
+	$Text =~ s/%p/%%/g;		# Change %% back for strftime.
 	if ($Text =~ /%/) {
 		# Still have percent signs.  Call strftime for the rest.
 		$Text = strftime($Text,localtime);
@@ -716,7 +739,7 @@ sub WriteMessage {
 sub _SetupMail {
 
 	#my($a,$b,...)			# Declare local variables.
-	my($ToArrayRef,$Subject,$MailFile)=@_;	# Get our calling arguments.
+	my($ToArrayRef,$Subject,$MailFile,$From)=@_;	# Get our calling arguments.
 	my($HostName);			# A place to hold our host name.
 	my(%Mail);			# Hash that's passed to SendMail routine.
 
@@ -732,24 +755,9 @@ sub _SetupMail {
 		$Mail{To} .= ' ' . $_;
 	}
 	$Mail{To} =~ s/^\s+//;		# Strip leading space.
-	if ($^O eq 'MSWin32') {
-		if (defined($ENV{'USERNAME'}) and $ENV{'USERNAME'}) {
-			$Mail{From} = $ENV{'USERNAME'} . '@' . $ENV{'COMPUTERNAME'}
-			. ".$Options{MAIL_DOMAIN}";
-		}
-		else {
-			$Mail{From} = 'Administrator' . '@' . $ENV{'COMPUTERNAME'}
-			. ".$Options{MAIL_DOMAIN}";
-		}
-	} elsif ($^O =~ /^(aix|linux)$/) {
-		$HostName=`hostname`;
-		chomp $HostName;
-		$HostName=~tr/A-Za-z0-9_.-//c;	# So we can untaint it safely.
-		$HostName=untaint($HostName);
-		$Mail{From}=$ENV{'LOGNAME'} . "\@$HostName.$Options{MAIL_DOMAIN}";
-	}
 	$Mail{Server}=$Options{MAIL_SERVER};
-	$Mail{Subject}=$Options{SUBJECT};
+	$Mail{Subject}=$Options{MAIL_SUBJECT};
+	$Mail{From}=_MakeSubstitutions($Options{MAIL_FROM});
 	$Mail{'X-JOBSUMMARY'}="Name=$Options{PROGRAM_NAME} Status=$ExitCode RunTime=$RawRunTime";
 	$Mail{'X-JOBEXIT'}="$ExitCode";	
 	# Following added in V3, because non-zero exit codes now may now
@@ -819,6 +827,7 @@ to the syslog, a file, and/or e-mail recipients.
     LogOutput({option1 => value1, ...});
 
 Options and defaults are shown in the table below:
+
    OPTION NAME   	| DEFAULT VALUE	| DESCRIPTION
    ---------------------|---------------|----------------------------
    ALWAYS_MAIL_LIST	| -none-	| Always send a report
@@ -837,13 +846,15 @@ Options and defaults are shown in the table below:
    			|		| the message filters.
    MAIL_FILE		| (temp file)	| Name of a file to write
    			|		| filtered messages to.
+   MAIL_FROM            | %U@%O         | Send e-mail with this From value.
+                        |               | Defaults to user@domain
    MAIL_DOMAIN		| -none-	| Domain to append to unqualified
    			|		| e-mail addresses
    MAIL_SERVER		| 127.0.0.1	| Address of the SMTP server
+   MAIL_SUBJECT		| %m/%d %C %N %E %*%*%*	| Subject line used in
+   			|		| e-mail.  See % variables.
    NORMAL_RETURN_CODES	| (0)		| List of normal exit codes
    PROGRAM_NAME		| Name of caller| Program name for logs and e-mail
-   SUBJECT		| %* %C %m/%d %N ended %E	| Subject line
-   			|		| used in e-mail.  See % variables.
    SYSLOG_FACILITY	| -none-	| SYSLOG facility code to use
    VERBOSE		| 0		| Diagnostic/verbosity level (0-9).
 
@@ -870,6 +881,7 @@ is maintained for backward compatibility only.
     );
 
 These calling arguments equate to the version 3 options as follows:
+
    $FilterFile		FILTER_FILE
    $Syslog		SYSLOG_FACILITY
    $MailFile		MAIL_FILE
@@ -931,6 +943,13 @@ file is created in /tmp and deleted on termination.  Any prior contents of
 this file are always deleted.
 
 Example:  MAIL_FILE => '/home/joeuser/log/jobname.log'
+
+=head2 MAIL_FROM
+
+This option specifies who any e-mail is sent from.  Symbol substitution
+is allowed.  The default is %U@%O (username@mail.domain).
+
+Example:  MAIL_FROM => 'joe@%O'
 
 =head2 ALWAYS_MAIL_LIST
 
@@ -995,6 +1014,13 @@ This option identifies the name or IP address of the server used to send
 e-mail.  If not specified, it defaults to "127.0.0.1".  This option is 
 frequently specified in LogOutput_cfg.pm.
 
+=head2 MAIL_SUBJECT
+
+This option specifies the subject of any e-mails sent out.  By default, the
+subject line is specified as "%m/%d %C %N %E %*%*%*" (see SYMBOL SUBSTITUTION
+below).  After symbol substitution is complete, a typical subject like might
+look like "07/01 SERVER1 MyScript ended normally".
+
 =head2 NORMAL_RETURN_CODES
 
 This option identifies exit codes that should be considered normal.  LogOutput
@@ -1007,50 +1033,24 @@ Example:  NORMAL_RETURN_CODES => [0,6,10]	# Zero, 6, and 10 are normal.
 
 =head2 PROGRAM_NAME
 
-=head1 GLOBAL VARIABLES
+=head1 SYMBOL SUBSTITUTION
 
-LogOutput exports the global variables described below.  Note that any
-changes to the default values for these variables must be set BEFORE
-LogOutput has been called.
+Some options (MAIL_SUBJECT, MAIL_FROM) allow symbol substitution.  Substituted
+symbols are as follows:
 
-=head2 MailDomain
+	%C - Computer name (aka host name -- H and h were taken)
+	%E - Error text: either "ended normally" or "ended with errors"
+		depending on whether have been detected yet.
+		See also %*.
+	%N - Name of the program
+	%P - Process ID of the child process
+	%* - Error flag: either "* " or "" depending on whether
+		errors have been detected yet.
+	%p - percent, same as %%
+	%U - User name
+	%O - Mail domain
 
-$LogOutput::MailDomain contains the suffix to append to unqualified mail 
-addresses.  This is normally set in LogOutput_cfg.pm and should not need to be
-altered.  A typical example might be:
-
-    $LogOutput::MailDomain='mydomain.com';
-
-In this case, if one of the mail addresses provided does not have a domain
-qualification (i.e. it is something like "joe" instead of "joe@mydomain.com"),
-the address will be modified to have the specified mail domain appended.
-
-=head2 MailServer
-
-$LogOutput::MailServer contains the name of the mail server to use to 
-deliver mail and pager notifications.  This is normally set in LogOutput_cfg.pm
-and should not need to be altered.  If you wish to override the value set in
-LogOutput_cfg, set this to a name that will resolve to the desired mail server.
-A typical example might be:
-
-    $LogOutput::MailServer='mailhost.mydomain.com';
-
-=head2 Subject
-
-LogOutput creates subject lines for it's email as follows:
-
-    Successful jobs:		ProgName ended normally
-    Failed jobs:		* ProgName ended with errors
-
-By default, "ProgName" is replaced by the value of $main::Prog, if present.
-If $main::Prog is undefined, ProgName is derived from the value of main's $0
-variable.  If $LogOutput::Subject has been set, however, ProgName is replaced
-by that value instead.
-
-=head2 Verbose
-
-Setting $LogOutput::Verbose to a true value causes diagnostic information to be turned on.  Larger values produce more information, with 9 currently being the
-highest significant value.
+After local substitution, any remaining % strings are processed by strftime.
 
 =head1 Filtering and Error Detection
 

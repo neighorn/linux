@@ -30,6 +30,7 @@ our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode = 0;			# Code we'll exit with.
 #
+our $opt_a;				# -a (all) option.
 our $opt_h;				# -h (help) option.
 our $opt_e;				# -e (error mail) option.
 our $opt_m;				# -m (mail) option.
@@ -48,7 +49,7 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l t v';
+my $OptSpec='a e=l h m=l O=s p=l P=l t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -89,7 +90,17 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 # Verify the command line.
 die("No items specified on the command line.  See \"$Prog -h\" for usage.")
-	if (@Parms == 0);
+	if (@Parms == 0 and not $opt_a);
+
+if ($opt_a) {
+	warn("-a and command line parameters are redundant - command line parameters ignored.")
+		if (@Parms > 0);
+	@Parms = ();
+	foreach (keys(%Config)) {
+		push @Parms,$_ unless (/ALLJOBS/i);
+	}
+	die "No synchronization items found in configuration file" unless (@Parms);
+}
 
 foreach (@Parms) {
 	my $Key = uc($_);
@@ -227,6 +238,7 @@ SHOW	"^\s*new file\s+---->"
 SHOW	"^\s*\S+\s*: new file\s"
 SHOW	"^\s*\S+\s*: absent$"
 SHOW	"^\s*<---- deleted"
+SHOW	"^\s*<---- new file"
 IGNORE	"^\s*Contacting server...$"
 IGNORE	"^\s*Propagating updates"
 IGNORE	"^\s*UNISON \d+\.\d+\.\d+ started propagating changes"
@@ -239,7 +251,7 @@ SHOW	"^\s*Connected \[.*\]$"
 IGNORE	"^\s*Looking for changes$"
 IGNORE	"^\s*Waiting for changes from server$"
 IGNORE	"^\s*Reconciling changes$"
-SHOW	"^\s*Nothing to do: replicas have not changed since last sync.$"
+SHOW	"^\s*Nothing to do: "
 SHOW	"^\s*Synchronization complete  \(\d+ items? transferred, \d+ skipped, \d+ failures?\)$"
 SHOW	"^\s*<---- changed"
 #

@@ -86,15 +86,24 @@ if (@ARGV) {
 # Set up our logging and output filtering.
 $RunDate=`date +%m/%d`;
 chomp $RunDate;
+my $Subject;
 if ($opt_N) {
-	$LogOutput::Subject="$Prog $RunDate $opt_N" ;
+	$Subject="%m/%d %C %N $opt_N %E %*%*%*" ;
 } elsif (@Parms >= 1) {
-	$LogOutput::Subject="$Prog $RunDate " . join(', ',@Parms) ;
+	$Subject="%m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
 } else {
-	$LogOutput::Subject="$Prog $RunDate";
+	$Subject="%m/%d %C %N %E %*%*%*" ;
 };
 
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput({
+	SYSLOG_FACILITY => $Syslog,
+	MAIL_FILE => $LogFile,
+	ALWAYS_MAIL_LIST => $opt_m,
+	ERROR_MAIL_LIST => $opt_e,
+	ALWAYS_PAGE_LIST => $opt_p,
+	ERROR_PAGE_LIST => $opt_P,
+	MAIL_SUBJECT => $Subject,
+});
 die "No BANKS defined in configuration file(s)" 
 	unless (defined($Config{BANKS}) 
 		and exists($Config{BANKS})
