@@ -201,7 +201,7 @@ sub opt_h {
 }
 
 sub opt_l {
-	print "Known configurations: " . join(', ',sort(keys(%Config)) . "\n";
+	print "Known configurations: " . join(', ',sort(keys(%Config))) . "\n";
 	exit(1);
 }
 
