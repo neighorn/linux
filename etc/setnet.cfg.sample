@@ -1,0 +1,7 @@
+breken: if=wlan0 mode=Managed essid=Breken dhclient=yes
+psu: if=wlan0 mode=Managed essid=PSU dhclient=yes
+roots: if=wlan0 mode=Managed essid=ROOTSPUBLIC dhclient=yes
+providence: if=wlan0 mode=Managed essid=guest dhclient=yes
+dhcp: if=eth0 dhclient=yes
+internet: if=eth0 ipaddress=71.245.97.118/24
+office: if=eth0 dhclient=yes gw=192.168.120.1
