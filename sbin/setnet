@@ -17,7 +17,7 @@ use warnings;
 use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
-use Switch;
+use feature 'switch';
 
 # Initialize variables.
 our $Prog=$RealScript;              	# Get our name, for messages.
@@ -50,7 +50,7 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l t v';
+my $OptSpec='h l O=s t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -108,29 +108,28 @@ my $gw='';
 
 foreach (split(/\s+/,$Config{$Network})) {
 	my ($item,$parm)=split(/=/,$_,2);
-	switch ($item)  {
-		case /^ipaddr(ess)?$/ {
+	given ($item)  {
+		when (/^ipaddr(ess)?$/) {
 			$ifconfigParms.="$parm ";
 		}
-		case /^(essid|mode)$/ {
+		when (/^(essid|mode)$/) {
 			$iwconfigParms.="$item $parm ";
 		}
-		case /^dhclient$/ {
+		when (/^dhclient$/) {
 			$RunDHClient=lc($parm);
 		}
-		case /^if$/ {
+		when (/^if$/) {
 			$Interface=$parm;
 		}
-		case /^(gw)$/ {
+		when (/^(gw)$/) {
 			eval "\$$item=\$parm;";
 		}
-		else {
+		default {
 			warn "Unknown parameter: $_"
 		}
 	}
 }
 
-print "debug: Interface=$Interface, iwconfigParms=$iwconfigParms, dhclient=$RunDHClient\n";
 RunDangerousCmd("ifconfig $Interface down");
 my $Status=0;
 if ($Status) {
@@ -196,22 +195,28 @@ sub RunDangerousCmd {
 sub opt_h {
 
 	my $Pagenater=$ENV{PAGENATER};
-	$Pagenater="more" unless ($Pagenater);
+	$Pagenater="less" unless ($Pagenater);
 	system("pod2text $RealScript | $Pagenater");
 	exit(1);
 }
 
+sub opt_l {
+	print "Known configurations: " . join(', ',sort(keys(%Config)) . "\n";
+	exit(1);
+}
+
 =pod
-=head1 $Prog - >>description<<
+=head1 $Prog - set assorted network parameters
 
 =head3 Usage:  
-	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
+	$Prog [-l] [-O config] [-t|-v] config
 
 	$Prog -h
 
 =head3 Flags:
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
+	-l:		List: list known network settings.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
@@ -225,7 +230,7 @@ sub opt_h {
 	-h      :       Help: display this panel
 
 =head3 Parameters:
-	files	:	one or more files to process.
+	config	:	same as -O config.
 
 =head3 Return codes:
 	0       :       Normal termination
