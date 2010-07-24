@@ -2,4 +2,4 @@ psu: if=wlan0 mode=Managed essid=PSU dhclient=yes rfkill="unblock wifi"
 dhcp: if=eth0 dhclient=yes
 office-external: if=eth0 ipaddress=71.245.97.118/24 gw=71.245.97.1
 office-internal: if=eth0 dhclient=yes gw=192.168.120.1
-office-wireless: if=wlan0 dhclient=yes mode=Managed essid=MCSI-PRIVATE key=xyz
+office-wireless: if=wlan0 dhclient=yes mode=Managed essid=MCSI-PRIVATE key="abc xyz"
