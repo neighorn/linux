@@ -121,7 +121,7 @@ foreach (parse_line('\s+',0,$Config{$Network})) {
 			$ifconfigParms.="$parm ";
 		}
 		when (/^(essid|mode|key)$/) {
-			$iwconfigParms.="$item $parm ";
+			$iwconfigParms.=qq<$item "$parm" >;
 		}
 		when (/^dhclient$/) {
 			$RunDHClient=lc($parm);
