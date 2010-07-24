@@ -1,10 +1,6 @@
 #! /usr/bin/perl
 #
-<<<<<<< HEAD
 # Copyright (c) 2005,2010, Martin Consulting Services, Inc.
-=======
-# Copyright (c) 2005,2009, Martin Consulting Services, Inc.
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -12,19 +8,12 @@
 #
 
 #
-<<<<<<< HEAD
 # Set a network adapter according to one of several configurations.
-=======
-# =====Description====
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 #
 use strict;
 no strict 'refs';
 use warnings;
-<<<<<<< HEAD
 use lib '/usr/local/lib/perl5/site_perl';
-=======
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 #use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
@@ -39,12 +28,8 @@ our $Errors=0;                       # No errors so far.
 our $Syslog='';                         # Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
-<<<<<<< HEAD
 our $ConfigFile;			# Name of configuration file.
 ($ConfigFile=$BaseDir) =~ s"/[^/]*?$"/etc/${Prog}.cfg";     # Name of config file.
-=======
-our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
@@ -58,14 +43,11 @@ our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
 
-<<<<<<< HEAD
 # Make sure we're root.
 if ($> != 0) {
 	exec ("sudo",$Prog,@ARGV) || die "Unable to exec to sudo: $!";
 } 
 
-=======
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 
@@ -123,37 +105,22 @@ die("Excess command line parameters starting with $Parms[1].  See \"$Prog -h\" f
 my $Network=uc($Parms[0]);
 
 
-<<<<<<< HEAD
 die qq<"$Network" not found in $ConfigFile\n> unless ($Config{$Network});
-=======
-die "Unknown network $Network" unless ($Config{$Network});
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 
 my $Interface="wlan0";
 my $iwconfigParms='';
 my $ifconfigParms='';
-<<<<<<< HEAD
 my $rfkillParms='';
 my $RunDHClient='no';
 my $gw='';
 
 foreach (parse_line('\s+',0,$Config{$Network})) {
-=======
-my $RunDHClient='no';
-my $gw='';
-
-foreach (split(/\s+/,$Config{$Network})) {
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 	my ($item,$parm)=split(/=/,$_,2);
 	given ($item)  {
 		when (/^ipaddr(ess)?$/) {
 			$ifconfigParms.="$parm ";
 		}
-<<<<<<< HEAD
 		when (/^(essid|mode|key)$/) {
-=======
-		when (/^(essid|mode)$/) {
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 			$iwconfigParms.="$item $parm ";
 		}
 		when (/^dhclient$/) {
@@ -165,12 +132,9 @@ foreach (split(/\s+/,$Config{$Network})) {
 		when (/^(gw)$/) {
 			eval "\$$item=\$parm;";
 		}
-<<<<<<< HEAD
 		when (/^(rfkill)$/) {
 			$rfkillParms.="$parm ";
 		}
-=======
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 		default {
 			warn "Unknown parameter: $_"
 		}
@@ -179,7 +143,6 @@ foreach (split(/\s+/,$Config{$Network})) {
 
 RunDangerousCmd("ifconfig $Interface down");
 my $Status=0;
-<<<<<<< HEAD
 if ($Status == 0 && $rfkillParms) {
 	$Status=RunDangerousCmd("rfkill $rfkillParms");
 }
@@ -195,20 +158,6 @@ if ($Status == 0 && $RunDHClient =~ /^y.*/) {
 if ($Status == 0 && $gw) {
 	RunDangerousCmd("route delete default 2> /dev/null");
 	$Status=RunDangerousCmd("route add default gw $gw");
-=======
-if ($Status) {
-	$Status=RunDangerousCmd("ifconfig $Interface up $ifconfigParms");
-}
-if ($iwconfigParms) {
-	$Status=RunDangerousCmd("iwconfig $Interface $iwconfigParms");
-}
-if ($RunDHClient =~ /^y.*/) {
-	$Status=RunDangerousCmd("dhclient $Interface &");
-}
-if ($gw) {
-	`route delete default 2> /dev/null` unless ($opt_t);
-	RunDangerousCmd("route add default gw $gw");
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 }
 
 die "Unable to configure $Interface: $!\n" if ($Status);
@@ -235,10 +184,7 @@ sub RunDangerousCmd {
 	$Cmd=join(' ',@_);
 	if ($opt_t) {
 		print "Test: $Cmd\n";
-<<<<<<< HEAD
 		return 0;
-=======
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 	} else {
 		print "Executing: $Cmd\n" if ($opt_v);
 		if (open($FH,"$Cmd 2>&1 |")) {
