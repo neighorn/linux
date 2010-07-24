@@ -1,10 +1,6 @@
 #! /usr/bin/perl
 #
-<<<<<<< HEAD
-# Copyright (c) 2005,2010, Martin Consulting Services, Inc.
-=======
 # Copyright (c) 2005,2009, Martin Consulting Services, Inc.
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -12,20 +8,11 @@
 #
 
 #
-<<<<<<< HEAD
-# Set a network adapter according to one of several configurations.
-=======
 # =====Description====
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 #
 use strict;
-no strict 'refs';
 use warnings;
-<<<<<<< HEAD
-use lib '/usr/local/lib/perl5/site_perl';
-=======
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
-#use LogOutput;
+use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
@@ -35,16 +22,11 @@ use feature 'switch';
 our $Prog=$RealScript;              	# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
-our $Errors=0;                       # No errors so far.
-our $Syslog='';                         # Name of Syslog facility.  '' for none.
+our $Errors=0;				# No errors so far.
+our $Syslog='';				# Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
-<<<<<<< HEAD
-our $ConfigFile;			# Name of configuration file.
-($ConfigFile=$BaseDir) =~ s"/[^/]*?$"/etc/${Prog}.cfg";     # Name of config file.
-=======
 our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
@@ -58,14 +40,6 @@ our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
 
-<<<<<<< HEAD
-# Make sure we're root.
-if ($> != 0) {
-	exec ("sudo",$Prog,@ARGV) || die "Unable to exec to sudo: $!";
-} 
-
-=======
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 
@@ -75,7 +49,7 @@ if ($> != 0) {
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='h l O=s t v';
+my $OptSpec='e=l h m=l O=s p=l P=l t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -112,110 +86,88 @@ if (@ARGV) {
 if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 	
 # Set up our logging and output filtering.
-#LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 # Verify the command line.
-die("Missing network name.  See \"$Prog -h\" for usage.")
-	if (@Parms < 1);
-die("Excess command line parameters starting with $Parms[1].  See \"$Prog -h\" for usage.")
-	if (@Parms > 1);
+die("No files specified on the command line.  See \"$Prog -h\" for usage.")
+	unless (@Parms > 0);
 
-my $Network=uc($Parms[0]);
+my $External_Connect=0;
+my $RBL_Total=0;
+my %RBL;
+my $Postgrey_Attempt=0;
+my $Postgrey_Allowed=0;
+my $Postfix_Blocked=0;
+my $Viruses_Blocked=0;
+my $Amavis_Blocked=0;
+my $Amavis_SPAMMY=0;
+my $Delivered_Local=0;
+my $Delivered_Remote=0;
+my @ConnectExcludeList=(
+	'127.0.0.', 
+	'10.', 
+	'192.168.', 
+	'172.1[6-9].',
+	'172.2\d.',
+	'172.3[0-2].',
+	'71.245.97.115'
+);
 
+my $ConnectExclude='^' . join('|^',@ConnectExcludeList);
+$ConnectExclude =~ s/\./\\./g;
 
-<<<<<<< HEAD
-die qq<"$Network" not found in $ConfigFile\n> unless ($Config{$Network});
-=======
-die "Unknown network $Network" unless ($Config{$Network});
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
-
-my $Interface="wlan0";
-my $iwconfigParms='';
-my $ifconfigParms='';
-<<<<<<< HEAD
-my $rfkillParms='';
-my $RunDHClient='no';
-my $gw='';
-
-foreach (parse_line('\s+',0,$Config{$Network})) {
-=======
-my $RunDHClient='no';
-my $gw='';
-
-foreach (split(/\s+/,$Config{$Network})) {
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
-	my ($item,$parm)=split(/=/,$_,2);
-	given ($item)  {
-		when (/^ipaddr(ess)?$/) {
-			$ifconfigParms.="$parm ";
+while (<>) {
+	given ($_) {
+		#  postfix/smtpd[21061]: connect from static-71-245-97-115.ptldor.fios.verizon.net[71.245.97.115]
+		#when (/postfix\/smtpd\[\d+\]: connect from \S+?\[(?!(127\.0\.0\.\d+|192\.168\.\d+\.\d+|172\.1[6-9]\.\d+\.\d+|172\.2\d\.\d+\.\d+|172\.3[0-2]\.\d+\.\d+))\]/) {
+		when (/postfix\/smtpd\[\d+\]: connect from \S+\[(\d+\.\d+\.\d+\.\d+)\]/) {
+			$External_Connect++ unless ($1 =~ /$ConnectExclude/o); # Count if it's not internal.
 		}
-<<<<<<< HEAD
-		when (/^(essid|mode|key)$/) {
-=======
-		when (/^(essid|mode)$/) {
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
-			$iwconfigParms.="$item $parm ";
+		when (/smtpd.*NOQUEUE: reject:.*Client host.*blocked using (\S+?;)/) {
+			$RBL_Total++;
+			$RBL{$1} = (defined($RBL{$1}?$RBL{$1}++:1));
 		}
-		when (/^dhclient$/) {
-			$RunDHClient=lc($parm);
+		when (/smtpd.*NOQUEUE: reject:.*Recipient address rejected: Greylisted/) {
+			$Postgrey_Attempt++;
 		}
-		when (/^if$/) {
-			$Interface=$parm;
+		when (/smtpd.*NOQUEUE: reject:/) {
+			$Postfix_Blocked++;
 		}
-		when (/^(gw)$/) {
-			eval "\$$item=\$parm;";
+		when (/postgrey: action=pass, reason/) {
+			$Postgrey_Allowed++;
 		}
-<<<<<<< HEAD
-		when (/^(rfkill)$/) {
-			$rfkillParms.="$parm ";
+		when (/amavis\[\d+\]: .* Blocked INFECTED/) {
+			$Viruses_Blocked++;
 		}
-=======
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
-		default {
-			warn "Unknown parameter: $_"
+		when (/amavis\[\d+\]: .* Blocked /) {
+			$Amavis_Blocked++;
+		}
+		when (/amavis\[\d+\]: .* Passed SPAMMY,/) {
+			$Amavis_SPAMMY++;
+		}
+		when (/postfix\/local\[\d+\]: .* relay=local, .* status=sent/) {
+			$Delivered_Local++;
+		}
+		when (/postfix\/smtp\[\d+\]: .*relay=(?!(127\.0\.0\.\d+|192\.168\.\d+\.\d+|172\.1[6-9]\.\d+\.\d+|172\.2\d\.\d+\.\d+|172\.3[0-2]\.\d+\.\d+)).* status=sent/) {
+			$Delivered_Remote++;
 		}
 	}
 }
 
-RunDangerousCmd("ifconfig $Interface down");
-my $Status=0;
-<<<<<<< HEAD
-if ($Status == 0 && $rfkillParms) {
-	$Status=RunDangerousCmd("rfkill $rfkillParms");
-}
-if ($Status == 0) {
-	$Status=RunDangerousCmd("ifconfig $Interface up $ifconfigParms");
-}
-if ($Status == 0 && $iwconfigParms) {
-	$Status=RunDangerousCmd("iwconfig $Interface $iwconfigParms");
-}
-if ($Status == 0 && $RunDHClient =~ /^y.*/) {
-	$Status=RunDangerousCmd("dhclient $Interface &");
-}
-if ($Status == 0 && $gw) {
-	RunDangerousCmd("route delete default 2> /dev/null");
-	$Status=RunDangerousCmd("route add default gw $gw");
-=======
-if ($Status) {
-	$Status=RunDangerousCmd("ifconfig $Interface up $ifconfigParms");
-}
-if ($iwconfigParms) {
-	$Status=RunDangerousCmd("iwconfig $Interface $iwconfigParms");
-}
-if ($RunDHClient =~ /^y.*/) {
-	$Status=RunDangerousCmd("dhclient $Interface &");
-}
-if ($gw) {
-	`route delete default 2> /dev/null` unless ($opt_t);
-	RunDangerousCmd("route add default gw $gw");
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
-}
-
-die "Unable to configure $Interface: $!\n" if ($Status);
-
-
-
-
+printf "Report:\n" .
+	"\tExternal Connect:\t\t\t%10d\n" .
+	"\tBlocked by blacklist:\t\t\t%10d\n" .
+	"\tBlocked by greylist:\t\t\t%10d\n" .
+	"\tViruses blocked:\t\t\t%10d\n" .
+	"\tBlocked by Postfix:\t\t\t%10d\n" .
+	"\tBlocked by Amavis:\t\t\t%10d\n" .
+	"\t(Passed by Amavis but doubtful:\t%10d)\n" .
+	"\tDelivered:\t\t\t\t%10d\n" .
+	"\n" .
+	"\tOutbound e-mail:\t\t\t%10d\n"
+	, $External_Connect, $RBL_Total, $Postgrey_Attempt - $Postgrey_Allowed
+	, $Viruses_Blocked, $Postfix_Blocked,$Amavis_Blocked, $Amavis_SPAMMY
+	, $Delivered_Local, $Delivered_Remote;
 
 
 if ($ExitCode) {
@@ -235,10 +187,6 @@ sub RunDangerousCmd {
 	$Cmd=join(' ',@_);
 	if ($opt_t) {
 		print "Test: $Cmd\n";
-<<<<<<< HEAD
-		return 0;
-=======
->>>>>>> 5f52138f52be76763c6910df8dce11fbbdf7d47c
 	} else {
 		print "Executing: $Cmd\n" if ($opt_v);
 		if (open($FH,"$Cmd 2>&1 |")) {
@@ -264,28 +212,22 @@ sub RunDangerousCmd {
 sub opt_h {
 
 	my $Pagenater=$ENV{PAGENATER};
-	$Pagenater="less" unless ($Pagenater);
+	$Pagenater="more" unless ($Pagenater);
 	system("pod2text $RealScript | $Pagenater");
 	exit(1);
 }
 
-sub opt_l {
-	print "Known configurations: " . join(', ',sort(keys(%Config))) . "\n";
-	exit(1);
-}
-
 =pod
-=head1 $Prog - set assorted network parameters
+=head1 $Prog - >>description<<
 
 =head3 Usage:  
-	$Prog [-l] [-O config] [-t|-v] config
+	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
 
 	$Prog -h
 
 =head3 Flags:
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
-	-l:		List: list known network settings.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
@@ -299,7 +241,7 @@ sub opt_l {
 	-h      :       Help: display this panel
 
 =head3 Parameters:
-	config	:	same as -O config.
+	files	:	one or more files to process.
 
 =head3 Return codes:
 	0       :       Normal termination
@@ -330,7 +272,7 @@ __END__
 #
 # The following are normal messages we don't need to see.
 #
-IGNORE  /^\s*$/
+SHOW	/^\s*$/
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
@@ -343,6 +285,16 @@ SHOW    "^\s*Job ended normally with status 0 and signal 0$"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
+SHOW	"^\s*Report:"
+SHOW	"^\s*External Connect:\s+[0-9,]+$"
+SHOW	"^\s*Blocked by blacklist:\s+[0-9,]+$"
+SHOW	"^\s*Blocked by greylist:\s+[0-9,]+$"
+SHOW	"^\s*Blocked by Amavis:\s+[0-9,]+$"
+SHOW	"^\s*Viruses blocked:\s+[0-9,]+$"
+SHOW	"^\s*Blocked by Postfix:\s+[0-9,]+$"
+SHOW	"^\s*\(Passed by Amavis but doubtful:\s+[0-9,]+\)$"
+SHOW	"^\s*Delivered:\s+[0-9,]+$"
+SHOW	"^\s*Outbound e-mail:\s+[0-9,]+$"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.

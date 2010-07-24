@@ -18,7 +18,7 @@ use Sys::Syslog;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.6;
+our $Version	= 3.7;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -521,7 +521,7 @@ sub _LoadFilters {
 		eval "qr$Pattern;";		# Check pattern for syntax problems.
 		if ($@) {
 			print qq<LogOutput: Syntax error in pattern $PatternNum ("> 
-				. substr($Pattern,0,10)
+				. substr($Pattern,0,50)
 				. qq<"): $@\n>;
 			next;
 		}
