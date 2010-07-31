@@ -17,28 +17,47 @@ use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
 use feature 'switch';
+use RRD::Simple;
+use Time::Local;
+use POSIX qw(strftime);
+use List::Util qw(max);
 
 # Initialize variables.
 our $Prog=$RealScript;              	# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
-our $Errors=0;				# No errors so far.
-our $Syslog='';				# Name of Syslog facility.  '' for none.
-our $BaseDir=$RealBin;			# Set our base directory.
-our $LogFile="";			# Name of the log file.
-our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
+my $Errors=0;				# No errors so far.
+my $Syslog='';				# Name of Syslog facility.  '' for none.
+my $BaseDir=$RealBin;			# Set our base directory.
+my $LogFile="";			# Name of the log file.
+my $ConfigFile;			# Name of config files.
+($ConfigFile=$BaseDir) =~ s|/[^/]+?$|/etc/$Prog.cfg|;
+my $RRDFile;
+($RRDFile=$BaseDir) =~ s|/[^/]+?$|/var/$Prog/$Prog.rrd|;     # Name of config file.
+our $rrd;				# Graph handle.
+
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
 #
 our $opt_h;				# -h (help) option.
 our $opt_e;				# -e (error mail) option.
+our $opt_I;				# -I (Ignore) option.
 our $opt_m;				# -m (mail) option.
 our $opt_p;				# -p (pager mail) option.
 our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
+our $opt_Y;				# -Y (year) set the log year (since they're not in the log).
 #
+my %MonthTable = (Jan=>0,Feb=>1,Mar=>2,Apr=>3,May=>4,Jun=>5,
+	Jul=>6,Aug=>7,Sep=>8,Oct=>9,Nov=>10,Dec=>11);
+my @Measurements = qw(
+	Inbound_Connections RBL_Total Postgrey_Reject Postgrey_Allowed 
+	Postfix_Blocked Viruses_Blocked Amavis_Blocked Amavis_SPAMMY 
+	Delivered_Local Delivered_Remote);
+our $Ignore_Warning_Issued = 0;		# Only issue warning once.
+my @Graph_Colors = qw(00ffff ff00ff 000000 880088); 
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
@@ -49,7 +68,7 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l t v';
+my $OptSpec='e=l h I m=l O=s p=l P=l t v Y=s';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -89,20 +108,19 @@ if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 # Verify the command line.
-die("No files specified on the command line.  See \"$Prog -h\" for usage.")
+warn("No files specified on the command line.  Reading from STDIN.\n")
 	unless (@Parms > 0);
 
-my $External_Connect=0;
-my $RBL_Total=0;
+$opt_Y = (localtime(time))[5]+1900 unless ($opt_Y);
+
+my %Counts;
+my %DayCounts;
+foreach (@Measurements) {
+	$Counts{$_}=0;
+	$DayCounts{$_}=0;
+}
 my %RBL;
-my $Postgrey_Attempt=0;
-my $Postgrey_Allowed=0;
-my $Postfix_Blocked=0;
-my $Viruses_Blocked=0;
-my $Amavis_Blocked=0;
-my $Amavis_SPAMMY=0;
-my $Delivered_Local=0;
-my $Delivered_Remote=0;
+my %Destinations;
 my @ConnectExcludeList=(
 	'127.0.0.', 
 	'10.', 
@@ -112,63 +130,118 @@ my @ConnectExcludeList=(
 	'172.3[0-2].',
 	'71.245.97.115'
 );
-
 my $ConnectExclude='^' . join('|^',@ConnectExcludeList);
 $ConnectExclude =~ s/\./\\./g;
 
+my $PriorTimeStamp=0;
+my $PriorTimeBlock=0;
+my $PriorDay="";
+my $TimeStamp;
+my $RecCount=0;
+my $BlockInterval=300;		# Write records every 5 minutes.
+
+@ARGV = @Parms;
 while (<>) {
+	chomp;
+	$RecCount++;
+	next unless (/^(...) ([1-3 ][0-9]) (\d\d):(\d\d):(\d\d)/);
+	my($Month,$Day,$Hour,$Minute,$Second) = ($MonthTable{$1},$2,$3,$4,$5);
+	my $TimeStamp = timelocal($Second,$Minute,$Hour,$Day,$MonthTable{$1},$opt_Y-1900);
+	if (int($TimeStamp/$BlockInterval) != $PriorTimeBlock) {
+		# Report on this 5-minute block.
+		UpdateRRD($RRDFile,$PriorTimeStamp,%Counts) if ($PriorTimeStamp);
+		# Add this block into the totals for the day.
+		foreach (keys(%Counts)){
+			$DayCounts{$_} += $Counts{$_};
+			$Counts{$_} = 0;
+		}
+		$PriorTimeBlock = int($TimeStamp/$BlockInterval);	# Remember we're in a new time block.
+	}
+	if ("$Month/$Day/$opt_Y" ne $PriorDay) {
+		# We're in a new day.  Print reports for yesterday.
+		PrintReport($PriorTimeStamp,\%DayCounts,\%Destinations,\%RBL) if ($PriorDay);
+		# Reset daily counts.
+		foreach (%DayCounts) {$_ = 0};
+		%Destinations = ();
+		%RBL = ();
+		$RecCount=0;
+		$PriorDay = "$Month/$Day/$opt_Y";
+	}
+	$PriorTimeStamp=$TimeStamp;
 	given ($_) {
-		#  postfix/smtpd[21061]: connect from static-71-245-97-115.ptldor.fios.verizon.net[71.245.97.115]
-		#when (/postfix\/smtpd\[\d+\]: connect from \S+?\[(?!(127\.0\.0\.\d+|192\.168\.\d+\.\d+|172\.1[6-9]\.\d+\.\d+|172\.2\d\.\d+\.\d+|172\.3[0-2]\.\d+\.\d+))\]/) {
 		when (/postfix\/smtpd\[\d+\]: connect from \S+\[(\d+\.\d+\.\d+\.\d+)\]/) {
-			$External_Connect++ unless ($1 =~ /$ConnectExclude/o); # Count if it's not internal.
+			$Counts{Inbound_Connections}++ unless ($1 =~ /$ConnectExclude/o); # Counts if it's not internal.
 		}
-		when (/smtpd.*NOQUEUE: reject:.*Client host.*blocked using (\S+?;)/) {
-			$RBL_Total++;
-			$RBL{$1} = (defined($RBL{$1}?$RBL{$1}++:1));
-		}
-		when (/smtpd.*NOQUEUE: reject:.*Recipient address rejected: Greylisted/) {
-			$Postgrey_Attempt++;
+		when (/smtpd.*NOQUEUE: reject:.*Client host.*blocked using (\S+?);/) {
+			$Counts{RBL_Total}++;
+			if (exists($RBL{$1})) {
+				$RBL{$1}++;
+			}
+			else {
+				$RBL{$1}=1;
+			}
 		}
 		when (/smtpd.*NOQUEUE: reject:/) {
-			$Postfix_Blocked++;
+			$Counts{Postfix_Blocked}++;
+		}
+		when (/smtpd.*NOQUEUE: reject:.*Recipient address rejected: Greylisted/) {
+			$Counts{Postgrey_Reject}++;
 		}
 		when (/postgrey: action=pass, reason/) {
-			$Postgrey_Allowed++;
+			$Counts{Postgrey_Allowed}++;
 		}
 		when (/amavis\[\d+\]: .* Blocked INFECTED/) {
-			$Viruses_Blocked++;
+			$Counts{Viruses_Blocked}++;
 		}
 		when (/amavis\[\d+\]: .* Blocked /) {
-			$Amavis_Blocked++;
+			$Counts{Amavis_Blocked}++;
 		}
 		when (/amavis\[\d+\]: .* Passed SPAMMY,/) {
-			$Amavis_SPAMMY++;
+			$Counts{Amavis_SPAMMY}++;
 		}
-		when (/postfix\/local\[\d+\]: .* relay=local, .* status=sent/) {
-			$Delivered_Local++;
+		when (m"postfix/local\[\d+\]: .* to=<(\S+)\@.* relay=local, .* status=sent \(delivered") {
+			$Counts{Delivered_Local}++;
+			my $Dest = lc($1);
+			if (defined($Destinations{$Dest})) {
+				$Destinations{$Dest}++;
+			}
+			else {
+				$Destinations{$Dest}=1;
+			}
 		}
 		when (/postfix\/smtp\[\d+\]: .*relay=(?!(127\.0\.0\.\d+|192\.168\.\d+\.\d+|172\.1[6-9]\.\d+\.\d+|172\.2\d\.\d+\.\d+|172\.3[0-2]\.\d+\.\d+)).* status=sent/) {
-			$Delivered_Remote++;
+			$Counts{Delivered_Remote}++;
 		}
+		default { print "debug: $_\n" if ($opt_I);}
 	}
 }
 
-printf "Report:\n" .
-	"\tExternal Connect:\t\t\t%10d\n" .
-	"\tBlocked by blacklist:\t\t\t%10d\n" .
-	"\tBlocked by greylist:\t\t\t%10d\n" .
-	"\tViruses blocked:\t\t\t%10d\n" .
-	"\tBlocked by Postfix:\t\t\t%10d\n" .
-	"\tBlocked by Amavis:\t\t\t%10d\n" .
-	"\t(Passed by Amavis but doubtful:\t%10d)\n" .
-	"\tDelivered:\t\t\t\t%10d\n" .
-	"\n" .
-	"\tOutbound e-mail:\t\t\t%10d\n"
-	, $External_Connect, $RBL_Total, $Postgrey_Attempt - $Postgrey_Allowed
-	, $Viruses_Blocked, $Postfix_Blocked,$Amavis_Blocked, $Amavis_SPAMMY
-	, $Delivered_Local, $Delivered_Remote;
 
+# Add any remaining data.
+UpdateRRD($RRDFile, $PriorTimeStamp, %Counts) if ($RecCount);
+
+# Create new graphs.
+	#Inbound_Connections, RBL_Total Postgrey_Reject Postgrey_Allowed,
+	#Postfix_Blocked, Viruses_Blocked Amavis_Blocked Amavis_SPAMMY, 
+	#Delivered_Local, Delivered_Remote
+$rrd->graph($RRDFile, 
+	basename => "delivered",
+	destination=> '/usr/local/etc/apache2/pages/ts/mail',
+	sources => [ qw(Delivered_Local Delivered_Remote) ],
+	timestamp => 'rrd',
+);
+$rrd->graph($RRDFile, 
+	basename => "spam_blocked",
+	destination=> '/usr/local/etc/apache2/pages/ts/mail',
+	sources => [ qw(Inbound_Connections Delivered_Local) ],
+	timestamp => 'rrd',
+);
+$rrd->graph($RRDFile, 
+	basename => "blocks",
+	destination=> '/usr/local/etc/apache2/pages/ts/mail',
+	sources => [ qw(RBL_Total Postfix_Blocked Amavis_Blocked) ],
+	timestamp => 'rrd',
+);
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
@@ -179,6 +252,105 @@ if ($ExitCode) {
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
 
+#
+# Print Report
+#
+sub PrintReport {
+	my ($TimeStamp,$CountRef, $DestRef, $RBLRef) = @_;
+
+	$TimeStamp = strftime("%m/%d/%Y",localtime($TimeStamp));
+
+	printf  "\n\nSummary Report for $TimeStamp:\n" 
+		. "\tExternal Connections:\t\t\t%10d\n" 
+		. "\tBlocked by blacklist:\t\t\t%10d\n" 
+		. "\tBlocked by greylist:\t\t\t%10d\n" 
+		. "\tViruses blocked:\t\t\t%10d\n" 
+		. "\tBlocked by Postfix:\t\t\t%10d\n" 
+		. "\tBlocked by Amavis:\t\t\t%10d\n" 
+		. "\t(Passed by Amavis but doubtful:\t%10d)\n" 
+		. "\tDelivered:\t\t\t\t%10d\n" 
+		. "\n" 
+		. "\tOutbound e-mail:\t\t\t%10d\n"
+		, $CountRef->{Inbound_Connections}
+		, $CountRef->{RBL_Total}
+		, max(0,$CountRef->{Postgrey_Reject} - $CountRef->{Postgrey_Allowed})
+		, $CountRef->{Viruses_Blocked}
+		, $CountRef->{Postfix_Blocked}
+		, $CountRef->{Amavis_Blocked}
+		, $CountRef->{Amavis_SPAMMY}
+		, $CountRef->{Delivered_Local}
+		, $CountRef->{Delivered_Remote};
+	
+	print "\nInbound Delivery Counts for $TimeStamp:\n";
+	foreach (sort(keys(%$DestRef))) {
+		printf "\t%-24s %8d\n", "$_:", $DestRef->{$_};
+	}
+	
+	print "\nRBL Effectiveness Counts for $TimeStamp:\n";
+	foreach (sort(keys(%$RBLRef))) {
+		printf "\t%-24s %8d\n", "$_:", $RBLRef->{$_};
+	}
+	print "\n\n",'='x60,"\n";
+}
+
+
+
+#
+# Update RRD
+#
+sub UpdateRRD {
+
+	my ($RRDFile, $TimeStamp, %Counts) = @_;
+
+	if (!defined($rrd)) {
+		# Make sure we have our directory.
+		my $RRDDir;
+		($RRDDir = $RRDFile) =~ s:/[^/]*?$::;
+		if (! -d $RRDDir) {
+			RunDangerousCmd("mkdir -p $RRDDir")
+				or die "Unable to create $RRDDir directory: $!";
+		}
+		
+		$rrd = RRD::Simple->new(file => $RRDFile, cf => [ 'AVERAGE' ]);
+		
+		if ( !-w $RRDFile ) {
+			my @field_list = map(("$_","ABSOLUTE"),@Measurements);
+			$rrd->create ($RRDFile, 'year',@field_list) || die "Unable to create RRD file";
+			foreach(@Measurements) {
+				$rrd->heartbeat ($RRDFile,$_,86400) || die "Unable to set heartbeat for new RRD file";
+			}
+		};
+	}
+	
+	# Can't rewrite data that's already been entered.
+	if ($rrd->last() >= $TimeStamp) {
+		printf strftime(
+			"Ignoring data prior to %m/%d/%Y at %H:%M:%S -- already in database\n"
+			, localtime($rrd->last())
+		)
+			unless ($Ignore_Warning_Issued);
+		$Ignore_Warning_Issued=1;
+		return
+	}
+
+	# Put data into it.
+	# $RRD::Simple::DEBUG=1;
+	$rrd->update(
+		$RRDFile
+		, $TimeStamp
+		, Inbound_Connections => $Counts{Inbound_Connections},
+		, Blacklist => $Counts{RBL_Total},
+		, Greylist => $Counts{Postgrey_Reject}-$Counts{Postgrey_Allowed},
+		, Viruses => $Counts{Viruses_Blocked},
+		, Postfix_rules => $Counts{Postfix_Blocked},
+		, Amavis => $Counts{Amavis_Blocked},
+		, Spammy => $Counts{Amavis_SPAMMY},
+		, Delivered_Inbound => $Counts{Delivered_Local},
+		, Delivered_Outbound => $Counts{Delivered_Remote},
+	) 
+		|| die "Unable to update $_ in $RRDFile: $!";
+}
+	$RRD::Simple::DEBUG=0;
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
 #
@@ -228,6 +400,8 @@ sub opt_h {
 =head3 Flags:
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
+	-I		Ignored: list log messages that didn't match any 
+			pattern of messages to count.  This is a diagnostic tool.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
@@ -238,6 +412,8 @@ sub opt_h {
 			the command line at this point.
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
+	-Y year	:	Year: set the year that the incoming log files
+			were written.  The default is the current year.
 	-h      :       Help: display this panel
 
 =head3 Parameters:
@@ -281,12 +457,15 @@ LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
+SHOW	"^\s*No files specified on the command line.  Reading from STDIN.$"
+SHOW	"Ignoring data prior to .* -- already in database$"
+SHOW	"^\s*Ignoring data prior to"
 SHOW    "^\s*Job ended normally with status 0 and signal 0$"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
-SHOW	"^\s*Report:"
-SHOW	"^\s*External Connect:\s+[0-9,]+$"
+SHOW	"^\s*Summary Report for \d+/\d+/\d+:"
+SHOW	"^\s*External Connections:\s+[0-9,]+$"
 SHOW	"^\s*Blocked by blacklist:\s+[0-9,]+$"
 SHOW	"^\s*Blocked by greylist:\s+[0-9,]+$"
 SHOW	"^\s*Blocked by Amavis:\s+[0-9,]+$"
@@ -295,6 +474,10 @@ SHOW	"^\s*Blocked by Postfix:\s+[0-9,]+$"
 SHOW	"^\s*\(Passed by Amavis but doubtful:\s+[0-9,]+\)$"
 SHOW	"^\s*Delivered:\s+[0-9,]+$"
 SHOW	"^\s*Outbound e-mail:\s+[0-9,]+$"
+SHOW	"^\s*Inbound Delivery Counts for \d+/\d+/\d+:$"
+SHOW	"^\s*RBL Effectiveness Counts for \d+/\d+/\d+:$"
+SHOW	"^\s+\S+:\s+\d+$"
+SHOW	"^\s*=*$"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
