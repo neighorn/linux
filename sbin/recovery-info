@@ -113,7 +113,7 @@ RunDangerousCmd("iptables -nvL > $opt_o/iptables.out");
 RunDangerousCmd("swapon -s > $opt_o/swapon.out");
 
 # Capture lots of system facts, if we can.
-system("which facter > /dev/null") || RunDangerousCmd("facter > $opt_o/facter.out");
+system("which facter > /dev/null 2>&1") || RunDangerousCmd("facter > $opt_o/facter.out");
 
 # Capture LVM configuration information.
 RunDangerousCmd("lvm vgcfgbackup -f $opt_o/vg-%s.out");
@@ -254,7 +254,7 @@ IGNORE	/^\s*$/
 IGNORE	"^\s*Disk /dev/md\d+ doesn't contain a valid partition table$"
 IGNORE	"^\s*1\+0 records (in|out)\s*$"
 IGNORE	"^\s*Removing /"
-IGNORE	"^\s*find: /recovery-*: No such file or directory$"
+IGNORE	"^\s*find: .*: No such file or directory$"
 IGNORE	/^\s*Volume group "\S+" successfully backed up.$/
 IGNORE	"^\s*No volume groups found$"
 IGNORE	/^\s*File descriptor \d+ left open$/
