@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 #
-# Copyright (c) 2005,2009, Martin Consulting Services, Inc.
+# Copyright (c) 2005,2010, Martin Consulting Services, Inc.
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -8,11 +8,12 @@
 #
 
 #
-# =====Description====
+# Set a network adapter according to one of several configurations.
 #
 use strict;
 no strict 'refs';
 use warnings;
+use lib '/usr/local/lib/perl5/site_perl';
 #use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
@@ -27,7 +28,8 @@ our $Errors=0;                       # No errors so far.
 our $Syslog='';                         # Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
-our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
+our $ConfigFile;			# Name of configuration file.
+($ConfigFile=$BaseDir) =~ s"/[^/]*?$"/etc/${Prog}.cfg";     # Name of config file.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
@@ -40,6 +42,11 @@ our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
+
+# Make sure we're root.
+if ($> != 0) {
+	exec ("sudo",$Prog,@ARGV) || die "Unable to exec to sudo: $!";
+} 
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
@@ -98,22 +105,23 @@ die("Excess command line parameters starting with $Parms[1].  See \"$Prog -h\" f
 my $Network=uc($Parms[0]);
 
 
-die "Unknown network $Network" unless ($Config{$Network});
+die qq<"$Network" not found in $ConfigFile\n> unless ($Config{$Network});
 
 my $Interface="wlan0";
 my $iwconfigParms='';
 my $ifconfigParms='';
+my $rfkillParms='';
 my $RunDHClient='no';
 my $gw='';
 
-foreach (split(/\s+/,$Config{$Network})) {
+foreach (parse_line('\s+',0,$Config{$Network})) {
 	my ($item,$parm)=split(/=/,$_,2);
 	given ($item)  {
 		when (/^ipaddr(ess)?$/) {
 			$ifconfigParms.="$parm ";
 		}
-		when (/^(essid|mode)$/) {
-			$iwconfigParms.="$item $parm ";
+		when (/^(essid|mode|key)$/) {
+			$iwconfigParms.=qq<$item "$parm" >;
 		}
 		when (/^dhclient$/) {
 			$RunDHClient=lc($parm);
@@ -124,6 +132,9 @@ foreach (split(/\s+/,$Config{$Network})) {
 		when (/^(gw)$/) {
 			eval "\$$item=\$parm;";
 		}
+		when (/^(rfkill)$/) {
+			$rfkillParms.="$parm ";
+		}
 		default {
 			warn "Unknown parameter: $_"
 		}
@@ -132,18 +143,21 @@ foreach (split(/\s+/,$Config{$Network})) {
 
 RunDangerousCmd("ifconfig $Interface down");
 my $Status=0;
-if ($Status) {
+if ($Status == 0 && $rfkillParms) {
+	$Status=RunDangerousCmd("rfkill $rfkillParms");
+}
+if ($Status == 0) {
 	$Status=RunDangerousCmd("ifconfig $Interface up $ifconfigParms");
 }
-if ($iwconfigParms) {
+if ($Status == 0 && $iwconfigParms) {
 	$Status=RunDangerousCmd("iwconfig $Interface $iwconfigParms");
 }
-if ($RunDHClient =~ /^y.*/) {
+if ($Status == 0 && $RunDHClient =~ /^y.*/) {
 	$Status=RunDangerousCmd("dhclient $Interface &");
 }
-if ($gw) {
-	`route delete default 2> /dev/null` unless ($opt_t);
-	RunDangerousCmd("route add default gw $gw");
+if ($Status == 0 && $gw) {
+	RunDangerousCmd("route delete default 2> /dev/null");
+	$Status=RunDangerousCmd("route add default gw $gw");
 }
 
 die "Unable to configure $Interface: $!\n" if ($Status);
@@ -170,6 +184,7 @@ sub RunDangerousCmd {
 	$Cmd=join(' ',@_);
 	if ($opt_t) {
 		print "Test: $Cmd\n";
+		return 0;
 	} else {
 		print "Executing: $Cmd\n" if ($opt_v);
 		if (open($FH,"$Cmd 2>&1 |")) {

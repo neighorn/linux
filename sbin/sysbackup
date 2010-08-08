@@ -5,7 +5,7 @@
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
-use lib '/usr/local/lib/perl5/site_perl';
+use POSIX qw(strftime);
 
 # Initialize variables.
 $Prog=$0;			# Get our name, for messages.
@@ -14,8 +14,6 @@ $Prog=~s".*[/\\]"";		# Trim off the path, if present.
 $ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 @Args=@ARGV;			# Preserve orig command for ref.
 $ErrorFlag=0;			# No errors so far.
-$Syslog='user';			# Name of Syslog facility.  '' for none.
-$LogFile="";			# Name of the log file.
 $ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
 our @opt_x;
 our $opt_D;
@@ -26,6 +24,18 @@ chomp $HostName;
 $HostName =~ s/\..*$//;		# Strip domain.
 $BaseDir="/usr/local/backup/$HostName";	# Set our base directory.
 #
+# ---------------------------------------------------------
+#
+# Identify the output directory.  Do this early for Cleanup().
+#
+our $OutputDir;			# Name of directory we're creating.
+if ($opt_D) {
+	$OutputDir = $opt_D;
+}
+else {
+	$OutputDir=strftime("$BaseDir/%m-%d",localtime());
+}
+
 
 chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin: $!\n";
 
@@ -78,7 +88,14 @@ if (@ARGV) {
 if ($ErrorFlag) {exit $ErrorFlag;}      # Exit if errors were detected.
 	
 # Set up our logging and output filtering.
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput({
+	ALWAYS_MAIL_LIST => $opt_m,
+	ERROR_MAIL_LIST => $opt_e,
+	ALWAYS_PAGE_LIST => $opt_p,
+	ERROR_PAGE_LIST => $opt_P,
+	CLEAN_UP => \&Cleanup,
+	SYSLOG_FACILITY => 'user',
+});
 
 # Verify the command line.
 die("Excess parameters on the command line.  See \"$Prog -h\" for usage.")
@@ -88,24 +105,10 @@ die("Invalid number \"$opt_C\" for -C.  See \"$Prog -h\" for usage.")
 
 # ---------------------------------------------------------
 #
-# Identify the output directory and create it if necessary.
+# Delete any failed back-ups.
 #
-my $OutputDir;
-if ($opt_D) {
-	$OutputDir = $opt_D;
-}
-else {
-	$OutputDir=`date +$BaseDir/%m-%d`;
-}
-chomp $OutputDir;
-
-RunDangerousCmd("mkdir -p --mode=750 $OutputDir") unless (-e $OutputDir);
-RunDangerousCmd("chgrp sys $OutputDir") &&
-	die "Unable to set group for $OutputDir: $!\n";
-if (! $opt_t ) {
-	chdir $OutputDir || die "Unable to change directories to $OutputDir: $!\n";
-}
-
+RunDangerousCmd("rm -rf $BaseDir/*.bad")
+	if (-e glob("$BaseDir/*.bad"));
 
 # ---------------------------------------------------------
 #
@@ -120,6 +123,17 @@ if (open($FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
 	close $FHLS;
 } else {
 	warn "Unable to open ls command: $!\n";
+}
+
+# ---------------------------------------------------------
+#
+# Create the output directory if necessary.
+#
+RunDangerousCmd("mkdir -p --mode=750 $OutputDir") unless (-e $OutputDir);
+RunDangerousCmd("chgrp sys $OutputDir") &&
+	die "Unable to set group for $OutputDir: $!\n";
+if (! $opt_t ) {
+	chdir $OutputDir || die "Unable to change directories to $OutputDir: $!\n";
 }
 
 # ---------------------------------------------------------
@@ -186,6 +200,20 @@ if ($ExitCode) {
 
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
+
+# ---------------------------------------------------------
+#
+# Cleanup - runs at end of job.
+#
+sub Cleanup {
+	my ($ExitCode,$LogFile,$ErrorsDetected) = @_;
+	if ($ExitCode && $OutputDir) {
+		warn "Job failed with exit code $ExitCode -- moving $OutputDir to $OutputDir.bad\n";
+		RunDangerousCmd("mv $OutputDir $OutputDir.bad");
+	}
+	
+	return $ExitCode
+}
 
 # ---------------------------------------------------------
 #
