@@ -207,7 +207,6 @@ exit($ExitCode);
 #
 sub Cleanup {
 	my ($ExitCode,$LogFile,$ErrorsDetected) = @_;
-	warn "In Cleanup: ExitCode=$ExitCode, LogFile=$LogFile\n";
 	if ($ExitCode && $OutputDir) {
 		warn "Job failed with exit code $ExitCode -- moving $OutputDir to $OutputDir.bad\n";
 		RunDangerousCmd("mv $OutputDir $OutputDir.bad");
