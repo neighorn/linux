@@ -12,16 +12,16 @@ function CopyDisk {
 	echo "Copying $1 to $DiskImageFile"
 	date
 	((MaxRC = 0))
-	set -v
         # Document partition layouts
 	sfdisk -l $BaseDisk > $DiskPartitionMap
 	sfdisk -d $BaseDisk > $SFDiskPartitionMap
 	# Launch the background status monitoring process.
 	StatusReport $$ &
 	# OK, launch the copy.
+	set -xv
 	DD if=$BaseDisk bs=512 count=1 > $Sector0
 	DD if=$1 bs=512 | gzip -c > $DiskImageFile
-	set +v
+	set +xv
 	date
 	echo "======================================================================"
 }
