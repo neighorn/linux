@@ -84,6 +84,7 @@ if ($Config{DISABLEUNTIL}) {
 #      261952 blocks [2/2] [UU]
 # Recovery line...
 #[========>............]  recovery = 41.3% (45933184/111201856) finish=1051.6min speed=1032K/sec
+my ($mdname, $status, $type);
 open (MDSTAT, '/proc/mdstat') || die("Unable to open /proc/mdstat: $!\n");
 while (<MDSTAT>) {
 	chomp;
@@ -91,7 +92,7 @@ while (<MDSTAT>) {
 	#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
 	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d\[\d\](\([SF]\))?)+$/) {
 		# This is a "mdx : active raid1" line.
-		my ($mdname, $status, $type) = ($1,$2,$3);
+		($mdname, $status, $type) = ($1,$2,$3);
 		my $rest;
 		($rest = $_) =~ s/^.*?://;
 		($mdindex=$mdname) =~s/^md//;
