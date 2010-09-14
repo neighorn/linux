@@ -86,6 +86,7 @@ if ($Config{DISABLEUNTIL}) {
 #[========>............]  recovery = 41.3% (45933184/111201856) finish=1051.6min speed=1032K/sec
 open (MDSTAT, '/proc/mdstat') || die("Unable to open /proc/mdstat: $!\n");
 while (<MDSTAT>) {
+	chomp;
 	next if (/^\s*$/);
 	#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
 	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d\[\d\](\([SF]\))?)+$/) {
@@ -96,8 +97,7 @@ while (<MDSTAT>) {
 			# Everything is normal.
 			$Summary[$mdindex]=1;
 		} else {
-			warn "Unexpected response from $mdname: " .
-				"$status, $type\n";
+			warn "Unexpected response from $mdname: $_\n";
 			$Summary[$mdindex]=0;
 			$ErrorFlag=1;
 		}
