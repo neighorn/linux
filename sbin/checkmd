@@ -80,18 +80,19 @@ if ($Config{DISABLEUNTIL}) {
 }
 
 # Typical /proc/mdstat records...
-# md1 : active raid1 hda1[0] hdc1[1]
+# md1 : active raid1 sda1[0] sdb1[1] sdc[2](S)
 #      261952 blocks [2/2] [UU]
 # Recovery line...
 #[========>............]  recovery = 41.3% (45933184/111201856) finish=1051.6min speed=1032K/sec
 open (MDSTAT, '/proc/mdstat') || die("Unable to open /proc/mdstat: $!\n");
 while (<MDSTAT>) {
 	next if (/^\s*$/);
-	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+.*(raid\S+)\s+/) {
+	#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
+	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d\[\d\](\([SF]\))?)+$/) {
 		# This is a "mdx : active raid1" line.
 		($mdname, $status, $type) = ($1,$2,$3);
 		($mdindex=$mdname) =~s/^md//;
-		if ($status =~ /^active/ && $type =~ /raid[15]/ ) {
+		if ($status =~ /^active/ && $type =~ /raid[15]/ && $_ !~ /\(F\)/) {
 			# Everything is normal.
 			$Summary[$mdindex]=1;
 		} else {
