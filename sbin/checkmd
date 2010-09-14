@@ -91,13 +91,14 @@ while (<MDSTAT>) {
 	#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
 	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d\[\d\](\([SF]\))?)+$/) {
 		# This is a "mdx : active raid1" line.
-		my ($mdname, $status, $type, $rest) = ($1,$2,$3,$4);
+		my ($mdname, $status, $type, @rest) = ($1,$2,$3,$4);
 		($mdindex=$mdname) =~s/^md//;
 		if ($status =~ /^active/ && $type =~ /raid[15]/ && $_ !~ /\(F\)/) {
 			# Everything is normal.
 			$Summary[$mdindex]=1;
 		} else {
-			warn "Unexpected response from $mdname: $status $type $rest\n";
+			warn "Unexpected response from $mdname: $status $type "
+				. join(' ',@rest) . "\n";
 			$Summary[$mdindex]=0;
 			$ErrorFlag=1;
 		}
