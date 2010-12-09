@@ -117,16 +117,17 @@ open ($FH,'<',$ConfigFile) || die "Unable to open $ConfigFile";
 while (<$FH>) {
 	s/([\s,])+/$1/g;		# Normalize spacing.
 	s/^\s*//;		# Strip leading space if any.
-	my ($type,$key,$data)=split('\s+',$_,3);
+	next if (/^#|^\s*$/);
+	my ($type,$hosts,$data)=split('\s+',$_,3);
 	$type=lc($type);
 	$type=~s/:$//;		# Strip optional trailing colon.
 	$data =~ s/^\s*//;	# Strip leading spaces.
 	$data =~ s/\s*$//;	# Strip trailing spaces.
 	given($type) {
-		when ('service') { $Services{$key}="$data"; };
-		when ('mac') { $MACs{$key}=$data; };
-		when ('bootcmd') { push @BootCmds,$data; };
-		when ('attrib') { $Attributes{lc($key)}=$data; };
+		when ('service') { $Services{$data}="$hosts"; };
+		when ('mac') { $MACs{$data}=$hosts; };
+		when ('bootcmd') { push @BootCmds,"$hosts $data"; };
+		when ('attrib') { $Attributes{lc($data)}=$hosts; };
 	}
 }
 close $FH;
@@ -164,11 +165,11 @@ if ($opt_c) {
 	if (
 		(
 			exists($Attributes{$opt_c})
-			and ",$Attributes{$opt_c}," =~ /,$opt_H,/ 
+			and ",$Attributes{$opt_c}," =~ /,($opt_H|\*),/ 
 		)
 		or 
 		(	exists($Services{$opt_c})
-			and ",$Services{$opt_c}," =~ /,$opt_H,/
+			and ",$Services{$opt_c}," =~ /,($opt_H|\*),/
 		)
 	)
 	{
@@ -186,7 +187,8 @@ if (-f '/etc/HOSTNAME') {
 	open ($FH,'<','/etc/HOSTNAME') || die "Unable to open /etc/HOSTNAME for reading: $!";
 	my @lines=<$FH>;
 	close $FH;
-	open ($FH,'>','/etc/HOSTNAME') || die "Unable to open /etc/HOSTNAME for writing: $!";
+	open ($FH,'>','/etc/HOSTNAME') || die "Unable to open /etc/HOSTNAME for writing: $!"
+		unless ($opt_t);
 	foreach my $line (@lines) {
 		chomp $line;
 		given ($line) {
@@ -200,15 +202,21 @@ if (-f '/etc/HOSTNAME') {
 			}
 			default	{;}					# Don't know what this is.  Leave as-is.
 		}
-		print $FH "$line\n";
+		if ($opt_t) {
+			print "Test: would have written to /etc/HOSTNAME: $line\n";
+		}
+		else {
+			print $FH "$line\n";
+		}
 	}
+	close $FH;
 }
 
 #
 # Set services on or off based on the host name.
 #
 foreach (sort(keys(%Services))) {
-	if (",$Services{$_}," =~ /,$opt_H,/) {
+	if (",$Services{$_}," =~ /,($opt_H|\*),/) {
 		my $Status = RunDangerousCmd("chkconfig -s $_ on");
 		#$ExitCode = ($Status != 0?8:$ExitCode);
 	}
@@ -222,9 +230,13 @@ foreach (sort(keys(%Services))) {
 # Run boot commands.  Replace %HOST with our host name.
 #
 foreach (@BootCmds) {
-	s/%HOST/$opt_H/g;	# %HOST to host name.
-	my $Status = RunDangerousCmd($_);
-	$ExitCode = ($Status != 0?8:$ExitCode);
+	my($hostlist,$command) = split(/\s+/,$_,2);
+	$hostlist=",$hostlist,";
+	if ($hostlist =~ /,($opt_H|\*),/) {
+		$command =~ s/%HOST/$opt_H/g;	# %HOST to host name.
+		my $Status = RunDangerousCmd($command);
+		$ExitCode = ($Status != 0?8:$ExitCode);
+	}
 }
 
 if ($ExitCode) {

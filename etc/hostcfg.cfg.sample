@@ -1,50 +1,37 @@
-# hostcfg - customize cloned host at boot-up.
+#Host identification based on NIC addresses.
+#               Address                 Hostname
+mac:		svr9			00:30:48:B8:79:36
+mac:		svr9			00:30:48:B8:79:37
+mac:		svr9			FE:9D:67:5F:A8:B0
+mac:		svr10			00:30:48:D3:8D:76
+mac:		svr10			00:30:48:D3:8D:77
 #
-# Record types:
-#  mac - determine the host's name based on the MAC addresses
-#        found on its network cards.  The first match wins.
-#        Example:
-#		mac:		00:30:48:B8:79:36	svr9
-#        On boot-up, if we have a NIC with that MAC address, the 
-#        host name will be set to svr9.
-#  service - set a service (init.d item) to come up or stay
-#        down based on the host name.  If the host name 
-#        matches one of the comma-separated list of host names,
-#        the service marked to come up.  Otherwise it will be
-#        marked to stay down.  chkconfig is used to set up/down.
-#        This can also be tested on a running system using -c.
-#        For example, one might want to run command "xyz" in crontab,
-#        but only for the system that is running Samba.  The crontab
-#        entry could have "/usr/local/sbin/hostcfg -c smb && xyz". 
-#        Example:
-#	        service:	smb		svr9
-#        On boot-up, if our host name is svr9, "chkconfig -s smb on"
-#        will be executed to bring up smb later in the boot sequence.
-#        Otherwise, "chkconfig -s smb off" will be set to leave it down.
-#  attrib - set a server attribute.  Same as service, except no 
-#        call is made to chkconfig.  This is for non-boot items that
-#        still need the -c functionality.  For example, of two cloned
-#        systems, one might be designated to run a network monitoring
-#        script every hour.  There's nothing to do at boot time, but
-#        one still wants to use -c in the crontab.
-#	 Example:
-#		attrib:		dirvish		svr10,svr11
-#        Nothing will happen at boot-up, because dirvish doesn't have
-#        anything to do at boot time (no set-up, no daemon).  However,
-#        crontab entries or other tasks can use -c to determine if this
-#        system runs dirivsh.  On svr10 and svr11, "hostcfg -c dirvish"
-#        will return a true value.  On all other systems it will return
-#        false.
-mac:		00:30:48:B8:79:37	svr9
-mac:		FE:9D:67:5F:A8:B0	svr9
-mac:		00:30:48:D3:8D:76  	svr10
-mac:		00:30:48:D3:8D:77  	svr10
-service:	smb		svr10
-service:	nmb		svr10
-service:	dovecot		svr10
-service:	openvpn		svr10
-service:	elogd		svr10
-service:	named		svr9,svr10
-service:	xend		svr10
-service:	xendomains	svr10
-attrib:		dirvish		svr10
+#
+#Commands to issue at boot up (boot.local).
+#               Host(s)         Command
+bootcmd:	*		ln -f /etc/dhcpd.conf.%HOST /etc/dhcpd.conf
+bootcmd:	*		ln -f /etc/named.conf.%HOST /etc/named.conf
+bootcmd:	svr9		ln -sf /usr/local/etc/postfix/main.cf.secondary /usr/local/etc/postfix/main.cf
+bootcmd:	svr10		ln -sf /usr/local/etc/postfix/main.cf.primary /usr/local/etc/postfix/main.cf
+bootcmd:	svr9		sed "s/^STARTMODE=.*\$/STARTMODE='manual'/" < /etc/sysconfig/networking/ifcfg-eth0 > /tmp/ifcfg-eth0 && cat /tmp/ifcfg-eth0 > /etc/sysconfig/networking/ifcfg-eth0
+bootcmd:	svr10		sed "s/^STARTMODE=.*\$/STARTMODE='auto'/" < /etc/sysconfig/networking/ifcfg-eth0 > /tmp/ifcfg-eth0 && cat /tmp/ifcfg-eth0 > /etc/sysconfig/networking/ifcfg-eth0
+#
+#
+#Service settings.  These services are up for the listed hosts, otherwise down
+#               Host(s)         Service
+service:	svr10		smb
+service:	svr10		nmb
+service:	svr10		dovecot
+service:	svr10		openvpn
+service:	svr10		elogd
+service:	*		named
+service:	svr10		xend
+service:	svr10		xendomains
+#
+#
+# Attributes.  Checked with -c option.  Used by crontab, etc.
+#
+#               Host(s)		Attribute
+attrib:		svr10		dirvish
+attrib:		*		test1
+attrib:		svr9,svr10	test2
