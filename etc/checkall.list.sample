@@ -1,0 +1,20 @@
+# Target:port#		Description#	Down Action	#	Up Action
+www.ibm.com:80,www.tri-met.org:80,www.amazon.com:80)#External network
+frank:22,ben:22,office:139,julie:139#Internal network
+71.245.97.50:53#external named
+71.245.97.50:2022#external ssh
+frank:22#frank (asterisk)
+192.168.120.1:22#internal ssh
+localhost:25#postfix:25
+localhost:10025#postfix:10025
+localhost:10023#postgrey
+localhost:10024#amavis
+localhost:3310#clamd
+localhost:110#dovecot:pop3
+localhost:143#dovecot:imap
+localhost:993#dovecot:imaps
+localhost:995#dovecot:pop3s
+localhost:80#apache:80
+localhost:443#apache:443
+localhost:631#cups
+localhost:199#snmpd
