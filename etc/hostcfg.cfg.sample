@@ -1,0 +1,37 @@
+#Host identification based on NIC addresses.
+#               Address                 Hostname
+mac:		svr9			00:30:48:B8:79:36
+mac:		svr9			00:30:48:B8:79:37
+mac:		svr9			FE:9D:67:5F:A8:B0
+mac:		svr10			00:30:48:D3:8D:76
+mac:		svr10			00:30:48:D3:8D:77
+#
+#
+#Commands to issue at boot up (boot.local).
+#               Host(s)         Command
+bootcmd:	*		ln -f /etc/dhcpd.conf.%HOST /etc/dhcpd.conf
+bootcmd:	*		ln -f /etc/named.conf.%HOST /etc/named.conf
+bootcmd:	svr9		ln -sf /usr/local/etc/postfix/main.cf.secondary /usr/local/etc/postfix/main.cf
+bootcmd:	svr10		ln -sf /usr/local/etc/postfix/main.cf.primary /usr/local/etc/postfix/main.cf
+bootcmd:	svr9		sed "s/^STARTMODE=.*\$/STARTMODE='manual'/" < /etc/sysconfig/networking/ifcfg-eth0 > /tmp/ifcfg-eth0 && cat /tmp/ifcfg-eth0 > /etc/sysconfig/networking/ifcfg-eth0
+bootcmd:	svr10		sed "s/^STARTMODE=.*\$/STARTMODE='auto'/" < /etc/sysconfig/networking/ifcfg-eth0 > /tmp/ifcfg-eth0 && cat /tmp/ifcfg-eth0 > /etc/sysconfig/networking/ifcfg-eth0
+#
+#
+#Service settings.  These services are up for the listed hosts, otherwise down
+#               Host(s)         Service
+service:	svr10		smb
+service:	svr10		nmb
+service:	svr10		dovecot
+service:	svr10		openvpn
+service:	svr10		elogd
+service:	*		named
+service:	svr10		xend
+service:	svr10		xendomains
+#
+#
+# Attributes.  Checked with -c option.  Used by crontab, etc.
+#
+#               Host(s)		Attribute
+attrib:		svr10		dirvish
+attrib:		*		test1
+attrib:		svr9,svr10	test2

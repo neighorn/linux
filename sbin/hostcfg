@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 #
-# Copyright (c) 2005,2009, Martin Consulting Services, Inc.
+# Copyright (c) 2010, Martin Consulting Services, Inc.
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -8,30 +8,40 @@
 #
 
 #
-# =====Description====
+# Configure a host at boot-up.
+#
+#   This script is used by cloned systems to adjust individual settings
+#   such as the host name, services to start up at boot time, and
+#   specific commands to execute at boot time.  With -c it can
+#   also be used on a running system to check attributes for use in
+#   conditionally running commands, perhaps in crontab.
 #
 use strict;
 use warnings;
+use lib '/usr/local/lib/perl5/site_perl';
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
+use Sys::Hostname;
+use feature 'switch';
 
 # Initialize variables.
 our $Prog=$RealScript;              	# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
-our $Errors=0;                          # No errors so far.
-our $Syslog='USER';                     # Name of Syslog facility.  '' for none.
+our $Errors=0;				# No errors so far.
+our $Syslog='';				# Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
 our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
-my $ExitCode = 0;			# Code we'll exit with.
+my $ExitCode;				# Code we'll exit with.
 #
-our $opt_a;				# -a (all) option.
+our $opt_c;				# -c (check) option.
 our $opt_h;				# -h (help) option.
+our $opt_H;				# -H (hostname) option.
 our $opt_e;				# -e (error mail) option.
 our $opt_m;				# -m (mail) option.
 our $opt_p;				# -p (pager mail) option.
@@ -49,7 +59,7 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='a e=l h m=l O=s p=l P=l t v';
+my $OptSpec='c=s e=l h H=s m=l O=s p=l P=l t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -60,7 +70,7 @@ if (-e $ConfigFile) {
 		next if (/^\s*$/);      # Blank line.
 		chomp;
 		my ($name,$settings)=split(/:?\s+/,$_,2);
-		$name=~tr/[a-z]/[A-Z]/;
+		$name=~tr/[a-z]/[A-Z]/ if ($name =~ /alljobs/i);
 		$Config{$name}.=$settings . ',' ;
 	}
 	close CONFIG;
@@ -86,33 +96,147 @@ if (@ARGV) {
 if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 	
 # Set up our logging and output filtering.
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput({
+	ALWAYS_MAIL_LIST => $opt_m,
+	ERROR_MAIL_LIST	=> $opt_e,
+	ALWAYS_PAGE_LIST => $opt_p,
+	ERROR_PAGE_LIST => $opt_P,
+	NORMAL_RETURN_CODES => [0,1],
+});
 
 # Verify the command line.
-die("No items specified on the command line.  See \"$Prog -h\" for usage.")
-	if (@Parms == 0 and not $opt_a);
+die("Excessive parameters on the command line.  See \"$Prog -h\" for usage.")
+	if (@Parms > 0);
 
-if ($opt_a) {
-	warn("-a and command line parameters are redundant - command line parameters ignored.")
-		if (@Parms > 0);
-	@Parms = ();
-	foreach (keys(%Config)) {
-		push @Parms,$_ unless (/ALLJOBS/i);
+my $FH;		# Config file filehandle.
+my %MACs;	# Map MAC addresses to hostnames
+my %Services;	# Map services to hostnames
+my @BootCmds;	# List of commands to execute.
+my %Attributes;	# List of attributes (used with -c to query whether we have an attrib);
+open ($FH,'<',$ConfigFile) || die "Unable to open $ConfigFile";
+while (<$FH>) {
+	s/([\s,])+/$1/g;		# Normalize spacing.
+	s/^\s*//;		# Strip leading space if any.
+	next if (/^#|^\s*$/);
+	my ($type,$hosts,$data)=split('\s+',$_,3);
+	$type=lc($type);
+	$type=~s/:$//;		# Strip optional trailing colon.
+	$data =~ s/^\s*//;	# Strip leading spaces.
+	$data =~ s/\s*$//;	# Strip trailing spaces.
+	given($type) {
+		when ('service') { $Services{$data}="$hosts"; };
+		when ('mac') { $MACs{$data}=$hosts; };
+		when ('bootcmd') { push @BootCmds,"$hosts $data"; };
+		when ('attrib') { $Attributes{lc($data)}=$hosts; };
 	}
-	die "No synchronization items found in configuration file" unless (@Parms);
 }
+close $FH;
 
-foreach (@Parms) {
-	my $Key = uc($_);
-	if (defined($Config{$Key} and $Config{$Key})) {
-		my $Status = RunDangerousCmd("unison -batch " . $Config{$Key});
-		$ExitCode = 10 if ($Status);
+#
+# Set our host name.  We use the following sources:
+#	1) -H option.
+#	2) Look up the MAC address in the list supplied in the config file.
+#	3) Use the currently assigned host name.
+#
+if (! $opt_H and ! $opt_c) {
+	# Try to determine our host name.
+	open($FH,'ifconfig -a |') || die "Unable to get MAC addresses";
+	while (<$FH>) {
+		chomp;
+		next unless (/HWaddr\s+(\S+)/);
+		if (exists($MACs{$1})) {
+			$opt_H = $MACs{$1};
+			$opt_H =~ s/^\s+//;	# Strip leading spaces.
+			$opt_H =~ s/\s+$//;	# Strip trailing spaces.
+			RunDangerousCmd("hostname $opt_H");
+			last;
+		}
+	}
+	close $FH;
+}
+$opt_H=hostname unless ($opt_H);
+die "Unable to determine hostname" unless ($opt_H);
+
+#
+# Are we checking services/attributes?
+#
+if ($opt_c) {
+	die "Unknown attribute $opt_c" unless (exists($Attributes{$opt_c}) or exists($Services{$opt_c}));
+	if (
+		(
+			exists($Attributes{$opt_c})
+			and ",$Attributes{$opt_c}," =~ /,($opt_H|\*),/ 
+		)
+		or 
+		(	exists($Services{$opt_c})
+			and ",$Services{$opt_c}," =~ /,($opt_H|\*),/
+		)
+	)
+	{
+		print qq<$opt_H has attribute "$opt_c"\n> if ($opt_v);
+		exit 0;		# We have a match.
 	}
 	else {
-		print "No configuration found for $Key\n";
-		$ExitCode = ($ExitCode > 8?$ExitCode:8);
+		print qq<$opt_H does not have attribute "$opt_c"\n> if ($opt_v);
+		exit 1;		# No match.
 	}
+}
 
+# Set /etc/HOSTNAME if present.
+if (-f '/etc/HOSTNAME') {
+	open ($FH,'<','/etc/HOSTNAME') || die "Unable to open /etc/HOSTNAME for reading: $!";
+	my @lines=<$FH>;
+	close $FH;
+	open ($FH,'>','/etc/HOSTNAME') || die "Unable to open /etc/HOSTNAME for writing: $!"
+		unless ($opt_t);
+	foreach my $line (@lines) {
+		chomp $line;
+		given ($line) {
+			when (/^\S+\./)	{
+				# Change first node in host.domain.domain.
+				$line =~ s/^([^.])+/${opt_H}/;
+			}
+			when (/^[^#.]+$/) {
+				# Just the host name.  Replace it completely.
+				$line = "$opt_H";
+			}
+			default	{;}					# Don't know what this is.  Leave as-is.
+		}
+		if ($opt_t) {
+			print "Test: would have written to /etc/HOSTNAME: $line\n";
+		}
+		else {
+			print $FH "$line\n";
+		}
+	}
+	close $FH;
+}
+
+#
+# Set services on or off based on the host name.
+#
+foreach (sort(keys(%Services))) {
+	if (",$Services{$_}," =~ /,($opt_H|\*),/) {
+		my $Status = RunDangerousCmd("chkconfig -s $_ on");
+		#$ExitCode = ($Status != 0?8:$ExitCode);
+	}
+	else {
+		my $Status = RunDangerousCmd("chkconfig -s $_ off");
+		#$ExitCode = ($Status != 0?8:$ExitCode);
+	}
+}
+
+#
+# Run boot commands.  Replace %HOST with our host name.
+#
+foreach (@BootCmds) {
+	my($hostlist,$command) = split(/\s+/,$_,2);
+	$hostlist=",$hostlist,";
+	if ($hostlist =~ /,($opt_H|\*),/) {
+		$command =~ s/%HOST/$opt_H/g;	# %HOST to host name.
+		my $Status = RunDangerousCmd($command);
+		$ExitCode = ($Status != 0?8:$ExitCode);
+	}
 }
 
 if ($ExitCode) {
@@ -132,6 +256,7 @@ sub RunDangerousCmd {
 	$Cmd=join(' ',@_);
 	if ($opt_t) {
 		print "Test: $Cmd\n";
+		return 0;
 	} else {
 		print "Executing: $Cmd\n" if ($opt_v);
 		if (open($FH,"$Cmd 2>&1 |")) {
@@ -163,10 +288,10 @@ sub opt_h {
 }
 
 =pod
-=head1 $Prog - >>description<<
+=head1 $Prog - Set which services should be up or down based on the host name.
 
 =head3 Usage:  
-	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
+	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
 
 	$Prog -h
 
@@ -186,7 +311,7 @@ sub opt_h {
 	-h      :       Help: display this panel
 
 =head3 Parameters:
-	files	:	one or more files to process.
+	(none)
 
 =head3 Return codes:
 	0       :       Normal termination
@@ -230,33 +355,10 @@ SHOW    "^\s*Job ended normally with status 0 and signal 0$"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
-SHOW	"^\s*changed\s+---->"
-SHOW	"^\s*new dir\s+---->"
-SHOW	"^\s*new file\s+---->"
-SHOW	"^\s*\S+\s*: changed file"
-SHOW	"^\s*\S+\s*: unchanged file"
-SHOW	"^\s*\S+\s*: deleted$"
-SHOW	"^\s*\S+\s*: new file\s"
-SHOW	"^\s*\S+\s*: new dir\s"
-SHOW	"^\s*\S+\s*: absent$"
-SHOW	"^\s*<---- deleted"
-SHOW	"^\s*<---- new file"
-IGNORE	"^\s*[\\/-] [a-zA-Z0-9.]+"
-IGNORE	"^\s*Contacting server...$"
-IGNORE	"^\s*Propagating updates"
-IGNORE	"^\s*UNISON \d+\.\d+\.\d+ started propagating changes"
-IGNORE	"^\s*\[BGN\] Copying "
-IGNORE	"^\s*\[BGN\] Updating file"
-IGNORE	"^\s*\[END\] Updating file"
-IGNORE	"^\s*\d+%\s+[[0-9-]+:[0-9-]+\s+ETA"
-IGNORE	"^\s*scanning\s+\S+"
-SHOW	"^\s*Connected \[.*\]$"
-IGNORE	"^\s*Looking for changes$"
-IGNORE	"^\s*Waiting for changes from server$"
-IGNORE	"^\s*Reconciling changes$"
-SHOW	"^\s*Nothing to do: "
-SHOW	"^\s*Synchronization complete  \(\d+ items? transferred, \d+ skipped, \d+ failures?\)$"
-SHOW	"^\s*<---- changed"
+SHOW	"^\s*insserv:"
+SHOW	"^\s*/sbin/insserv"
+SHOW	"^\s*\S+ (has|does not have) attribute"
+IGNORE	"^\s*Job ended normally"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
