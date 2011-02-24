@@ -104,7 +104,7 @@ RunDangerousCmd("sfdisk -l -d > $opt_o/sfdisk.out");
 RunDangerousCmd("df -h > $opt_o/df.out");
 
 # Capture installed packages.
-RunDangerousCmd("rpm -q -a | sort > $opt_o/rpms.out");
+RunDangerousCmd("which rpm > /dev/null 2>&1 && rpm -q -a | sort > $opt_o/rpms.out");
 
 # Capture the normal security tables.
 RunDangerousCmd("iptables -nvL > $opt_o/iptables.out");
