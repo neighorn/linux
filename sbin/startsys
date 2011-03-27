@@ -30,7 +30,7 @@ else
 			name=$nameplus
 		fi
 		echo "Starting $name..."
-		eval /etc/init.d/$name stop
+		eval /etc/init.d/$name start
 		((Status=$?))
 		[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
 	done
