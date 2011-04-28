@@ -77,7 +77,7 @@ if (! -d $opt_o) {
 }
 
 # Capture sector 0 of each disk.
-open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(md|dm-)' |") ||
+open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(mapper|md|dm-)' |") ||
 	die("Unable to start fdisk process: $!\n");
 while (<$FDISK>) {
 	chomp;
