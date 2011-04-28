@@ -110,6 +110,7 @@ die("Excessive parameters on the command line.  See \"$Prog -h\" for usage.")
 
 my $FH;		# Config file filehandle.
 my %MACs;	# Map MAC addresses to hostnames
+my %Interfaces;	# Map MAC addresses to current interface names
 my %Services;	# Map services to hostnames
 my @BootCmds;	# List of commands to execute.
 my %Attributes;	# List of attributes (used with -c to query whether we have an attrib);
@@ -125,12 +126,30 @@ while (<$FH>) {
 	$data =~ s/\s*$//;	# Strip trailing spaces.
 	given($type) {
 		when ('service') { $Services{$data}="$hosts"; };
-		when ('mac') { $MACs{$data}=$hosts; };
+		when ('mac') {
+			my $interface;
+			($data,$interface) = split('\s++',$data);	# Split out optional data.
+			$MACs{$data}="$hosts $interface";
+		};
 		when ('bootcmd') { push @BootCmds,"$hosts $data"; };
 		when ('attrib') { $Attributes{lc($data)}=$hosts; };
 	}
 }
 close $FH;
+
+#
+# Gather our network interface names and MACs.
+#
+open($FH,'ifconfig -a |') || die "Unable to get MAC addresses";
+my $IFaceName;
+my $MAC;
+while (<$FH>) {
+	next if (/^\S+:\S+/);	# Ignore device aliases.
+	next unless (/^(\S+)\s.*HWaddr\s+(\S+)/);
+	$Interfaces{$2}=$1;		# Remember the MAC Addr and interface name.
+}
+close $FH;
+
 
 #
 # Set our host name.  We use the following sources:
@@ -140,19 +159,15 @@ close $FH;
 #
 if (! $opt_H and ! $opt_c) {
 	# Try to determine our host name.
-	open($FH,'ifconfig -a |') || die "Unable to get MAC addresses";
-	while (<$FH>) {
-		chomp;
-		next unless (/HWaddr\s+(\S+)/);
-		if (exists($MACs{$1})) {
-			$opt_H = $MACs{$1};
+	foreach my $MACAddr (keys(%Interfaces)) {
+		if (exists($MACs{$MACAddr})) {
+			$opt_H = $MACs{$MACAddr};
 			$opt_H =~ s/^\s+//;	# Strip leading spaces.
-			$opt_H =~ s/\s+$//;	# Strip trailing spaces.
+			$opt_H =~ s/\s+.*$//;	# Strip trailing spaces and data.
 			RunDangerousCmd("hostname $opt_H");
 			last;
 		}
 	}
-	close $FH;
 }
 $opt_H=hostname unless ($opt_H);
 die "Unable to determine hostname" unless ($opt_H);
@@ -211,6 +226,29 @@ if (-f '/etc/HOSTNAME') {
 	}
 	close $FH;
 }
+
+
+#
+# If desired, set the interface names based on the host name.
+#
+my $DeleteFlag=1;	# Delete the old rules if we get an update.
+foreach my $MACAddr (sort(keys(%Interfaces))) {
+	if (exists($MACs{$MACAddr})) {
+		my($hostname,$NewName) = split(/\s+/,$MACs{$MACAddr},2);
+		next unless ($hostname eq $opt_H);
+		$ENV{MATCHADDR} = lc($MACAddr);
+		$ENV{MATCHIFTYPE} = '1';
+		$ENV{INTERFACE} = $Interfaces{$MACAddr};
+		$ENV{INTERFACE_NAME} = $NewName;
+		$ENV{COMMENT} = "File rewritten by $Prog";
+		if ($DeleteFlag) {
+			$DeleteFlag = 0;	# Only do this for the first one.
+			RunDangerousCmd("rm /etc/udev/rules.d/*-persistent-net.rules");
+		}
+		my $Status = RunDangerousCmd("/lib/udev/write_net_rules");
+	}
+}
+
 
 #
 # Set services on or off based on the host name.
