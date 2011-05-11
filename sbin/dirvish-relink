@@ -39,6 +39,10 @@ ls $parent |
     do
 	[[ $basenode > $name ]] && continue
 	[[ -e "$name/tree" ]] || continue
-  	[[ -n "$prior" ]] && link-dups $name/tree $prior/tree
+  	if [[ -n "$prior" ]]
+	then
+		date +"%T: Relinking $name to $prior"
+		link-dups -v $name/tree $prior/tree
+	fi
 	prior=$name
     done
