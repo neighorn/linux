@@ -10,8 +10,8 @@
 # Provides: psad
 # Required-Start: iptables
 # Required-Stop:
-# Default-Start: 2 3 5
-# Default-Start: 0 1 6
+# Default-Start: 3 5
+# Default-Start: 0 1 2 6
 ### END INIT INFO
 #
 # $Id: psad-init.generic 1211 2004-10-10 20:44:52Z mbr $
