@@ -129,6 +129,7 @@ fi
 
 SystemName=$1
 shift
+SystemName=`echo $SystemName | tr 'A-Z' 'a-z'`
 
 echo "Comment? "
 read Comment
