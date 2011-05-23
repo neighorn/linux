@@ -29,29 +29,35 @@ function CopyDisk {
 function RunBackup {
 while [[ $# -gt 0 ]]
 do
-	if [[ $1 != /dev/* ]]
+
+	$SystemName = $1
+
+	# Create the directory, if it doesn't already exist.
+	[[ ! -d $SystemName ]] && mkdir $SystemName
+
+	if [[ $2 != /dev/* ]]
 	then
-		echo "$1 is not a device file -- skipped." >&2
+		echo "$2 is not a device file -- skipped." >&2
 		return 8
 	fi
 
-	echo "$Date $SystemName $1 $Comment" >> $TargetDir/comments
+	echo "$Date $SystemName $2 $Comment" >> $TargetDir/$SystemName/comments
 
-	DiskImageFile="$TargetDir$SystemName-$Date-${1##*/}.image.gz"
-        if [[ "$1" = *\/[sh]da[0-9] ]]
+	DiskImageFile="$TargetDir/$SystemName/$Date-${1##*/}.image.gz"
+        if [[ "$2" = *\/[sh]da[0-9] ]]
         then
 	    BaseDisk="${1%%[0-9]}"
-        elif [[ "$1" = *\/[sh]da ]]
+        elif [[ "$2" = *\/[sh]da ]]
         then
-            BaseDisk="$1"
-        elif [[ "$1" = *_part[0-9] ]]
+            BaseDisk="$2"
+        elif [[ "$2" = *_part[0-9] ]]
         then 
             BaseDisk="${1%%_part[0-9]}"
-	elif [[ "$1" = *p[0-9] ]]
+	elif [[ "$2" = *p[0-9] ]]
 	then
 	    BaseDisk="${1%%p[0-9]}"
         else
-            echo "Error: Unable to identify base disk for sector0 and partition map of $1" >&2
+            echo "Error: Unable to identify base disk for sector0 and partition map of $2" >&2
             exit 8
         fi
 	hdparm -d $BaseDisk | grep -q off
@@ -60,10 +66,10 @@ do
 		echo "Turning on dma for $BaseDisk"
 		hdparm -d1 $BaseDisk
 	fi
-	DiskPartitionMap="$TargetDir$SystemName-$Date-${BaseDisk##*/}.partitions"
-	SFDiskPartitionMap="$TargetDir$SystemName-$Date-${BaseDisk##*/}.sfdisk"
-	Sector0="$TargetDir$SystemName-$Date-${BaseDisk##*/}.sector0"
-	time CopyDisk $1
+	DiskPartitionMap="$TargetDir/$SystemName/$Date-${BaseDisk##*/}.partitions"
+	SFDiskPartitionMap="$TargetDir/$SystemName/$Date-${BaseDisk##*/}.sfdisk"
+	Sector0="$TargetDir/$SystemName/$Date-${BaseDisk##*/}.sector0"
+	time CopyDisk $2
 	shift
 done
 Status=`cat $TmpFile`
@@ -130,7 +136,7 @@ read Comment
 for Disk in $*
 do
 	# Run the back-up.
-	RunBackup $System $Disk 2>&1
+	RunBackup $SystemName $Disk 2>&1
 done |
 	tee ./$SystemName-$Date.log
 
