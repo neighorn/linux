@@ -12,16 +12,16 @@ function CopyDisk {
 	echo "Copying $1 to $DiskImageFile"
 	date
 	((MaxRC = 0))
+	set -v
         # Document partition layouts
 	sfdisk -l $BaseDisk > $DiskPartitionMap
 	sfdisk -d $BaseDisk > $SFDiskPartitionMap
 	# Launch the background status monitoring process.
 	StatusReport $$ &
 	# OK, launch the copy.
-	set -xv
 	DD if=$BaseDisk bs=512 count=1 > $Sector0
 	DD if=$1 bs=512 | gzip -c > $DiskImageFile
-	set +xv
+	set +v
 	date
 	echo "======================================================================"
 }
@@ -47,6 +47,9 @@ do
         elif [[ "$1" = *_part[0-9] ]]
         then 
             BaseDisk="${1%%_part[0-9]}"
+	elif [[ "$1" = *p[0-9] ]]
+	then
+	    BaseDisk="${1%%p[0-9]}"
         else
             echo "Error: Unable to identify base disk for sector0 and partition map of $1" >&2
             exit 8
