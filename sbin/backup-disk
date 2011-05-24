@@ -129,6 +129,7 @@ SystemName=$1
 shift
 SystemName=`echo $SystemName | tr 'A-Z' 'a-z' | sed 's/ //g'`
 TargetDir=${0%$Prog}
+[[ $TargetDir -eq '' ]] && TargetDir="."
 TargetDir="${TargetDir%/}/$SystemName"
 
 # Create the output directory, if it doesn't already exist.
