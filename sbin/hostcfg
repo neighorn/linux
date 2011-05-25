@@ -270,12 +270,29 @@ foreach (sort(keys(%Services))) {
 }
 
 #
-# Run boot commands.  Replace %HOST with our host name.
+# Prepare for and run boot commands.
 #
+
+#   Define the EDITFILE shell function.
+my $EditFile=<<'ENDEDIT';
+	function EDITFILE {
+		SedCmd=$1
+		shift
+		for file in $@
+	 	do
+			cp -p $file $file.tmp &&
+			sed "$SedCmd" < $file.tmp > $file &&
+			rm $file.tmp
+		done
+	}
+ENDEDIT
+
+#    Run the boot commands.
 foreach (@BootCmds) {
 	my($line,$hostlist,$command) = split(/\s+/,$_,3);
 	if (CheckCond($line,$opt_H,$hostlist)) {
 		$command =~ s/%HOST/$opt_H/g;	# %HOST to host name.
+		$command = "$EditFile $command" if ($command =~ /EDITFILE/);
 		my $Status = RunDangerousCmd($command);
 		$ExitCode = ($Status != 0?8:$ExitCode);
 	}
@@ -283,7 +300,8 @@ foreach (@BootCmds) {
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
-} else {
+}
+else {
 	#print "$Prog ended normally.\n";
 }
 
@@ -299,6 +317,8 @@ sub CheckCond {
 	my ($Line,$Host,$ConditionalList) = @_;
 
 	foreach my $Conditional ((split(/\s*,\s*/,$ConditionalList))) {
+		return 1 if ($Conditional eq '*');		# Always true.
+		next if ($Conditional eq '-');			# Always false.
 		# Assume we're checking the host name unless otherwise specified.
 		$Conditional="host=$Conditional" unless ($Conditional =~ /=/);
 
@@ -310,16 +330,21 @@ sub CheckCond {
 		my($Type,$Operand,$Value) = ($1, $2, $3);
 		$Type = uc($Type);			# Normalize case.
 		$Operand='==' if ($Operand eq '=');	# Normalize = to ==
+		$Operand='!=' if ($Operand eq '<>');	# Normalize <> to !=
 		given ($Type) {
 			when ('HOST') {
-				return 1 if (",$Value," =~ /,$Host,/  and $Operand eq '==');
-				return 1 if (",$Value," !~ /,$Host,/  and $Operand eq '!=');
-				return 1 if ($Value eq '*'	      and $Operand eq '==');
+				return 1 if ($Operand eq '==' and ",$Value," =~ /,$Host,/);
+				return 1 if ($Operand eq '!=' and ",$Value," !~ /,$Host,/);
 			}
-			when ('ATTRIBUTE'|'ATTRIB') {
+			when (/^ATTRIB(UTE)?$/) {
 				return 0 if (!exists($Attributes{$Value}));	# No such attribute.
-				return 1 if (",$Attributes{$Value}{conditional}," =~ /,$Host,/  and $Operand eq '==');
-				return 1 if (",$Attributes{$Value}{conditional}," !~ /,$Host,/  and $Operand eq '!=');
+				return 1 if ($Operand eq '==' and ",$Attributes{$Value}{conditional}," =~ /,$Host,/);
+				return 1 if ($Operand eq '!=' and ",$Attributes{$Value}{conditional}," !~ /,$Host,/);
+			}
+			when ('SERVICE') {
+				return 0 if (!exists($Services{$Value}));	# No such attribute.
+				return 1 if ($Operand eq '==' and ",$Services{$Value}{conditional}," =~ /,$Host,/);
+				return 1 if ($Operand eq '!=' and ",$Services{$Value}{conditional}," !~ /,$Host,/);
 			}
 			default {
 				warn "Unknown comparison type $Type\n";
@@ -328,8 +353,8 @@ sub CheckCond {
 	}
 	return 0;
 }
-	
-		
+
+
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
 #
@@ -440,6 +465,17 @@ SHOW	"^\s*debug:"
 SHOW	"^\s*insserv:"
 SHOW	"^\s*/sbin/insserv"
 SHOW	"^\s*\S+ (has|does not have) attribute"
+SHOW	"^\s*function EDITFILE {"
+SHOW	"^\s*SedCmd="
+SHOW	"^\s*shift"
+SHOW	"^\s*for "
+SHOW	"^\s*do"
+SHOW	"^\s*cp "
+SHOW	"^\s*sed "
+SHOW	"^\s*rm "
+SHOW	"^\s*done"
+SHOW	"^\s*}"
+SHOW	"^\s*EDITFILE "
 IGNORE	"^\s*Job ended normally"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
