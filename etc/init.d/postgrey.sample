@@ -175,9 +175,11 @@ case "$1" in
 	echo -n "Starting postgrey "
 	## Start daemon with startproc(8). If this fails
 	## the return value is set appropriately by startproc.
-	/sbin/startproc $BIN --inet=10023 -d --dbdir=/var/lib/postgrey \
+	command="/sbin/startproc $BIN --inet=10023 -d --dbdir=/var/lib/postgrey \
 		--whitelist-recipients=/usr/local/etc/postgrey/postgrey_whitelist_recipients \
-		--whitelist-clients=/usr/local/etc/postgrey/postgrey_whitelist_clients 
+		--whitelist-clients=/usr/local/etc/postgrey/postgrey_whitelist_clients "
+	# Try once.  If that doesn't work, wipe corrupted database and try again.
+	$command || (rm -v /var/lib/postgrey/[a-zA-Z0-9_]* 2>&1 | /usr/local/bin/ir -lt postgrey.recovery; $command)
 
 	# Remember status and be verbose
 	rc_status -v

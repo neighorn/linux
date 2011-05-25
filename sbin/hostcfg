@@ -115,24 +115,29 @@ my %Services;	# Map services to hostnames
 my @BootCmds;	# List of commands to execute.
 my %Attributes;	# List of attributes (used with -c to query whether we have an attrib);
 open ($FH,'<',$ConfigFile) || die "Unable to open $ConfigFile";
+my $line = 0;
 while (<$FH>) {
+	$line++;
 	s/([\s,])+/$1/g;		# Normalize spacing.
 	s/^\s*//;		# Strip leading space if any.
 	next if (/^#|^\s*$/);
-	my ($type,$hosts,$data)=split('\s+',$_,3);
+	my ($type,$conditional,$data)=split('\s+',$_,3);
 	$type=lc($type);
 	$type=~s/:$//;		# Strip optional trailing colon.
 	$data =~ s/^\s*//;	# Strip leading spaces.
 	$data =~ s/\s*$//;	# Strip trailing spaces.
 	given($type) {
-		when ('service') { $Services{$data}="$hosts"; };
+		when ('service') {$Services{$data}={line=>$line, conditional=>$conditional}; };
 		when ('mac') {
 			my $interface;
 			($data,$interface) = split('\s++',$data);	# Split out optional data.
-			$MACs{$data}="$hosts $interface";
+			$MACs{$data}="$conditional $interface";
 		};
-		when ('bootcmd') { push @BootCmds,"$hosts $data"; };
-		when ('attrib') { $Attributes{lc($data)}=$hosts; };
+		when ('bootcmd') { push @BootCmds,"$line $conditional $data"; };
+		when ('attrib') { $Attributes{lc($data)}={line=>$line, conditional=>$conditional}; };
+		default {
+			die qq<Unrecognized record type "$type" in hostcfg.cfg line $line\n>;
+		}
 	}
 }
 close $FH;
@@ -180,11 +185,11 @@ if ($opt_c) {
 	if (
 		(
 			exists($Attributes{$opt_c})
-			and ",$Attributes{$opt_c}," =~ /,($opt_H|\*),/ 
+			and CheckCond($Attributes{$opt_c}{line},$opt_H,$Attributes{$opt_c}{conditional}) 
 		)
 		or 
 		(	exists($Services{$opt_c})
-			and ",$Services{$opt_c}," =~ /,($opt_H|\*),/
+			and CheckCond($Services{$opt_c}{line},$opt_H,$Services{$opt_c}{conditional}) 
 		)
 	)
 	{
@@ -254,7 +259,7 @@ foreach my $MACAddr (sort(keys(%Interfaces))) {
 # Set services on or off based on the host name.
 #
 foreach (sort(keys(%Services))) {
-	if (",$Services{$_}," =~ /,($opt_H|\*),/) {
+	if (CheckCond($Services{$_}{line},$opt_H,$Services{$_}{conditional})) {
 		my $Status = RunDangerousCmd("chkconfig -s $_ on");
 		#$ExitCode = ($Status != 0?8:$ExitCode);
 	}
@@ -268,9 +273,8 @@ foreach (sort(keys(%Services))) {
 # Run boot commands.  Replace %HOST with our host name.
 #
 foreach (@BootCmds) {
-	my($hostlist,$command) = split(/\s+/,$_,2);
-	$hostlist=",$hostlist,";
-	if ($hostlist =~ /,($opt_H|\*),/) {
+	my($line,$hostlist,$command) = split(/\s+/,$_,3);
+	if (CheckCond($line,$opt_H,$hostlist)) {
 		$command =~ s/%HOST/$opt_H/g;	# %HOST to host name.
 		my $Status = RunDangerousCmd($command);
 		$ExitCode = ($Status != 0?8:$ExitCode);
@@ -286,6 +290,46 @@ if ($ExitCode) {
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
 
+
+#
+# CheckCond - see if this host matches this list, directly or indirectly.
+#
+sub CheckCond {
+
+	my ($Line,$Host,$ConditionalList) = @_;
+
+	foreach my $Conditional ((split(/\s*,\s*/,$ConditionalList))) {
+		# Assume we're checking the host name unless otherwise specified.
+		$Conditional="host=$Conditional" unless ($Conditional =~ /=/);
+
+		if ($Conditional !~ /^\s*(\S+?)\s*(!=|==|=)\s*(\S+)\s*$/) {
+			warn qq<Invalid conditional "$Conditional" in hostccfg.cfg line $Line -- ignored.\n>;
+			next;
+		}
+
+		my($Type,$Operand,$Value) = ($1, $2, $3);
+		$Type = uc($Type);			# Normalize case.
+		$Operand='==' if ($Operand eq '=');	# Normalize = to ==
+		given ($Type) {
+			when ('HOST') {
+				return 1 if (",$Value," =~ /,$Host,/  and $Operand eq '==');
+				return 1 if (",$Value," !~ /,$Host,/  and $Operand eq '!=');
+				return 1 if ($Value eq '*'	      and $Operand eq '==');
+			}
+			when ('ATTRIBUTE'|'ATTRIB') {
+				return 0 if (!exists($Attributes{$Value}));	# No such attribute.
+				return 1 if (",$Attributes{$Value}{conditional}," =~ /,$Host,/  and $Operand eq '==');
+				return 1 if (",$Attributes{$Value}{conditional}," !~ /,$Host,/  and $Operand eq '!=');
+			}
+			default {
+				warn "Unknown comparison type $Type\n";
+			}
+		}
+	}
+	return 0;
+}
+	
+		
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
 #
