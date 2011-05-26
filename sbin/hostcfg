@@ -49,6 +49,7 @@ our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
+$ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
