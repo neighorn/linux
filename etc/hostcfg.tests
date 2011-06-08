@@ -1,0 +1,36 @@
+#
+# Test various conditionals.  Run this with:
+#
+#	hostcfg -H alpha -tt
+#
+attrib		alpha		ash
+attrib		bravo		beech
+#
+service		alpha		aqua
+service		bravo		blue
+#
+# Tests
+#test: 		Conditional			Exp. Result
+test:	 	*				true		# Wildcard (* = true)
+test:	 	-				false		# Wildcard (- = false)
+test:	 	alpha				true		# Simple host name
+test:	 	bravo				false		# Simple host name
+test:	 	alpha,bravo			true		# Multiple simple host names
+test:	 	xxx,yyy				false		# Multiple simple host names
+test:	 	host=alpha,bravo		true		# Host equality match
+test:	 	host=xxx,yyy			false		# Host equality match
+test:	 	host!=xxx,yyy			true		# Host inequality match
+test:	 	host!=alpha,bravo		false		# Host inequality match
+test:		host=alpha&attrib=ash		true		# Compound and (true)
+test:		host=bravo&attrib=ash		false		# Compound and with first false
+test:		host=alpha&attrib=beech		false		# Compound and with second false
+test:		host=bravo&attrib=beech		false		# Compound and with both false
+test:		host=alpha|attrib=ash		true		# Compound and with both true
+test:		host=alpha|attrib=beech		true		# Compound and with first true
+test:		host=bravo|attrib=ash		true		# Compound and with second true
+test:		host=bravo|attrib=beech		false		# Compound and with both false
+test:		host=alpha&(attrib=ash|service=aqua)		true		# Compound and parens
+test:		host=alpha&(attrib=ash|service=blue)		true		# Compound and parens
+test:		host=alpha&(attrib=beech|service=aqua)		true		# Compound and parens
+test:		host=alpha&(attrib=beech|service=blue)		false		# Compound and parens
+test:		host=bravo&(attrib=ash|service=aqua)		false		# Compound and parens
