@@ -1,0 +1,19 @@
+#! /bin/sh
+while true 
+do
+	now=`date +%T`;
+	ps -ef |
+	grep rsync |
+	grep -v grep |
+	while read trash pid trash
+	do
+		lsof -p $pid
+	done |
+	grep tree/ |
+	while read trash trash trash trash trash trash trash trash filename
+	do
+		echo $now $filename
+	done
+	sleep 30
+done
+
