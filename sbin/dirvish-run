@@ -59,7 +59,8 @@ if (-e $ConfigFile) {
 		next if (/^\s*$/);      # Blank line.
 		chomp;
 		($name,$settings)=split(/:?\s+/,$_,2);
-		$name=~tr/[a-z]/[A-Z]/;
+		$name=uc($name);	# Name is not case sensitive.
+		$settings=~s/\s+$//;	# Trim trailing spaces.
 		$Config{$name}.=$settings . ',' ;
 	}
 	close CONFIG;
