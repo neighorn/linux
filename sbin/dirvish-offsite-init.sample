@@ -11,7 +11,7 @@ ls /mnt/dirvish/offsite*/disk.* 2> /dev/null |
         do
                 id=${name##*/disk.}
                 dir=${name%/*}
-                mount=`mount | grep "on $dir " | sed 's/ .*$//'`
+                mount=`mount | grep "on $dir " | sed 's/[0-9] .*$//'`
 		serial=`smartctl -i $mount 2> /dev/null | grep -i '^Serial number' | sed 's/  */ /g'`
 		if [[ "$serial" = Serial\ Number:* ]]
 		then
