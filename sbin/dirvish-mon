@@ -1,5 +1,5 @@
 #! /bin/sh
-while ps -f | grep -q dirvish | grep -v grep
+while ps -ef | grep dirvish | grep -qv grep
 do
 	now=`date +%T`
 	ps -ef |
