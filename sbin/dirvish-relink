@@ -33,6 +33,11 @@ else
 	parent="."
 	basenode=$dir
 fi
+if ! cd $parent
+then
+	echo "Unable to cd to $parent"
+	exit 8
+fi
 
 ls $parent |
     while read name
