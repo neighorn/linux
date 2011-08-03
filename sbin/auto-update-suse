@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 #
-# Copyright (c) 2005,2009,2011 Martin Consulting Services, Inc.
+# Copyright (c) 2010 Martin Consulting Services, Inc.
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -21,27 +21,28 @@ use FindBin qw($RealBin $RealScript);
 our $Prog=$RealScript;              	# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
-our $Errors=0;				# No errors so far.
-our $Syslog='';				# Name of Syslog facility.  '' for none.
+our $Errors=0;                          # No errors so far.
+our $Syslog='USER';                     # Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
-our $ConfigFile="$BaseDir";		# Deterimine the name of our config file.
-$ConfigFile =~ s"/.[^/]*$"/etc/${Prog}.cfg";# 	Ditto.
+our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
-my $ExitCode;				# Code we'll exit with.
+my $ExitCode = 0;			# Code we'll exit with.
 #
+our $opt_a;				# -a (all) option.
 our $opt_h;				# -h (help) option.
 our $opt_e;				# -e (error mail) option.
 our $opt_m;				# -m (mail) option.
 our $opt_p;				# -p (pager mail) option.
 our $opt_P;				# -P (pager error mail) option.
+our $opt_r;				# -r (reboot) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
-# Note: general purpose script - don't change current directory.
-#chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 
 # Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
 #       1) We define a new type l (lowercase L), which is a list (i.e. if
@@ -49,7 +50,7 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l t v';
+my $OptSpec='a e=l h m=l O=s p=l P=l r t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -89,10 +90,21 @@ if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 # Verify the command line.
-die("No files specified on the command line.  See \"$Prog -h\" for usage.")
-	unless (@Parms > 0);
+die("Unexpected parameters specified on the command line.  See \"$Prog -h\" for usage.")
+	if (@Parms > 0 and not $opt_a);
 
-# =========== Add code here =============
+my $opt_t_save = $opt_t;
+my $opt_v_save = $opt_v;
+$opt_t = '';			# --dry-run covers this.
+$opt_v = 1 if ($opt_t_save);
+my $Status = RunDangerousCmd("zypper --non-interactive update --auto-agree-with-licenses " . ($opt_t_save?' --dry-run':''));
+$opt_t = $opt_t_save;		# Restore opt_t.
+$opt_v = $opt_v_save;		# Restore opt_t.
+if ($Status == 105 or $opt_r) {
+	print "Installed updates require a reboot.  Rebooting now.\n";
+	RunDangerousCmd("shutdown -r +5 'The system will reboot in 5 minutes to finish installing software maintenance' &");
+	RunDangerousCmd("disown $!");
+}
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {
@@ -208,6 +220,22 @@ SHOW    "^\s*Job ended normally with status 0 and signal 0$"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
+SHOW	"^\s*<---- changed"
+SHOW	"Loading repository data..."
+SHOW	"Reading installed packages..."
+SHOW	"Nothing to do."
+SHOW	"Installed updates require a reboot.  Rebooting now."
+SHOW	"^\s*Installing: "
+IGNORE	"^\s*Retrieving package"
+IGNORE	"^\s*Retrieving delta:"
+IGNORE	"^\s*Applying delta:"
+SHOW	"^\s* The following packages are going to be upgraded:"
+SHOW	"^\s* \d+ packages to upgrade.$"
+IGNORE	"^\s*Overall download size: [0-9.]+ [KMG]iB. After the operation, additional [0-9.]+ [KMG]iB will be used.$"
+IGNORE	"Continue? .*: y$"
+IGNORE	"^\s*Retrieving: "
+IGNORE	"^\s*Installing: "
+SHOW	"^\s*Additional rpm output:$"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.

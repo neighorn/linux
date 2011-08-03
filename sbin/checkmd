@@ -82,6 +82,7 @@ if ($Config{DISABLEUNTIL}) {
 # Typical /proc/mdstat records...
 # md1 : active raid1 sda1[0] sdb1[1] sdc[2](S)
 #      261952 blocks [2/2] [UU]
+#      996018 blocks super 1.2 [2/1] [U_]
 # Recovery line...
 #[========>............]  recovery = 41.3% (45933184/111201856) finish=1051.6min speed=1032K/sec
 my ($mdname, $status, $type);
@@ -105,7 +106,7 @@ while (<MDSTAT>) {
 			$ErrorFlag=1;
 		}
 	}
-	if (/\s*\d+\s+blocks\s*\S+\s+(\S+)\s*$/) {
+	if (/\s*\d+\s+blocks\s.*\[\d+\/\d+\]\s+(\S+)\s*$/) {
 		# This is a "xxxxxx blocks [2/2] [UU]" line.
 		if ($1 !~ /^\[UU+\]/) {
 			warn "$mdname is degraded ($1)\n";

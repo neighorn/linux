@@ -29,7 +29,7 @@ close(IPTABLE);
 # Why doesn't this work?
 #foreach $IPAddress (@ARGV) {
 for $Index (0..$#ARGV) {
-	if ($IPAddress =~ /^71.245.97.5[2-4]$/) {
+	if ($IPAddress =~ /^50.43.121.6[6-8]$/) {
 		print "Ignoring $IPAddress ... assuming nessus testing\n";
 		next;
 	}

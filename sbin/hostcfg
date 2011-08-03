@@ -24,6 +24,7 @@ use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
 use Sys::Hostname;
+use Parse::BooleanLogic;
 use feature 'switch';
 
 # Initialize variables.
@@ -40,15 +41,17 @@ our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
 #
 our $opt_c;				# -c (check) option.
+our $opt_C;				# -C (config) alternate config file.
 our $opt_h;				# -h (help) option.
 our $opt_H;				# -H (hostname) option.
 our $opt_e;				# -e (error mail) option.
 our $opt_m;				# -m (mail) option.
 our $opt_p;				# -p (pager mail) option.
 our $opt_P;				# -P (pager error mail) option.
-our $opt_t;				# -t (test) option.
-our $opt_v;				# -v (verbose) option.
+our $opt_t = 0;				# -t (test) option.
+our $opt_v = 0;				# -v (verbose) option.
 #
+$ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
@@ -59,11 +62,24 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='c=s e=l h H=s m=l O=s p=l P=l t v';
+my $OptSpec='c=s C=s e=l h H=s m=l O=s p=l P=l t v';
+
+# Make a first pass through the args to see if -C is specified.
+$opt_C = $ConfigFile;			# Set the default.
+for (my $i=0;$i<@ARGV;$i++) {
+	$_ = $ARGV[$i];
+	next unless (/^-C/);
+	if (/^-C=?(.*$)/) {
+		$opt_C=$1;	# -C=filename
+	}
+	else {			# -C filename
+		$opt_C=$ARGV[$i+1];
+	}
+}
 
 # Load the config file.
-if (-e $ConfigFile) {
-	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+if (-e $opt_C) {
+	open(CONFIG,$opt_C) || die("Unable to open $opt_C: $!\n");
 	# Build a hash of settings found in the config file.
 	while (<CONFIG>) {
 		next if (/^\s*#/);      # Comment.
@@ -114,25 +130,33 @@ my %Interfaces;	# Map MAC addresses to current interface names
 my %Services;	# Map services to hostnames
 my @BootCmds;	# List of commands to execute.
 my %Attributes;	# List of attributes (used with -c to query whether we have an attrib);
-open ($FH,'<',$ConfigFile) || die "Unable to open $ConfigFile";
+my @Tests;	# List of validation tests.
+open ($FH,'<',$opt_C) || die "Unable to open $opt_C";
+my $line = 0;
 while (<$FH>) {
-	s/([\s,])+/$1/g;		# Normalize spacing.
+	$line++;
+	s/([\s,])+/$1/g;	# Normalize spacing.
 	s/^\s*//;		# Strip leading space if any.
-	next if (/^#|^\s*$/);
-	my ($type,$hosts,$data)=split('\s+',$_,3);
+	next if (/^#|^\s*$/);	# Skip comment-only and blank lines.
+	my ($type,$conditional,$data)=split('\s+',$_,3);
 	$type=lc($type);
-	$type=~s/:$//;		# Strip optional trailing colon.
-	$data =~ s/^\s*//;	# Strip leading spaces.
-	$data =~ s/\s*$//;	# Strip trailing spaces.
+	$type=~s/:$//;					# Strip optional trailing colon.
+	$data =~ s/#.*$// if ($type ne 'bootcmd');	# Strip comments.
+	$data =~ s/^\s*//;				# Strip leading spaces.
+	$data =~ s/\s*$//;				# Strip trailing spaces.
 	given($type) {
-		when ('service') { $Services{$data}="$hosts"; };
+		when ('service') {$Services{$data}={line=>$line, conditional=>$conditional}; };
 		when ('mac') {
 			my $interface;
 			($data,$interface) = split('\s++',$data);	# Split out optional data.
-			$MACs{$data}="$hosts $interface";
+			$MACs{$data}="$conditional $interface";
 		};
-		when ('bootcmd') { push @BootCmds,"$hosts $data"; };
-		when ('attrib') { $Attributes{lc($data)}=$hosts; };
+		when ('bootcmd') { push @BootCmds,"$line $conditional $data"; };
+		when ('test') { push @Tests,"$line $conditional $data"; };
+		when (/^(attrib|attribute)$/) { $Attributes{lc($data)}={line=>$line, conditional=>$conditional}; };
+		default {
+			die qq<Unrecognized record type "$type" in $opt_C line $line\n>;
+		}
 	}
 }
 close $FH;
@@ -180,11 +204,11 @@ if ($opt_c) {
 	if (
 		(
 			exists($Attributes{$opt_c})
-			and ",$Attributes{$opt_c}," =~ /,($opt_H|\*),/ 
+			and CheckCond($Attributes{$opt_c}{line},$opt_H,$Attributes{$opt_c}{conditional}) 
 		)
 		or 
 		(	exists($Services{$opt_c})
-			and ",$Services{$opt_c}," =~ /,($opt_H|\*),/
+			and CheckCond($Services{$opt_c}{line},$opt_H,$Services{$opt_c}{conditional}) 
 		)
 	)
 	{
@@ -254,7 +278,7 @@ foreach my $MACAddr (sort(keys(%Interfaces))) {
 # Set services on or off based on the host name.
 #
 foreach (sort(keys(%Services))) {
-	if (",$Services{$_}," =~ /,($opt_H|\*),/) {
+	if (CheckCond($Services{$_}{line},$opt_H,$Services{$_}{conditional})) {
 		my $Status = RunDangerousCmd("chkconfig -s $_ on");
 		#$ExitCode = ($Status != 0?8:$ExitCode);
 	}
@@ -265,13 +289,50 @@ foreach (sort(keys(%Services))) {
 }
 
 #
-# Run boot commands.  Replace %HOST with our host name.
+# Run validation tests, if any.
 #
+foreach (@Tests) {
+	my($Line,$Conditionals,$ExpResult) = split(/\s+/,$_,3);
+	given (lc($ExpResult)) {
+		when (/^(false|0)$/) { $ExpResult = 0;};
+		when (/^(true|1)$/) { $ExpResult = 1;};
+		default {
+			warn qq<Unexpected expected result "$ExpResult" on line $Line -- treating as false\n.>;
+			$ExpResult = 0;
+		}
+	}
+	my $Result = CheckCond($line,$opt_H,$Conditionals);
+	if ($Result != $ExpResult) {
+		warn qq<Validation test on $Line failed: Expected=$ExpResult, Actual=$Result>;
+		$Errors++;
+	}
+}
+die "$Errors error(s) detected during validation testing.  Aborting" if ($Errors);
+
+#
+# Prepare for and run boot commands.
+#
+
+#   Define the EDITFILE shell function.
+my $EditFile=<<'ENDEDIT';
+	function EDITFILE {
+		SedCmd=$1
+		shift
+		for file in $@
+	 	do
+			cp -p $file $file.tmp &&
+			sed "$SedCmd" < $file.tmp > $file &&
+			rm $file.tmp
+		done
+	}
+ENDEDIT
+
+#    Run the boot commands.
 foreach (@BootCmds) {
-	my($hostlist,$command) = split(/\s+/,$_,2);
-	$hostlist=",$hostlist,";
-	if ($hostlist =~ /,($opt_H|\*),/) {
+	my($line,$hostlist,$command) = split(/\s+/,$_,3);
+	if (CheckCond($line,$opt_H,$hostlist)) {
 		$command =~ s/%HOST/$opt_H/g;	# %HOST to host name.
+		$command = "$EditFile $command" if ($command =~ /EDITFILE/);
 		my $Status = RunDangerousCmd($command);
 		$ExitCode = ($Status != 0?8:$ExitCode);
 	}
@@ -279,12 +340,125 @@ foreach (@BootCmds) {
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
-} else {
+}
+else {
 	#print "$Prog ended normally.\n";
 }
 
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
+
+
+#
+# CheckCond - see if this host matches this list, directly or indirectly.
+#
+sub CheckCond {
+
+	#
+	# Set up our logic parser
+	#
+	our $Parser;
+	$Parser = Parse::BooleanLogic->new (operators => ['&','|'])
+		unless (defined($Parser));
+
+
+	my($CheckLine,$CheckHost,$CheckConditional) = @_;
+
+	#
+	# Parse the conditional line.
+	#
+	my $parse_tree = $Parser->as_array(
+		$CheckConditional,
+		error_cb => sub {warn "Invalid conditional list on line $CheckLine -- ignored\n";}
+	);
+	return 0 if (!defined($parse_tree));		# Syntax error.
+
+	#
+	# Evaluate the conditionals.
+	#
+	print "Checking: Line: $CheckLine, Host: $CheckHost, Conditional: $CheckConditional\n"
+		if ($opt_t > 1 or $opt_v > 1);
+	my $Result = $Parser->solve($parse_tree,\&EvaluateConditional,$CheckLine,$CheckHost,$CheckConditional);
+	print "\tResult: " . ($Result?"true":"false") . "\n" if ($opt_t > 1 or $opt_v > 1);
+	return $Result;
+}
+
+#
+# Evaluate an operand for truth or falseness.
+#    This is mostly just a wrapper, to support easier diagnostics when using -tt or -vv.
+#
+sub EvaluateConditional {
+	my($Hash,$CheckLine, $CheckHost, $CheckConditional) = @_;
+	my $Conditional = $Hash->{operand};
+	my $Result = EvaluateConditionalSub($CheckLine, $CheckHost, $Conditional);
+	print "	Checking: Test: $Conditional, Result: " . ($Result?"true":"false") . "\n"
+		if ($opt_t > 2 or $opt_v > 2);
+	return $Result;
+}
+
+
+#
+# Evalueate and operand for truth or falseness.
+#    This is where the evaluation is done.
+#
+sub EvaluateConditionalSub {
+
+	my($CheckLine, $CheckHost, $Conditional) = @_;
+
+	# Handle simple cases.
+	return 1 if ($Conditional eq '*');	# * is always true.
+	return 0 if ($Conditional eq '-');	# - is always false.
+
+	# Assume we're checking the host name unless otherwise specified.
+	$Conditional="host=$Conditional" unless ($Conditional =~ /=/);
+
+	if ($Conditional !~ /^\s*(\S+?)\s*(!=|==|=)\s*(\S+)\s*$/) {
+		warn qq<Invalid conditional "$Conditional" in $opt_C line $CheckLine -- ignored.\n>;
+		next;
+	}
+
+	my($Type,$Operand,$ValueList) = ($1, $2, $3);
+	$Type = uc($Type);			# Normalize case.
+	$Operand='==' if ($Operand eq '=');	# Normalize = to ==
+	$Operand='!=' if ($Operand eq '<>');	# Normalize <> to !=
+	given ($Type) {
+		when ('HOST') {
+			return 1 if ($Operand eq '==' and ",$ValueList," =~ /,$CheckHost,/);
+			return 1 if ($Operand eq '!=' and ",$ValueList," !~ /,$CheckHost,/);
+		}
+		when (/^ATTRIB(UTE)?$/) {
+			foreach my $Value (split(',',$ValueList)) {
+				if (!exists($Attributes{$Value})) {
+					print "debug: can't find $Value in " . join(', ', keys(%Attributes)) . "<\n";
+					# No such attribute.
+					warn qq<Unknown attribute "$Value" in $opt_C line $CheckLine -- ignored\n>;
+					next;
+				}
+				return 1 if ($Operand eq '==' and ",$Attributes{$Value}{conditional}," =~ /,$CheckHost,/);
+				return 1 if ($Operand eq '!=' and ",$Attributes{$Value}{conditional}," !~ /,$CheckHost,/);
+			}
+			return 0;	# Does not match.
+		}
+		when ('SERVICE') {
+			foreach my $Value (split(',',$ValueList)) {
+				if (!exists($Services{$Value})) {
+					# No such attribute.
+					warn qq<Unknown service "$Value" in $opt_C line $CheckLine -- ignored\n>;
+					next;
+				}
+				return 1 if ($Operand eq '==' and ",$Services{$Value}{conditional}," =~ /,$CheckHost,/);
+				return 1 if ($Operand eq '!=' and ",$Services{$Value}{conditional}," !~ /,$CheckHost,/);
+			}
+			return 0;	# Does not match.
+		}
+		default {
+			warn qq<Unknown comparison type "$Type" in $opt_C line $CheckLine -- ignored.\n>;
+			return 0;
+		}
+	}
+	return 0;		# Should never get here.
+}
+
 
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
@@ -330,10 +504,17 @@ sub opt_h {
 
 =head3 Usage:  
 	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
+	      [-C config] [-c condition]
 
 	$Prog -h
 
 =head3 Flags:
+	-c condition	Check: check "condition".  Exit with 0 if true or 1 
+			if false.  See Conditions below for condition syntax.  Often
+			used in crontab to only run jobs on certain hosts based
+			on their current roles.
+	-C config:	Config: use "config" instead of the default config file
+			(/usr/local/etc/hostcfg.cfg).
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
@@ -344,16 +525,50 @@ sub opt_h {
 	-O config:      Insert the "config" configuration options from
 			$ConfigFile.
 			the command line at this point.
-	-t	:	Test: echo commands instead of running them.
-	-v	:	Verbose: echo commands before running them.
+	-t	:	Test: echo commands instead of running them.  May be
+			repeated to list summary condition results (-tt)
+			or detailed condition results (-ttt).
+	-v	:	Verbose: echo commands before running them.  May be
+			repeated to list summary condition results (-vv)
+			or detailed condition results (-vvv).
 	-h      :       Help: display this panel
 
 =head3 Parameters:
 	(none)
 
+=head3 Conditions (-c, config file)
+    Conditionals may be:
+	 *             		always true
+	 -             		always false
+        list      		same as HOST==list
+        HOST==list		true if host name is in list
+	HOST!=list		true if host name is not in list
+        ATTRIB[UTE]==list	true if host has one of the attributes in the list
+        ATTRIB[UTE]!=list	true if host does not have any of the
+				attributes in the list
+        SERVICE==list		true if host provides one of the services in the
+				list
+        SERVICE!=list		true if host does not provide any of the services
+				in the list
+
+    Notes about conditionals:
+	1)   "list" may be a single name or a comma-separated list
+        2)   = is an alias for ==
+        3)   <> is an alias for !=
+	4)   When using -c, the condition string may need to be quoted to avoid
+             unexpected shell processing of special characters.
+	5)   Conditionals may be combined with & and | and the order of evaluation
+	     controlled using parentheses as in:
+
+		host=SVR1,SVR2&(attrib=firewall|service=apache2)
+
+        which says "the host is SVR1 or SVR2 and the host has either the firewall
+	attribute or starts the apache2 service
+
+
 =head3 Return codes:
-	0       :       Normal termination
-	1       :       Help panel displayed.
+	0       :       Normal termination.  For -c: condition is true.
+	1       :       Help panel displayed.  For -c: condition is false.
 	2       :       Invalid or unrecognized command line options.
 	3       :       Invalid or unrecognized command line option value.
 	4       :       Incorrect command line parameters.
@@ -396,6 +611,19 @@ SHOW	"^\s*debug:"
 SHOW	"^\s*insserv:"
 SHOW	"^\s*/sbin/insserv"
 SHOW	"^\s*\S+ (has|does not have) attribute"
+SHOW	"^\s*function EDITFILE {"
+SHOW	"^\s*SedCmd="
+SHOW	"^\s*shift"
+SHOW	"^\s*for "
+SHOW	"^\s*do"
+SHOW	"^\s*cp "
+SHOW	"^\s*sed "
+SHOW	"^\s*rm "
+SHOW	"^\s*done"
+SHOW	"^\s*}"
+SHOW	"^\s*EDITFILE "
+SHOW	"^\s*Checking: "
+SHOW	"^\s*Result: "
 IGNORE	"^\s*Job ended normally"
 #
 # Anything that doesn't match one of these three sets of patterns is considered

@@ -8,20 +8,22 @@ function DD {
 }
 
 function CopyDisk {
+	BaseDisk=$1
+	SourceDisk=$2
 	echo "======================================================================"
-	echo "Copying $1 to $DiskImageFile"
+	echo "Copying $SourceDisk to $DiskImageFile"
 	date
 	((MaxRC = 0))
+	set -v
         # Document partition layouts
 	sfdisk -l $BaseDisk > $DiskPartitionMap
 	sfdisk -d $BaseDisk > $SFDiskPartitionMap
 	# Launch the background status monitoring process.
 	StatusReport $$ &
 	# OK, launch the copy.
-	set -xv
 	DD if=$BaseDisk bs=512 count=1 > $Sector0
-	DD if=$1 bs=512 | gzip -c > $DiskImageFile
-	set +xv
+	DD if=$SourceDisk bs=512 | gzip -c > $DiskImageFile
+	set +v
 	date
 	echo "======================================================================"
 }
@@ -29,26 +31,32 @@ function CopyDisk {
 function RunBackup {
 while [[ $# -gt 0 ]]
 do
-	if [[ $1 != /dev/* ]]
+
+	SystemName=$1
+
+	if [[ $2 != /dev/* ]]
 	then
-		echo "$1 is not a device file -- skipped." >&2
+		echo "$2 is not a device file -- skipped." >&2
 		return 8
 	fi
 
-	echo "$Date $SystemName $1 $Comment" >> $TargetDir/comments
+	echo "$Date $SystemName $2 $Comment" >> $TargetDir/comments
 
-	DiskImageFile="$TargetDir$SystemName-$Date-${1##*/}.image.gz"
-        if [[ "$1" = *\/[sh]da[0-9] ]]
+	DiskImageFile="$TargetDir/$Date-${2##*/}.image.gz"
+        if [[ "$2" = *\/[sh]da[0-9] ]]
         then
-	    BaseDisk="${1%%[0-9]}"
-        elif [[ "$1" = *\/[sh]da ]]
+	    BaseDisk="${2%%[0-9]}"
+        elif [[ "$2" = *\/[sh]da ]]
         then
-            BaseDisk="$1"
-        elif [[ "$1" = *_part[0-9] ]]
+            BaseDisk="$2"
+        elif [[ "$2" = *_part[0-9] ]]
         then 
-            BaseDisk="${1%%_part[0-9]}"
+            BaseDisk="${2%%_part[0-9]}"
+	elif [[ "$2" = *p[0-9] ]]
+	then
+	    BaseDisk="${2%%p[0-9]}"
         else
-            echo "Error: Unable to identify base disk for sector0 and partition map of $1" >&2
+            echo "Error: Unable to identify base disk for sector0 and partition map of $2" >&2
             exit 8
         fi
 	hdparm -d $BaseDisk | grep -q off
@@ -57,10 +65,10 @@ do
 		echo "Turning on dma for $BaseDisk"
 		hdparm -d1 $BaseDisk
 	fi
-	DiskPartitionMap="$TargetDir$SystemName-$Date-${BaseDisk##*/}.partitions"
-	SFDiskPartitionMap="$TargetDir$SystemName-$Date-${BaseDisk##*/}.sfdisk"
-	Sector0="$TargetDir$SystemName-$Date-${BaseDisk##*/}.sector0"
-	time CopyDisk $1
+	DiskPartitionMap="$TargetDir/$Date-${BaseDisk##*/}.partitions"
+	SFDiskPartitionMap="$TargetDir/$Date-${BaseDisk##*/}.sfdisk"
+	Sector0="$TargetDir/$Date-${BaseDisk##*/}.sector0"
+	time CopyDisk $BaseDisk $2
 	shift
 done
 Status=`cat $TmpFile`
@@ -99,7 +107,6 @@ then
 fi
 Date=`date +%Y-%m-%d`
 Prog=${0##*/}
-TargetDir=${0%$Prog}
 TmpFile="/tmp/backup-disk.$$"
 RebootFile=./.reboot
 ShutdownFile=./.shutdown
@@ -120,6 +127,14 @@ fi
 
 SystemName=$1
 shift
+SystemName=`echo $SystemName | tr 'A-Z' 'a-z' | sed 's/ //g'`
+TargetDir=${0%$Prog}
+[[ $TargetDir -eq '' ]] && TargetDir="."
+TargetDir="${TargetDir%/}/$SystemName"
+
+# Create the output directory, if it doesn't already exist.
+[[ ! -d $TargetDir ]] && mkdir -p $TargetDir
+
 
 echo "Comment? "
 read Comment
@@ -127,9 +142,9 @@ read Comment
 for Disk in $*
 do
 	# Run the back-up.
-	RunBackup $System $Disk 2>&1
+	RunBackup $SystemName $Disk 2>&1
 done |
-	tee ./$SystemName-$Date.log
+	tee $TargetDir/$Date.log
 
 if [[ -e $RebootFile ]]
 then

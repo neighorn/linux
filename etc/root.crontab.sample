@@ -29,6 +29,10 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 00 18 * * * ls /mnt/dirvish/offsite* > /dev/null 2>&1;/usr/local/sbin/dirvish-expire 2>&1 | /usr/local/bin/ir -lt dirvish-expire
 00 02 * * mon,tue,wed,thu,fri dirvish-run -N On-site xxx yyy zzz > /dev/null
 #
+# Off-site backups
+35 0 * * sun,mon,tue,wed,thu,fri /usr/local/sbin/hostcfg -c dirvish && /usr/local/sbin/dirvish-run -B /usr/local/sbin/dirvish-offsite-init xxx yyy zzz > /dev/null
+35 0 * * sat /usr/local/sbin/hostcfg -c dirvish && /usr/local/sbin/dirvish-run -D -checksum -B /usr/local/sbin/dirvish-offsite-init xxx yyy zzz > /dev/null
+#
 # Back up the MySQL databases.
 00 02 * * * /usr/local/sbin/dbbu > /dev/null
 #

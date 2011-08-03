@@ -42,6 +42,32 @@ echo "Exit status = $Status"
 echo "======================================================================"
 }
 
+function StatusReport {
+
+set +xv		# Don't trace the background process.
+
+# Get the process ID of the dd process.
+sleep 60	# Give dd time to start.
+PID=`ps --no-heading -o pid,cmd -e | grep 'dd if' | grep -v grep | awk '{print $1}' | tail -1`
+
+# Run as a separate process.  Show amount processed every 5 minutes.
+((Count=1))
+while ps -p $PID > /dev/null 2>&1
+do
+    sleep 60
+    ((Count = $Count + 1))
+    if [[ $Count -ge 5 ]]
+    then
+        kill -USR1 $PID 2> /dev/null
+        ((Count = 0))
+    fi
+done
+}
+
+##################################################################
+# Mainline code                                                  #
+##################################################################
+
 if [[ $# < 2 ]]
 then
 	echo "Usage: $0 filename /dev/devname filename2 /dev/devname2 ..."
@@ -52,10 +78,16 @@ fi
 ((ExitCode=0))
 while [[ $# > 0 ]]
 do
+	set -xv
+	StatusReport $$ &		# Start the status report in bkgd.
+	set +xv
 	restore $1 $2
 	((Status = $?))
 	[[ $ExitCode < $Status ]] && ((ExitCode=$Status))
 	shift
 	shift
 done
+/usr/bin/aplay /usr/share/sounds/linphone/rings/orig.wav >/dev/null 2>&1
+
+exit $ExitCode
 exit $ExitCode

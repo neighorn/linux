@@ -33,12 +33,21 @@ else
 	parent="."
 	basenode=$dir
 fi
+if ! cd $parent
+then
+	echo "Unable to cd to $parent"
+	exit 8
+fi
 
 ls $parent |
     while read name
     do
 	[[ $basenode > $name ]] && continue
 	[[ -e "$name/tree" ]] || continue
-  	[[ -n "$prior" ]] && link-dups $name/tree $prior/tree
+  	if [[ -n "$prior" ]]
+	then
+		date +"%T: Relinking $name to $prior"
+		link-dups -v $name/tree $prior/tree
+	fi
 	prior=$name
     done
