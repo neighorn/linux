@@ -59,7 +59,8 @@ if (-e $ConfigFile) {
 		next if (/^\s*$/);      # Blank line.
 		chomp;
 		($name,$settings)=split(/:?\s+/,$_,2);
-		$name=~tr/[a-z]/[A-Z]/;
+		$name=uc($name);	# Name is not case sensitive.
+		$settings=~s/\s+$//;	# Trim trailing spaces.
 		$Config{$name}.=$settings . ',' ;
 	}
 	close CONFIG;
@@ -175,9 +176,9 @@ foreach $Target (@Parms) {
 		RunDangerousCmd("echo rm -rf ./latest.old | at now");
 	}
 
-	# Do we need to initialize this disk?
-	system('/bin/ls ./*/tree > /dev/null 2>&1');
-	my $Status = $?;
+	# Do we need to initialize this disk?  Need at least 1 tree and a hist file.
+	my $Status = system('/bin/ls ./*/tree > /dev/null 2>&1');
+	$Status = system('/bin/ls ./dirvish/*.hist > /dev/null 2>&1') if ($Status eq 0);
 	my $Init = ($Status eq 0?'':'--init');	# Add --init if no trees.
 
 	# Run the back-up.
@@ -381,6 +382,7 @@ IGNORE	"^\s*All access is prohibited unless expressly authorized.$"
 # Unexplained error 24 is "file vanished".  Ok if remote files are deleted while we run.
 IGNORE	"^\s*rsync error: unexplained error \(code 24\) at main.c\(1045\)\s*$"
 IGNORE	"^\s*rsync warning: some files vanished before they could be transferred"
+IGNORE	"^\s*rsync: open.* failed: No such file or directory"
 IGNORE	"^\s*file has vanished: "
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"

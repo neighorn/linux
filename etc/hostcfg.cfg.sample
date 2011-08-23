@@ -1,0 +1,88 @@
+#Host identification based on MAC addresses.
+#               Host				MAC Address		Interface (optional)
+mac:		alpha				00:00:10:C1:27:3D	eth0
+mac:		alpha				00:00:10:C8:7C:36  	eth1
+mac:		alpha				00:00:10:C8:7C:37	eth2
+mac:		alpha				00:00:10:C8:7C:38	eth3
+mac:		bravo				00:00:10:CF:22:4C  	eth0
+mac:		bravo				00:00:10:CF:13:5D  	eth1
+mac:		bravo				00:00:10:CF:13:5E  	eth2
+mac:		bravo				00:00:10:CF:13:5F  	eth3
+#
+#
+# Attributes.  These can be used in conditionals below, or checked by crontab etc. using -c option.
+#
+#               Host(s)				Attribute
+#attrib:	svr1,svr2			some-attribute
+attrib:		bravo				primary
+attrib:		alpha				secondary
+attrib:		-				testfw
+attrib:		-				dirvish
+#
+#
+# Commands to issue at boot up (boot.local).
+#    Conditionals may be:
+#	 *             		always true
+#	 -             		always false
+#        list      		same as HOST==list
+#        HOST==list		true if host name is in list
+#	 HOST!=list		true if host name is not in list
+#        ATTRIB[UTE]==list	true if host has one of the attributes in the list
+#        ATTRIB[UTE]!=list	true if host does not have any of the attributes in the list
+#        SERVICE==list		true if host provides one of the services in the list
+#        SERVICE!=list		true if host does not provide any of the services in the list
+#
+#    Notes about conditionals:
+#	 1)   "list" may be a single name or a comma-separated list
+#        2)   = is an alias for ==
+#        3)   <> is an alias for !=
+#	 4)   Conditionals may be combined with & and | and the order of evaluation controlled using
+#        parentheses as in:
+#		host=SVR1,SVR2&(attrib=firewall|service=apache2)
+#        which says "the host is SVR1 or SVR2 and the host has either the firewall attribute or 
+#        starts the apache2 service
+#
+#
+#               Conditionals			Command
+#
+#	Set up primary/secondary firewall.
+bootcmd:	attrib=primary			cp -p /usr/local/etc/ifcfg-eth0.primary /etc/sysconfig/network/ifcfg-eth0
+bootcmd:	attrib=primary			cp -p /usr/local/etc/ifcfg-eth1.primary /etc/sysconfig/network/ifcfg-eth1
+bootcmd:	attrib!=primary			cp -p /usr/local/etc/ifcfg-eth0.secondary /etc/sysconfig/network/ifcfg-eth0
+bootcmd:	attrib!=primary			cp -p /usr/local/etc/ifcfg-eth1.secondary /etc/sysconfig/network/ifcfg-eth1
+#	
+# 	Insert our IP address on eth0 and eth1.
+bootcmd:	attrib=primary			EDITFILE "s/^IPADDR=.*\$/IPADDR='1.2.3.4'/" /etc/sysconfig/network/ifcfg-eth0
+bootcmd:	attrib!=primary			EDITFILE "s/^IPADDR=.*\$/IPADDR='1.2.3.5'/" /etc/sysconfig/network/ifcfg-eth0
+#bootcmd:	attrib=primary,testfw		EDITFILE "s/^STARTMODE=.*\$/STARTMODE='auto'/" /etc/sysconfig/network/ifcfg-eth0
+# set up start mode for eth2 and 3.
+bootcmd:	attrib!=primary			EDITFILE "s/^STARTMODE=.*\$/STARTMODE='manual'/" /etc/sysconfig/network/ifcfg-eth2
+bootcmd:	attrib!=primary			EDITFILE "s/^STARTMODE=.*\$/STARTMODE='manual'/" /etc/sysconfig/network/ifcfg-eth3
+bootcmd:	alpha				EDITFILE "s/^IPADDR=.*\$/IPADDR='192.168.0.10'/" /etc/sysconfig/network/ifcfg-eth1
+bootcmd:	bravo				EDITFILE "s/^IPADDR=.*\$/IPADDR='192.168.0.11'/" /etc/sysconfig/network/ifcfg-eth1
+#
+#	Set up our route
+bootcmd:	attrib=primary			EDITFILE '/^ *default /d' /etc/sysconfig/network/routes && echo default 1.2.3.1 >> /etc/sysconfig/network/routes
+bootcmd:	attrib!=primary			EDITFILE '/^ *default /d' /etc/sysconfig/network/routes && echo default 192.168.0.1 >> /etc/sysconfig/network/routes
+#
+#	Configure Postfix
+bootcmd:	attrib=primary			ln -sf /usr/local/etc/postfix/main.cf.primary /usr/local/etc/postfix/main.cf
+bootcmd:	attrib!=primary			ln -sf /usr/local/etc/postfix/main.cf.secondary /usr/local/etc/postfix/main.cf
+#
+#	Fix up snmpd.
+bootcmd:	alpha				EDITFILE "s/agentaddress.*192.168.0.11/agentaddress 192.168.0.10/g" /etc/snmp/snmpd.conf
+bootcmd:	bravo				EDITFILE "s/agentaddress.*192.168.0.10/agentaddress 192.168.0.11/g" /etc/snmp/snmpd.conf
+bootcmd:	attribute=primary		grep -q 192.168.0.1 /etc/snmp/snmpd.conf || echo "rocommunity public 192.168.0.1agentaddress 192.168.0.1" >> /etc/snmp/snmpd.conf
+bootcmd:	attribute!=primary		EDITFILE "/^agentaddress.*192.168.0.1 *$/d" /etc/snmp/snmpd.conf
+#
+#
+#Service settings.  These services are up for the listed hosts, otherwise down
+#  Service conditionals are the same as bootcmd conditionals.
+#               Conditionals			Services
+service:	attrib=primary,testfw		apache2
+service:	attrib=primary,testfw		dovecot
+service:	attrib=primary,testfw		elogd
+service:	*				ntp
+service:	attrib=primary			openvpn
+service:	attrib=primary,testfw		squid
+service:	attrib=primary,testfw		postgrey

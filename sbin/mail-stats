@@ -53,9 +53,9 @@ our $opt_Y;				# -Y (year) set the log year (since they're not in the log).
 my %MonthTable = (Jan=>0,Feb=>1,Mar=>2,Apr=>3,May=>4,Jun=>5,
 	Jul=>6,Aug=>7,Sep=>8,Oct=>9,Nov=>10,Dec=>11);
 my @Measurements = qw(
-	Inbound_Connections RBL_Total Postgrey_Reject Postgrey_Allowed 
+	Inbound_Connections RBL_Total Postgrey_Blocked Postgrey_Allowed 
 	Postfix_Blocked Viruses_Blocked Amavis_Blocked Amavis_SPAMMY 
-	Delivered_Local Delivered_Remote);
+	SPF_Blocked Delivered_Local Delivered_Remote);
 our $Ignore_Warning_Issued = 0;		# Only issue warning once.
 my @Graph_Colors = qw(00ffff ff00ff 000000 880088); 
 
@@ -128,7 +128,8 @@ my @ConnectExcludeList=(
 	'172.1[6-9].',
 	'172.2\d.',
 	'172.3[0-2].',
-	'71.245.97.115'
+	'50.43.121.70'
+	'50.43.121.69'
 );
 my $ConnectExclude='^' . join('|^',@ConnectExcludeList);
 $ConnectExclude =~ s/\./\\./g;
@@ -181,11 +182,14 @@ while (<>) {
 				$RBL{$1}=1;
 			}
 		}
-		when (/smtpd.*NOQUEUE: reject:/) {
-			$Counts{Postfix_Blocked}++;
+		when (/smtpd.*NOQUEUE: reject:.*http:\/\/www.openspf.org\//) {
+			$Counts{SPF_Blocked}++;
 		}
 		when (/smtpd.*NOQUEUE: reject:.*Recipient address rejected: Greylisted/) {
-			$Counts{Postgrey_Reject}++;
+			$Counts{Postgrey_Blocked}++;
+		}
+		when (/smtpd.*NOQUEUE: reject:/) {
+			$Counts{Postfix_Blocked}++;
 		}
 		when (/postgrey: action=pass, reason/) {
 			$Counts{Postgrey_Allowed}++;
@@ -219,29 +223,34 @@ while (<>) {
 
 # Add any remaining data.
 UpdateRRD($RRDFile, $PriorTimeStamp, %Counts) if ($RecCount);
+PrintReport($PriorTimeStamp,\%DayCounts,\%Destinations,\%RBL);
 
 # Create new graphs.
-	#Inbound_Connections, RBL_Total Postgrey_Reject Postgrey_Allowed,
+	#Inbound_Connections, RBL_Total Postgrey_Blocked Postgrey_Allowed,
 	#Postfix_Blocked, Viruses_Blocked Amavis_Blocked Amavis_SPAMMY, 
 	#Delivered_Local, Delivered_Remote
-$rrd->graph($RRDFile, 
-	basename => "delivered",
-	destination=> '/usr/local/etc/apache2/pages/ts/mail',
-	sources => [ qw(Delivered_Local Delivered_Remote) ],
-	timestamp => 'rrd',
-);
-$rrd->graph($RRDFile, 
-	basename => "spam_blocked",
-	destination=> '/usr/local/etc/apache2/pages/ts/mail',
-	sources => [ qw(Inbound_Connections Delivered_Local) ],
-	timestamp => 'rrd',
-);
-$rrd->graph($RRDFile, 
-	basename => "blocks",
-	destination=> '/usr/local/etc/apache2/pages/ts/mail',
-	sources => [ qw(RBL_Total Postfix_Blocked Amavis_Blocked) ],
-	timestamp => 'rrd',
-);
+foreach (@Measurements) {
+do
+	$rrd->graph($RRDFile,basename => $_,destination=>'/usr/local/etc/apache2/pages/ts/mail', sources=> [$_], timestamp=> 'rrd');
+}
+#$rrd->graph($RRDFile, 
+#	basename => "delivered",
+#	destination=> '/usr/local/etc/apache2/pages/ts/mail',
+#	sources => [ qw(Delivered_Local Delivered_Remote) ],
+#	timestamp => 'rrd',
+#);
+#$rrd->graph($RRDFile, 
+#	basename => "spam_blocked",
+#	destination=> '/usr/local/etc/apache2/pages/ts/mail',
+#	sources => [ qw(Delivered_Local Inbound_Connections) ],
+#	timestamp => 'rrd',
+#);
+#$rrd->graph($RRDFile, 
+#	basename => "blocks",
+#	destination=> '/usr/local/etc/apache2/pages/ts/mail',
+#	sources => [ qw(RBL_Total Postfix_Blocked Amavis_Blocked) ],
+#	timestamp => 'rrd',
+#);
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
@@ -263,6 +272,7 @@ sub PrintReport {
 	printf  "\n\nSummary Report for $TimeStamp:\n" 
 		. "\tExternal Connections:\t\t\t%10d\n" 
 		. "\tBlocked by blacklist:\t\t\t%10d\n" 
+		. "\tBlocked by SPF:\t\t\t\t%10d\n" 
 		. "\tBlocked by greylist:\t\t\t%10d\n" 
 		. "\tViruses blocked:\t\t\t%10d\n" 
 		. "\tBlocked by Postfix:\t\t\t%10d\n" 
@@ -273,7 +283,8 @@ sub PrintReport {
 		. "\tOutbound e-mail:\t\t\t%10d\n"
 		, $CountRef->{Inbound_Connections}
 		, $CountRef->{RBL_Total}
-		, max(0,$CountRef->{Postgrey_Reject} - $CountRef->{Postgrey_Allowed})
+		, $CountRef->{SPF_Blocked}
+		, max(0,$CountRef->{Postgrey_Blocked} - $CountRef->{Postgrey_Allowed})
 		, $CountRef->{Viruses_Blocked}
 		, $CountRef->{Postfix_Blocked}
 		, $CountRef->{Amavis_Blocked}
@@ -340,7 +351,7 @@ sub UpdateRRD {
 		, $TimeStamp
 		, Inbound_Connections => $Counts{Inbound_Connections},
 		, Blacklist => $Counts{RBL_Total},
-		, Greylist => $Counts{Postgrey_Reject}-$Counts{Postgrey_Allowed},
+		, Greylist => $Counts{Postgrey_Blocked}-$Counts{Postgrey_Allowed},
 		, Viruses => $Counts{Viruses_Blocked},
 		, Postfix_rules => $Counts{Postfix_Blocked},
 		, Amavis => $Counts{Amavis_Blocked},
@@ -466,11 +477,8 @@ SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
 SHOW	"^\s*Summary Report for \d+/\d+/\d+:"
 SHOW	"^\s*External Connections:\s+[0-9,]+$"
-SHOW	"^\s*Blocked by blacklist:\s+[0-9,]+$"
-SHOW	"^\s*Blocked by greylist:\s+[0-9,]+$"
-SHOW	"^\s*Blocked by Amavis:\s+[0-9,]+$"
+SHOW	"^\s*Blocked by \S+:\s+[0-9,]+$"
 SHOW	"^\s*Viruses blocked:\s+[0-9,]+$"
-SHOW	"^\s*Blocked by Postfix:\s+[0-9,]+$"
 SHOW	"^\s*\(Passed by Amavis but doubtful:\s+[0-9,]+\)$"
 SHOW	"^\s*Delivered:\s+[0-9,]+$"
 SHOW	"^\s*Outbound e-mail:\s+[0-9,]+$"

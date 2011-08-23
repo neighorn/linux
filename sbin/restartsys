@@ -16,6 +16,20 @@ else
 	((ExitRC=0))
 	for name in $*
 	do
+		nameplus="${name}d"
+		nameminus=${name%d}
+		if [[ -e "/etc/init.d/$name" ]]
+		then
+			# No change required.
+			:
+		elif [[ -e "/etc/init.d/$nameminus" ]]
+		then
+			name=$nameminus
+		elif [[ -e "/etc/init.d/$nameplus" ]]
+		then
+			name=$nameplus
+		fi
+		echo "Restarting $name..."
 		eval /etc/init.d/$name stop
 		eval /etc/init.d/$name start
 		((Status=$?))

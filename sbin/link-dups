@@ -4,6 +4,14 @@
 #
 # Assumes the same relative name.
 
+if [[ $1 = "-v" ]]
+then
+    export Verbose=1
+    shift
+else
+    export Verbose=0
+fi
+
 if (( $# != 2 ))
 then
     echo "usage: $0 file1 file2"
@@ -51,11 +59,11 @@ find $1 -type f -print |
 		       fi
 	       fi
        fi
-       if [[ ( $TTYStat -eq 0 ) && ( $CheckCount = *00 ) ]]
+       if [[ ( $CheckCount = *00 ) && ( $Verbose || ( $TTYStat -eq 0 ) ) ]]
        then
-		printf "\r$CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked\r" > /dev/tty
+		printf "\r  $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked\r" > /dev/tty
        fi
-       echo "$1->$2 complete: $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked"
+       echo "  $1->$2 complete: $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked"
     done |
     tail -1
 exit 0

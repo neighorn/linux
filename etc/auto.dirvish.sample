@@ -1,2 +1,2 @@
 offsite	-fstype=reiserfs	:/dev/sd??
-vsvr1	-fstype=smbfs,username=zzzzzbackup,password=xxxxxxx,workgroup=yyyyyyy ://svr1/Backups
+vsvr1	-fstype=cifs,username=wwwwwwww,password=xxxxxxx,workgroup=yyyyyyy ://zzzzzzz/Backups

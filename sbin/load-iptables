@@ -6,12 +6,14 @@
 use strict;
 use warnings;
 use Sys::Hostname;
+use POSIX qw(strftime);
 
 require "getopts.pl";
 
 our $opt_q;
+our $opt_v = 0;
 
-Getopts("q");
+Getopts("qv");
 
 my $Errors=0;
 
@@ -20,12 +22,12 @@ my $FH;
 if (-f "/usr/local/etc/iptables.$hostname") {
         open($FH,"/usr/local/etc/iptables.$hostname") ||
                 die("Unable to open /usr/local/etc/iptables.$hostname : $!");
-        print "Loading iptables.$hostname\n";
+        print "Loading iptables.$hostname\n" unless ($opt_q);
 }
 elsif (-f "/usr/local/etc/iptables.dat") {
         open($FH,"/usr/local/etc/iptables.dat") ||
                 die("Unable to open /usr/local/etc/iptables.dat : $!");
-        print "Loading iptables.dat\n";
+        print "Loading iptables.dat\n" unless ($opt_q);
 }
 else {
         warn "Unable to find iptables.$hostname or iptables.dat";
@@ -41,6 +43,7 @@ if (!$Errors) {
 		$Line++;		# Increment the line counter
 		next if (/^ *#/);	# Skip comments
 		next if (/^ *$/);	# Skip blank lines
+		print strftime("%H:%M:%S Processing line $Line: $_",localtime()) if ($opt_v);
 		if (/^\s*verify\s/i) {
 			# Verify interfaces are assigned right.
 			my(undef,$interface,@desired_mac)=split(/\s+/,$_);
@@ -48,11 +51,19 @@ if (!$Errors) {
 			$actual_mac =~ s/.*HWaddr\s+(\S+)\s*$/\U$1/i;
 			chomp $actual_mac;
 			my $Found = 0;
-			foreach (@desired_mac) {
-				s/^\s*(\S+)\s*/\U$1/;
-				if ($_ eq $actual_mac) {
-					$Found = 1;
-					last;
+			if ($actual_mac =~ /^\s*$/) {
+				# OK if this interface isn't present, as it doesn't present a
+				# security exposure.  Used for iptables.dat that is shared
+				# between systems that have different numbers of interfaces.
+				$Found = 1;
+			}
+			else {
+				foreach (@desired_mac) {
+					s/^\s*(\S+)\s*/\U$1/;
+					if ($_ eq $actual_mac) {
+						$Found = 1;
+						last;
+					}
 				}
 			}
 			if (!$Found) {
@@ -92,14 +103,20 @@ if ($Errors) {
 		"iptables -A INPUT       -p tcp -m state --state ESTABLISHED,RELATED -j ACCEPT",
 		"iptables -A INPUT       -p icmp -m state --state ESTABLISHED,RELATED -j ACCEPT",
 		"iptables -A INPUT -i lo -j ACCEPT",
-		"iptables -A INPUT -s 71.245.97.115 -p icmp -j ACCEPT",
-		"iptables -A INPUT -s 71.245.97.116 -p icmp -j ACCEPT",
-		"iptables -A INPUT -s 71.245.97.115 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 71.245.97.116 -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -s 50.43.121.70 -p icmp -j ACCEPT",
+		"iptables -A INPUT -s 50.43.121.69 -p icmp -j ACCEPT",
+		"iptables -A INPUT -s 50.43.121.70 -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -s 50.43.121.69 -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -s 172.27.2.1 -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -s 172.27.2.1 -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -s 172.27.2.209 -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -s 172.27.2.210 -p tcp --dport 22 -j ACCEPT",
 		"iptables -A INPUT -j DROP",
 		"iptables -A OUTPUT -o lo -j ACCEPT",
-		"iptables -A OUTPUT -d 71.245.97.115 -j ACCEPT",
-		"iptables -A OUTPUT -d 71.245.97.116 -j ACCEPT",
+		"iptables -A OUTPUT -d 50.43.121.70 -j ACCEPT",
+		"iptables -A OUTPUT -d 50.43.121.69 -j ACCEPT",
+		"iptables -A OUTPUT -d 172.27.2.209 -j ACCEPT",
+		"iptables -A OUTPUT -d 172.27.2.210 -j ACCEPT",
 		"iptables -A OUTPUT -j DROP",
 	);
 	my $Secure = 0;

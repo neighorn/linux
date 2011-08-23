@@ -62,8 +62,8 @@ panic() {
 	    iptables -t mangle -P OUTPUT DROP && \
 	    iptables -A INPUT -i lo0 -j ACCEPT && \
 	    iptables -A OUTPUT -o lo0 -j ACCEPT && \
-	    iptables -A INPUT -s 71.245.97.115  -p tcp --destination-port 22 -j ACCEPT && \
-	    iptables -A INPUT -s 71.245.97.116  -p tcp --destination-port 22 -j ACCEPT && \
+	    iptables -A INPUT -s 50.43.121.70  -p tcp --destination-port 22 -j ACCEPT && \
+	    iptables -A INPUT -s 50.43.121.69  -p tcp --destination-port 22 -j ACCEPT && \
 	    success "Changing target policies to DROP" || \
 	    failure "Changing target policies to DROP"
 	echo

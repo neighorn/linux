@@ -54,7 +54,7 @@ close(IPTABLE);
 open(SYSLOG,"| /usr/local/bin/ir -lt $Prog") || die("Unable to open ir.");
 select SYSLOG; $| = 1; select STDOUT;
 
-$BannedIPs{"71.245.97.54"} = 1;  # Nessus testing address.
+$BannedIPs{"50.43.121.68"} = 1;  # Nessus testing address.
 
 open(INSYSLOG,
 	"grep 'kernel: Reject:' /var/log/syslog;tail -f /var/log/syslog |") 
