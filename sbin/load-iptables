@@ -107,16 +107,12 @@ if ($Errors) {
 		"iptables -A INPUT -s 50.43.121.69 -p icmp -j ACCEPT",
 		"iptables -A INPUT -s 50.43.121.70 -p tcp --dport 22 -j ACCEPT",
 		"iptables -A INPUT -s 50.43.121.69 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 172.27.2.1 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 172.27.2.1 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 172.27.2.209 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 172.27.2.210 -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -s 192.168.120.0/24 -p tcp --dport 22 -j ACCEPT",
 		"iptables -A INPUT -j DROP",
 		"iptables -A OUTPUT -o lo -j ACCEPT",
 		"iptables -A OUTPUT -d 50.43.121.70 -j ACCEPT",
 		"iptables -A OUTPUT -d 50.43.121.69 -j ACCEPT",
-		"iptables -A OUTPUT -d 172.27.2.209 -j ACCEPT",
-		"iptables -A OUTPUT -d 172.27.2.210 -j ACCEPT",
+		"iptables -A INPUT -s 192.168.120.0/24 -p tcp --dport 22 -j ACCEPT",
 		"iptables -A OUTPUT -j DROP",
 	);
 	my $Secure = 0;
