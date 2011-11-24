@@ -41,8 +41,16 @@ system("ifrename") if (-e "/etc/mactab");
 if (!$Errors) {
 	while (<$FH>) {
 		$Line++;		# Increment the line counter
-		next if (/^ *#/);	# Skip comments
+		if (/^ *#/) {
+			# Comment.  Display if in verbose mode, then skip.
+			printf "%-8s Comment line @  %3d: %s",
+				strftime("%H:%M:%S",localtime()),$Line,$_
+					if ($opt_v);
+			next;
+		}
 		next if (/^ *$/);	# Skip blank lines
+		s/[^\\]#.*$//;		# Strip trailing comments.
+		s/\\#/#/g;		# Convert escaped # to regular #.
 		print strftime("%H:%M:%S Processing line $Line: $_",localtime()) if ($opt_v);
 		if (/^\s*verify\s/i) {
 			# Verify interfaces are assigned right.
