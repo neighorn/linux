@@ -18,6 +18,7 @@ use lib '/usr/local/lib/perl5/site_perl';
 use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
+use File::Find;
 use feature 'switch';
 
 # Initialize variables.
@@ -42,6 +43,8 @@ our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
+our $StartTime = time();		# Program start time.
+$ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
 # Make sure we're root.
 if ($> != 0) {
@@ -103,7 +106,18 @@ die("Excess command line parameters starting with $Parms[1].  See \"$Prog -h\" f
 	if (@Parms > 1);
 
 my $Network=uc($Parms[0]);
-
+if ($Network =~ /^none$/i) {
+	my $FH;
+	open($FH,'/proc/net/dev');
+	$opt_v=1;
+	foreach (<$FH>) {
+		next unless (/^\s*([a-zA-Z0-9]+):/);
+		next if (/^\s*lo\d*:/);
+		RunDangerousCmd("ifconfig $1 down");
+	}
+	RunDangerousCmd("rfkill block wifi");
+	exit 0;
+}
 
 die qq<"$Network" not found in $ConfigFile\n> unless ($Config{$Network});
 
@@ -113,8 +127,10 @@ my $ifconfigParms='';
 my $rfkillParms='';
 my $RunDHClient='no';
 my $gw='';
+my @PostCommands;
 
 foreach (parse_line('\s+',0,$Config{$Network})) {
+	next unless ($_);
 	my ($item,$parm)=split(/=/,$_,2);
 	given ($item)  {
 		when (/^ipaddr(ess)?$/) {
@@ -135,6 +151,9 @@ foreach (parse_line('\s+',0,$Config{$Network})) {
 		when (/^(rfkill)$/) {
 			$rfkillParms.="$parm ";
 		}
+		when (/^(post)$/) {
+			push @PostCommands, $parm;
+		}
 		default {
 			warn "Unknown parameter: $_"
 		}
@@ -153,19 +172,28 @@ if ($Status == 0 && $iwconfigParms) {
 	$Status=RunDangerousCmd("iwconfig $Interface $iwconfigParms");
 }
 if ($Status == 0 && $RunDHClient =~ /^y.*/) {
-	$Status=RunDangerousCmd("dhclient $Interface &");
+	$Status=RunDangerousCmd("dhclient -v $Interface");
 }
 if ($Status == 0 && $gw) {
 	RunDangerousCmd("route delete default 2> /dev/null");
 	$Status=RunDangerousCmd("route add default gw $gw");
 }
+# Patch around dhcp not setting a default route.
+if ($RunDHClient =~ /^y/) {
+	# See if we have a default route.
+	system("grep -q '^${Interface}[ 	]*00000000[ 	]' /proc/net/route");
+	print "debug: $? $!\n";
+	if ($? != 0) {
+		# No default route set.  See if we can find one.
+		find(\&FoundFile, ("/var/run/netconfig/$Interface"));
+	}
+}
+		
+foreach (@PostCommands) {
+	$Status = RunDangerousCmd($_) unless ($Status);
+}
 
 die "Unable to configure $Interface: $!\n" if ($Status);
-
-
-
-
-
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
@@ -175,6 +203,38 @@ if ($ExitCode) {
 
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
+
+#
+# FoundFile - process a found file or directory.
+#
+sub FoundFile {
+
+	our $FoundIt=0;
+	my $name = $File::Find::name;
+	# Skip non-files, old files
+	return unless (
+		! $FoundIt
+		&& -f $name
+		&& (lstat($name))[9] > $StartTime
+		);
+	my $FH;
+	if (open($FH,'<',$name)) {
+		while (<$FH>) {
+			chomp;
+			#GATEWAYS='172.16.0.1'
+			if (/^GATEWAYS='(\d+\.\d+\.\d+\.\d+)'$/) {
+				RunDangerousCmd("route add default gw $1");
+				$FoundIt=1;
+				last;
+			}
+		}
+		close $FH;
+	}
+	else {
+		warn "Unable to open $name: $!";
+	}
+}
+
 
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
@@ -277,6 +337,10 @@ __END__
 # The following are normal messages we don't need to see.
 #
 IGNORE  /^\s*$/
+IGNORE	^"\s*Internet Systems Consortium DHCP Client 4.1-ESV-R1$"
+IGNORE	^"\s*Copyright 2004-2011 Internet Systems Consortium.$"
+IGNORE	^"\s*All rights reserved.$"
+IGNORE	^"\s*For info, please visit https://www.isc.org/software/dhcp/$"
 #
 # These are normal messages that we want to see in the e-mail log only.
 #

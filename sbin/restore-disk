@@ -48,7 +48,7 @@ set +xv		# Don't trace the background process.
 
 # Get the process ID of the dd process.
 sleep 60	# Give dd time to start.
-PID=`ps --no-heading -o pid,cmd -e | grep 'dd if' | grep -v grep | awk '{print $1}' | tail -1`
+PID=`ps --no-heading -o pid,cmd -e | grep 'dd of=' | grep -v grep | awk '{print $1}' | tail -1`
 
 # Run as a separate process.  Show amount processed every 5 minutes.
 ((Count=1))
