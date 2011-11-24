@@ -114,6 +114,7 @@ RunDangerousCmd("rm -rf $BaseDir/*.bad")
 #
 # Keep the most recent $opt_C back-ups.
 #
+$opt_C++ if (-d $OutputDir);	# Don't count dir that will be overwritten.
 if (open($FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
         my $Count=0;
 	while (<$FHLS>) {
@@ -145,7 +146,7 @@ if (open($FHMOUNT,'mount |')) {
 		chomp;
 
 		# Skip transient file systems based on type.
-		next if (/type (binfmt_misc|debugfs|devpts|fusectl|none|proc|securityfs|subfs|sysfs|sysfs|tmpfs|usbfs)/);
+		next if (/type (binfmt_misc|debugfs|devpts|devtmpfs|fusectl|none|proc|securityfs|subfs|sysfs|sysfs|tmpfs|usbfs)/);
 
 
 		# Skip anything under /mnt as being temporary.
