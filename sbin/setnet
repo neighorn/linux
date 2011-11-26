@@ -34,6 +34,7 @@ our $ConfigFile;			# Name of configuration file.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
+our $FoundRoute=0;			# Did we find a default route?
 #
 our $opt_h;				# -h (help) option.
 our $opt_e;				# -e (error mail) option.
@@ -172,20 +173,23 @@ if ($Status == 0 && $iwconfigParms) {
 	$Status=RunDangerousCmd("iwconfig $Interface $iwconfigParms");
 }
 if ($Status == 0 && $RunDHClient =~ /^y.*/) {
-	$Status=RunDangerousCmd("dhclient -v $Interface");
+	$Status=RunDangerousCmd("dhclient " . ($opt_v?'-v ':'') . "$Interface");
+	my $IPAddr=`ifconfig $Interface`;
+	$IPAddr =~ s/^.*inet addr:\s*(\d+\.\d+\.\d+\.\d+)\s.*$/$1/s;
+	print "DHCP assigned IP address $IPAddr\n" if ($IPAddr);
 }
 if ($Status == 0 && $gw) {
-	RunDangerousCmd("route delete default 2> /dev/null");
+	RunDangerousCmd("route delete default > /dev/null 2>&1");
 	$Status=RunDangerousCmd("route add default gw $gw");
 }
 # Patch around dhcp not setting a default route.
 if ($RunDHClient =~ /^y/) {
 	# See if we have a default route.
 	system("grep -q '^${Interface}[ 	]*00000000[ 	]' /proc/net/route");
-	print "debug: $? $!\n";
 	if ($? != 0) {
 		# No default route set.  See if we can find one.
 		find(\&FoundFile, ("/var/run/netconfig/$Interface"));
+		warn "Unable to determine default route" unless $FoundRoute;
 	}
 }
 		
@@ -209,11 +213,10 @@ exit($ExitCode);
 #
 sub FoundFile {
 
-	our $FoundIt=0;
 	my $name = $File::Find::name;
 	# Skip non-files, old files
 	return unless (
-		! $FoundIt
+		! $FoundRoute
 		&& -f $name
 		&& (lstat($name))[9] > $StartTime
 		);
@@ -224,7 +227,7 @@ sub FoundFile {
 			#GATEWAYS='172.16.0.1'
 			if (/^GATEWAYS='(\d+\.\d+\.\d+\.\d+)'$/) {
 				RunDangerousCmd("route add default gw $1");
-				$FoundIt=1;
+				$FoundRoute=1;
 				last;
 			}
 		}
