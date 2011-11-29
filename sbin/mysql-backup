@@ -101,13 +101,16 @@ LogOutput({
 });
 
 # Build the backup file name.
+my $DeletePattern;
 $opt_o .= "/%Y-%m-%d.sql" if (-d $opt_o);	# Add file name if this is a directory.
+$DeletePattern = basename($opt_o);		# Get the file name portion.
+$DeletePattern =~ s/%./*/g;		# Convert substitution values to *
 $opt_o=strftime($opt_o,localtime());		# Interp time vars (ours and theirs).
 my $OutDir=dirname($opt_o);
 
 # Next, delete any back-ups over $opt_r days old.  Presumably the nightly backups
 # or at least the weekly back-ups have captured them.
-RunDangerousCmd("find $OutDir -prune -type f -mtime +$opt_r -exec echo Deleting {} \\; -delete");
+RunDangerousCmd("find $OutDir -type f -name '$DeletePattern' -mtime +$opt_r -exec echo Deleting {} \\; -delete");
 
 # Now back up all our databases.
 RunDangerousCmd("mysqldump -u $opt_U --opt --all-databases --add-drop-database --add-drop-table --allow-keywords --quote-names -r $opt_o");
