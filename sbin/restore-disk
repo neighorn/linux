@@ -78,9 +78,7 @@ fi
 ((ExitCode=0))
 while [[ $# > 0 ]]
 do
-	set -xv
 	StatusReport $$ &		# Start the status report in bkgd.
-	set +xv
 	restore $1 $2
 	((Status = $?))
 	[[ $ExitCode < $Status ]] && ((ExitCode=$Status))

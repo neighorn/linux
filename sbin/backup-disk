@@ -1,6 +1,8 @@
 function DD {
 
+	set -v
 	dd $*
+	set +v
 	((Status = $?))
 	((OldStatus=0))
 	[[ -f $TmpFile ]] && ((OldStatus=`cat $TmpFile`))
@@ -14,10 +16,11 @@ function CopyDisk {
 	echo "Copying $SourceDisk to $DiskImageFile"
 	date
 	((MaxRC = 0))
-	set -v
         # Document partition layouts
+	set -v
 	sfdisk -l $BaseDisk > $DiskPartitionMap
 	sfdisk -d $BaseDisk > $SFDiskPartitionMap
+	set +v
 	# Launch the background status monitoring process.
 	StatusReport $$ &
 	# OK, launch the copy.
@@ -59,7 +62,7 @@ do
             echo "Error: Unable to identify base disk for sector0 and partition map of $2" >&2
             exit 8
         fi
-	hdparm -d $BaseDisk | grep -q off
+	hdparm -d $BaseDisk 2> /dev/null | grep -q off
 	if [[ $? -eq -0 ]]
 	then
 		echo "Turning on dma for $BaseDisk"
@@ -138,9 +141,10 @@ TargetDir="${TargetDir%/}/$SystemName"
 
 echo "Comment? "
 read Comment
-
+echo debug: \$*=%$*%
 for Disk in $*
 do
+	echo debug: Disk=$Disk
 	# Run the back-up.
 	RunBackup $SystemName $Disk 2>&1
 done |
