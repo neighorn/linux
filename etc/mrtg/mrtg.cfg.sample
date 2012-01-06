@@ -19,7 +19,7 @@ WorkDir: /usr/local/etc/apache2/pages/mrtg
 EnableIPv6:	no
 Refresh:	300
 Options[_]: growright
-Target[eth0]: 2:xxx@127.0.0.1:
+Target[eth0]: \eth0:xxx@127.0.0.1:
 SetEnv[eth0]: MRTG_INT_IP="---.---.---.---" MRTG_INT_DESCR="eth0"
 MaxBytes[eth0]: 12500000
 Title[eth0]: eth0 Traffic Analysis
