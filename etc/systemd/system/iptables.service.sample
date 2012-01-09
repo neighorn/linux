@@ -1,0 +1,12 @@
+[Unit]
+Description=IPTables configuration
+After=multiuser.target
+
+[Service]
+ExecStart=/usr/local/sbin/load-iptables
+Type=simple
+RemainAfterExit=true
+ExecStop=sh "for name in INPUT OUTPUT FORWARD;do;iptables -P $name DENY && iptables -F $name;done"
+
+[Install]
+WantedBy=network.target
