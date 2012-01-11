@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 #
-# Copyright (c) 2005,2009, Martin Consulting Services, Inc.
+# Copyright (c) 2005,2009,2011 Martin Consulting Services, Inc.
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -25,7 +25,8 @@ our $Errors=0;				# No errors so far.
 our $Syslog='';				# Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
-our $ConfigFile="$BaseDir/../etc/${Prog}.cfg";     # Name of config file.
+our $ConfigFile="$BaseDir";		# Deterimine the name of our config file.
+$ConfigFile =~ s"/.[^/]*$"/etc/${Prog}.cfg";# 	Ditto.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.

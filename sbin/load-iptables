@@ -41,8 +41,16 @@ system("ifrename") if (-e "/etc/mactab");
 if (!$Errors) {
 	while (<$FH>) {
 		$Line++;		# Increment the line counter
-		next if (/^ *#/);	# Skip comments
+		if (/^ *#/) {
+			# Comment.  Display if in verbose mode, then skip.
+			printf "%-8s Comment line @  %3d: %s",
+				strftime("%H:%M:%S",localtime()),$Line,$_
+					if ($opt_v);
+			next;
+		}
 		next if (/^ *$/);	# Skip blank lines
+		s/[^\\]#.*$//;		# Strip trailing comments.
+		s/\\#/#/g;		# Convert escaped # to regular #.
 		print strftime("%H:%M:%S Processing line $Line: $_",localtime()) if ($opt_v);
 		if (/^\s*verify\s/i) {
 			# Verify interfaces are assigned right.
@@ -107,16 +115,12 @@ if ($Errors) {
 		"iptables -A INPUT -s 50.43.121.69 -p icmp -j ACCEPT",
 		"iptables -A INPUT -s 50.43.121.70 -p tcp --dport 22 -j ACCEPT",
 		"iptables -A INPUT -s 50.43.121.69 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 172.27.2.1 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 172.27.2.1 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 172.27.2.209 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 172.27.2.210 -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -s 192.168.120.0/24 -p tcp --dport 22 -j ACCEPT",
 		"iptables -A INPUT -j DROP",
 		"iptables -A OUTPUT -o lo -j ACCEPT",
 		"iptables -A OUTPUT -d 50.43.121.70 -j ACCEPT",
 		"iptables -A OUTPUT -d 50.43.121.69 -j ACCEPT",
-		"iptables -A OUTPUT -d 172.27.2.209 -j ACCEPT",
-		"iptables -A OUTPUT -d 172.27.2.210 -j ACCEPT",
+		"iptables -A INPUT -s 192.168.120.0/24 -p tcp --dport 22 -j ACCEPT",
 		"iptables -A OUTPUT -j DROP",
 	);
 	my $Secure = 0;

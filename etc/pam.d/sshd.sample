@@ -2,6 +2,7 @@
 auth	 requisite	pam_nologin.so
 auth     include        common-auth
 account  required	pam_access.so	# Restrict access to accounts.
+#account required       pam_succeed_if.so user ingroup unixuser
 account  include        common-account
 password include        common-password
 session	 required	pam_loginuid.so
