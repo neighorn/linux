@@ -45,6 +45,7 @@ our $opt_C;				# -C (config) alternate config file.
 our $opt_h;				# -h (help) option.
 our $opt_H;				# -H (hostname) option.
 our $opt_e;				# -e (error mail) option.
+our @opt_L;				# -L (library) path to *.service files
 our $opt_m;				# -m (mail) option.
 our $opt_p;				# -p (pager mail) option.
 our $opt_P;				# -P (pager error mail) option.
@@ -62,7 +63,7 @@ $ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='c=s C=s e=l h H=s m=l O=s p=l P=l t v';
+my $OptSpec='c=s C=s e=l h H=s L=l m=l O=s p=l P=l t v';
 
 # Make a first pass through the args to see if -C is specified.
 $opt_C = $ConfigFile;			# Set the default.
@@ -95,6 +96,10 @@ if (-e $opt_C) {
 	}
 }
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+@opt_L = (
+	'/usr/local/lib/systemd',
+	'/lib/systemd',
+) unless (@opt_L);
 
 # Process the config file defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
@@ -279,11 +284,11 @@ foreach my $MACAddr (sort(keys(%Interfaces))) {
 #
 foreach (sort(keys(%Services))) {
 	if (CheckCond($Services{$_}{line},$opt_H,$Services{$_}{conditional})) {
-		my $Status = RunDangerousCmd("chkconfig -s $_ on");
+		SetService($_,'on');
 		#$ExitCode = ($Status != 0?8:$ExitCode);
 	}
 	else {
-		my $Status = RunDangerousCmd("chkconfig -s $_ off");
+		SetService($_,'off');
 		#$ExitCode = ($Status != 0?8:$ExitCode);
 	}
 }
@@ -460,6 +465,36 @@ sub EvaluateConditionalSub {
 }
 
 
+
+#
+# SetService - set a service on or off
+#
+sub SetService {
+	my($Service,$State) = @_;
+	$State=lc($State);
+	print "Setting service $Service $State\n" if ($opt_v or $opt_t);
+	my $SystemdFile = '';
+	foreach (@opt_L) {
+		print "\tChecking for $_/$Service.service\n" if ($opt_v > 1 or $opt_t > 1);
+		if (-f "$_/$Service.service") {
+			$SystemdFile = "$_/$Service.service";
+			print "\tFound $SystemdFile\n" if ($opt_v > 1 or $opt_t > 1);
+			last;
+		}
+	}
+	my $InitFile = "/etc/init.d/$Service";
+	if ($SystemdFile && -f $SystemdFile) {
+		RunDangerousCmd("systemctl --system " . ($State eq 'on'?'enable':'disable') . " $Service.service");
+	}
+	elsif (-f $InitFile) {
+		RunDangerousCmd("chkconfig -s $Service $State");
+	}
+	else {
+		warn("Unable to set service $Service $State: unable to locate $SystemdFile or $InitFile");
+	}
+}
+
+
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
 #
@@ -504,7 +539,7 @@ sub opt_h {
 
 =head3 Usage:  
 	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
-	      [-C config] [-c condition]
+	      [-C config] [-c condition] [-L path]
 
 	$Prog -h
 
@@ -517,6 +552,9 @@ sub opt_h {
 			(/usr/local/etc/hostcfg.cfg).
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
+	-L path:	Library: path to the library of *.service files.  This
+			parameter may be repeated to list multiple paths. The
+			default paths are: /usr/local/lib/systemd, /lib/systemd.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
@@ -526,10 +564,9 @@ sub opt_h {
 			$ConfigFile.
 			the command line at this point.
 	-t	:	Test: echo commands instead of running them.  May be
-			repeated to list summary condition results (-tt)
-			or detailed condition results (-ttt).
+			repeated (-tt, -ttt) to increase verbosity.
 	-v	:	Verbose: echo commands before running them.  May be
-			repeated to list summary condition results (-vv)
+			repeated (-vv, -vvv) to increase verbosity.
 			or detailed condition results (-vvv).
 	-h      :       Help: display this panel
 
@@ -608,6 +645,7 @@ SHOW    "^\s*Job ended normally with status 0 and signal 0$"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
+SHOW	"^\s*Setting service"
 SHOW	"^\s*insserv:"
 SHOW	"^\s*/sbin/insserv"
 SHOW	"^\s*\S+ (has|does not have) attribute"
