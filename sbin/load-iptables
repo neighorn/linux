@@ -1,36 +1,68 @@
 #! /usr/bin/perl
 #
 # Load IPTables - because I could never get iptables-restore to work.
+#	Attempts to load rules from:
+#		1) /usr/local/etc/iptables.$hostname
+#	   else 2) /usr/local/etc/iptables.dat
+#          else 3) Hard-coded emergency rules (port 22 and 2022 only)
+#          else 4) Shut down all interfaces
 #
 
 use strict;
 use warnings;
 use Sys::Hostname;
 use POSIX qw(strftime);
+use Sys::Syslog;
 
-require "getopts.pl";
+my $opt_q = 0;
+my $opt_v = 0;
+my $hostname = hostname;
+my @InputFiles = (
+	"/usr/local/etc/iptables.$hostname",
+	'/usr/local/etc/iptables.dat',
+);
 
-our $opt_q;
-our $opt_v = 0;
-
-Getopts("qv");
+# Crude command-line parsing.  Don't want to depend on too many 
+# modules, and don't need much.
+foreach my $arg (@ARGV) {
+	if ($arg =~ /^-(.*)$/) {
+		$arg = $1;	# It's an option.  Strip dash.
+	}
+	else {
+		warn qq(Unexpected parameter "$arg" -- ignored.\n);
+		next;
+	}
+	while ($arg =~ /^(.)(.*)$/) {
+		$arg = "$2";	#Put rest back for more processing.
+		if ($1 eq 'q') {
+			$opt_q++;
+		}
+		elsif ($1 eq 'v') {
+			$opt_v++;
+		}
+		else {
+			warn qq(Unknown option "$1" -- ignored\n);
+		}
+	}
+}
 
 my $Errors=0;
+openlog("load-iptables","nofatal,pid","user");
 
-my $hostname = hostname;
 my $FH;
-if (-f "/usr/local/etc/iptables.$hostname") {
-        open($FH,"/usr/local/etc/iptables.$hostname") ||
-                die("Unable to open /usr/local/etc/iptables.$hostname : $!");
-        print "Loading iptables.$hostname\n" unless ($opt_q);
+foreach my $name (@InputFiles) {
+	if (-f $name) {
+        	if (open($FH,'<',$name)) {
+			syslog("info","Loading $name");
+        		print "Loading $name\n" unless ($opt_q);
+			last;
+		}
+			my $error = $!;
+                	Error("Unable to open $name : $error");
+		}
 }
-elsif (-f "/usr/local/etc/iptables.dat") {
-        open($FH,"/usr/local/etc/iptables.dat") ||
-                die("Unable to open /usr/local/etc/iptables.dat : $!");
-        print "Loading iptables.dat\n" unless ($opt_q);
-}
-else {
-        warn "Unable to find iptables.$hostname or iptables.dat";
+if (!defined($FH)) {
+	Error('No configuration file found.  No tables loaded.');
 	$Errors++;
 }
 
@@ -83,11 +115,11 @@ if (!$Errors) {
 		} elsif (/^\s*ifhost\s+(\S+)\s+(.*)$/i) {
 			# Only run this on particular hosts.
 			if ($hostname eq $1 and system($2)) {
-				print STDERR "\tError detected on line $Line\n";
+				Error("\tError detected on line $Line");
 				$Errors++;
 			}
 		} elsif (system($_)) {
-			print STDERR "\tError detected on line $Line\n";
+			Error("\tError detected on line $Line");
 			$Errors++;
 		}
 	}
@@ -96,32 +128,24 @@ if (!$Errors) {
 
 if ($Errors) {
 	# Errors detected.
-	warn "\n\t$Errors errors detected.  Going into lockdown mode.\n";
+	Error("$Errors errors detected.  Going into lockdown mode.");
 
 	#
 	# Go into lockdown mode.
 	#
 	my @LockDownCmds = (
 		"iptables -P INPUT DROP",
-		"iptables -P OUTPUT DROP",
+		"iptables -P OUTPUT ACCEPT",
 		"iptables -P FORWARD DROP",
 		"iptables -F",
 		"--SECURE--",
 		"iptables -A INPUT       -p udp -m state --state ESTABLISHED,RELATED -j ACCEPT",
 		"iptables -A INPUT       -p tcp -m state --state ESTABLISHED,RELATED -j ACCEPT",
-		"iptables -A INPUT       -p icmp -m state --state ESTABLISHED,RELATED -j ACCEPT",
 		"iptables -A INPUT -i lo -j ACCEPT",
-		"iptables -A INPUT -s 50.43.121.70 -p icmp -j ACCEPT",
-		"iptables -A INPUT -s 50.43.121.69 -p icmp -j ACCEPT",
-		"iptables -A INPUT -s 50.43.121.70 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 50.43.121.69 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A INPUT -s 192.168.120.0/24 -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -p tcp --dport 22 -j ACCEPT",
+		"iptables -A INPUT -p tcp --dport 2022 -j ACCEPT",
 		"iptables -A INPUT -j DROP",
-		"iptables -A OUTPUT -o lo -j ACCEPT",
-		"iptables -A OUTPUT -d 50.43.121.70 -j ACCEPT",
-		"iptables -A OUTPUT -d 50.43.121.69 -j ACCEPT",
-		"iptables -A INPUT -s 192.168.120.0/24 -p tcp --dport 22 -j ACCEPT",
-		"iptables -A OUTPUT -j DROP",
+		"iptables -A FORWARD -j DROP",
 	);
 	my $Secure = 0;
 	foreach (@LockDownCmds) {
@@ -136,12 +160,12 @@ if ($Errors) {
 			my $Status = system($_);
 			if ($Status) {
 				# Command failed.  If secure just warn.
-				warn "Command '$_' failed with status $Status: $!\n";
+				Error("Command '$_' failed with status $Status: $!");
 				if ($Secure) {
 					# Secure.  Just warn.
 				} else {
 					# Critical cmd failed.  Go to superlockdown.
-					warn "Going into super lockdown mode.\n";
+					Error("Going into super lockdown mode.");
 					foreach my $Count (0..99) {
 						system("ifconfig eth$Count down 2> /dev/null");
 						system("ifconfig tun$Count down 2> /dev/null");
@@ -159,6 +183,17 @@ if ($Errors) {
 } else {
 	# No errors detected.
 	if (! $opt_q) {print "\n\tNo errors detected.\n"};
+	syslog("info","Load complete.  No errors detected.");
 	exit(0);
 }
 exit $Errors;
+
+
+sub Error {
+	my $string = shift;
+	print STDERR "$string\n";
+	$string =~ s/%/%%/;
+	$string =~ s/^\s+//;
+	$string =~ s/\s+$//;
+	syslog('err',$string);
+}
