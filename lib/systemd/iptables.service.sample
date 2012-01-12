@@ -1,0 +1,16 @@
+[Unit]
+Description=iptables configuration (load-iptables)
+Before=network.target
+Before=psad.service
+Before=network.service
+
+[Service]
+ExecStart=/usr/local/sbin/load-iptables
+Type=oneshot
+RemainAfterExit=true
+ExecStop=/usr/bin/sh "for name in INPUT OUTPUT FORWARD;do;iptables -P $name DENY && iptables -F $name;done"
+
+[Install]
+WantedBy=network.target
+WantedBy=psad.service
+WantedBy=network.service

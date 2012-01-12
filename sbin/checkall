@@ -8,6 +8,9 @@ use IO::Socket;
 use File::Temp qw(tempfile);
 use POSIX qw(strftime);
 
+my $HIGHLIGHT = "\e[33;40m";
+my $RESET = "\e[0m";
+
 our $opt_v=0;		# Verbose option.
 our $opt_t=0;		# Test option.
 our $opt_q=0;		# Quiet option.
@@ -64,7 +67,12 @@ my $FH;
 if (open($FH,'<',$ServiceList)) {
 	while (<$FH>) {
 		next if (/^\s*#/);		# skip comments.
+		next if (/^\s*$/);		# skip blank lines.
 		chomp;
+		if (/^\s*heading:\s*(.*)\s*$/) {
+			printf "%-48.48s --\n",$1;
+			next;
+		}
 		my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$_);	# break out data elements.
 		$Desc=~s/^\s*(.*)\s*$/$1/;
 		$TargetList=~s/\s//g;
@@ -83,12 +91,12 @@ if (open($FH,'<',$ServiceList)) {
 			}
 			else {
 				# Connection is down.
-				printf "\t%s DOWN: $!\n", $Desc if ($opt_v);
+				printf "\t\t%s DOWN: $!\n", $Desc if ($opt_v);
 				close($socket) if ($socket);
 			}
 		}
 		if ($GroupOK) {
-			printf "%-40.40s OK\n", $Desc if (!$opt_q);
+			printf "\t%-40.40s OK\n", $Desc if (!$opt_q);
 			# Trigger up action if it was down before.
 			if ($DownItems{$Desc}) {
 				syslog('INFO','%s is now up',$Desc)
@@ -109,8 +117,7 @@ if (open($FH,'<',$ServiceList)) {
 		elsif ($DownItems{$Desc}) {
 			# Connection failed, but we have already reported it.
 			syslog('INFO','%s is still down',$Desc);
-				printf "\t%s still DOWN\n", $Desc
-				if (!$opt_q);
+			printf "\t\t$HIGHLIGHT%s still DOWN$RESET\n", $Desc if (!$opt_q);
 			push @StillDown, $Desc;
 		}
 		else {
@@ -120,7 +127,7 @@ if (open($FH,'<',$ServiceList)) {
 				$DownMessages.="\r\n\t$Desc";
 			}
 			else {
-				printf "%-40.40s\tDOWN\n", $Desc;
+				printf "\t\t$HIGHLIGHT%-40.40s\tDOWN$RESET\n", $Desc;
 			}
 			if ($DownAction) {
 				print "Triggering down-action for $Desc\n" if ($opt_v);
@@ -167,4 +174,12 @@ if (open (STATUS,"> $StatusFile")) {
 } else {
 	warn("Unable to update $StatusFile: $!\n");
 	$errors=1;
+}
+
+if (@NowDown+@StillDown > 0) {
+	printf "\n$HIGHLIGHT%d services down.$RESET\n",(@NowDown+@StillDown);
+	exit 8;
+}
+else {
+	exit 0;
 }

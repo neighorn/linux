@@ -1,5 +1,14 @@
 #! /bin/bash
 
+#
+# Start/stop/restart system services.
+# 
+#   This script provides a common interface for /etc/init.d and systemctl.
+#   It also adds or removes trailing 'd' (amavis vs amavisd) and .service from names
+#   as necessary.
+#
+#   The operation is determined from the script name (e.g. "stopsys" -> a stop operation).
+
 export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/usr/X11R6/bin:/root/bin
 
 if [[ $# -eq 0 ]]
@@ -8,16 +17,48 @@ then
 	exit 4
 fi
 
+# Are we root?
 if [[ `id -un` != root ]]
 then
+	# No.  Run it as root.
 	sudo "$0" "$@"
-	((ExitRC-$?))
-else
-	((ExitRC=0))
-	for name in $*
-	do
-		nameplus="${name}d"
-		nameminus=${name%d}
+	exit $?
+fi
+
+# We're root.  What mode (start/stop/restart) is requested?
+((ExitRC=0))
+mode=`basename $0 | sed 's/sys$//'`
+case $mode in
+	'start')	PrettyMode='Starting';;
+	'stop')		PrettyMode='Stopping';;
+	'restart')	PrettyMode='Restarting';;
+	*)
+		echo "Unrecognized mode $mode -- script is misnamed" 1>&2
+		exit 8
+		;;
+esac
+
+# Process each service.
+for name in $*
+do
+
+	# Handle inconsistent use of trailing 'd' on service names (amavis vs. amavisd).
+	name=${name%.service}		# Strip the suffix if present.
+	nameminus=${name%d}		# Strip of the d if there is one.
+	nameplus="${nameminus}d"	# Add a d for the other variation.
+	
+	# Figure out if this is a systemd service or an init.d service.
+	SystemdName=`which systemctl > /dev/null 2>&1 && systemctl list-units -a -t service | grep -E "($name|$nameminus|$nameplus).service " | head -1`
+	if [[ -n $SystemdName ]]
+	then
+		# It's a systemd service.
+		SystemdName=${SystemdName%% *}		# Strip descriptive data.
+		echo "$PrettyMode $SystemdName"
+		systemctl $mode $SystemdName
+		((Status=$?))
+		[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
+	else
+		# Assume it's an init.d service.
 		if [[ -e "/etc/init.d/$name" ]]
 		then
 			# No change required.
@@ -29,11 +70,11 @@ else
 		then
 			name=$nameplus
 		fi
-		echo "Starting $name..."
-		eval /etc/init.d/$name start
+		echo "$PrettyMode $name..."
+		eval /etc/init.d/$name $mode
 		((Status=$?))
 		[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
-	done
-fi
+	fi
+done
 
 exit $ExitRC

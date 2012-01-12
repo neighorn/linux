@@ -1,11 +1,10 @@
 [Unit]
 Description=Electronic Log Daemon (elogd)
-After=multiuser.target
+Before=multi-user.target
 
 [Service]
-ExecStart=/usr/sbin/psad
-Type=forking
+ExecStart=/usr/local/sbin/elogd -c /usr/local/elog/elogd.cfg
+Type=simple
 
 [Install]
 WantedBy=multi-user.target
-Requires=iptables.service

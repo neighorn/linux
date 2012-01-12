@@ -1,0 +1,10 @@
+[Unit]
+Description=Port Scan Attack Detector (psad)
+After=multiuser.target
+
+[Service]
+ExecStart=/usr/sbin/psad
+Type=forking
+
+[Install]
+WantedBy=multi-user.target
