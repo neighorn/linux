@@ -1,11 +1,11 @@
 [Unit]
 Description=ClamAV Antivirus Daemon (clamd)
-After=multi-user.target
+Before=multi-user.target
 
 [Service]
 ExecStart=/usr/local/sbin/clamd
 Type=forking
 
 [Install]
-WantedBy=amavisd.service, multi-user.target
-Requires=network.target
+WantedBy=amavis.service
+WantedBy=multi-user.target

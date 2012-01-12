@@ -1,5 +1,5 @@
 [Unit]
-Description=Electronic Log Daemon (elogd)
+Description=Port Scan Attack Detector (psad)
 After=multiuser.target
 
 [Service]
@@ -8,4 +8,3 @@ Type=forking
 
 [Install]
 WantedBy=multi-user.target
-Requires=iptables.service
