@@ -1,5 +1,14 @@
 #! /bin/bash
 
+#
+# Start/stop/restart system services.
+# 
+#   This script provides a common interface for /etc/init.d and systemctl.
+#   For init.d scripts, it adds or removes trailing 'd' names (amavis vs amavisd)
+#   as necessary.  For systemctl services, it appends ".service" if necessary.
+#
+#   The operation is determined from the script name (e.g. "stopsys" -> a stop operation).
+
 export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/usr/X11R6/bin:/root/bin
 
 if [[ $# -eq 0 ]]
@@ -14,25 +23,51 @@ then
 	((ExitRC-$?))
 else
 	((ExitRC=0))
+	mode=`basename $0 | sed 's/sys$//'`
+	case $mode in
+		'start')	PrettyMode='Starting';;
+		'stop')		PrettyMode='Stopping';;
+		'restart')	PrettyMode='Restarting';;
+		*)
+			echo "Unrecognized mode $mode -- script is misnamed" 1>&2
+			exit 8
+			;;
+	esac
 	for name in $*
 	do
-		nameplus="${name}d"
-		nameminus=${name%d}
-		if [[ -e "/etc/init.d/$name" ]]
+		if [[ $name = *.service ]]
 		then
-			# No change required.
-			:
-		elif [[ -e "/etc/init.d/$nameminus" ]]
-		then
-			name=$nameminus
-		elif [[ -e "/etc/init.d/$nameplus" ]]
-		then
-			name=$nameplus
+			SystemdName=$name
+		else
+			SystemdName="$name.service"
 		fi
-		echo "Starting $name..."
-		eval /etc/init.d/$name start
-		((Status=$?))
-		[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
+		if `systemctl list-units -a -t service | grep -q $SystemdName`
+		then
+			# It's a systemd service.
+			echo "$PrettyMode $SystemdName"
+			systemctl $mode $SystemdName
+			((Status=$?))
+			[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
+		else
+			# Assume it's an init.d service.
+			nameplus="${name}d"
+			nameminus=${name%d}
+			if [[ -e "/etc/init.d/$name" ]]
+			then
+				# No change required.
+				:
+			elif [[ -e "/etc/init.d/$nameminus" ]]
+			then
+				name=$nameminus
+			elif [[ -e "/etc/init.d/$nameplus" ]]
+			then
+				name=$nameplus
+			fi
+			echo "$PrettyMode $name..."
+			eval /etc/init.d/$name $mode
+			((Status=$?))
+			[[ $Status -gt $ExitRC ]] && ((ExitRC=Status))
+		fi
 	done
 fi
 
