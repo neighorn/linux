@@ -484,7 +484,7 @@ sub SetService {
 	}
 	my $InitFile = "/etc/init.d/$Service";
 	if ($SystemdFile && -f $SystemdFile) {
-		RunDangerousCmd("systemctl --system " . ($State eq 'on'?'enable':'disable') . " $Service.service");
+		RunDangerousCmd("systemctl --system " . ($State eq 'on'?'enable':'disable') . " $SystemdFile");
 	}
 	elsif (-f $InitFile) {
 		RunDangerousCmd("chkconfig -s $Service $State");
@@ -656,6 +656,7 @@ SHOW	"^\s*for "
 SHOW	"^\s*do"
 SHOW	"^\s*cp "
 SHOW	"^\s*sed "
+SHOW	"^\s*ln -s"
 SHOW	"^\s*rm "
 SHOW	"^\s*done"
 SHOW	"^\s*}"
