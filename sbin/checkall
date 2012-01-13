@@ -64,38 +64,80 @@ $Hours:$Minutes...";
 
 my $errors=0;
 my $FH;
+my @Lines;		# Input file line (minus comments).
+my @Statuses;		# Parallel array for @Lines. 1 = up, 0 = down.
+my %PIDs;		# Map PID to @Lines/@Statuses index.
+my $Services=0;		# Number of services we're checking.
 if (open($FH,'<',$ServiceList)) {
+	# Load the service file.
 	while (<$FH>) {
-		next if (/^\s*#/);		# skip comments.
-		next if (/^\s*$/);		# skip blank lines.
+		next if (/^\s*#/);			# Skip comments.
+		next if (/^\s*$/);			# Skip blank lines.
 		chomp;
-		if (/^\s*heading:\s*(.*)\s*$/) {
+		push @Lines,$_;				# Save this.
+	}
+
+	# Create child processes to check each service, so they run in parallel.
+	for my $index (0..$#Lines) {
+		next if ($Lines[$index] =~ /^\s*heading:\s*(.*)\s*$/);	# Ignore headings until we have statuses (stati?).
+		$Services++;
+
+		# Spin off a child process to check the status of this item.
+		my $pid = fork();
+		if ($pid) {
+			# We're the parent.  Remember the pid that goes with this line.
+			$PIDs{$pid} = $index;
+			next;
+		}
+		else {
+			# We're the child.  Go test this service.
+			my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$Lines[$index]);	# break out data elements.
+			$Desc=~s/^\s*(.*)\s*$/$1/;
+			$TargetList=~s/\s//g;
+			print "\n$$ Checking $Desc\n" if ($opt_v);
+			my $GroupOK=0;
+			my $socket;
+			foreach (split(/,/,$TargetList)) {
+				my($host,$port)=split(/:/);
+				# try to connect.
+				if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>20)) {
+					# Connected OK.
+					printf "\t%s:%d OK - %s\n", $host, $port, $Desc if ($opt_v);
+					close($socket);
+					$GroupOK=1;		# One of this target group worked.
+					last;			# Don't need to do any further checking.
+				}
+				else {
+					# Connection is down.
+					printf "\t\t%s DOWN: $!\n", $Desc if ($opt_v);
+					close($socket) if ($socket);
+				}
+			}
+			exit($GroupOK);		# Tell the parent whether it was up or down.
+		}
+	}
+
+	# Parent: all background processes submitted.  Wait for the results to come in.
+	my $pid;
+	$| = 1;
+	do {
+		print "Waiting for results on $Services service" . ($Services==1?'':'s') . "\r";
+		$pid = waitpid(-1,0);
+		$Statuses[$PIDs{$pid}] = $? if ($pid > 0);
+		$Services--;
+	} while $pid > 0;
+
+	# All results are in.  Run back through our report and list the results.
+	for my $index (0..$#Lines) {
+		if ($Lines[$index] =~ /^\s*heading:\s*(.*)\s*$/) {
+			# Print a heading line.
 			printf "%-48.48s --\n",$1;
 			next;
 		}
-		my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$_);	# break out data elements.
+		my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$Lines[$index]);	# break out data elements.
 		$Desc=~s/^\s*(.*)\s*$/$1/;
-		$TargetList=~s/\s//g;
-		print "\nChecking $Desc\n" if ($opt_v);
-		my $GroupOK=0;
-		my $socket;
-		foreach (split(/,/,$TargetList)) {
-			my($host,$port)=split(/:/);
-			# try to connect.
-			if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>20)) {
-				# Connected OK.
-				printf "\t%s:%d OK - %s\n", $host, $port, $Desc if ($opt_v);
-				close($socket);
-				$GroupOK=1;		# One of this target group worked.
-				last;		# Don't need to do any further checking.
-			}
-			else {
-				# Connection is down.
-				printf "\t\t%s DOWN: $!\n", $Desc if ($opt_v);
-				close($socket) if ($socket);
-			}
-		}
-		if ($GroupOK) {
+
+		if ($Statuses[$index]) {
 			printf "\t%-40.40s OK\n", $Desc if (!$opt_q);
 			# Trigger up action if it was down before.
 			if ($DownItems{$Desc}) {
