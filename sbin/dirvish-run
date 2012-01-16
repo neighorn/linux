@@ -256,8 +256,8 @@ sub FoundItem {
 	chomp;
 	($Links,$Size)=(lstat($Name))[3,7];
 	$TotalItems++;
-	$TotalSize+=$Size;
-	if ($Links eq 1) {
+	$TotalSize+=$Size if (defined($Size) && $Size != 0);
+	if (defined($Links) && $Links == 1) {
 		$NewItems++;
 		$NewSize+=$Size;
 	}
