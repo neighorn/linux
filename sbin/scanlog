@@ -8,6 +8,7 @@ use lib '/usr/local/lib/perl5/site_perl'; # Required to run via logrotate.
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
+use feature 'switch';
 
 use FindBin;
 
@@ -117,31 +118,29 @@ foreach (@Parms) {
 	push @Files, glob $_;
 }
 
-foreach (@Files) {
-	if (! -e $_) {
-		warn "$_ does not exist -- skipped\n";
+foreach my $File (@Files) {
+	if (! -e $File) {
+		warn "$File does not exist -- skipped\n";
+		next;
 	}
-	elsif (! -r $_) {
-		warn "$_ is not readable -- skipped\n";
+	elsif (! -r $File) {
+		warn "$File is not readable -- skipped\n";
+		next;
 	}
-	elsif (! -f $_) {
-		warn "$_ is not a regular file -- skipped\n";
+	elsif (! -f $File) {
+		warn "$File is not a regular file -- skipped\n";
+		next;
 	}
-	elsif (/.gz$/) {
-		my $Status =
-			RunDangerousCmd("zcat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
+	my $Unpack;
+	given ($File) {
+		when (/.xz$/)	{ $Unpack = 'xzcat'; }
+		when (/.bz2$/)	{ $Unpack = 'bunzip2 -c'; }
+		when (/.gz$/)	{ $Unpack = 'zcat'; }
+		default		{ $Unpack = 'cat'; }
+	}
+	my $Status =
+		RunDangerousCmd("$Unpack $File | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
 		$ExitCode = $Status if ($Status > $ExitCode);
-	}
-	elsif (/.bz2$/) {
-		my $Status =
-			RunDangerousCmd("bunzip2 -c $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
-		$ExitCode = $Status if ($Status > $ExitCode);
-	}
-	else {
-		my $Status =
-			RunDangerousCmd("cat $_ | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
-		$ExitCode = $Status if ($Status > $ExitCode);
-	}
 }
 
 if ($ExitCode) {
