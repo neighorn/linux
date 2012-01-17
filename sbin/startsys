@@ -11,6 +11,7 @@
 
 export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/usr/X11R6/bin:/root/bin
 
+
 if [[ $# -eq 0 ]]
 then
 	echo "usage: $0 name [...]" 1>&2
@@ -48,7 +49,20 @@ do
 	nameplus="${nameminus}d"	# Add a d for the other variation.
 	
 	# Figure out if this is a systemd service or an init.d service.
-	SystemdName=`which systemctl > /dev/null 2>&1 && systemctl list-units -a -t service | grep -E "($name|$nameminus|$nameplus).service " | head -1`
+	
+	SystemdName='';
+	for Dir in '/lib/systemd/system' '/etc/systemd/system'
+	do
+		for Name in "$name" "$nameminus" "$nameplus"
+		do
+			if [[ -f "$Dir/$Name.service" ]]
+			then
+				SystemdName="$Name.service"
+				break;
+			fi
+		done
+	done
+
 	if [[ -n $SystemdName ]]
 	then
 		# It's a systemd service.
