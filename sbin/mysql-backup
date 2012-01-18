@@ -114,7 +114,13 @@ RunDangerousCmd("find $OutDir -type f -name '$DeletePattern' -mtime +$opt_r -exe
 
 # Now back up all our databases.
 RunDangerousCmd("mysqldump -u $opt_U --opt --all-databases --add-drop-database --add-drop-table --allow-keywords --quote-names -r $opt_o");
-RunDangerousCmd("gzip $opt_o") if ($opt_z);
+if (-f $opt_o) {
+	print commify((stat($opt_o))[7]) . " bytes written to $opt_o\n";
+	RunDangerousCmd("gzip $opt_o") if ($opt_z);
+}
+else {
+	die "Unable to locate output file $opt_o";
+}
 
 exit(0);
 
@@ -166,6 +172,14 @@ sub untaint {
         }
 }
 
+
+#
+# commify - insert commas in numbers.
+sub commify {
+	local $_ = shift;
+	1 while s/^(-?\d+)(\d{3})/$1,$2/;
+	return $_;
+}
 
 
 #
@@ -285,6 +299,7 @@ SHOW	/^debug:/
 SHOW	/^test:/
 SHOW	/^Executing:/
 SHOW	"^\s*Deleting /usr/local/backup/database/"
+SHOW	"^[0-9,]{10,} bytes written to \S+$"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
