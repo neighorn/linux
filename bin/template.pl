@@ -136,7 +136,7 @@ sub opt_h {
 
 	my $Pagenater=$ENV{PAGENATER};
 	$Pagenater="more" unless ($Pagenater);
-	system("pod2text $RealScript | $Pagenater");
+	system("pod2text $RealBin/$RealScript | $Pagenater");
 	exit(1);
 }
 
