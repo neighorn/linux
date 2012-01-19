@@ -40,7 +40,7 @@ our $opt_M;				# -M (mode) option.
 our $opt_p;				# -p (pager mail) option.
 our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
-our $opt_v;				# -v (verbose) option.
+our $opt_v = 0;				# -v (verbose) option.
 #
 
 # Note: general purpose script - don't change current directory.
@@ -382,17 +382,18 @@ __END__
 IGNORE  /^\s*$/
 IGNORE	/^\s*Job failed/
 IGNORE	/^\s*Job ended normally/
+IGNORE	/^\s*Job ended on/
 IGNORE	/^\s*Unexpected messages/
 IGNORE	/^\s*redirecting to systemctl\s*$/
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
-LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
-LOGONLY /^Command: /
+IGNORE	"^\S+ started on \S+ on \d+/\d+/\d+"
+IGNORE	/^Command: /
 #
 # These are normal messages that we want to see.
 #
-SHOW    "^\s*Job ended normally with status 0 and signal 0$"
+SHOW	".*"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
