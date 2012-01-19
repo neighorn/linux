@@ -121,7 +121,7 @@ if (open($FH,'<',$ServiceList)) {
 	my $pid;
 	$| = 1;
 	do {
-		print "Waiting for results on $Services service" . ($Services==1?'':'s') . "\r";
+		print "Waiting for results on $Services service" . ($Services==1?'':'s') . "   \r";
 		$pid = waitpid(-1,0);
 		$Statuses[$PIDs{$pid}] = $? if ($pid > 0);
 		$Services--;
