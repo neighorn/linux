@@ -166,16 +166,16 @@ SERVICE: foreach my $Parm (@Parms) {
 	foreach my $Name (@SystemdNames) {
 		foreach my $Dir (@opt_L) {
 			my $FullName = "$Dir/$Name";
-			print "Checking $FullName..." if ($opt_v);
+			print "Checking $FullName..." if ($opt_v >= 2);
 			if (-f $FullName) {
-				print "........................found\n" if ($opt_v);
+				print "........................found\n" if ($opt_v >= 2);
 				print "$PrettyMode $Name\n";
 				my $Status = RunDangerousCmd("systemctl $opt_M $Name");
 				$Errors ++ if ($Status);
 				next SERVICE;
 			}
 			else {
-				print "\n";
+				print "\n" if ($opt_v >= 2);
 			}
 		}
 	}
@@ -184,16 +184,16 @@ SERVICE: foreach my $Parm (@Parms) {
 	foreach my $Index (0..$#TemplateFiles) {
 		foreach my $Dir (@opt_L) {
 			my $FullName = "$Dir/$TemplateFiles[$Index]";
-			print "Checking $FullName..." if ($opt_v);
+			print "Checking $FullName..." if ($opt_v >= 2);
 			if (-f $FullName) {
-				print "........................found\n" if ($opt_v);
+				print "........................found\n" if ($opt_v >= 2);
 				print "$PrettyMode $TemplateFiles[$Index]\n";
 				my $Status = RunDangerousCmd("systemctl $opt_M $TemplateServices[$Index]");
 				$Errors ++ if ($Status);
 				next SERVICE;
 			}
 			else {
-				print "\n";
+				print "\n" if ($opt_v >= 2);
 			}
 		}
 	}
@@ -201,16 +201,16 @@ SERVICE: foreach my $Parm (@Parms) {
 	# Not a template either.  Try SysV.
 	foreach my $Name (@SysVNames) {
 		my $FullName = "/etc/init.d/$Name";
-		print "Checking $FullName..." if ($opt_v);
+		print "Checking $FullName..." if ($opt_v >= 2);
 		if (-f $FullName) {
-			print "........................found\n" if ($opt_v);
+			print "........................found\n" if ($opt_v >= 2);
 			print "$PrettyMode $Name\n";
 			my $Status = RunDangerousCmd("$FullName $opt_M");
 			$Errors ++ if ($Status);
 			next SERVICE;
 		}
 		else {
-			print "\n";
+			print "\n" if ($opt_v >= 2);
 		}
 	}
 
@@ -308,6 +308,7 @@ sub opt_h {
 			the command line at this point.
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
+			May be repeated for more verbose output.
 	-h      :       Help: display this panel
 
 =head3 Parameters:
