@@ -153,7 +153,7 @@ SERVICE: foreach my $Parm (@Parms) {
 		# Looks like a template name.
 		my($Base,$Instance)=($1,$2);
 		# Queue the name as-is.
-		push @TemplateServices,$Parm;
+		push @TemplateServices,"$Parm.service";
 		push @TemplateFiles,$Base . '@.service';
 		# Now do the d variants.
 		foreach (D_Variants($Base)) {
@@ -183,12 +183,13 @@ SERVICE: foreach my $Parm (@Parms) {
 	# Nothing there.  Maybe it's a Systemd template.
 	foreach my $Index (0..$#TemplateFiles) {
 		foreach my $Dir (@opt_L) {
-			my $FullName = "$Dir/$TemplateFiles[$Index]";
-			print "Checking $FullName..." if ($opt_v >= 2);
-			if (-f $FullName) {
+			my $FullPath = "$Dir/$TemplateFiles[$Index]";
+			my $ServiceName = $TemplateServices[$Index];
+			print "Checking $FullPath ($ServiceName)..." if ($opt_v >= 2);
+			if (-f $FullPath) {
 				print "........................found\n" if ($opt_v >= 2);
-				print "$PrettyMode $TemplateFiles[$Index]\n";
-				my $Status = RunDangerousCmd("systemctl $opt_M $TemplateServices[$Index]");
+				print "$PrettyMode $ServiceName\n";
+				my $Status = RunDangerousCmd("systemctl $opt_M $ServiceName");
 				$Errors ++ if ($Status);
 				next SERVICE;
 			}
@@ -200,12 +201,12 @@ SERVICE: foreach my $Parm (@Parms) {
 
 	# Not a template either.  Try SysV.
 	foreach my $Name (@SysVNames) {
-		my $FullName = "/etc/init.d/$Name";
-		print "Checking $FullName..." if ($opt_v >= 2);
-		if (-f $FullName) {
+		my $FullPath = "/etc/init.d/$Name";
+		print "Checking $FullPath..." if ($opt_v >= 2);
+		if (-f $FullPath) {
 			print "........................found\n" if ($opt_v >= 2);
 			print "$PrettyMode $Name\n";
-			my $Status = RunDangerousCmd("$FullName $opt_M");
+			my $Status = RunDangerousCmd("$FullPath $opt_M");
 			$Errors ++ if ($Status);
 			next SERVICE;
 		}
