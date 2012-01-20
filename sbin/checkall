@@ -126,6 +126,7 @@ if (open($FH,'<',$ServiceList)) {
 		$Statuses[$PIDs{$pid}] = $? if ($pid > 0);
 		$Services--;
 	} while $pid > 0;
+	print ' 'x30 . "\r";		# Wipe out waiting message.
 
 	# All results are in.  Run back through our report and list the results.
 	for my $index (0..$#Lines) {
