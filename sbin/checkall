@@ -79,7 +79,7 @@ if (open($FH,'<',$ServiceList)) {
 
 	# Create child processes to check each service, so they run in parallel.
 	for my $index (0..$#Lines) {
-		next if ($Lines[$index] =~ /^\s*heading:\s*(.*)\s*$/);	# Ignore headings until we have statuses (stati?).
+		next if ($Lines[$index] =~ /^\s*head(ing|er)[:\s]\s*(.*)\s*$/);	# Ignore headings until we have statuses (stati?).
 		$Services++;
 
 		# Spin off a child process to check the status of this item.
@@ -130,9 +130,9 @@ if (open($FH,'<',$ServiceList)) {
 
 	# All results are in.  Run back through our report and list the results.
 	for my $index (0..$#Lines) {
-		if ($Lines[$index] =~ /^\s*heading:\s*(.*)\s*$/) {
+		if ($Lines[$index] =~ /^\s*head(ing|er)[:\s]\s*(.*)\s*$/) {
 			# Print a heading line.
-			printf "%-48.48s --\n",$1;
+			printf "%-48.48s --\n",$2;
 			next;
 		}
 		my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$Lines[$index]);	# break out data elements.
