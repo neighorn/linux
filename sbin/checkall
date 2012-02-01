@@ -72,7 +72,14 @@ my @Statuses;		# Parallel array for @Lines. 1 = up, 0 = down.
 my %PIDs;		# Map PID to @Lines/@Statuses index.
 my $Services=0;		# Number of services we're checking.
 
-LoadList($ServiceList,\@Lines);
+# If they didn't provide a list file, use the default.
+push @ARGV,$ServiceList unless (@ARGV+0 > 0);
+
+foreach (@ARGV) {
+	# Add a path and file name prefix if they didn't provide a name.
+	s"^"/usr/local/etc/checkall." unless (m"/");
+	LoadList($_,\@Lines);
+}
 
 if (@Lines+0 == 0) {
 	# Nothing to monitor.
