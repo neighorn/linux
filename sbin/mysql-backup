@@ -31,7 +31,7 @@ our $opt_h;				# Help flag.
 our $opt_l;				# Log file.
 our $opt_m;				# Mail addresses.
 our $opt_O;				# Option flag.
-our $opt_o="/usr/local/backup/database";
+our $opt_o="/usr/local/backup/mysql";
 our $opt_p;				# Normal page address.
 our $opt_P;				# Error page addresses.
 our $opt_r=7;				# Retention period.
@@ -299,7 +299,7 @@ SHOW	/^debug:/
 SHOW	/^test:/
 SHOW	/^Executing:/
 SHOW	"^\s*Deleting /usr/local/backup/database/"
-SHOW	"^[0-9,]{10,} bytes written to \S+$"
+SHOW	"^[0-9,]+ bytes written to \S+$"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
