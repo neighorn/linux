@@ -1,20 +1,22 @@
-# Target:port#		Description#	Down Action	#	Up Action
-www.ibm.com:80,www.tri-met.org:80,www.amazon.com:80)#External network
-frank:22,ben:22,office:139,julie:139#Internal network
-50.43.121.70:53#external named
-50.43.121.70:2022#external ssh
-frank:22#frank (asterisk)
-192.168.120.1:22#internal ssh
-localhost:25#postfix:25
-localhost:10025#postfix:10025
-localhost:10023#postgrey
-localhost:10024#amavis
-localhost:3310#clamd
-localhost:110#dovecot:pop3
-localhost:143#dovecot:imap
-localhost:993#dovecot:imaps
-localhost:995#dovecot:pop3s
-localhost:80#apache:80
-localhost:443#apache:443
-localhost:631#cups
-localhost:199#snmpd
+heading Basic networking
+TCPPort	Target=www.ibm.com:80,www.tri-met.org:80,www.amazon.com:80) Desc="External network"
+TCPPort	Target=alpha:22,beta:22,gamma:139 Desc="Internal network"
+
+heading External services
+TCPPort	Target=mail.example.com:25 Desc="external mail (25)"
+TCPPort	Target=www.example.com:80 Desc="external http (80)"
+TCPPort	Target=www.example.com:443 Desc="external https (443)"
+TCPPort	Target=mail.example.com:993 Desc="external IMAPS (993)"
+TCPPort	Target=vpn.example.com:2022 Desc="external ssh (2022)"
+
+heading Internal services
+TCPPort	Target=alpha:22 Desc="alpha (22)"
+TCPPort	Target=ssh.example.com:22 Desc="enternal ssh (22)"
+
+heading Cleo local services
+TCPPort	Target=localhost:25 Desc="postfix (25)"
+TCPPort	Target=localhost:80 Desc="apache (80)"
+TCPPort	Target=localhost:631 Desc="cups (631)"
+TCPPort	Target=localhost:199 Desc="snmpd (199)"
+TCPPort	Target=localhost:445 Desc="smb (445)"
+TCPPort	Target=dhcpserver:520 Desc="dhcpd (520)"

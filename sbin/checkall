@@ -1,6 +1,7 @@
 #! /usr/bin/perl
 
 use strict;
+no strict 'refs';
 use warnings;
 use Sys::Syslog;
 use Getopt::Std;
@@ -8,53 +9,48 @@ use IO::Socket;
 use File::Temp qw(tempfile);
 use POSIX qw(strftime);
 use Fcntl;
+use FindBin qw($RealBin $RealScript);
+#use CheckAll::CheckItem;
 
 my $HIGHLIGHT = "\e[33;40m";
 my $RESET = "\e[0m";
 
-our $opt_v=0;		# Verbose option.
-our $opt_t=0;		# Test option.
-our $opt_q=0;		# Quiet option.
-our $opt_P='';		# Who to page on errors.
-our $opt_s='';		# Alert subject
+our $opt_c='';			# Configuration file (service list).
+our $opt_v=0;			# Verbose option.
+our $opt_t=0;			# Test option.
+our $opt_q=0;			# Quiet option.
+our $opt_P='';			# Who to page on errors.
+our $opt_R=120;			# Set number of minutes to re-report down items.
+our $opt_s='';			# Alert subject
+our $Prog = $RealScript;	# Get our program name.
+$Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";		# Trim off path, if present.
+my @ItemList;			# List of item objects to check.
+my @NowDown;			# Newly down items.
+my @NowUp;			# Newly up items.
+my @StillDown;			# On-going down items.
+my %DownItems;			# List of items previously down.
+$| = 1;				# Unbuffer output.
+my $StartTime = time();
 
-my @NowDown;		# Newly down items.
-my @NowUp;		# Newly up items.
-my @StillDown;		# On-going down items.
-my %DownItems;		# List of items previously down.
-
-my $StatusFile="$ENV{HOME}/.checkall.dat";
-my $ServiceList="/usr/local/etc/checkall.list";
-my $RepeatThreshold=2;		# Set number of hours to re-report down items.
+my $StatusFile="$ENV{HOME}/.$Prog.dat";
+my $ServiceList="/usr/local/etc/$Prog.list";
 
 my $HostName = `hostname`;
 chomp $HostName;
 
-getopts('qv:P:s:');
+getopts('c:P:qR:s:v');
 
-if (!$opt_s) {
+# Check options.
+if ($opt_s) {
+	$opt_s =~ s/%C/$HostName/g;
+}
+else {
 	$opt_s = "$HostName alert";
 }
 
-openlog("checkall");
+openlog("$Prog");
 
-# Load table of items that have already been reported down.
-if (-f $StatusFile) {
-	if (sysopen(STATUS,$StatusFile,O_RDONLY)) {
-		# Load up any items that were previously down.
-		while (<STATUS>) {
-			my($Time,undef,$Desc)=split(/\s+/,$_,3);
-	    		$Desc=~s/^\s*(.*)\s*$/$1/;
-			if ($Time + $RepeatThreshold*60*60 > time()) {
-				$DownItems{$Desc}=$Time;
-			}
-		}
-		close STATUS;
-	}
-	else {
-		warn "Unable to open $StatusFile: $!\n";
-	}
-}
 
 my $DownMessages;
 if ($opt_q) {
@@ -66,134 +62,118 @@ $Hours:$Minutes...";
 }
 
 my $errors=0;
-my $FH;
-my @Lines;		# Input file line (minus comments).
-my @Statuses;		# Parallel array for @Lines. 1 = up, 0 = down.
-my %PIDs;		# Map PID to @Lines/@Statuses index.
-my $Services=0;		# Number of services we're checking.
+my %PIDs;		# Map PID to @ItemList.
+my %NameMap;		# Maps status names to @ItemList.
 
-# If they didn't provide a list file, use the default.
-push @ARGV,$ServiceList unless (@ARGV+0 > 0);
-
+# Prepare the list of files to process.
 foreach (@ARGV) {
-	# Add a path and file name prefix if they didn't provide a name.
-	s"^"/usr/local/etc/checkall." unless (m"/");
-	LoadList($_,\@Lines);
+	# Add a path and file name prefix to parameters (not -c).
+	s"^"/usr/local/etc/$Prog.";
+}
+push @ARGV,$opt_c if ($opt_c);	# Use opt_c for files in other locations.
+push @ARGV,$ServiceList unless (@ARGV+0 > 0);	# Use default if nothing else.
+foreach (@ARGV) {
+	LoadServiceList($_,\@ItemList,\%NameMap);	# Load this file.
 }
 
-if (@Lines+0 == 0) {
+if (@ItemList+0 == 0) {
 	# Nothing to monitor.
 	warn "No services found in $ServiceList to monitor.";
 	push @NowDown,"No services found to monitor";
 }
 
-# Create child processes to check each service, so they run in parallel.
-for my $index (0..$#Lines) {
-	next if ($Lines[$index] =~ /^\s*head(ing|er)[:\s]\s*(.*)\s*$/);	# Ignore headings until we have statuses (stati?).
-	$Services++;
+# Load any prior statuses.
+LoadPriorStatuses($StatusFile, \%NameMap);
 
-	# Spin off a child process to check the status of this item.
-	my $pid = fork();
-	if ($pid) {
-		# We're the parent.  Remember the pid that goes with this line.
-		$PIDs{$pid} = $index;
-		next;
+# Go check all these services.
+my $Services = @ItemList + 0;
+foreach my $Item (@ItemList) {
+	my $CheckResult = Check $Item;
+	my($Type,$Value) = ($CheckResult =~ m/^(\S+)=(\d+)$/);
+	
+	if ($Type eq 'Status') {		# 5.8 doesn't have switch.
+		# This one returned a status immediately.
+		$Item->Status($Value);
+		$Services--;			# Not waiting on this one.
 	}
-	else {
-		# We're the child.  Go test this service.
-		my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$Lines[$index]);	# break out data elements.
-		$Desc=~s/^\s*(.*)\s*$/$1/;
-		$TargetList=~s/\s//g;
-		print "\n$$ Checking $Desc\n" if ($opt_v);
-		my $GroupOK=0;
-		my $socket;
-		foreach (split(/,/,$TargetList)) {
-			my($host,$port)=split(/:/);
-			# try to connect.
-			if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>20)) {
-				# Connected OK.
-				printf "\t%s:%d OK - %s\n", $host, $port, $Desc if ($opt_v);
-				close($socket);
-				$GroupOK=1;		# One of this target group worked.
-				last;			# Don't need to do any further checking.
-			}
-			else {
-				# Connection is down.
-				printf "\t\t%s DOWN: $!\n", $Desc if ($opt_v);
-				close($socket) if ($socket);
-			}
-		}
-		exit($GroupOK);		# Tell the parent whether it was up or down.
+	elsif ($Type eq 'PIDList') {
+		# This one is running in the background.  Map the PID to the item.
+		$PIDs{$Value} = $Item;
+	}
+	else	{
+		# Somebody sent back a response we don't understand.
+		die qq[Unexpected response "$CheckResult" from $Item->{'Desc'}];
 	}
 }
 
-# Parent: all background processes submitted.  Wait for the results to come in.
+# All background processes submitted.  Wait for the results to come in.
 my $pid;
-$| = 1;
-do {
-	print "Waiting for results on $Services service" . ($Services==1?'':'s') . "   \r";
-	$pid = waitpid(-1,0);
-	$Statuses[$PIDs{$pid}] = $? if ($pid > 0);
-	$Services--;
-} while $pid > 0;
-print ' 'x30 . "\r";		# Wipe out waiting message.
+if ($Services) {
+	do {
+		print "Waiting for results on $Services service" . ($Services==1?'':'s') . "   \r";
+		$pid = waitpid(-1,0);
+		$PIDs{$pid}->Status($?) if ($pid > 0);
+		$Services--;
+	} while $pid > 0;
+	print ' 'x30 . "\r";		# Wipe out waiting message.
+}
 
 # All results are in.  Run back through our report and list the results.
-for my $index (0..$#Lines) {
-	if ($Lines[$index] =~ /^\s*head(ing|er)[:\s]\s*(.*)\s*$/) {
-		# Print a heading line.
-		printf "%-48.48s --\n",$2;
-		next;
-	}
-	my ($TargetList,$Desc,$DownAction,$UpAction,undef)=split(/#/,$Lines[$index]);	# break out data elements.
-	$Desc=~s/^\s*(.*)\s*$/$1/;
-
-	if ($Statuses[$index]) {
-		printf "\t%-40.40s OK\n", $Desc if (!$opt_q);
-		# Trigger up action if it was down before.
-		if ($DownItems{$Desc}) {
-			syslog('INFO','%s is now up',$Desc)
-				if ($^O !~ /MSWin/);
-			if ($UpAction) {
-				print "Triggering Up-action for $Desc\n" if ($opt_v);
-				$UpAction =~ s/%D/$Desc/g;
-				system($UpAction);
-			}
-			push @NowUp, $Desc;
-		}
-		else {
-			syslog('INFO','%s is still up',$Desc)
-				if ($^O !~ /MSWin/);
-		}
-		delete $DownItems{$Desc};	# No longer down, if it was before.
-	}
-	elsif ($DownItems{$Desc}) {
-		# Connection failed, but we have already reported it.
-		syslog('INFO','%s is still down',$Desc);
-		printf "\t\t$HIGHLIGHT%s still DOWN$RESET\n", $Desc if (!$opt_q);
+my $Errors = 0;
+my $Renotify = 0;		# Set to 1 if no changes but someone due for renotification.
+foreach my $Item (@ItemList) {
+	# Call report to issue visible status, and count failures.
+	my $Desc = $Item->Desc;
+	my $Status = $Item->Report();
+	if ($Status == 0) {
+		#CHECK_STILL_UP -- can't get constants to export.
+		syslog('INFO','%s is still up',$Desc)
+			if ($^O !~ /MSWin/);
+	}	
+	elsif ($Status == 1) {
+		#CHECK_STILL_DOWN {
+		syslog('INFO','%s is still down',$Desc)
+			if ($^O !~ /MSWin/);
 		push @StillDown, $Desc;
+		$Renotify++
+			 if ((time() - $Item->PriorNotification) >
+				60 * $Item->Renotifyinterval);
+		$Errors++;
+	}
+	elsif ($Status == 2) {
+		#CHECK_NOW_UP {
+		syslog('INFO','%s is NOW up',$Desc)
+			if ($^O !~ /MSWin/);
+		push @NowUp, $Desc;
+		if (my $Action = $Item->Onup) {
+			print "Triggering OnUp for $Desc\n" if ($opt_v);
+			$Action =~ s/%D/$Desc/g;
+			system("($Action)&");
+			syslog('INFO',"Executed OnUp actions for $Desc.  Status $?")
+				if ($^O !~ /MSWin/);
+		}
+	}
+	elsif ($Status == 3) {
+		#CHECK_NOW_DOWN {
+		syslog('INFO','%s is NOW down',$Desc)
+			if ($^O !~ /MSWin/);
+		push @NowDown, $Desc;
+		if (my $Action = $Item->Ondown) {
+			print "Triggering OnDown for $Desc\n" if ($opt_v);
+			$Action =~ s/%D/$Desc/g;
+			system("($Action)&");
+			syslog('INFO',"Executed OnDown actions for $Desc.  Status $?")
+				if ($^O !~ /MSWin/);
+		}
+		$Item->FirstDown($StartTime);	# Remember when it went down.
+		$Errors++;
 	}
 	else {
-		# Connection is newly down.
-		syslog('INFO','%s is now down',$Desc);
-		if ($opt_q) {
-			$DownMessages.="\r\n\t$Desc";
-		}
-		else {
-			printf "\t\t$HIGHLIGHT%-40.40s\tDOWN$RESET\n", $Desc;
-		}
-		if ($DownAction) {
-			print "Triggering down-action for $Desc\n" if ($opt_v);
-			$DownAction =~ s/%D/$Desc/g;
-			system($DownAction);		# Trigger action.
-		}
-		$DownItems{$Desc}=time();
-		push @NowDown,$Desc;
-		$errors=1;
+		die "$Item->{FILE}:$Item->{LINE} Unexpected status $Status returned.";
 	}
 }
 
-if (@NowDown+@NowUp > 0 and $opt_P) {
+if (@NowDown+@NowUp+$Renotify > 0 and $opt_P) {
 	my($MAIL,$MailFile) = tempfile();
 	
 	if (@NowDown) {
@@ -205,27 +185,21 @@ if (@NowDown+@NowUp > 0 and $opt_P) {
 	if (@NowUp) {
 		print $MAIL "Now up: " . join(', ',@NowUp) . "\n";
 	}
-	printf $MAIL strftime("From $HostName at %T on %D\n",localtime());
+	printf $MAIL strftime("\nFrom $HostName at %T on %D\n",localtime());
 	close $MAIL;
 	system("sed 's/  */ /g' $MailFile | mail -s \"$opt_s\" $opt_P") && warn "Unable to send mail: $!\n";
 	unlink $MailFile;
+	
+	# Update all the notification times.
+	foreach my $Item (@ItemList) {
+		$Item->PriorNotification($StartTime);
+	}
 }
 
-# Update list of down items.
-if (open (STATUS,"> $StatusFile")) {
-	foreach (keys(%DownItems)) {
-		my ($sec,$min,$hour)=(localtime($DownItems{$_}))[0..2];
-		printf STATUS "%lu %02d:%02d:%02d %s\n",
-			$DownItems{$_},$hour,$sec,$min,$_;
-	}
-	close STATUS;
-} else {
-	warn("Unable to update $StatusFile: $!\n");
-	$errors=1;
-}
+# Write the status file, so we know "still down" from "now down".
+WriteStatusFile($StartTime,$StatusFile,\@ItemList);
 
 if (@NowDown+@StillDown > 0) {
-	printf "\n$HIGHLIGHT%d services down.$RESET\n",(@NowDown+@StillDown);
 	exit 8;
 }
 else {
@@ -233,26 +207,146 @@ else {
 }
 
 
+
+
 #
-# LoadList - load a list of services.
+# LoadServiceList - load a list of services.
 #
-sub LoadList {
-	my($ServiceList,$ArrayRef) = @_;
+sub LoadServiceList {
+	my($ServiceList,$ArrayRef,$MapRef) = @_;
 	return unless (-f $ServiceList);
+	my $FH;
 	if (sysopen($FH,$ServiceList,O_RDONLY)) {
 		# Load the service file.
+		my $Line = '';
+		my $StartLine;
+		my $LineNum = 0;
 		while (<$FH>) {
+			$LineNum++;
 			next if (/^\s*#/);			# Skip comments.
 			next if (/^\s*$/);			# Skip blank lines.
 			chomp;
-			if (/^\s*include[:\s]\s*(.*)$/) {
-				# Include file.
-				LoadList($1,$ArrayRef);
+			s/^\s+//;				# Strip leading blanks.
+			s/\s+$//;				# Strip trailing blanks.
+
+			# Is this a continuation line?
+			if ($Line) {
+				# Yes.  We have data from a prior line.
+				$Line .= $_;	# Append to prior data.
 			}
 			else {
-				# Just an ordinary line.
-				push @$ArrayRef,$_;				# Save this.
+				# This is the beginning of a new line, maybe all of it.
+				$Line = $_;
+				$StartLine = $LineNum;
 			}
+
+			# Is this line continued?
+			if ($Line =~ /[^\\]\\\s*$/) {
+				# This line is continued.
+				$Line =~s/\s*\\\s*$/ /;		# Replace spaces+\+spaces with single space.
+				next;				# Done until we find the end.
+			}
+
+			# We now have an entire logical line to process.
+			my($Keyword,$Rest) = split('\s+',$Line,2);
+			$Keyword = lc($Keyword);				# Ignore case.
+			if ($Keyword eq 'include') {
+				# Include file.
+				$Rest =~ s/^(["'])(.*)\1$/$2/;	# Strip quotes.
+				LoadServiceList($Rest,$ArrayRef,$MapRef);
+			}
+			else {
+				# Must be a check type.  Load it if it isn't already loaded.
+				if (!exists($INC{"CheckAll/$Keyword.pm"})) {
+					eval("use CheckAll::$Keyword;");
+					if (!exists($INC{"CheckAll/$Keyword.pm"})) {
+						warn "$ServiceList:$StartLine: Unable to load $Keyword module: $@ -- skipped\n";
+						next;
+					}
+				}
+				# Create this object and put it in @ItemList.
+				my $Item;
+				eval {
+					$Item = $Keyword->new (
+						"$ServiceList",	# For object error msgs.
+						"$StartLine",	# For object error msgs.
+						$Rest);		# Other parameters.
+				};
+				if ($@) {
+					warn "$ServiceList:$StartLine: Unable to create $Keyword item: $@\n";
+				}
+				else {
+					# Set the unique name if it isn't already set.
+					$Item->Name($Item->Desc) unless ($Item->Name);
+					# Map the name to this item.
+					if (exists($MapRef->{$Item->Name})) {
+						warn "$Item->{FILE}:$Item->{LINE}: Item has non-unique name.  Set a unique Desc or use Name=\n";
+					}
+					else {
+						$MapRef->{$Item->Name} = $Item;
+					}
+					push @$ArrayRef,$Item;
+				}
+			}
+			$Line='';				# Finished.  Reset line.
 		}
+		close $FH;
+	}
+}
+
+
+
+
+
+sub LoadPriorStatuses {
+
+	my($StatusFile,$MapRef) = @_;
+
+	# Load table of items that have already been reported down.
+	my $STATUS;
+	if (-f $StatusFile) {
+		if (sysopen($STATUS,$StatusFile,O_RDONLY)) {
+			# Load up any items that were previously down.
+			while (<$STATUS>) {
+				next unless (/^Name=(.*), DownAt=(\d+)=\S+ \S+, LastNotify=(\d+)=/);
+				my($Name,$FirstDown,$LastNotify)=($1,$2,$3);
+				if(exists($MapRef->{$Name})) {
+					$MapRef->{$Name}->{PriorStatus} = 8;
+					$MapRef->{$Name}->{FirstDown} = $FirstDown;
+					$MapRef->{$Name}->{PriorNotification} = $LastNotify;
+				}
+				else {
+					# Obsolete service (removed from service list).
+				}
+			}
+			close $STATUS;
+		}
+		else {
+			warn "Unable to open $StatusFile: $!\n";
+		}
+	}
+}
+
+
+
+
+sub WriteStatusFile {
+
+	my($StartTime,$StatusFile,$ArrayRef) = @_;
+	my $STATUS;
+	if (open ($STATUS,"> $StatusFile")) {
+		foreach my $Item (@$ArrayRef) {
+			next unless ($Item->Status eq 8);	# Skip up services.
+			printf $STATUS "Name=%s, DownAt=%d=%s, LastNotify=%d=%s\n",
+				$Item->Name,
+				$Item->FirstDown,
+				strftime("%D %T",localtime($Item->FirstDown)),
+				$Item->PriorNotification,
+				strftime("%D %T",localtime($Item->PriorNotification));
+		}
+		close $STATUS;
+	}
+	else {
+		warn("Unable to update $StatusFile: $!\n");
 	}
 }
