@@ -114,14 +114,18 @@ foreach my $Item (@ItemList) {
 
 # All background processes submitted.  Wait for the results to come in.
 my $pid;
+`tty -s`;	# Find out if we have a tty.
+my $no_tty = $?;
 if ($Services) {
 	do {
-		print "Waiting for results on $Services service" . ($Services==1?'':'s') . "   \r";
+		print "Waiting for results on $Services service" . ($Services==1?'':'s') . "   \r"
+			unless ($no_tty or  $opt_q);
 		$pid = waitpid(-1,0);
 		$PIDs{$pid}->Status($?) if ($pid > 0);
 		$Services--;
 	} while $pid > 0;
-	print ' 'x40 . "\r";		# Wipe out waiting message.
+	# Wipe out waiting message.
+	print ' 'x40 . "\r" unless ($no_tty or  $opt_q);
 }
 
 # All results are in.  Run back through our report and list the results.
