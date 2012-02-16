@@ -1,3 +1,32 @@
+#
+# checkall.list - list of services to monitor.
+#
+# Syntax:
+#    -Basic syntax: monitor-type parameters
+#    -Continuation lines are identified by leading white space.
+#    -Comments begin with # and are ignored, even within continued lines.
+#    -Blank lines are ignored.
+#    -Monitor-type is case-insensitive.  Otherwise most fields are case sensitive.
+#    -Most parameters are split on spaces.  Use quoting or \ escapes to preserve spaces.
+#    -For most monitor-types, parameters are of the format "key=value" or
+#     "key=value,value,value..." where multiple values are allowed.
+#    -Current monitor types:
+#	- heading: Format: "heading text".  Displays this line as is.
+#       - include: Format: "include filename".  Includes another file at this point.
+#       - tcpport: Format: "tcpport parameters".  Checks one or more TCP ports.  This
+#	  test is considered successful if any of the TCP ports can connect.
+#	  Valid parameters:
+#	    - Target: TCP hosts and ports to check.  "Format: target=host:port[,host:port...]
+#	    - Desc: Descriptive text for status reprot.  Format: Desc="text"
+#	    - OnUp: Command to issue when this service comes up. OnUp="command".
+#           - OnDown: Command to issue when this service goes down.  OnUp="command".
+#           - Name: Unique name.  Defaults to value of Desc.  Used to keep track of statuses
+#	      across runs.
+#       - process: Format: "process parameters".  Checks running processes.
+#	  Valid parameters:
+#	    - Target: Perl regular expression to match against ps -eo cmd.
+#             Example: process Desc=Postfix Target="/smtpd -n smtp/"
+
 heading Basic networking
 TCPPort	Target=www.ibm.com:80,www.tri-met.org:80,www.amazon.com:80) Desc="External network"
 TCPPort	Target=alpha:22,beta:22,gamma:139 Desc="Internal network"
