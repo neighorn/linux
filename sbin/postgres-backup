@@ -86,7 +86,6 @@ if (@ARGV) {
 	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
 		if (defined($Config{'DEFAULTJOB'}));
 }
-(@ARGV)=split(/\s+/,$Parms);
 
 if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
 	
@@ -298,7 +297,7 @@ SHOW	/^Job ended normally with status 0 and signal 0$/
 SHOW	/^debug:/
 SHOW	/^test:/
 SHOW	/^Executing:/
-SHOW	"^\s*Deleting /usr/local/backup/database/"
+SHOW	"^\s*Deleting /usr/local/backup/postgres/"
 SHOW	"^[0-9,]+ bytes written to \S+$"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
