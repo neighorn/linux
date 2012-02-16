@@ -293,7 +293,7 @@ sub ProcessServiceLine {
 		$Item->Name($Item->Desc) unless ($Item->Name);
 		# Map the name to this item.
 		if (exists($MapRef->{$Item->Name})) {
-			warn "$Item->{FILE}:$Item->{LINE}: Item has non-unique name -- skipped.  Set a unique Desc or use Name=\n";
+			warn qq[$Item->{FILE}:$Item->{LINE}: Item has non-unique name "$Item->{Name}" -- skipped.  Set a unique Desc or use Name=\n];
 			return 3;
 		}
 		else {
