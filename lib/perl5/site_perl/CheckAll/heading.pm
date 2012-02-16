@@ -1,4 +1,4 @@
-#-------------------------------- TCPPort Item -----------------------------------
+#-------------------------------- Heading Item -----------------------------------
 #
 # heading - print a heading
 #
@@ -20,8 +20,10 @@ sub SetOptions {
 	# Headings don't use the standard xxx=yyy format.  Instead, it's just
 	# a single line of text.  Save it as the description.
 
-	$Self->{Desc} = shift;
-	$Self->{Desc} =~ s/^(["'])(.*)\1/$2/;		# Strip quotes if present.
+	my $Value = shift;
+	$Value = '' unless (defined($Value));	# Allow blank lines.
+	$Value =~ s/^(["'])(.*)\1/$2/;		# Strip quotes if present.
+	$Self->{Desc} = $Value;
 }
 		
 
@@ -35,9 +37,9 @@ sub Check {
 }
 
 sub Report {
-        my $Self = shift;
+        my($Self,$DescLen) = @_;
 
-        printf "%-48.48s --\n", $Self->{Desc} if (!$main::opt_q);
+        printf "%s\n", $Self->{Desc} if (!$main::opt_q);
         return $Self->{Status};
 }
 

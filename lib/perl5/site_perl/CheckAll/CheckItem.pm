@@ -71,7 +71,8 @@ sub new{
 
 
 sub Report {
-        my $Self = shift;
+        my($Self,$DescLen) = @_;
+	$DescLen = 40 unless ($DescLen);
 
 	# Make sure we have values for everything.
 	$Self->{Status} = CHECK_FAIL	unless (exists($Self->{Status}));
@@ -81,7 +82,7 @@ sub Report {
 
 	# Return our status + status change information.
 	if ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_OK) {
-		printf "\t%-40.40s OK\n", $Self->{Desc} if (!$main::opt_q);
+		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q);
 		return CHECK_STILL_UP;
 	}
 	elsif ($Self->{Status} eq CHECK_FAIL and $Self->{PriorStatus} eq CHECK_FAIL) {
@@ -103,7 +104,7 @@ sub Report {
 		return CHECK_STILL_DOWN;
 	}
 	elsif ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_FAIL) {
-		printf "\t%-40.40s OK\n", $Self->{Desc} if (!$main::opt_q);
+		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q);
 		return CHECK_NOW_UP;
 	}
 	else {

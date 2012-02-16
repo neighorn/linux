@@ -10,7 +10,7 @@ use File::Temp qw(tempfile);
 use POSIX qw(strftime);
 use Fcntl;
 use FindBin qw($RealBin $RealScript);
-use CheckAll::CheckItem;
+require CheckAll::CheckItem;
 
 my $HIGHLIGHT = "\e[33;40m";
 my $RESET = "\e[0m";
@@ -87,6 +87,7 @@ LoadPriorStatuses($StatusFile, \%NameMap);
 
 # Go check all these services.
 my $Services = @ItemList + 0;
+my $DescLen = 0;		# Will keep length of longest desc here.
 foreach my $Item (@ItemList) {
 	my $CheckResult = Check $Item;
 	my($Type,$Value) = ($CheckResult =~ m/^(\S+)=(\d+)$/);
@@ -104,6 +105,11 @@ foreach my $Item (@ItemList) {
 		# Somebody sent back a response we don't understand.
 		die qq[Unexpected response "$CheckResult" from $Item->{'Desc'}];
 	}
+
+	if (ref $Item ne 'heading') {
+		my $Len = length($Item->{Desc});
+		$DescLen = $Len if ($DescLen < $Len);
+	}
 }
 
 # All background processes submitted.  Wait for the results to come in.
@@ -115,16 +121,17 @@ if ($Services) {
 		$PIDs{$pid}->Status($?) if ($pid > 0);
 		$Services--;
 	} while $pid > 0;
-	print ' 'x30 . "\r";		# Wipe out waiting message.
+	print ' 'x40 . "\r";		# Wipe out waiting message.
 }
 
 # All results are in.  Run back through our report and list the results.
 my $Errors = 0;
 my $Renotify = 0;		# Set to 1 if no changes but someone due for renotification.
+$DescLen += 2;				# Add two blanks for padding.
 foreach my $Item (@ItemList) {
 	# Call report to issue visible status, and count failures.
 	my $Desc = $Item->Desc;
-	my $Status = $Item->Report();
+	my $Status = $Item->Report($DescLen);
 	if ($Status == 0) {
 		#CHECK_STILL_UP -- can't get constants to export.
 		syslog('INFO','%s is still up',$Desc)
@@ -292,7 +299,7 @@ sub ProcessServiceLine {
 		# Set the unique name if it isn't already set.
 		$Item->Name($Item->Desc) unless ($Item->Name);
 		# Map the name to this item.
-		if (exists($MapRef->{$Item->Name})) {
+		if (exists($MapRef->{$Item->Name}) and $Keyword ne 'heading') {
 			warn qq[$Item->{FILE}:$Item->{LINE}: Item has non-unique name "$Item->{Name}" -- skipped.  Set a unique Desc or use Name=\n];
 			return 3;
 		}
@@ -347,6 +354,7 @@ sub WriteStatusFile {
 	if (open ($STATUS,"> $StatusFile")) {
 		foreach my $Item (@$ArrayRef) {
 			next unless ($Item->Status eq 8);	# Skip up services.
+			next if (ref $Item eq 'history');	# We don't track history lines.
 			printf $STATUS "Name=%s, DownAt=%d=%s, LastNotify=%d=%s\n",
 				$Item->Name,
 				$Item->FirstDown,
