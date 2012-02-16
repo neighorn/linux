@@ -373,7 +373,7 @@ SHOW	"^\s*Starting \S+ at \S+ ...\s*$"
 SHOW	"^\S+ \S+: Total Items: \d+ \(\d+\.\d[GM]\), New Items: \d+ \(\d+\.\d[GM]\)$"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
-SHOW	"^\s*Filesystem            Size  Used Avail Use% Mounted on"
+SHOW	"^\s*Filesystem\s+Size\s+Used\s+Avail\s+Use%\s+Mounted on\s*$"
 SHOW	"^\s*/dev/...\d\s+\d+[TGMK]\s+\d+[TGMK]\s+\d+[TGMK]\s+(\d|[1-8])%"
 SHOW	"^\s*/dev/[a-z0-9/-]+\s+[0-9.]+[TGMK]\s+[0-9.]+[TGMK]\s+[0-9.]+[TGMK]\s+(\d|[1-8]\d|9[0-5])%"
 IGNORE	"^\s*\*\*\* Execution cycle \d \*\*\*\s*$"

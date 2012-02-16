@@ -10,7 +10,7 @@ use File::Temp qw(tempfile);
 use POSIX qw(strftime);
 use Fcntl;
 use FindBin qw($RealBin $RealScript);
-#use CheckAll::CheckItem;
+use CheckAll::CheckItem;
 
 my $HIGHLIGHT = "\e[33;40m";
 my $RESET = "\e[0m";
@@ -218,7 +218,8 @@ sub LoadServiceList {
 	my $FH;
 	if (sysopen($FH,$ServiceList,O_RDONLY)) {
 		# Load the service file.
-		my $Line = '';
+		my $LineInProgress = '';
+		my $CompleteLine = '';
 		my $StartLine;
 		my $LineNum = 0;
 		while (<$FH>) {
@@ -226,71 +227,80 @@ sub LoadServiceList {
 			next if (/^\s*#/);			# Skip comments.
 			next if (/^\s*$/);			# Skip blank lines.
 			chomp;
-			s/^\s+//;				# Strip leading blanks.
 			s/\s+$//;				# Strip trailing blanks.
 
-			# Is this a continuation line?
-			if ($Line) {
-				# Yes.  We have data from a prior line.
-				$Line .= $_;	# Append to prior data.
+			# Is this a continuation line (starts with white space)?
+			if (/^\s+/) {
+				# Yes.  Append it to any prior data.
+				s/^\s+//;
+				$LineInProgress .= " $_";	# Append to prior data.
 			}
 			else {
-				# This is the beginning of a new line, maybe all of it.
-				$Line = $_;
+				# This is (the beginning of?) a new line.  Process the old line if we have one.
+				ProcessServiceLine($ServiceList, $StartLine, $ArrayRef, $MapRef, $LineInProgress);
+				$LineInProgress = $_;
 				$StartLine = $LineNum;
 			}
-
-			# Is this line continued?
-			if ($Line =~ /[^\\]\\\s*$/) {
-				# This line is continued.
-				$Line =~s/\s*\\\s*$/ /;		# Replace spaces+\+spaces with single space.
-				next;				# Done until we find the end.
-			}
-
-			# We now have an entire logical line to process.
-			my($Keyword,$Rest) = split('\s+',$Line,2);
-			$Keyword = lc($Keyword);				# Ignore case.
-			if ($Keyword eq 'include') {
-				# Include file.
-				$Rest =~ s/^(["'])(.*)\1$/$2/;	# Strip quotes.
-				LoadServiceList($Rest,$ArrayRef,$MapRef);
-			}
-			else {
-				# Must be a check type.  Load it if it isn't already loaded.
-				if (!exists($INC{"CheckAll/$Keyword.pm"})) {
-					eval("use CheckAll::$Keyword;");
-					if (!exists($INC{"CheckAll/$Keyword.pm"})) {
-						warn "$ServiceList:$StartLine: Unable to load $Keyword module: $@ -- skipped\n";
-						next;
-					}
-				}
-				# Create this object and put it in @ItemList.
-				my $Item;
-				eval {
-					$Item = $Keyword->new (
-						"$ServiceList",	# For object error msgs.
-						"$StartLine",	# For object error msgs.
-						$Rest);		# Other parameters.
-				};
-				if ($@) {
-					warn "$ServiceList:$StartLine: Unable to create $Keyword item: $@\n";
-				}
-				else {
-					# Set the unique name if it isn't already set.
-					$Item->Name($Item->Desc) unless ($Item->Name);
-					# Map the name to this item.
-					if (exists($MapRef->{$Item->Name})) {
-						warn "$Item->{FILE}:$Item->{LINE}: Item has non-unique name.  Set a unique Desc or use Name=\n";
-					}
-					else {
-						$MapRef->{$Item->Name} = $Item;
-					}
-					push @$ArrayRef,$Item;
-				}
-			}
-			$Line='';				# Finished.  Reset line.
 		}
+		# Process the last line if we have one.
+		ProcessServiceLine($ServiceList, $StartLine, $ArrayRef, $MapRef, $LineInProgress);	
 		close $FH;
+	}
+}
+
+
+
+#
+# ProcessServiceLine : process one logical line from a service file.
+#
+sub ProcessServiceLine {
+	my($FileName, $StartLine, $ArrayRef, $MapRef, $Line) = @_;
+	return if ($Line =~ /^\s*$/);		# Skip empty lines.
+
+	my($Keyword,$Rest) = split('\s+',$Line,2);
+	$Keyword = lc($Keyword);				# Ignore case.
+	if ($Keyword eq 'include') {
+		# Include file.
+		$Rest =~ s/^(["'])(.*)\1$/$2/;	# Strip quotes.
+		LoadServiceList($Rest,$ArrayRef,$MapRef);
+		return 0;
+	}
+
+	# Must be a check type.  Load it if it isn't already loaded.
+	if (!exists($INC{"CheckAll/$Keyword.pm"})) {
+	#		eval("use CheckAll::$Keyword;");
+		eval qq[require "CheckAll/$Keyword.pm"];
+		if ($@) {
+			warn qq[$ServiceList:$StartLine: Unable to include a "$Keyword" module -- skipped\n];
+			return 1;
+		}
+	}
+
+	# Create this object and put it in @ItemList.
+	my $Item;
+	eval {
+		$Item = $Keyword->new (
+			"$ServiceList",	# For object error msgs.
+			"$StartLine",	# For object error msgs.
+			$Rest);		# Other parameters.
+	};
+	if ($@) {
+		warn qq[$ServiceList:$StartLine: Unable to create a "$Keyword" item: $@\n];
+		return 2;	
+	}
+	else {
+		# Set the unique name if it isn't already set.
+		$Item->Name($Item->Desc) unless ($Item->Name);
+		# Map the name to this item.
+		if (exists($MapRef->{$Item->Name})) {
+			warn "$Item->{FILE}:$Item->{LINE}: Item has non-unique name -- skipped.  Set a unique Desc or use Name=\n";
+			return 3;
+		}
+		else {
+			$MapRef->{$Item->Name} = $Item;
+			push @$ArrayRef,$Item;
+			return 0;
+		}
 	}
 }
 
