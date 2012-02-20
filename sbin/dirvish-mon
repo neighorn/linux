@@ -10,10 +10,10 @@ do
 		lsof -p $pid
 	done |
 	grep tree/ |
-	while read trash trash trash fh trash trash trash trash filename
+	while read trash pid trash fh trash trash trash trash filename
 	do
 		[[ $fh = [0-9]*r ]] || continue		# Filter out output file.
-		echo $now $filename
+		printf "%-s %5d %s\n" $now $pid "$filename"
 	done |
 	sort
 	sleep 30
