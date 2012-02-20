@@ -37,6 +37,7 @@ our $opt_v;
 our $opt_N = '';
 our %Config;
 my $MachineDirectory;		# Base directory for this dirvish item.
+my %FileSystems;
 #
 
 # Note: general purpose script - don't change current directory.
@@ -201,13 +202,19 @@ foreach $Target (@Parms) {
 	# Clean up the lock file.
 	unlink($LockFile);
 	
-	# Report on disk space status.
-	print "\n";		# Insert a blank line before disk space rept.
-	RunDangerousCmd("df -hP $MachineDirectory");
+	# Remember this file system device for our space report.
+	my $fs=`df -P $MachineDirectory | tail -1`;
+	$fs =~ s/\s.*$//;	# Just need the device name.
+	chomp $fs;
+	$FileSystems{$fs}=1;
 }
 
-# Print a final separator.
-print "_"x60 . "\n";
+# Print the disk space report.
+if (%FileSystems) {
+	print "_"x60 . "\n\nDisk space report:\n";
+	RunDangerousCmd("df -hP| grep -E '^(" . join('|',keys(%FileSystems)) . ") '");
+	print "\n";
+}
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
@@ -370,9 +377,16 @@ LOGONLY /^Command: /
 #
 SHOW	"^\s*[-_]+\s*$"
 SHOW	"^\s*Starting \S+ at \S+ ...\s*$"
+# Ignore dirvish-expire messages
+IGNORE	"^\s*Expiring\s"
+IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
+IGNORE	"^\s*cannot expire .* No unexpired good images$"
+IGNORE	"^\s*\S+:\S+\s+ \d{4}-\d\d-\d\d \d\d:\d\d\s+\+\d+ (months|days) == \d{4}-\d\d-\d\d \d\d:\d\d\s*$"
+#
 SHOW	"^\S+ \S+: Total Items: \d+ \(\d+\.\d[GM]\), New Items: \d+ \(\d+\.\d[GM]\)$"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
+SHOW	"^\s*Disk space report:$"
 SHOW	"^\s*Filesystem\s+Size\s+Used\s+Avail\s+Use%\s+Mounted on\s*$"
 SHOW	"^\s*/dev/...\d\s+\d+[TGMK]\s+\d+[TGMK]\s+\d+[TGMK]\s+(\d|[1-8])%"
 SHOW	"^\s*/dev/[a-z0-9/-]+\s+[0-9.]+[TGMK]\s+[0-9.]+[TGMK]\s+[0-9.]+[TGMK]\s+(\d|[1-8]\d|9[0-5])%"
