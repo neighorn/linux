@@ -24,6 +24,9 @@ sub SetOptions {
 	$Value = '' unless (defined($Value));	# Allow blank lines.
 	$Value =~ s/^(["'])(.*)\1/$2/;		# Strip quotes if present.
 	$Self->{Desc} = $Value;
+
+	# Also, set a name for status purposes.
+	$Self->{Name}="$Self->{FILE}:$Self->{LINE}";
 }
 		
 
@@ -44,3 +47,21 @@ sub Report {
 }
 
 1;
+
+=pod
+
+=head1 Checkall::heading
+
+=head2 Summary
+
+heading prints a heading line in the output.
+
+=head2 Syntax
+
+  heading heading-text
+
+=head2 Fields
+
+heading is derived from CheckItem.pm.  It supports the same fields as CheckItem.  The heading
+text is stored in the Desc field.  No additional fields are provided.
+=cut

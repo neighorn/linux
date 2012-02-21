@@ -100,4 +100,29 @@ sub Check {
 		exit($GroupOK);		# Tell the parent whether it was up or down.
 	}
 }
+=pod
+
+=head1 Checkall::tcpport
+
+=head2 Summary
+
+tcpport checks to see whether it is possible to connect to a specific TCP port on a designated host.  Multiple host/port combinations may be listed, in which case a connection to any successful connection returns
+success.
+
+=head2 Syntax
+
+  process Target=localhost:22
+  process Target=www.abc.com:80,www.def.com:80,www.ghi.com:443
+
+
+=head2 Fields
+
+tcpport is derived from CheckItem.pm.  It supports the same fields as CheckItem.
+
+The target field specifies a comma-separated list of items to check.  Each item consists of a
+host name or IP address, followed by a colon and the TCP port number.
+
+=back
+
+=cut
 1;

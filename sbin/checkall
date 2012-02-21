@@ -16,6 +16,7 @@ my $HIGHLIGHT = "\e[33;40m";
 my $RESET = "\e[0m";
 
 our $opt_c='';			# Configuration file (service list).
+our $opt_h=0;			# Help
 our $opt_v=0;			# Verbose option.
 our $opt_t=0;			# Test option.
 our $opt_q=0;			# Quiet option.
@@ -30,6 +31,7 @@ my @NowDown;			# Newly down items.
 my @NowUp;			# Newly up items.
 my @StillDown;			# On-going down items.
 my %DownItems;			# List of items previously down.
+my @OtherItems;			# Stuff in the status file from other check lists.
 $| = 1;				# Unbuffer output.
 my $StartTime = time();
 
@@ -39,9 +41,13 @@ my $ServiceList="/usr/local/etc/$Prog.list";
 my $HostName = `hostname`;
 chomp $HostName;
 
-getopts('c:P:qR:s:v');
+getopts('c:hP:qR:s:v');
 
 # Check options.
+if ($opt_h) {
+	system("pod2text $RealBin/$RealScript");
+	exit 1;
+}
 if ($opt_s) {
 	$opt_s =~ s/%C/$HostName/g;
 }
@@ -83,7 +89,7 @@ if (@ItemList+0 == 0) {
 }
 
 # Load any prior statuses.
-LoadPriorStatuses($StatusFile, \%NameMap);
+LoadPriorStatuses($StatusFile, \%NameMap, \@OtherItems);
 
 # Go check all these services.
 my $Services = @ItemList + 0;
@@ -106,6 +112,7 @@ foreach my $Item (@ItemList) {
 		die qq[Unexpected response "$CheckResult" from $Item->{'Desc'}];
 	}
 
+	# Track the length of our longest description for formatting purposes, but ignore headings.
 	if (ref $Item ne 'heading') {
 		my $Len = length($Item->{Desc});
 		$DescLen = $Len if ($DescLen < $Len);
@@ -208,7 +215,7 @@ if (@NowDown+@NowUp+$Renotify > 0 and $opt_P) {
 }
 
 # Write the status file, so we know "still down" from "now down".
-WriteStatusFile($StartTime,$StatusFile,\@ItemList);
+WriteStatusFile($StartTime,$StatusFile,\@ItemList,\@OtherItems);
 
 if (@NowDown+@StillDown > 0) {
 	exit 8;
@@ -301,27 +308,20 @@ sub ProcessServiceLine {
 	}
 	else {
 		# Set the unique name if it isn't already set.
-		$Item->Name($Item->Desc) unless ($Item->Name);
+		$Item->Name(ref($Item) . "=" . $Item->Target) unless ($Item->Name);
+
 		# Map the name to this item.
-		if (exists($MapRef->{$Item->Name}) and $Keyword ne 'heading') {
-			warn qq[$Item->{FILE}:$Item->{LINE}: Item has non-unique name "$Item->{Name}" -- skipped.  Set a unique Desc or use Name=\n];
-			return 3;
-		}
-		else {
-			$MapRef->{$Item->Name} = $Item;
-			push @$ArrayRef,$Item;
-			return 0;
-		}
+		$MapRef->{$Item->Name} = $Item;
+		push @$ArrayRef,$Item;
+		return 0;
 	}
 }
 
 
 
-
-
 sub LoadPriorStatuses {
 
-	my($StatusFile,$MapRef) = @_;
+	my($StatusFile,$MapRef,$OtherRef) = @_;
 
 	# Load table of items that have already been reported down.
 	my $STATUS;
@@ -329,15 +329,21 @@ sub LoadPriorStatuses {
 		if (sysopen($STATUS,$StatusFile,O_RDONLY)) {
 			# Load up any items that were previously down.
 			while (<$STATUS>) {
-				next unless (/^Name=(.*), DownAt=(\d+)=\S+ \S+, LastNotify=(\d+)=/);
-				my($Name,$FirstDown,$LastNotify)=($1,$2,$3);
+				next unless
+					(/^Name=(.*), DownAt=(\d+)=\S+ \S+, LastNotify=(\d+)=\S+ \S+, LastCheck=(\d+)=\S+ \S+,?/);
+				my($Name,$FirstDown,$LastNotify,$LastCheck)=($1,$2,$3,$4);
 				if(exists($MapRef->{$Name})) {
 					$MapRef->{$Name}->{PriorStatus} = 8;
 					$MapRef->{$Name}->{FirstDown} = $FirstDown;
 					$MapRef->{$Name}->{PriorNotification} = $LastNotify;
 				}
+				elsif ((time()-$LastCheck)/86400 <= 60) {
+					# Not one of ours.  Must come from another config file.  Just 
+					# store it to write back later.
+					push @$OtherRef,$_;
+				}
 				else {
-					# Obsolete service (removed from service list).
+					# Nobody has checked this one for 60 days.  Forget it.
 				}
 			}
 			close $STATUS;
@@ -353,18 +359,27 @@ sub LoadPriorStatuses {
 
 sub WriteStatusFile {
 
-	my($StartTime,$StatusFile,$ArrayRef) = @_;
+	my($StartTime,$StatusFile,$ArrayRef,$OtherRef) = @_;
 	my $STATUS;
 	if (open ($STATUS,"> $StatusFile")) {
 		foreach my $Item (@$ArrayRef) {
 			next unless ($Item->Status eq 8);	# Skip up services.
 			next if (ref $Item eq 'history');	# We don't track history lines.
-			printf $STATUS "Name=%s, DownAt=%d=%s, LastNotify=%d=%s\n",
+			printf $STATUS "Name=%s, DownAt=%d=%s, LastNotify=%d=%s, LastCheck=%d=%s, File=%s:%d\n",
 				$Item->Name,
 				$Item->FirstDown,
 				strftime("%D %T",localtime($Item->FirstDown)),
 				$Item->PriorNotification,
-				strftime("%D %T",localtime($Item->PriorNotification));
+				strftime("%D %T",localtime($Item->PriorNotification)),
+				$StartTime,
+				strftime("%D %T",localtime($StartTime)),
+				$Item->{FILE},
+				$Item->{LINE}
+			;
+		}
+		# Write out stuff we found in the status file that weren't ours.
+		foreach (@$OtherRef) {
+			print $STATUS $_;
 		}
 		close $STATUS;
 	}
@@ -372,3 +387,100 @@ sub WriteStatusFile {
 		warn("Unable to update $StatusFile: $!\n");
 	}
 }
+=pod
+
+=head1 checkall -- check on services
+
+=head2 Overview
+
+checkall checks critical services to make sure they're running.  It can optionally 
+take action when a service comes up or goes down, and/or send out notifications.
+
+=head2 Command format:
+
+   checkall [options] [listname ...]
+
+=head2 Command options:
+
+=over 3
+
+=item -c file
+
+Service file -- normally the service to monitor are determined by reading files
+from /usr/local/etc/checkall.list (default) or /usr/local/etc/checkall.I<listname>
+if one or more list names are provided on the command line.  The -c option provides an
+alternate way of identifying a service file, when the desired file isn't named according
+to the "listname" standard (i.e. isn't located in /usr/local/etc).
+
+=item -h
+
+Help -- print this documentation
+
+=item -P address
+
+Page -- send a message to this e-mail address whenever services transition from up
+to down or vice versa, or if enough time has elapsed to warrant renotification.
+
+=item -q
+
+Quiet - suppress status messages.
+
+=item -R minutes
+
+Renotify -- send out another page if a service has been down for this many minutes
+since the last page.  Default is 120 (2 hours).
+
+=item -s subject
+
+Subject -- use this subject line when sending out pages.  "%C" is replaced with the
+host ("Computer") name.
+
+=item -v
+
+Verbose -- turn on diagnostics.
+
+=back
+
+=head2 Service List Files
+
+checkall determines what services to monitor by using service list files.  The default
+service list is "/usr/local/etc/checkall.list".  Alternate or additional lists can be
+saved as "/usr/local/etc/checkall.I<name>", where "name" matches the name specified on the
+command line (e.g. /usr/local/etc/checkall.urgent would be referenced by "checkall urgent").
+Service lists that don't follow this naming convention can be specified using the -c option.
+
+Service list files are formatted according to the following rules:
+
+=over 3
+
+=item *
+
+Blank lines and lines starting with # are ignored
+
+=item *
+
+Lines beginning with white space are treated as continuation lines.
+
+=item *
+
+A service list file may include another service list file using the "include" directive as follows:
+
+   include path-to-file
+
+=item *
+
+All other lines designate services to check.  The general format of a service line is:
+
+   checktype parameters
+
+"checktype" refers to a Perl check module called "CheckAll::I<checktype>".  This module will be 
+loaded if necessary, and passed the parameters provided.  Most modules require at least a
+Target= parameter and a Desc= parameter.  See the documentation in CheckAll::CheckItem for common
+parameters, and other modules in the CheckAll:: tree for kinds of checks and specific parameters.
+
+The most common checks are "tcpport", which checks for connectivity to a TCP socket, and "process", which
+checks the process table for a running process.  "heading" is also used to insert headings.
+=back
+
+=cut
+

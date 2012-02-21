@@ -178,3 +178,151 @@ sub AUTOLOAD {
 	return $Value;
 }
 1;
+
+=pod
+
+=head1 Checkall::CheckItem
+
+=head2 Summary
+
+CheckItem is used by the /usr/local/sbin/checkall script.  It is a base class for other check routines.
+As such it provides only basic field definitions and house-keeping code, and cannot be invoked
+directly.
+
+=head2 Syntax
+
+The standard syntax is:
+
+  modname Field=value {Field2=value2 ...}
+
+Where:
+
+=over 4
+
+=item *
+
+modname is the name of the derived module (tcpport, process, heading, possibly more).  modname
+is not case sensitive.
+
+=item *
+
+Field is the name of a standard field (shown below) or one added by the derived module. The field name is
+not case sensitive.
+
+=item *
+
+Value is the value for the specified field.  The values are case sensitive.  As white-space is used
+to separate Field=Value items, values containing whitei space must either have the white space escaped
+using \, or be quoted.  Similarly, backslashes that are intended as part of the value must also
+either be quoted or escaped (i.e. \\).
+
+=back
+
+The module name must begin in column 1.  Lines beginning with white space are treated as continuation lines.
+
+Blank lines, or lines beginning with # are ignored.
+
+=head2 Fields
+
+The following standard fields are provided to all derived modules, though some modules may ignore some 
+fields:
+
+=over 4
+
+=item *
+
+Target:  This is target item to check.  Interpretation of the target is left to the derived module.
+
+=item *
+
+Desc: This is the description of this item, used when reporting the status of the item.
+
+=item *
+
+OnDown: A command to execute when the target is first discovered down.
+
+=item *
+
+OnUp: A ccommand to execute when a previously down target is first discovered up.
+
+=item *
+
+Verbose:  A diagnostic flag.  The derived process should provide additional divided messages
+when this is non-zero.
+
+=item *
+
+Name: A unique identification value used internally to track status across runs.  This is normally left to default, in which case it uses "modname=targetvalue".  The only known reason to set this would
+be if two different checkall service lists monitored the same service with different target values
+(e.g. "localhost:80" in one list, and "127.0.0.1:80" in another), couldn't be changed to a common target, 
+but still needed to be tracked as a single service.
+
+=back
+
+The following additional fields are used internally by the checkall script and various
+derived items, but cannot be set by a checkall service file.
+
+=over 4
+
+=item *
+
+FILE: The name of the service list file that defined this item.
+
+=item *
+
+LINE: The line number of the service list file that defined this item.
+
+=item *
+
+Status: The status of the service (up or down), as set by the Check method.
+
+=item *
+
+StatusDetail: Additional text information about the status.  This is typically used to indicate that
+a service was marked as "DOWN" for unusual reasons, such as a configuration error.
+
+=item *
+
+PriorStatus: The previous status of this item (defaults to "up" for new items).  This is used to
+determine if an item is "now down" (newly down), "still down", "now up", or "still up".
+
+=item *
+
+FirstDown: The time at which the item was first detected down.
+
+=item *
+
+PriorNotification: The time at which the most recent alert was sent about this item being
+down.  This is only applicable if notifications were requested with the checkall -P option.
+
+=item *
+
+Renotifyinterval: The time in minutes after which another notification must be sent.  This is
+currently unimplemented at the service item level.
+
+=back
+
+=head2 Methods
+
+CheckItem provides the following methods:
+
+=over 4
+
+=item *
+
+new: create a new item and set initial values.  Derived items don't typically need to override this.  It
+calls the SetOptions method, passing any parameters it receives.  Derived items may override SetOptions if they need special set-up.
+
+=item *
+
+SetOptions: set object values.  Typically this is passed a (possibly empty) array of "Field=Value" strings
+that came from a service file or internal logic.  SetOptions validates the field names, and stores
+the values.  Derived items sometimes override this in order to provide custome set-up.
+
+=item *
+
+Report: Generates a single-line report of the status of this item in a standard format.  It is rare
+for a derived class to replace this, with the exception of "heading", which has different formatting 
+requirements.
+
+=cut
