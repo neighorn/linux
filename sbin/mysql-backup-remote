@@ -95,9 +95,11 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 @Machines = @Parms if (@Parms);
 foreach my $Machine (@Machines) {
-	RunDangerousCmd("ssh $Machine /usr/local/sbin/mysql-backup -F /usr/local/etc/mysql-backup.filter");
+	printf "%s %-10.10s %s\n", '-'x30, $Machine, '-'x30;
+	RunDangerousCmd("ssh $Machine /usr/local/sbin/mysql-backup -F /usr/local/etc/filter-accept-all.filter");
 	warn "ssh to $Machine failed with status $?: $@" if ($?);
 }
+print '-'x72 . "\n";
 
 #
 if ($ExitCode) {
@@ -202,6 +204,8 @@ __END__
 #
 #
 SHOW	"^\s*mysql-backup started on \S+ on ../../.... at ..:..:..$"
+SHOW	"^\s*-{30} \S+\s+-{30}$"
+SHOW	"^\s*-+$"
 IGNORE	"^\s*Command: /usr/local/sbin/mysql-backup"
 IGNORE	"^\s*$"
 SHOW	"^\s*[0-9,]{8,} bytes written to /usr/local/backup/mysql/....-..-...sql$"
