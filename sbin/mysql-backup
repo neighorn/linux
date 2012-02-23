@@ -27,6 +27,7 @@ our %Exclude;				# Exclude list
 
 our $opt_d;				# Debug flag.
 our $opt_e;				# Error mail addresses.
+our $opt_F;				# Filter file
 our $opt_h;				# Help flag.
 our $opt_l;				# Log file.
 our $opt_m;				# Mail addresses.
@@ -56,7 +57,7 @@ chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
 #	   Normal =s and =i would replace values instead of concatenate.
 #	2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='d h t v z l=l m=l e=l p=l P=l o=s O=s r=s U=s';
+my $OptSpec='d h t v z F=s l=l m=l e=l p=l P=l o=s O=s r=s U=s';
 
 # Load the config file.
 my %Config;
@@ -98,6 +99,7 @@ LogOutput({
         ERROR_MAIL_LIST => $opt_e,
         ALWAYS_PAGE_LIST => $opt_p,
         ERROR_PAGE_LIST => $opt_P,
+	FILTER_FILE => $opt_F,
 });
 
 # Build the backup file name.

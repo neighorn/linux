@@ -1,0 +1,5 @@
+# This is a generic filter file for LogOutput-based scripts that accept
+# a -F filter parameter.  This filter considers all messages to normal.
+# It is used primarily when scripts are called by other scripts to avoid 
+# nested filtering.  
+SHOW	'.*'
