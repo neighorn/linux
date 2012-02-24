@@ -41,7 +41,7 @@ my $ServiceList="/usr/local/etc/$Prog.list";
 my $HostName = `hostname`;
 chomp $HostName;
 
-getopts('c:hP:qR:s:v');
+getopts('c:hP:qR:s:tv');
 
 # Check options.
 if ($opt_h) {
@@ -164,11 +164,16 @@ foreach my $Item (@ItemList) {
 			if ($^O !~ /MSWin/);
 		push @NowUp, $Desc;
 		if (my $Action = $Item->Onup) {
-			print "Triggering OnUp for $Desc\n" if ($opt_v);
-			$Action =~ s/%D/$Desc/g;
-			system("($Action)&");
-			syslog('INFO',"Executed OnUp actions for $Desc.  Status $?")
-				if ($^O !~ /MSWin/);
+			if ($opt_t) {
+				print "\t\tTesting: OnUp for $Desc suppressed.\n";
+			}
+			else {
+				print "Triggering OnUp for $Desc\n" if ($opt_v);
+				$Action =~ s/%D/$Desc/g;
+				system("($Action)&");
+				syslog('INFO',"Executed OnUp actions for $Desc.  Status $?")
+					if ($^O !~ /MSWin/);
+			}
 		}
 	}
 	elsif ($Status == 3) {
@@ -177,11 +182,16 @@ foreach my $Item (@ItemList) {
 			if ($^O !~ /MSWin/);
 		push @NowDown, $Desc;
 		if (my $Action = $Item->Ondown) {
-			print "Triggering OnDown for $Desc\n" if ($opt_v);
-			$Action =~ s/%D/$Desc/g;
-			system("($Action)&");
-			syslog('INFO',"Executed OnDown actions for $Desc.  Status $?")
-				if ($^O !~ /MSWin/);
+			if ($opt_t) {
+				print "\t\tTesting: OnDown action for $Desc suppressed.\n";
+			}
+			else {
+				print "Triggering OnDown for $Desc\n" if ($opt_v);
+				$Action =~ s/%D/$Desc/g;
+				system("($Action)&");
+				syslog('INFO',"Executed OnDown actions for $Desc.  Status $?")
+					if ($^O !~ /MSWin/);
+			}
 		}
 		$Item->FirstDown($StartTime);	# Remember when it went down.
 		$Errors++;
@@ -191,7 +201,7 @@ foreach my $Item (@ItemList) {
 	}
 }
 
-if (@NowDown+@NowUp+$Renotify > 0 and $opt_P) {
+if (@NowDown+@NowUp+$Renotify > 0 and $opt_P and ! $opt_t) {
 	my($MAIL,$MailFile) = tempfile();
 	
 	if (@NowDown) {
@@ -215,12 +225,16 @@ if (@NowDown+@NowUp+$Renotify > 0 and $opt_P) {
 }
 
 # Write the status file, so we know "still down" from "now down".
-WriteStatusFile($StartTime,$StatusFile,\@ItemList,\@OtherItems);
+WriteStatusFile($StartTime,$StatusFile,\@ItemList,\@OtherItems) unless ($opt_t);
 
 if (@NowDown+@StillDown > 0) {
+	printf "%s%d services are down.%s\n",
+		$HIGHLIGHT, $Errors, $RESET
+		unless ($opt_q);
 	exit 8;
 }
 else {
+	print "All services are up.\n" unless ($opt_q);
 	exit 0;
 }
 
