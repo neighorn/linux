@@ -145,8 +145,8 @@ foreach my $Item (@ItemList) {
 	my $Status = $Item->Report($DescLen);
 	if ($Status == 0) {
 		#CHECK_STILL_UP -- can't get constants to export.
-		syslog('INFO','%s is still up',$Desc)
-			if ($^O !~ /MSWin/);
+		# syslog('INFO','%s is still up',$Desc)  - don't fill log with "still up".
+	 	#	if (ref $Item ne 'heading' and $^O !~ /MSWin/);
 	}	
 	elsif ($Status == 1) {
 		#CHECK_STILL_DOWN {
@@ -235,6 +235,8 @@ if (@NowDown+@StillDown > 0) {
 }
 else {
 	print "All services are up.\n" unless ($opt_q);
+	syslog('INFO',"All services are up.")
+		if ($^O !~ /MSWin/);
 	exit 0;
 }
 
