@@ -90,7 +90,7 @@ $RunDate=`date +%m/%d`;
 chomp $RunDate;
 my $Subject;
 if ($opt_N) {
-	$Subject="%m/%d %C %N $opt_N %E %*%*%*" ;
+	$Subject="$opt_N" ;
 } elsif (@Parms >= 1) {
 	$Subject="%m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
 } else {
@@ -317,8 +317,7 @@ Flags:
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
-	-N text		Name: insert "text" in the e-mail subject line instead
-                        of the vault name(s).
+	-N text		Name: Set subject line to this.  Accepts variable subst.
 	-O config:      Insert the "config" configuration options from
 			$ConfigFile.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
