@@ -4,6 +4,9 @@
 #include <unistd.h>			/* For getopt constants. */
 
 #define FIRST_LINE_END 42
+#define TRUE		1
+#define FALSE		0
+
 char *msMyName;
 char msUsage[256];
 long mlMaxLine = 4096;
