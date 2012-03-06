@@ -21,6 +21,7 @@ my @InputFiles = (
 	"/usr/local/etc/iptables.$hostname",
 	'/usr/local/etc/iptables.dat',
 );
+my $CurDate=strftime("%Y/%m/%d",localtime());
 
 # Crude command-line parsing.  Don't want to depend on too many 
 # modules, and don't need much.
@@ -115,6 +116,13 @@ if (!$Errors) {
 		} elsif (/^\s*ifhost\s+(\S+)\s+(.*)$/i) {
 			# Only run this on particular hosts.
 			if ($hostname eq $1 and system($2)) {
+				Error("\tError detected on line $Line");
+				$Errors++;
+			}
+		} elsif (m"^\s*ifbefore\s+(\d+)/(\d+)/(\d+)\s+(.*)$"i) {
+			# Only run this before a particular date.
+			my $ExpireDate=sprintf("%04d/%02d/%02d",$3,$1,$2);
+			if ($CurDate lt $ExpireDate and system($4)) {
 				Error("\tError detected on line $Line");
 				$Errors++;
 			}
