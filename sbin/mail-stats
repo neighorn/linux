@@ -128,8 +128,8 @@ my @ConnectExcludeList=(
 	'172.1[6-9].',
 	'172.2\d.',
 	'172.3[0-2].',
-	'50.43.121.70'
-	'50.43.121.69'
+	'50.43.121.70',
+	'50.43.121.69',
 );
 my $ConnectExclude='^' . join('|^',@ConnectExcludeList);
 $ConnectExclude =~ s/\./\\./g;
