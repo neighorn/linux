@@ -4,3 +4,4 @@ etc/*
 man/
 !*.sample
 *~
+.*.swp
