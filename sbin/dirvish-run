@@ -211,7 +211,7 @@ foreach $Target (@Parms) {
 
 # Print the disk space report.
 if (%FileSystems) {
-	print "_"x60 . "\n\nDisk space report:\n";
+	print "_"x60 . "\nDisk space report:\n";
 	RunDangerousCmd("df -hP| grep -E '^(" . join('|',keys(%FileSystems)) . ") '");
 	print "\n";
 }
@@ -381,7 +381,7 @@ SHOW	"^\s*Starting \S+ at \S+ ...\s*$"
 IGNORE	"^\s*Expiring\s"
 IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
-IGNORE	"^\s*\S+:\S+\s+ \d{4}-\d\d-\d\d \d\d:\d\d\s+\+\d+ (months|days) == \d{4}-\d\d-\d\d \d\d:\d\d\s*$"
+IGNORE	"^\s*\S+:\S+\s+.*\s+==\s+\d{4}-\d\d-\d\d \d\d:\d\d\s*$"
 #
 SHOW	"^\S+ \S+: Total Items: \d+ \(\d+\.\d[GM]\), New Items: \d+ \(\d+\.\d[GM]\)$"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
