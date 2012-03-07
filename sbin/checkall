@@ -128,7 +128,7 @@ if ($Services) {
 		print "Waiting for results on $Services service" . ($Services==1?'':'s') . "   \r"
 			unless ($no_tty or  $opt_q);
 		$pid = waitpid(-1,0);
-		$PIDs{$pid}->Status($?) if ($pid > 0);
+		$PIDs{$pid}->Status($?>>8) if ($pid > 0);
 		$Services--;
 	} while $pid > 0;
 	# Wipe out waiting message.
@@ -228,7 +228,7 @@ if (@NowDown+@NowUp+$Renotify > 0 and $opt_P and ! $opt_t) {
 WriteStatusFile($StartTime,$StatusFile,\@ItemList,\@OtherItems) unless ($opt_t);
 
 if (@NowDown+@StillDown > 0) {
-	printf "%s%d services are down.%s\n",
+	printf "%s==> %d " . ($Errors == 1?'service is':'services are') . " down.%s\n",
 		$HIGHLIGHT, $Errors, $RESET
 		unless ($opt_q);
 	exit 8;
@@ -379,7 +379,7 @@ sub WriteStatusFile {
 	my $STATUS;
 	if (open ($STATUS,"> $StatusFile")) {
 		foreach my $Item (@$ArrayRef) {
-			next unless ($Item->Status eq 8);	# Skip up services.
+			next if ($Item->Status eq 0);		# Skip up services.
 			next if (ref $Item eq 'history');	# We don't track history lines.
 			printf $STATUS "Name=%s, DownAt=%d=%s, LastNotify=%d=%s, LastCheck=%d=%s, File=%s:%d\n",
 				$Item->Name,

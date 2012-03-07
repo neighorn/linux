@@ -2,6 +2,8 @@
 while ps -ef | grep dirvish | grep -qv grep
 do
 	now=`date +%T`
+
+	# Report on rsync's in progress
 	ps -ef |
 	grep rsync |
 	grep -v grep |
@@ -13,9 +15,37 @@ do
 	while read trash pid trash fh trash trash trash trash filename
 	do
 		[[ $fh = [0-9]*r ]] || continue		# Filter out output file.
-		printf "%-s %5d %s\n" $now $pid "$filename"
+		printf "%-s %5d %s\n" $now $pid "rsync: $filename"
 	done |
 	sort
+
+	# Report on dirvish-expire in progress
+	prior=''
+	ps -ef | 
+	grep dirvish-expire |
+	grep -v grep |
+	while read trash pid trash
+	do
+		line=`pstree -p $pid`
+		line=${line##*--rm(}
+		line=${line%%)*}
+		[[ -n $line ]] && lsof -p $line | 
+			grep ' [0-9]r  *DIR '
+	done |
+	while read trash pid trash trash trash trash trash trash dir
+	do
+		dir=${dir%%/tree/*}
+		printf "%-s %5d %s %s\n" $now $pid "expire: $dir"
+	done |
+	sort -r |
+	while read current
+	do
+		if [[ -z "$prior" || "$prior" != $current* ]]
+		then
+			echo "$current"
+		fi
+		prior=$current
+	done
 	sleep 30
 done
 date '+No dirvish processes running at %T'
