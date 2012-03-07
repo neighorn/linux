@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# =====Description====
+# Read sensor data and create mrtg-readable information
 #
 use strict;
 use warnings;

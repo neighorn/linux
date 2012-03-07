@@ -28,6 +28,8 @@ our @EXPORT = qw(
 	CHECK_STILL_UP CHECK_STILL_DOWN CHECK_NOW_UP CHECK_NOW_DOWN
 );
 
+my $x = $main::opt_R;	# suppress warning
+
 # Define fields.  Note that Autoload normalizes all field names to "first-upper rest lowercase".
 # Names with multiple uppercase characters are not settable from the service files.
 use fields (
