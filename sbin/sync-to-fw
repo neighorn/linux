@@ -7,17 +7,18 @@ then
     DryRun="-n"
 fi
 rsync -aH --delete -i $DryRun					\
-	--exclude /proc						\
-	--exclude /sys						\
+	--exclude /cgroup					\
 	--exclude /dev						\
 	--exclude /etc/HOSTNAME					\
 	--exclude /etc/lvm					\
 	--exclude /etc/mdadm.conf				\
 	--exclude /etc/sysconfig/network			\
 	--exclude /etc/udev/rules.d/70-persistent-net.rules	\
+	--exclude /proc						\
+	--exclude /sys						\
 	--exclude /tmp						\
-	--exclude /usr/local/etc/apache2/pages/mrtg		\
 	--exclude /usr/local/backup				\
+	--exclude /usr/local/etc/apache2/pages/mrtg		\
 	--exclude /usr/local/etc/postfix/main.cf 		\
 	--exclude /var				 		\
 	firewall:/ / 						\
