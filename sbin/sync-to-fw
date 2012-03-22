@@ -1,0 +1,43 @@
+#/bin/bash
+export Test=''
+export DryRun=''
+if [[ $1 = '-t' ]]
+then
+    Test="echo Test:"
+    DryRun="-n"
+fi
+rsync -aH --delete -i $DryRun					\
+	--exclude /proc						\
+	--exclude /sys						\
+	--exclude /dev						\
+	--exclude /etc/HOSTNAME					\
+	--exclude /etc/lvm					\
+	--exclude /etc/mdadm.conf				\
+	--exclude /etc/sysconfig/network			\
+	--exclude /etc/udev/rules.d/70-persistent-net.rules	\
+	--exclude /tmp						\
+	--exclude /usr/local/etc/apache2/pages/mrtg		\
+	--exclude /usr/local/backup				\
+	--exclude /usr/local/etc/postfix/main.cf 		\
+	--exclude /var				 		\
+	firewall:/ / 						\
+	2>&1 |
+		/usr/local/bin/ir -olt sync-to-fw
+
+rsync -aH --delete -i $DryRun					\
+	--exclude /locks					\
+	--exclude /log						\
+	--exclude /mrtg						\
+	--exclude /lib/ntp/proc 				\
+	--exclude /run						\
+	--exclude /tmp						\
+	firewall:/var/ /var/					\
+	2>&1 |
+		/usr/local/bin/ir -olt sync-to-fw
+
+# Rebuild initrd in case there were kernel updates.
+$Test mkinitrd
+
+# Reboot, to make any software updates effective.
+[[ $Test = '' ]] && echo Preparing to reboot...
+$Test sleep 15 && $Test shutdown -r now
