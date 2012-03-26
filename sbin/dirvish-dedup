@@ -1,5 +1,8 @@
 #!/usr/bin/perl -w
 
+#
+# External packages
+#
 use strict;
 use Cwd;
 use Digest::MD5 qw(md5 md5_hex);
@@ -8,349 +11,616 @@ use File::Compare qw(compare);
 use File::Copy qw(cp);
 use File::Find;
 use File::Temp qw(tempfile);
+use File::Basename;
 use Getopt::Long;
 use POSIX qw(strftime);
 use Fcntl;
-our %Opt;
-my $StartTime=time();
-GetOptions(\%Opt,
-           "maxlinks=i",
-	   "dry-run|n",	
-	   "logfile|l=s",
-           "progress",
-           "stats",
-          ) or die;
+use FindBin qw($Script);
 
-my @dirs = @ARGV or die "Usage: $0 OPTIONS directories";
-our $DEBUG = 0;
-our $Signal = 0;
-our %MD5;
-our $Usedspc = 0;
-our $Savedspc = 0;
-our $PrintProgress = 0;		# Set to 1 by alarm clock or SIGUSR1.
-our $PrintStats = 0;		# Set to 1 by SIGUSR1 for supplemental report.
+# 
+# Prototype declarations.
+#
+sub PrintStatistics ();
+sub RegisterFile ($$@);
+sub RegisterInode ($@);
+sub FindMatch ($@);
+
+#
+# Global variables
+#
+our $Prog = $Script;       # Get our program name, for messages and work files.
+our %Opt;                  # Command line options.
+our $Cancel          = 0;  # 1 = cancel requested.
+our $CancelConfirmed = 0;  # 1 = cancel confirmed.
+our %UniqueFiles;          # Hash of known file signatures (MD5+selected inode data).
+our %Inodes;               # Hash of known inodes and what to link them to.
+our $Usedspc       = 0;    # Total space examined.
+our $Savedspc      = 0;    # Total space recovered.
+our $PrintProgress = 0;    # Set to 1 by alarm clock or SIGUSR1.
+our $PrintStats    = 0;    # Set to 1 by SIGUSR1 for supplemental report.
+our $ETA           = 0;    # Estimated completion.
 our $LOG_FH;
+our $Root;                 # Current root dir (ARGV item).
 
-print "Running in dry-run mode...\n" if ($Opt{'dry-run'});		# Added, BPM, 3/16/12
+#
+# Local variables
+#
+my $StartTime = time();
 
+#
+# Signals.
+#
 $SIG{INT} = sub {
-  warn "Caught SIGINT; please stand by, I'm leaving as soon as possible...\n";
-  $Signal++;
+    warn "Interrupt request accepted.  Please stand-by...\n";
+    $Cancel++;
 };
-
 $SIG{USR1} = sub {
-  # User requested a status update.
-  $PrintProgress = 1;
-  $PrintStats = 1;
+
+    # User requested a status update.
+    $PrintProgress = 1;
+    $PrintStats    = 1;
 };
+$SIG{HUP} = $SIG{USR1};    # Don't die because the user sent the default kill.
 
-$SIG{HUP} = $SIG{USR1};		# Don't die because the user sent the default kill.
+#
+# Process options.
+#
+GetOptions( \%Opt, "maxlinks=i", "dry-run|n", "logfile|l=s", "progress!",
+    "stats!", "eta!", "strict!", "debug+", )
+  or die;
+foreach my $name (qw(dry-run logfile progress stats eta strict debug)) {
+	$Opt{$name} = 0 unless (exists($Opt{$name}));
+}
+warn "Running dry-run without a logfile -- no record of proposed changes will be kept.\n"
+    if ($Opt{"dry-run"} and not $Opt{logfile});
 
+print "Running in dry-run mode...\n"
+  if ( $Opt{'dry-run'} );
 
-if ($Opt{logfile}) {
-  sysopen($LOG_FH,$Opt{logfile},O_CREAT+O_WRONLY+O_TRUNC)
-    || die "Unable to open $Opt{logfile}: $!";
-  $LOG_FH->autoflush(1);
+if ( $Opt{logfile} ) {
+    sysopen( $LOG_FH, $Opt{logfile}, O_CREAT +O_WRONLY +O_TRUNC )
+      || die "Unable to open $Opt{logfile}: $!";
+    $LOG_FH->autoflush(1);
 }
 
+if ( $Opt{'progress'} ) {
 
-if ($Opt{'progress'}) {
-  # Set us up for regular progress reports.
-  $SIG{ALRM} = sub {
-    $PrintProgress = 1;	# Ask for a status update.
-  };
-  alarm(30);			# Wake us in 60 seconds.
-};
-
-our $DV = Dumpvalue->new(tick => qq{"},
-                         quoteHighBit => 1,
-                         printUndef => 1,
-                        );
-our $WD = Cwd::cwd;
-
-sub fmt ($) {
-  local $_ = shift;
-  s/(\d)(?=(\d{3})+$)/$1,/g;
-  $_;
+    # Set us up for regular progress reports.
+    $SIG{ALRM} = sub {
+        $PrintProgress = 1;    # Ask for a status update.
+    };
+    alarm(30 - (time() % 30));                 # Wake us every 30 seconds.
 }
 
-# $success = melt($some_file,$another)
+our $DV = Dumpvalue->new(
+    tick         => qq{"},
+    quoteHighBit => 1,
+    printUndef   => 1,
+);
 
-# $some_file is always absolute, $another is always in the current
-# directory
+my %reported;
+my $files         = 0;
+my $tl_dirs_total = 0;
+my $tl_dirs_doing = 0;
 
-# melt dies on severe errors, returns 1 on success and 0 if it could
-# not melt the files. It warns on suspect error conditions, but does
-# not warn if they have no severe consequences.
-sub melt ($$) {
-  my($first,$basename) = @_;
-  if ($Opt{'dry-run'}) {						# Added, BPM, 3/16/12
-    printf ("\rdry-run: %s > %s\n",$basename,$first);
-    return 1;								# Added, BPM, 3/16/12
-  }									# Added, BPM, 3/16/12
-  my($fh,$tempfile) = tempfile("dirvish-dedup1-XXXXXXXX", DIR => ".");
-  unless ($tempfile) {
-    die "Could not create a temporary file: $!";
-  }
-  unless (rename $basename, $tempfile){
-    warn sprintf(
-                 "Cannot rename %s to %s (%s); Skipping.",
-                 $DV->stringify($basename),
-                 $DV->stringify($tempfile),
-                 $!,
-                );
-    unlink $tempfile or die "Could not unlink '$tempfile': $!";
-    return 0;
-  }
-  unless (link $first, $basename){
-    my $link_err = $!;
-    if (rename $tempfile, $basename){
-      # We could rename back and no harm should be done. Don't warn.
-      return 0;
-    } else {
-      die sprintf(
-                  "Could neither link %s to %s (%s) ".
-                  "nor rename %s back to %s (%s).",
-                  $DV->stringify($first),
-                  $DV->stringify($basename),
-                  $link_err,
-                  $DV->stringify($tempfile),
-                  $DV->stringify($basename),
-                  $!
-                 );
+$| = 1;
+die "No directories specified.  Enter $Prog -h for usage.\n" unless (@ARGV);
+foreach $Root ( @ARGV ) {
+    if ( !cwd($Root) ) {
+        warn "Unable to cd to $Root -- skipped\n";
+        next;
     }
-  }
-  close $fh or warn "Could not close the temporary filehandle: $!";
-  unless (unlink $tempfile) {
-    die sprintf(
-                "Could not unlink %s (was %s): %s",
+    print strftime("%D %T Starting $Root" . ' 'x30 . "\n",localtime())
+        if (@ARGV > 1);
+    find(
+        {
+            wanted     => \&ProcessFile,
+            no_chdir   => 1,
+            preprocess => sub { return sort(@_); },
+        },
+        $Root
+    );
+    PrintStatistics();		# Final stats for this argv item.
+    print "\n";
+    last if $Cancel and $CancelConfirmed;
+}
+if ($LOG_FH) {
+    chmod(((stat $LOG_FH)[2] & 07777) | 0100, $LOG_FH);	# Add u+x.
+    close $LOG_FH;
+};
+
+my $StopTime = time();
+my $Elapsed = sprintf("%d:%d:%d:%ds", (gmtime($StopTime-$StartTime))[7,2,1,0]);
+$Elapsed =~ s/^(0:)+//;
+print strftime( "\nDONE @ %T on %D.  Elapsed time = $Elapsed.\n", localtime($StopTime) );
+
+#
+# Commify - format numbers with commas.
+#
+sub Commify ($) {
+    local $_ = shift;
+    s/(\d)(?=(\d{3})+$)/$1,/g;
+    $_;
+}
+
+#
+# ReplaceWithLink - replace a file with a hard link to another.
+#
+#     $success = ReplaceWithLink($some_file,$another)
+#
+#     $some_file is always absolute, $another is always in the current
+#     directory
+#
+#     ReplaceWithLink dies on severe errors, returns 1 on success and 0 if it could
+#     not replace the files. It warns on suspect error conditions, but does
+#     not warn if they have no severe consequences.
+#
+sub ReplaceWithLink ($$) {
+    my ( $first, $cand ) = @_;
+    if ( $Opt{'dry-run'} ) {
+        printf $LOG_FH "\$1 \$2 %s %s\n", shell_quote($cand), shell_quote($first) if ($LOG_FH);
+        return 1;
+    }
+    my ( $fh, $tempfile ) = tempfile( "$Prog-1-XXXXXXXX", DIR => dirname($cand) );
+    unless ($tempfile) {
+        die "Could not create a temporary file: $!";
+    }
+    unless ( rename $cand, $tempfile ) {
+        warn sprintf(
+            "Cannot rename %s to %s (%s); Skipping.",
+            $DV->stringify($cand),
+            $DV->stringify($tempfile), $!,
+        );
+        unlink $tempfile or warn "Could not unlink '$tempfile': $!";
+        return 0;
+    }
+    unless ( link $first, $cand ) {
+        my $link_err = $!;
+        if ( rename $tempfile, $cand ) {
+
+            # We could rename back and no harm should be done.
+            warn "Unable to link $cand to $first: $link_err\n";
+            return 0;
+        }
+        else {
+            die sprintf(
+                "Could neither link %s to %s (%s) "
+                  . "nor rename %s back to %s (%s).",
+                $DV->stringify($first),
+                $DV->stringify($cand),
+                $link_err,
                 $DV->stringify($tempfile),
-                $DV->stringify($basename),
-                $!
-               );
-  }
-  printf $LOG_FH "%s > %s\n", $basename, $first if ($LOG_FH);
-  return 1;
-}
-
-{
-  my %INODE;
-  sub register ($$;$) {
-    my($md5,$cand,$candstat) = @_;
-    my @stat = $candstat ? @$candstat : stat $cand;
-    $MD5{filekey($md5,@stat)} = $cand;
-    my $size = $stat[7];
-    warn "size undefined" unless defined $size;
-    warn "usedspc undefined" unless defined $Usedspc;
-    if ($DEBUG) {
-      warn(sprintf "\nDEBUG: cand[%s]size[%s]stat[%s]", $cand, $size, join(":",@stat));
+                $DV->stringify($cand), $!
+            );
+        }
     }
-    return if $INODE{$stat[1]}++; # don't count twice
-    $Usedspc += $size;
-  }
+    close $fh or warn "Could not close the temporary filehandle: $!";
+    unless ( unlink $tempfile ) {
+        die sprintf(
+            "Could not unlink %s (was %s): %s",
+            $DV->stringify($tempfile),
+            $DV->stringify($cand), $!
+        );
+    }
+
+    print "debug:   Linked " . join(', ',stat($cand)) . ", $cand\n"
+        . "debug:     with " . join(', ',stat($first)) . ", $first\n"
+            if ($Opt{debug});
+    printf $LOG_FH "\$1 \$2 %s %s\n", shell_quote($cand), shell_quote($first) if ($LOG_FH);
+    return 1;
 }
 
-sub filekey {
-    my($md5,@stat) = @_;
+#
+# FileKey - build a hash key for this file
+#
+sub FileKey {
+    my ( $md5, @stat ) = @_;
     return "$md5,$stat[0],$stat[2],$stat[4],$stat[5],$stat[7]";
 }
 
-undef $/;
-my %reported;
-my $files = 0;
-my $dirs = @dirs;
-my $tl_dirs_todo = 0;
-my $tl_dirs_doing = 0;
+#
+# InodeKey - build a key for this inode
+#
+sub InodeKey {
 
-sub xreport () {
-  my $uniq_files = keys %MD5;
-  printf(
-         "tlds=%s,cur=%s,unique=%s,files=%s,spcused=%s,spcsaved=%s,\r",
-         map {
-           fmt($_)
-         }
-         (
-          $tl_dirs_todo,
-          $tl_dirs_doing,
-          $uniq_files,
-          $files,
-          $Usedspc,
-          $Savedspc
-         )
-        );
-  if ($PrintStats) {
-	# This was a manual request.  Don't overwrite it.
-	print "\n";
-  	$PrintStats = 0;	# Turn off manual request flag.
-  }
+    # Ideally two pointers to the same inode number on the same device should
+    # point to the same file.  Over time, however, an inode could get release
+    # and reassigned.  So we compare on the inode number, but also a number of
+    # other characteristics that would stay constant, including size and mtime.
+    # Not atime though, since we don't care of someone read the file.
+    my (@stat) = @_;
+    return "$stat[0],$stat[1],$stat[2],$stat[4],$stat[5],$stat[7],$stat[9]";
 }
 
-$| = 1;
-for my $diri (0..$#dirs) {
-  my $root = $dirs[$diri];
-  if (!cwd($root)) {
-    warn "Unable to cd to $root -- skipped\n";
-    next;
-  }
-  find(
-       {
-        wanted => sub {
-          if ($Signal){
-            $File::Find::prune = 1;
-            return;
-          }
-          if ($File::Find::name eq $root) {
-            my $td = $_;
-            opendir my($dh), $td;
-            my(@tl) = grep { !/^\./ && -d "$td/$_" } readdir $dh;
-            $tl_dirs_todo = @tl;
-          } elsif (-d) {
-            my $slashes = $File::Find::name =~ tr|/||;
-            if ($slashes == 1) {
-              $tl_dirs_doing++;
-            }
-          }
-          return if -l; # relative links would need special treatment that does not pay off
-          return unless -f _;
-          return unless -s _; # empty files more risk that files with
-                              # content and no gain
-          $files++;
-          my $basename = $_;
-          my $fh;
-          unless (open $fh, "<", $basename) {
-            warn sprintf(
-                         "Cannot read %s (%s); Skipping.",
-                         $DV->stringify($File::Find::name),
-                         $!,
-                        );
-            $Usedspc += -s $basename;
-            return;
-          }
-          my $data = <$fh>;
-          close $fh;
-          my $md5 = md5_hex $data;
-          my $cand = $File::Find::name;
-	  if ($PrintProgress) {
-	    # We've received a request for a progress report.
-            print strftime("%D %T Now processing $cand\n",localtime(time()));
-	    $PrintProgress = 0;		# Turn off flag.
-            alarm(30);		# Schedule next alarm.
-          }
-          if ($Opt{maxlinks}) {
-            my(@maxlstat) = stat($cand);
-            if ($maxlstat[3] > $Opt{maxlinks}) {
-              # the case that we have to make a new file from a link
-              my($fh,$tempfile) = tempfile("dirvish-dedup2-XXXXXXXX", DIR => ".");
-              unless ($tempfile) {
+#
+# PrintStatistics - display conversion statistics
+#
+sub PrintStatistics () {
+    my $uniq_files = keys %UniqueFiles;
+    my $Elapsed=time()-$StartTime;
+    printf(
+        "tlds=%s/%s, %s unique, %s files, %s files/s, %s/s, %s used, %s saved    \r",
+        map { Commify($_) } (
+            $tl_dirs_doing, $tl_dirs_total, $uniq_files, $files,
+        int($files/$Elapsed+0.5),
+        ),
+        FormatStorage($Usedspc/$Elapsed),
+	FormatStorage($Usedspc),
+	FormatStorage($Savedspc),
+    );
+    if ($PrintStats) {
+
+        # This was a manual request.  Don't overwrite it.
+        print "\n";
+        $PrintStats = 0;    # Turn off manual request flag.
+    }
+}
+
+
+#
+# RegisterFile - Remember this file by MD5 and inode data.
+#
+{
+    # This sub is in a closure so it can maintain a persistent
+    # private hash.
+    my %CountedInodes;
+
+    sub RegisterFile ($$@) {
+        my ( $md5, $cand, @candstat ) = @_;
+        $UniqueFiles{ FileKey( $md5, @candstat ) } = $cand;
+        my $size = $candstat[7];
+        warn "size undefined"    unless defined $size;
+        warn "usedspc undefined" unless defined $Usedspc;
+        if ($Opt{debug}) {
+            print "debug:   Registered new file: " . FileKey($md5,@candstat) . " => $cand\n";
+        }
+        return if $CountedInodes{ $candstat[1] }++;    # don't count twice
+        $Usedspc += $size;
+    }
+}
+
+
+#
+# RegisterInode - Remember this inode by MD5 and inode data.
+#
+
+sub RegisterInode ($@) {
+    my ( $first, @candstat ) = @_;
+    my $key = InodeKey(@candstat);
+    if ($candstat[3] > 1 ) {
+        # There are other links to this inode.  Remember it.
+    	$Inodes{ $key } = $first;
+    	if ($Opt{debug}) {
+        	print "debug:   Registered new inode: " . InodeKey(@candstat) . " => $first\n";
+        }
+    }
+    elsif (exists($Inodes{ $key })) {
+       # There's only one of these now.  No point in keeping it.
+       delete $Inodes{ $key };
+    }
+    else {
+       # This is the first and last time we'll see this one.  Ignore it.
+    }
+}
+
+
+#
+# KnownInodes - if we've already seen this inode, pass back the file it links to
+#               or '' if it should stay as-is.  Else return undef.
+sub KnownInodes(@) {
+    if (exists($Inodes{InodeKey(@_)})) {
+        my $first = $Inodes{InodeKey(@_)};
+        return '' if ($first eq '');		# Leave as is.
+        # So we're going to map this to another file, but make sure that
+	# file hasn't disappeared since we last saw it.
+        return $first if (-f $first);
+    };
+    return undef();
+}
+
+
+
+#
+# ProcessItem - process the next file (directory, ...) found.
+#
+sub ProcessFile {
+    # See if the user has cancelled the job.
+    if (CheckCancel()) {
+        # Cancelling.  Prune everything until we get out.
+        $File::Find::prune = 1;
+        return;
+    }
+
+    my $cand = $File::Find::name;	# Get the full path name of our candidate.
+
+    # Manage stats and generate progress reports.
+    ManageStats($cand);
+
+    return if -l;          # Skip relative links.  No pay off.
+    return unless -f _;    # Skip non-files.
+    return unless -s _;    # Skip empty files.  Risk & no pay off.
+
+    $files++;
+    my $basename = $_;
+    print "debug: Checking $cand\n" if ($Opt{debug});
+
+    # If there's a limit on links, see if we've reached it.
+    if ( $Opt{maxlinks} ) {
+        my (@maxlstat) = stat($cand);
+        if ( $maxlstat[3] > $Opt{maxlinks} ) {
+
+            # the case that we have to make a new file from a link
+            print "debug:   Link limit reached on $cand\n" if ($Opt{debug});
+            my ( $fh, $tempfile ) =
+              tempfile( "$Prog-2-XXXXXXXX", DIR => "." );
+            unless ($tempfile) {
                 die "Could not create a temporary file: $!";
-              }
-              unless (rename $cand, $tempfile){
-                die sprintf(
-                            "Could not rename %s to %s: %s",
-                            $DV->stringify($cand),
-                            $DV->stringify($tempfile),
-                            $!
-                           );
-              }
-              cp $tempfile, $cand or die sprintf(
-                                                 "Could not cp %s to %s: %s",
-                                                 $DV->stringify($tempfile),
-                                                 $DV->stringify($cand),
-                                                 $!,
-                                                );
-              unlink $tempfile;
-              $Savedspc -= $maxlstat[7];
             }
-          }
-          my(@candstat) = stat($basename);				# Moved earlier, BPM.
-          if (my $first = $MD5{filekey($md5,@candstat)}) {
-            unless (File::Spec->file_name_is_absolute($first)) {
-              $first = File::Spec->catfile($WD, $first);
+            unless ( rename $cand, $tempfile ) {
+                die sprintf( "Could not rename %s to %s: %s",
+                    $DV->stringify($cand), $DV->stringify($tempfile), $! );
             }
-            my(@firststat) = stat($first);
-            die sprintf(
-                        "illegal firststat[%s]first[%s]",
-                        join(":",@firststat),
-                        $DV->stringify($first),
-                       ) unless $firststat[1];
-            my $different = compare $first, $basename;
-            if ($different != 0 && $File::Compare::VERSION<1.1005) {
-              # workaround bug # 37716 in File::Compare
-              $different = compare "$first\0", "$basename\0";
-            }
-            if ($different<0) {
-              warn sprintf(
-                           "Cannot compare %s and %s (%s); Skipping.",
-                           $DV->stringify($first),
-                           $DV->stringify($cand),
-                           $!,
-                          );
-              goto XREPORT; # some error occurred
-            }
-            die sprintf(
-                        "Sensation, %s and %s are not equal with same MD5",
-                        $DV->stringify($first),
-                        $DV->stringify($cand),
-                       )
-                if $different;
-            # replaced by filekey check: goto XREPORT unless $candstat[0] == $firststat[0]; # different file system
-            if ($candstat[1] == $firststat[1]) { # already same inode
-              if (0 && $Opt{maxlinks} && $firststat[3] > $Opt{maxlinks}) {
-                } else {
-                  goto XREPORT;
-                }
-            }
-            if ($Opt{maxlinks} && $firststat[3] >= $Opt{maxlinks}){
-              register($md5,$cand,\@candstat) if $candstat[3] < $Opt{maxlinks};
-            } elsif (melt($first,$basename)) {
-              if ($candstat[3]==1) { # we don't save space otherwise
-                $Savedspc += $firststat[7];
-              }
-            } else {
-              register($md5,$cand,\@candstat);
-            }
-          } else {
-            register($md5,$cand);
-          }
-        XREPORT:
-          # Skip the stats report unless:
-          #    PrintStats = 1 (set by SIGUSR1)
-          #    --stats specified and $files % 100 == 0.
-          return unless ($PrintStats or ($Opt{'stats'} and $files % 100 == 0));
-          xreport;
-        },
-        no_chdir => 1,
-        preprocess => sub { return sort(@_);},
-       },
-       $root
-      );
-  last if $Signal;
-}
-xreport;
-close $LOG_FH if ($LOG_FH);
+            cp $tempfile, $cand
+              or die sprintf(
+                "Could not cp %s to %s: %s",
+                $DV->stringify($tempfile),
+                $DV->stringify($cand), $!,
+              );
+            unlink $tempfile;
+            $Savedspc -= $maxlstat[7];
+        }
+    }
 
-my $StopTime = time();
-print strftime("\nDONE @ %T on %D.  ",localtime($StopTime));
-my $ElapsedFmt = '';
-my $ElapsedTime = $StopTime - $StartTime;
-my $Days = int($ElapsedTime/84200);
-$ElapsedTime -= $Days*84200;
-$ElapsedFmt .= $Days . " days" if ($Days);
-my $Hours = int($ElapsedTime/3600);
-if ($Hours or $ElapsedFmt) {
-	$ElapsedFmt .= ", " if ($ElapsedFmt);
-	$ElapsedFmt .= $Hours . " hours";
+    # Now get down to really processing this item.
+    my (@candstat) = stat($basename);
+    my $match;
+    my $first = KnownInodes(@candstat);
+    my @firststat;
+    my $md5;
+
+    # Four choices:
+    #   1) We've seen this inode before, and it stayed as-is.  This one can too.
+    #   2) We've seen this inode before, and it was replaced.  Replace this one
+    #      the same way.
+    #   3) It's content matches a prior file.  Link it and remember the inode.
+    #   4) It doesn't match anything.  Remember it as a unique file and remember the inode.
+    if (defined($first) and !$first ) {
+        # Case 1: we've seen this before and it stayed as-is.
+        print "debug:   $cand has same inode as $first -- leave as is\n"
+            if ($Opt{debug});
+        return;			# Leave it as-is.
+    }
+    elsif (defined($first) and $first) {
+        # Case 2: we've seen this before and it was replaced.
+        $match = 1;
+
+        eval('@firststat = stat($first);');
+        print "debug:   $cand has same inode as prior item -- link to $first\n"
+            if ($Opt{debug});
+    }
+    elsif ($first = FindMatch($cand,\$md5,@candstat)) {
+        # Case 3: We looked for and found a match.
+        $match = 1;
+        RegisterInode($first,@candstat);	# Remember how we handle this inode.
+        print "debug:   $cand contents match -- link to $first\n"
+            if ($Opt{debug});
+    }
+    else {
+        # Case 4: It didn't match anything.
+        $match = 0;
+        RegisterFile( $md5, $cand, @candstat );	# Remember for future matches.
+        RegisterInode('',@candstat);		# Remember this inode.
+    }
+
+    if ($match) {
+        # Don't replace if we've exceeded our maxlinks.
+        if ( $Opt{maxlinks} && $firststat[3] >= $Opt{maxlinks} ) {
+            # Exceeded our link limit.  Register this as the new target file.
+            RegisterFile( $md5, $cand, @candstat );
+        }
+        elsif ( ReplaceWithLink( $first, $cand ) ) {
+            if ( $candstat[3] == 1 ) {    # we don't save space otherwise
+                $Savedspc += -s $cand;
+            }
+        }
+        else {
+            # Tried but failed to hardlink.  Make candidate our new target.
+            RegisterFile( $md5, $cand, @candstat );
+            RegisterInode('',@candstat);
+        }
+    }
+
+    # Skip the stats report unless:
+    #    PrintStats = 1 (set by SIGUSR1)
+    #    --stats specified and $files % 1000 == 0.
+    PrintStatistics()
+        if ( $PrintStats or ( $Opt{'stats'} and $files % 1000 == 0 ) );
+    return;
 }
-$ElapsedTime -= $Hours*3600;
-my $Minutes = int($ElapsedTime/60);
-if ($Minutes or $ElapsedFmt) {
-	$ElapsedFmt .= ", " if ($ElapsedFmt);
-	$ElapsedFmt .= $Minutes . " minutes";
+
+
+
+#
+# FindMatch - Try to find a file that matches this one.
+#
+sub FindMatch ($@) {
+    my($cand,$md5ref,@candstat) = @_;
+
+    # Calculate the MD5 sum of the candidate.
+    my $fh;
+    unless ( open $fh, "<", $cand ) {
+        warn sprintf( "Cannot read %s (%s); Skipping.",
+            $DV->stringify($File::Find::name), $!, );
+        $Usedspc += -s $cand;
+        return '';
+    }
+
+
+    my $LineEnd=$/;	# Save the line-end character.
+    local $/;		# Don't impact other things.
+    undef $/;		# Read the whole file.
+    my $data = <$fh>;
+    close $fh;
+    $/ = $LineEnd;	# Put the line-end character back.
+    $$md5ref = md5_hex $data;
+    $data = '';	# Don't need to keep this in memory now.  Could be big.
+
+    # See if we recognize this MD5 sum and stat attributes.
+    if ( my $first = $UniqueFiles{ FileKey( $$md5ref, @candstat ) } ) {
+        # It matches something previous, according to the MD5 and stat data.
+	my @firststat;
+        eval('@firststat = stat($first);');
+        die sprintf(
+            "illegal firststat[%s]first[%s]",
+            join( ":", @firststat ),
+            $DV->stringify($first),
+        ) unless $firststat[1];		# This came from trimtrees.pl.  Not sure why.
+        print "debug:   MD5 match: " . join(', ',@candstat) . ",$cand\n"
+            . "              with: " . join(', ',@firststat) . ",$first\n"
+                if ($Opt{debug});
+        my $different = ($Opt{strict}?compare $first, $cand:0);
+        if ( $different != 0 && $File::Compare::VERSION < 1.1005 ) {
+
+            # workaround bug # 37716 in File::Compare
+            $different = compare "$first\0", "$cand\0";
+        }
+        if ( $different < 0 ) {
+            # Compare failed to run.
+            warn sprintf(
+                "Cannot compare %s and %s (%s); Skipping.",
+                $DV->stringify($first),
+                $DV->stringify($cand), $!,
+            );
+	    return;
+        }
+        elsif ($different == 0) {
+            # We have a match!
+            print "debug:  $cand matches $first\n" if ($Opt{debug} > 1);
+            return $first;
+        }
+        else {
+            # MD5 matched but binary compare differed!!!
+            die sprintf(
+                "MD5 collision!  %s and %s are not equal with same MD5 ($$md5ref)",
+                $DV->stringify($first),
+                $DV->stringify($cand)
+                );
+        }
+    }
+    else {
+        print "debug:  $cand is unique\n" if ($Opt{debug} > 1);
+        return;
+    }
 }
-$ElapsedTime -= $Minutes*60;
-$ElapsedFmt .= ", " if ($ElapsedFmt);
-$ElapsedFmt .= $ElapsedTime . " seconds";
-print "Elapsed time = $ElapsedFmt\n";
+
+
+
+#
+# CheckCancel
+#
+sub CheckCancel {
+    if ( $Cancel and !$CancelConfirmed ) {
+
+        # Don't lose hours (or days) of work due to a ^C in the wrong window.
+        print "\nProgress report, statistics, cancel job, or none (p/s/c/n)? ";
+        my $Response = <STDIN>;
+	chomp $Response;
+        if ( $Response eq 'c' ) {
+            print "Cancel confirmed.  Wrapping up.\n";
+            $CancelConfirmed = 1;
+        }
+        elsif ( $Response eq 'p' ) {
+            $PrintProgress = 1;
+	    $Cancel = 0;
+        }
+        elsif ( $Response eq 's' ) {
+            PrintStatistics();
+	    $Cancel = 0;
+        }
+        elsif ( $Response eq 'n' ) {
+            print "Resuming processing.\n";
+            $Cancel = 0;
+        }
+        else {
+            print "Unrecognized response.  Resuming processing.\n";
+            $Cancel = 0;
+        }
+    }
+    return ($Cancel and $CancelConfirmed);
+}
+
+
+
+#
+# ManageStats - manage progress reports and statistics.
+#
+sub ManageStats {
+
+    my $cand = shift;
+    # Take care of progress reports.
+    if ($PrintProgress) {
+
+        # We've received a request for a progress report.
+        print strftime( "%D %T Now processing $cand\n", localtime( time() ) );
+        $PrintProgress = 0;    # Turn off flag.
+        alarm( 30 - ( time() % 30 ) ) if ($Opt{progress});    # Schedule next alarm.
+    }
+
+    # Manage our stats.
+    if ( $cand eq $Root ) {
+        # We're starting a ARGV item, count it's top-level directories.
+        my $td = $_;
+        opendir my ($dh), $td;
+        my (@tl) = grep { !/^\./ && -d "$td/$_" } readdir $dh;
+        $tl_dirs_total = @tl;
+    }
+    elsif (-d) {
+        # We're continuing an item.  Find out if this is a new TLD.
+        my $slashes = $cand =~ tr|/||;
+        if ( $slashes == 1 ) {
+            # It's a new TLD.  Update stats and ETA.
+            $tl_dirs_doing++;
+            if ( $Opt{eta} and $tl_dirs_doing > 1 ) {
+
+                # Calculate our completion time.
+                my $TimePerTLD =
+                  ( time() - $StartTime ) / ( $tl_dirs_doing - 1 );
+                my $ETA =
+                  time() +
+                  $TimePerTLD * ( $tl_dirs_total - $tl_dirs_doing - 1 );
+                print $Root
+                  . strftime( " estimated completion time: %T on %D\n",
+                    localtime($ETA) );
+            }
+        }
+    }
+    return;
+}
+
+
+
+#
+# FormatStorage - 
+#
+sub FormatStorage {
+
+    my $Bytes = shift;
+    if ($Bytes > 10*1024*1024*1024*1024) {
+        return Commify(int($Bytes/1024/1024/1024/1024)) . 'T';
+    }
+    elsif ($Bytes > 10*1024*1024*1024) {
+        return Commify(int($Bytes/1024/1024/1024)) . 'G';
+    }
+    elsif ($Bytes > 10*1024*1024) {
+        return Commify(int($Bytes/1024/1024)) . 'M';
+    }
+    elsif ($Bytes > 10*1024) {
+        return Commify(int($Bytes/1024)) . 'K';
+    }
+    else {
+        return $Bytes . 'B';
+    }
+}
 
 __END__
 
@@ -368,6 +638,11 @@ dirvish-dedup - traverse directories, find identical files, replace with hard li
   -n|--dry-run		  report changes, but don't really link anything
   --progress		  print progress reports every 30 seconds
   --stats                 print search/link statistics every 100 files.
+  -l|--logfile file	  write a link log to "file"
+  --strict                physically compare files if the MD5 sum
+                          and file size match.  This causes an
+                          extra full file read of both files.
+                          Default is to trust the MD5 + file size.
 
 =head1 DESCRIPTION
 
