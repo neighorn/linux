@@ -4,6 +4,7 @@
 # External packages
 #
 use strict;
+use warnings;
 use Cwd;
 use Digest::MD5 qw(md5 md5_hex);
 use Dumpvalue;
@@ -16,6 +17,9 @@ use Getopt::Long;
 use POSIX qw(strftime);
 use Fcntl;
 use FindBin qw($Script);
+use String::ShellQuote;		# For shell_quote.
+use Data::Dumper::Simple;
+use Text::ParseWords;
 
 # 
 # Prototype declarations.
@@ -24,6 +28,8 @@ sub PrintStatistics ();
 sub RegisterFile ($$@);
 sub RegisterInode ($@);
 sub FindMatch ($@);
+sub ProcessOptions ();
+sub ElapsedTime ();
 
 #
 # Global variables
@@ -41,11 +47,14 @@ our $PrintStats    = 0;    # Set to 1 by SIGUSR1 for supplemental report.
 our $ETA           = 0;    # Estimated completion.
 our $LOG_FH;
 our $Root;                 # Current root dir (ARGV item).
-
-#
-# Local variables
-#
-my $StartTime = time();
+our $LastCheckpoint = time();	# Time of last checkpoint.
+our $WriteCheckpoint = 0;  # 1 = time to write a checkpoint file.
+our @OrigARGV = @ARGV;	   # For checkpoint.
+our $AlarmInterval;	   # How long between alarms.
+our $ArgCount=0+@ARGV;	   # How many args we have, for stats.
+our $CurrentArg = 0;	   # Which arg we're on, for stats.
+our @OptSpec;		   # Specs for GetOptions;
+our $StartTime = time();   # Start time, for elapsed reports.
 
 #
 # Signals.
@@ -62,35 +71,19 @@ $SIG{USR1} = sub {
 };
 $SIG{HUP} = $SIG{USR1};    # Don't die because the user sent the default kill.
 
-#
-# Process options.
-#
-GetOptions( \%Opt, "maxlinks=i", "dry-run|n", "logfile|l=s", "progress!",
-    "stats!", "eta!", "strict!", "debug+", )
-  or die;
-foreach my $name (qw(dry-run logfile progress stats eta strict debug)) {
-	$Opt{$name} = 0 unless (exists($Opt{$name}));
-}
-warn "Running dry-run without a logfile -- no record of proposed changes will be kept.\n"
-    if ($Opt{"dry-run"} and not $Opt{logfile});
-
-print "Running in dry-run mode...\n"
-  if ( $Opt{'dry-run'} );
-
-if ( $Opt{logfile} ) {
-    sysopen( $LOG_FH, $Opt{logfile}, O_CREAT +O_WRONLY +O_TRUNC )
-      || die "Unable to open $Opt{logfile}: $!";
-    $LOG_FH->autoflush(1);
-}
-
-if ( $Opt{'progress'} ) {
 
     # Set us up for regular progress reports.
-    $SIG{ALRM} = sub {
-        $PrintProgress = 1;    # Ask for a status update.
-    };
-    alarm(30 - (time() % 30));                 # Wake us every 30 seconds.
-}
+$SIG{ALRM} = sub {
+    print "Alarm rang.\n" if ($Opt{debug});
+    $PrintProgress = 1 if ( $Opt{'progress'} );	# If they want progress reports, queue it up.
+    $WriteCheckpoint = 1 if (time() - $LastCheckpoint >= $Opt{cpinterval}); 
+    alarm($AlarmInterval - (time() % $AlarmInterval));	# Schedule the next alarm.
+};
+
+#
+# Process options.  @OptSpec is global, so we can change options dynamically.
+#
+ProcessOptions();
 
 our $DV = Dumpvalue->new(
     tick         => qq{"},
@@ -98,16 +91,29 @@ our $DV = Dumpvalue->new(
     printUndef   => 1,
 );
 
+#
+# Do some more initializing.
+#
+
 my %reported;
 my $files         = 0;
 my $tl_dirs_total = 0;
 my $tl_dirs_doing = 0;
 
+select(STDERR);
 $| = 1;
+select(STDOUT);
+$| = 1;
+
+#
+# Begin processing arguments.
+#
 die "No directories specified.  Enter $Prog -h for usage.\n" unless (@ARGV);
-foreach $Root ( @ARGV ) {
+my @ARGV_Copy = @ARGV;		# In case ProcessInterrupt has to reuse @ARGV.
+foreach $Root ( @ARGV_Copy ) {
+    $CurrentArg++;		# Increment count for stats.
     if ( !cwd($Root) ) {
-        warn "Unable to cd to $Root -- skipped\n";
+        warn "Unable to cd to $Root -- skipped: $!\n";
         next;
     }
     print strftime("%D %T Starting $Root" . ' 'x30 . "\n",localtime())
@@ -122,17 +128,94 @@ foreach $Root ( @ARGV ) {
     );
     PrintStatistics();		# Final stats for this argv item.
     print "\n";
+    WriteCheckpoint();
     last if $Cancel and $CancelConfirmed;
 }
+
+#
+# Done.  Wrap up the log file and write the elapsed time.
+#
 if ($LOG_FH) {
     chmod(((stat $LOG_FH)[2] & 07777) | 0100, $LOG_FH);	# Add u+x.
     close $LOG_FH;
 };
 
-my $StopTime = time();
-my $Elapsed = sprintf("%d:%d:%d:%ds", (gmtime($StopTime-$StartTime))[7,2,1,0]);
-$Elapsed =~ s/^(0:)+//;
-print strftime( "\nDONE @ %T on %D.  Elapsed time = $Elapsed.\n", localtime($StopTime) );
+my $Elapsed = ElapsedTime();
+print strftime( "\nDONE @ %T on %D.  Elapsed time = $Elapsed.\n", localtime());
+
+
+#
+# ProcessOptions
+#
+sub ProcessOptions () {
+
+    @OptSpec = ("maxlinks=i", "dry-run|n", "logfile|l=s", "progress!",
+        "stats!", "eta!", "strict!", "debug+", "cpinterval:600", "proginterval:30",
+        "statinterval:5000", "load-maps=s")
+      or die;
+    GetOptions(\%Opt, @OptSpec) or die;
+    foreach my $name (qw(dry-run logfile progress stats eta strict debug)) {
+    	$Opt{$name} = 0 unless (exists($Opt{$name}));
+    }
+
+    # Manage the dry-run flag.
+    warn "Running dry-run without a logfile -- no record of proposed changes will be kept.\n"
+        if ($Opt{"dry-run"} and not $Opt{logfile});
+    print "Running in dry-run mode...\n"
+      if ( $Opt{'dry-run'} );
+    
+    # Set up the log file.
+    if ( $Opt{logfile} ) {
+        close $LOG_FH if ($LOG_FH);		# In case we're changing options via ^C.
+        sysopen( $LOG_FH, $Opt{logfile}, O_CREAT +O_WRONLY +O_TRUNC )
+          || die "Unable to open $Opt{logfile}: $!";
+        $LOG_FH->autoflush(1);
+    }
+
+    # Load a pre-existing map file
+    if ($Opt{'load-maps'}) {
+        if (open(my $MAPFH,'<',$Opt{'load-maps'})) {
+            print "Loading $Opt{'load-maps'}\n";
+            local %Opt;		# Don't want these updated.
+            local @ARGV;	# Don't want these updated.
+            my $OldEOL = $/;
+            $/ = undef;
+            my $PriorMaps = <$MAPFH>;
+            $/ = $OldEOL;
+            close $MAPFH;
+            eval($PriorMaps);
+            my $UniqueCnt = Commify(0+keys(%UniqueFiles));
+            my $InodesCnt = Commify(0+keys(%Inodes));
+            print "Load-maps: $UniqueCnt unique files and $InodesCnt known inodes loaded\n";
+        }
+        else {
+            warn "Unable to open map file: $!";
+        }
+    }
+        
+    # Manage the alarm clock.  Do this last so we don't start the timer before long processes.
+    $Opt{cpinterval} = 600 unless ($Opt{cpinterval});
+    if ($Opt{cpinterval} <= 60) {
+        warn "Invalid value for --cpinterval -- set to default.\n";
+        $Opt{cpinterval} = 600;
+    }
+    $Opt{proginterval} = 30 unless ($Opt{proginterval});
+    if ($Opt{proginterval} <= 2) {
+        warn "Invalid value for --proginterval -- set to default.\n";
+        $Opt{proginterval} = 30;
+    }
+    $Opt{statinterval} = 5000 unless ($Opt{statinterval});
+    if ($Opt{progress}) {
+         $AlarmInterval=($Opt{proginterval} < $Opt {cpinterval}?$Opt{proginterval}:$Opt{cpinterval});
+    }
+    else {
+         $AlarmInterval=$Opt{cpinterval};
+    }
+    alarm($AlarmInterval - (time() % $AlarmInterval));	# Schedule the first alarm.
+    
+}
+
+
 
 #
 # Commify - format numbers with commas.
@@ -158,7 +241,7 @@ sub Commify ($) {
 sub ReplaceWithLink ($$) {
     my ( $first, $cand ) = @_;
     if ( $Opt{'dry-run'} ) {
-        printf $LOG_FH "\$1 \$2 %s %s\n", shell_quote($cand), shell_quote($first) if ($LOG_FH);
+        WriteLog($cand,$first) if ($LOG_FH);
         return 1;
     }
     my ( $fh, $tempfile ) = tempfile( "$Prog-1-XXXXXXXX", DIR => dirname($cand) );
@@ -206,8 +289,22 @@ sub ReplaceWithLink ($$) {
     print "debug:   Linked " . join(', ',stat($cand)) . ", $cand\n"
         . "debug:     with " . join(', ',stat($first)) . ", $first\n"
             if ($Opt{debug});
-    printf $LOG_FH "\$1 \$2 %s %s\n", shell_quote($cand), shell_quote($first) if ($LOG_FH);
+    WriteLog($cand,$first) if ($LOG_FH);
     return 1;
+}
+
+
+#
+# WriteLog - write a log entry.
+#
+sub WriteLog {
+    my($cand,$first) = @_;
+    if (!printf $LOG_FH "\$1 \$2 %s %s\n", shell_quote($cand), shell_quote($first)) {
+        # Log write error.  Give up on logging.
+        warn "Unable to write to log file: $!";
+        close $LOG_FH;
+        $LOG_FH = undef();
+    }
 }
 
 #
@@ -232,21 +329,49 @@ sub InodeKey {
     return "$stat[0],$stat[1],$stat[2],$stat[4],$stat[5],$stat[7],$stat[9]";
 }
 
+
+
+#
+# ElapsedTime - produce a formatted elapsed time.
+#
+sub ElapsedTime () {
+
+    my $Elapsed=time() - $StartTime;
+    my $String='s';
+    foreach ((60,60,24)) {
+	$String = sprintf(":%02d",$Elapsed % $_) . $String;
+        $Elapsed = int($Elapsed/$_);
+    }
+    $String = "$Elapsed" . $String;
+    $String =~ s/^[0:]*//;		# Remove high order zeros.
+    return $String;
+}
+
+
+
 #
 # PrintStatistics - display conversion statistics
 #
 sub PrintStatistics () {
     my $uniq_files = keys %UniqueFiles;
-    my $Elapsed=time()-$StartTime;
+    my $ElapsedTime=ElapsedTime();
+    my $ElapsedSeconds=time()-$StartTime;
+    $ElapsedSeconds = 1 if ($ElapsedSeconds < 1);	# Sometimes get first alarm in second #0.
+    my $RootStub=$Root;
+    $RootStub =~ s"^.*/([^/])"$1";
     printf(
-        "tlds=%s/%s, %s unique, %s files, %s files/s, %s/s, %s used, %s saved    \r",
+        "%s elapsed=%s, arg %s/%s, tlds=%s/%s, %s files, %s unique, %s files/s, %s/s, %s used, %s saved, %s    \r",
+        strftime("%D %T",localtime()), 
+        $ElapsedTime,
         map { Commify($_) } (
-            $tl_dirs_doing, $tl_dirs_total, $uniq_files, $files,
-        int($files/$Elapsed+0.5),
+	    $CurrentArg,$ArgCount,
+            $tl_dirs_doing, $tl_dirs_total, $files, $uniq_files,
+        int($files/$ElapsedSeconds+0.5),
         ),
-        FormatStorage($Usedspc/$Elapsed),
+        FormatStorage($Usedspc/$ElapsedSeconds),
 	FormatStorage($Usedspc),
 	FormatStorage($Savedspc),
+        $RootStub,
     );
     if ($PrintStats) {
 
@@ -321,17 +446,58 @@ sub KnownInodes(@) {
 
 
 #
+# WriteCheckpoint - write a checkpoint file.
+#
+sub WriteCheckpoint {
+
+    my $CheckpointFile = "/tmp/$Prog.$$.checkpoint";
+
+    $WriteCheckpoint = 0;	# Mark this as done.
+    $LastCheckpoint = time();	# If we fail, warn and retry on next cycle.
+
+    my $CH;
+    if (!open($CH,'>',"$CheckpointFile.tmp")) {
+        warn "Unable to write checkpoint file: $!";
+        return;
+    }
+    my $Status = print $CH Dumper(@OrigARGV,%Opt,$Root,%Inodes,%UniqueFiles);
+    close $CH;
+    if (!$Status) {
+        warn "Unable to write checkpoint file: $!";
+        return;
+    }
+    if (-e $CheckpointFile) {
+            if (!unlink($CheckpointFile)) {
+                warn "Unable to delete $CheckpointFile: $!";
+                return;
+            }
+    }
+    if (!rename("$CheckpointFile.tmp","$CheckpointFile")) {
+        warn "Unable to move $CheckpointFile.tmp: $!";
+        return;
+    }
+}
+
+       
+
+
+
+#
 # ProcessItem - process the next file (directory, ...) found.
 #
 sub ProcessFile {
     # See if the user has cancelled the job.
-    if (CheckCancel()) {
+    if (CheckInterrupt()) {
         # Cancelling.  Prune everything until we get out.
         $File::Find::prune = 1;
         return;
     }
 
     my $cand = $File::Find::name;	# Get the full path name of our candidate.
+
+
+    # Manage the checkpoint file.
+    WriteCheckpoint() if ($WriteCheckpoint);
 
     # Manage stats and generate progress reports.
     ManageStats($cand);
@@ -434,7 +600,7 @@ sub ProcessFile {
     #    PrintStats = 1 (set by SIGUSR1)
     #    --stats specified and $files % 1000 == 0.
     PrintStatistics()
-        if ( $PrintStats or ( $Opt{'stats'} and $files % 1000 == 0 ) );
+        if ( $PrintStats or ( $Opt{'stats'} and $files % $Opt{statinterval} == 0 ) );
     return;
 }
 
@@ -469,12 +635,19 @@ sub FindMatch ($@) {
     if ( my $first = $UniqueFiles{ FileKey( $$md5ref, @candstat ) } ) {
         # It matches something previous, according to the MD5 and stat data.
 	my @firststat;
-        eval('@firststat = stat($first);');
-        die sprintf(
-            "illegal firststat[%s]first[%s]",
-            join( ":", @firststat ),
-            $DV->stringify($first),
-        ) unless $firststat[1];		# This came from trimtrees.pl.  Not sure why.
+        @firststat = stat($first);
+        if (! $firststat[1]) {
+            # This inode disappeared.
+            print "debug:   Matching file disappeared: $first\n" if ($Opt{debug});
+            delete $UniqueFiles { FileKey( $$md5ref, @candstat )};
+            return;		# So then we have no match.
+        }
+        if ($firststat[0] == $candstat[0] and $firststat[1] == $candstat[1]) {
+	    # We found ourselves.  This can happen if we restart/reload prior maps.
+            # Treat it as a non-match and just fall through the parent's logic.
+            print "debug:   Found self on $cand\n" if ($Opt{debug});
+            return;
+        }
         print "debug:   MD5 match: " . join(', ',@candstat) . ",$cand\n"
             . "              with: " . join(', ',@firststat) . ",$first\n"
                 if ($Opt{debug});
@@ -516,13 +689,13 @@ sub FindMatch ($@) {
 
 
 #
-# CheckCancel
+# CheckInterrupt
 #
-sub CheckCancel {
+sub CheckInterrupt {
     if ( $Cancel and !$CancelConfirmed ) {
 
         # Don't lose hours (or days) of work due to a ^C in the wrong window.
-        print "\nProgress report, statistics, cancel job, or none (p/s/c/n)? ";
+        print "\nProgress report, statistics, options, cancel job, or none (p/s/o/c/n)? ";
         my $Response = <STDIN>;
 	chomp $Response;
         if ( $Response eq 'c' ) {
@@ -536,6 +709,20 @@ sub CheckCancel {
         elsif ( $Response eq 's' ) {
             PrintStatistics();
 	    $Cancel = 0;
+        }
+        elsif ( $Response eq 'o' ) {
+            my $Line;
+            do {
+	        print "Current options:\n";
+                foreach (sort(keys(%Opt))) {
+	            printf "\t%16s: %s\n", "--$_", $Opt{$_};
+                }
+                print "Enter new options or null to exit: ";
+		$Line = <STDIN>;
+                @ARGV = shellwords($Line);
+                $Opt{'load-maps'}='';	# Don't reload the maps each time.
+                ProcessOptions();
+            } until ($Line =~ /^\s*$/);
         }
         elsif ( $Response eq 'n' ) {
             print "Resuming processing.\n";
@@ -563,7 +750,6 @@ sub ManageStats {
         # We've received a request for a progress report.
         print strftime( "%D %T Now processing $cand\n", localtime( time() ) );
         $PrintProgress = 0;    # Turn off flag.
-        alarm( 30 - ( time() % 30 ) ) if ($Opt{progress});    # Schedule next alarm.
     }
 
     # Manage our stats.
