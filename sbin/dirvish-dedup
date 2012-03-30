@@ -6,7 +6,7 @@
 use strict;
 use warnings;
 use Cwd;
-use Digest::MD5 qw(md5 md5_hex);
+use Digest::MD5::File qw(file_md5_hex);
 use Dumpvalue;
 use File::Compare qw(compare);
 use File::Copy qw(cp);
@@ -51,16 +51,18 @@ our $LastCheckpoint = time();	# Time of last checkpoint.
 our $WriteCheckpoint = 0;  # 1 = time to write a checkpoint file.
 our @OrigARGV = @ARGV;	   # For checkpoint.
 our $AlarmInterval;	   # How long between alarms.
-our $ArgCount=0+@ARGV;	   # How many args we have, for stats.
+our $ArgCount;		   # How many args we have, for stats.
 our $CurrentArg = 0;	   # Which arg we're on, for stats.
 our @OptSpec;		   # Specs for GetOptions;
 our $StartTime = time();   # Start time, for elapsed reports.
+our $tl_dirs_total;	   # # of top level dirs in this root.
+our $tl_dirs_doing;	   # Which top level dir we're on in this root.
 
 #
 # Signals.
 #
 $SIG{INT} = sub {
-    warn "Interrupt request accepted.  Please stand-by...\n";
+    warn "\nInterrupt request accepted.  Please stand-by...\n";
     $Cancel++;
 };
 $SIG{USR1} = sub {
@@ -97,8 +99,6 @@ our $DV = Dumpvalue->new(
 
 my %reported;
 my $files         = 0;
-my $tl_dirs_total = 0;
-my $tl_dirs_doing = 0;
 
 select(STDERR);
 $| = 1;
@@ -109,8 +109,11 @@ $| = 1;
 # Begin processing arguments.
 #
 die "No directories specified.  Enter $Prog -h for usage.\n" unless (@ARGV);
-my @ARGV_Copy = @ARGV;		# In case ProcessInterrupt has to reuse @ARGV.
+my @ARGV_Copy = @ARGV;		# In case CheckInterrupt has to reuse @ARGV.
+$ArgCount = 0 + @ARGV;		# Count, for statistics.
 foreach $Root ( @ARGV_Copy ) {
+    $tl_dirs_total = 0;
+    $tl_dirs_doing = 0;
     $CurrentArg++;		# Increment count for stats.
     if ( !cwd($Root) ) {
         warn "Unable to cd to $Root -- skipped: $!\n";
@@ -150,11 +153,11 @@ print strftime( "\nDONE @ %T on %D.  Elapsed time = $Elapsed.\n", localtime());
 sub ProcessOptions () {
 
     @OptSpec = ("maxlinks=i", "dry-run|n", "logfile|l=s", "progress!",
-        "stats!", "eta!", "strict!", "debug+", "cpinterval:600", "proginterval:30",
+        "stats!", "eta!", "compare!", "debug+", "cpinterval:600", "proginterval:30",
         "statinterval:5000", "load-maps=s")
       or die;
     GetOptions(\%Opt, @OptSpec) or die;
-    foreach my $name (qw(dry-run logfile progress stats eta strict debug)) {
+    foreach my $name (qw(dry-run logfile progress stats eta compare debug)) {
     	$Opt{$name} = 0 unless (exists($Opt{$name}));
     }
 
@@ -162,7 +165,7 @@ sub ProcessOptions () {
     warn "Running dry-run without a logfile -- no record of proposed changes will be kept.\n"
         if ($Opt{"dry-run"} and not $Opt{logfile});
     print "Running in dry-run mode...\n"
-      if ( $Opt{'dry-run'} );
+        if ( $Opt{'dry-run'} );
     
     # Set up the log file.
     if ( $Opt{logfile} ) {
@@ -174,6 +177,7 @@ sub ProcessOptions () {
 
     # Load a pre-existing map file
     if ($Opt{'load-maps'}) {
+        $Opt{'load-maps'}='';	# Don't reload the maps more than once (^C-options, restart).
         if (open(my $MAPFH,'<',$Opt{'load-maps'})) {
             print "Loading $Opt{'load-maps'}\n";
             local %Opt;		# Don't want these updated.
@@ -259,10 +263,18 @@ sub ReplaceWithLink ($$) {
     }
     unless ( link $first, $cand ) {
         my $link_err = $!;
+        my $firstlinks = (stat($first))[3];
+        if ($link_err =~ /too many link/i and (!$Opt{maxlinks} or $Opt{maxlinks} > $firstlinks) ) {
+            warn "Unable to link $cand to $first: $link_err.  Setting --maxlinks to $firstlinks";
+            $Opt{maxlinks} = $firstlinks;
+        }
+        else {
+            warn "Unable to link $cand to $first: $link_err.\n";
+        }
+
         if ( rename $tempfile, $cand ) {
 
             # We could rename back and no harm should be done.
-            warn "Unable to link $cand to $first: $link_err\n";
             return 0;
         }
         else {
@@ -360,7 +372,7 @@ sub PrintStatistics () {
     my $RootStub=$Root;
     $RootStub =~ s"^.*/([^/])"$1";
     printf(
-        "%s elapsed=%s, arg %s/%s, tlds=%s/%s, %s files, %s unique, %s files/s, %s/s, %s used, %s saved, %s    \r",
+        "%s elapsed=%s, arg=%s/%s, tlds=%s/%s, %s files, %s unique, %s files/s, %s/s, %s used, %s saved, %s    \r",
         strftime("%D %T",localtime()), 
         $ElapsedTime,
         map { Commify($_) } (
@@ -392,6 +404,7 @@ sub PrintStatistics () {
 
     sub RegisterFile ($$@) {
         my ( $md5, $cand, @candstat ) = @_;
+	$md5 = file_md5_hex($cand) unless $md5;  # We can get here without an MD5 due to maxlinks.
         $UniqueFiles{ FileKey( $md5, @candstat ) } = $cand;
         my $size = $candstat[7];
         warn "size undefined"    unless defined $size;
@@ -493,11 +506,12 @@ sub ProcessFile {
         return;
     }
 
-    my $cand = $File::Find::name;	# Get the full path name of our candidate.
-
-
     # Manage the checkpoint file.
     WriteCheckpoint() if ($WriteCheckpoint);
+
+    # Skip this item if it has disappeared since we started.
+    my $cand = $File::Find::name;	# Get the full path name of our candidate.
+    my (@candstat) = stat($_);
 
     # Manage stats and generate progress reports.
     ManageStats($cand);
@@ -507,7 +521,6 @@ sub ProcessFile {
     return unless -s _;    # Skip empty files.  Risk & no pay off.
 
     $files++;
-    my $basename = $_;
     print "debug: Checking $cand\n" if ($Opt{debug});
 
     # If there's a limit on links, see if we've reached it.
@@ -538,11 +551,9 @@ sub ProcessFile {
     }
 
     # Now get down to really processing this item.
-    my (@candstat) = stat($basename);
     my $match;
-    my $first = KnownInodes(@candstat);
-    my @firststat;
     my $md5;
+    my @firststat;
 
     # Four choices:
     #   1) We've seen this inode before, and it stayed as-is.  This one can too.
@@ -550,6 +561,11 @@ sub ProcessFile {
     #      the same way.
     #   3) It's content matches a prior file.  Link it and remember the inode.
     #   4) It doesn't match anything.  Remember it as a unique file and remember the inode.
+    my $first = KnownInodes(@candstat);
+    if ($first) {
+        @firststat = stat($first);
+        $first = '' unless ($firststat[1]);
+    }
     if (defined($first) and !$first ) {
         # Case 1: we've seen this before and it stayed as-is.
         print "debug:   $cand has same inode as $first -- leave as is\n"
@@ -560,12 +576,12 @@ sub ProcessFile {
         # Case 2: we've seen this before and it was replaced.
         $match = 1;
 
-        eval('@firststat = stat($first);');
         print "debug:   $cand has same inode as prior item -- link to $first\n"
             if ($Opt{debug});
     }
     elsif ($first = FindMatch($cand,\$md5,@candstat)) {
         # Case 3: We looked for and found a match.
+        @firststat = stat($first);
         $match = 1;
         RegisterInode($first,@candstat);	# Remember how we handle this inode.
         print "debug:   $cand contents match -- link to $first\n"
@@ -621,15 +637,7 @@ sub FindMatch ($@) {
         return '';
     }
 
-
-    my $LineEnd=$/;	# Save the line-end character.
-    local $/;		# Don't impact other things.
-    undef $/;		# Read the whole file.
-    my $data = <$fh>;
-    close $fh;
-    $/ = $LineEnd;	# Put the line-end character back.
-    $$md5ref = md5_hex $data;
-    $data = '';	# Don't need to keep this in memory now.  Could be big.
+    $$md5ref = file_md5_hex($cand);	# Get the MD5 signature.
 
     # See if we recognize this MD5 sum and stat attributes.
     if ( my $first = $UniqueFiles{ FileKey( $$md5ref, @candstat ) } ) {
@@ -651,7 +659,7 @@ sub FindMatch ($@) {
         print "debug:   MD5 match: " . join(', ',@candstat) . ",$cand\n"
             . "              with: " . join(', ',@firststat) . ",$first\n"
                 if ($Opt{debug});
-        my $different = ($Opt{strict}?compare $first, $cand:0);
+        my $different = ($Opt{compare}?compare $first, $cand:0);
         if ( $different != 0 && $File::Compare::VERSION < 1.1005 ) {
 
             # workaround bug # 37716 in File::Compare
@@ -695,7 +703,8 @@ sub CheckInterrupt {
     if ( $Cancel and !$CancelConfirmed ) {
 
         # Don't lose hours (or days) of work due to a ^C in the wrong window.
-        print "\nProgress report, statistics, options, cancel job, or none (p/s/o/c/n)? ";
+	print "\nCurrently processing $Root from " . join(' ',@ARGV) . "\n";
+        print "\nProgress report, statistics, options, cancel job, or resume (p/s/o/c/r)? ";
         my $Response = <STDIN>;
 	chomp $Response;
         if ( $Response eq 'c' ) {
@@ -704,11 +713,10 @@ sub CheckInterrupt {
         }
         elsif ( $Response eq 'p' ) {
             $PrintProgress = 1;
-	    $Cancel = 0;
         }
         elsif ( $Response eq 's' ) {
             PrintStatistics();
-	    $Cancel = 0;
+            print "\n";
         }
         elsif ( $Response eq 'o' ) {
             my $Line;
@@ -720,20 +728,18 @@ sub CheckInterrupt {
                 print "Enter new options or null to exit: ";
 		$Line = <STDIN>;
                 @ARGV = shellwords($Line);
-                $Opt{'load-maps'}='';	# Don't reload the maps each time.
                 ProcessOptions();
             } until ($Line =~ /^\s*$/);
         }
-        elsif ( $Response eq 'n' ) {
+        elsif ( $Response eq 'r' ) {
             print "Resuming processing.\n";
-            $Cancel = 0;
         }
         else {
             print "Unrecognized response.  Resuming processing.\n";
-            $Cancel = 0;
         }
+        $Cancel = $CancelConfirmed;  # Turn off cancel unless cancel confirmed.
     }
-    return ($Cancel and $CancelConfirmed);
+    return ($CancelConfirmed);
 }
 
 
@@ -821,65 +827,102 @@ dirvish-dedup - traverse directories, find identical files, replace with hard li
  OPTIONS:
 
   --maxlinks N            limit the amount of links per file
-  -n|--dry-run		  report changes, but don't really link anything
-  --progress		  print progress reports every 30 seconds
-  --stats                 print search/link statistics every 100 files.
-  -l|--logfile file	  write a link log to "file"
-  --strict                physically compare files if the MD5 sum
-                          and file size match.  This causes an
+  -n,--dry-run		  report changes, but don't really link anything
+  --(no)progress	  print progress reports every 60 (default) seconds
+  --proginterval=n        Change progress report interval to "n" seconds.
+  --(no)stats             print search/link statistics every 5000 files.
+  --statinterval=n        Change statistics interval to every "n" files.
+  -l,--logfile file	  write a link log to "file"
+  --(no)compare           physically compare files if the MD5 sum and file
+                          attributes match.  Slow.  --nocompare is the default.
+  --cpinterval=n          Write a checkpoint files every "n" seconds
+                          (default=600).
+  --
                           extra full file read of both files.
                           Default is to trust the MD5 + file size.
 
 =head1 DESCRIPTION
 
-This is a variant of the CPAN trimtrees.pl script.  The changes
-consist of the following:
+=head1 MATCHING FILES
+
+Files are considered to match if the following characteristics are the same:
 
 =over 4
 
-=item
+=item *
 
-Added the --dry-run option
+MD5 signature
 
-=item
+=item *
 
-In addition to comparing file contents, only consider files
-to match if they have the same uid, gid, and permissions.  
-Note that atime, ctime, and mtime values are not compared.
+Owner ID (uid)
 
-=item
+=item *
 
-Changed the thousands/millions separator in numbers from _ to ,
+Group ID (gid)
 
-=item
+=item *
 
-Add time stamps and elapsed time to the completion message
+Permissions
 
-=item
+=item *
 
-Process the directories in alphabetic order.
+size
+
+=item *
+
+file content, only if the --compare option is specified.  
 
 =back
 
-Traverse all directories named on the command line, compute MD5
-checksums and find files with identical MD5. IF they are equal, do a
-real comparison if they are really equal, replace the second of two
-files with a hard link to the first one.
+This differs from the original trimtrees.pl, which only used the MD5
+signature and
+always compared the file contents.
 
-Special care is taken to cope with C<Too many links> error conditions.
-The inode that is overbooked in such a way, is taken out of the pool
-and replaced with the another one such that the minimum of files
-needed is kept on disk.
+The argument for using --compare is that MD5 signature has been found to be
+cryptographically insecure.  As applied to this application, that means that
+someone
+can intentionally create a file B that has the same MD5 signature as some
+existing 
+file A.
+In this application, file B would also need to be the same size.
+Assuming that it is possible to intentionally create a file with the same MD5
+signature and the same size,  there is some smaller chance that it could
+also happen by random chance.
+Clearly, then, there is some
+risk that two non-matching files could be considered the same based on these
+characteristics.  It is not clear what the likelihood is of that happening,
+however.
 
-The C<--maxlinks> option can be used to reduce the linkcount on all
-files within a tree, thus preparing the tree for a subsequent call to
-C<cp -al>. This operation can be thought of the reverse of the normal
-dirvish-dedup operation (--maxlinks=1 produces a tree without hard links).
+The argument against using --compare is that once two files are found to have
+matching MD5 signatures and the selected inode values, --compare requires
+that each file be read again to perform a bit-by-bit comparison.  Without
+--compare,
+file A is read once, and each of it's matches are also read once.  With
+--compare,
+file A is read once, then reread once for each MD5 match.  The matching files
+ is
+read twice, once to generate the MD5 signature and once as part of the
+comparison.
+Mathematically, if we have N matching files, we'll do 1+N full file reads
+without
+--compare, and 1+3N with --compare.
+
+In short --compare is always safer, but it's not clear what the chances
+of an erroneous replacement are without it, and only the user can judge
+whether the risk of such a failure outweighs the benefits of faster
+run times.
+
+As to the question of why not use one of the SHA algorithms instead, the 
+answer is that even the smallest SHA algorithm takes 3 times longer to generate,
+and it's not clear that there is much benefit.
+
 
 =head1 SIGNALS
 
-SIGINT is caught and the script stops as soon as the current file
-is finished.
+SIGINT (aka Ctrl-C) is caught, and produces a prompt.  At this point the user may
+request current statistics, request a progress report, change options on the fly,
+abort the job, or resume processing.
 
 =head2 RISKS
 
@@ -887,6 +930,12 @@ The whole idea of replacing identical files with hard links has
 inherent dangers. Once two files have turned into one inode other
 processes may accidentally change both although they intend to alter
 only one. Please consider if this can happen in your environment.
+
+=head1 ATTRIBUTION
+
+This code is based on the CPAN trimtrees.pl script.  Though my changes are extensive,
+they are primarily in the area of new options and performance improvements.  This code
+would not have been possible without trimtrees.pl.  Thank you.
 
 =cut
 
