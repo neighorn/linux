@@ -19,6 +19,7 @@ rsync -aH --delete -i $DryRun					\
 	--exclude /tmp						\
 	--exclude /usr/local/backup				\
 	--exclude /usr/local/etc/apache2/pages/mrtg		\
+	--exclude /usr/local/etc/checkmd.cfg 			\
 	--exclude /usr/local/etc/postfix/main.cf 		\
 	--exclude /var				 		\
 	firewall:/ / 						\
