@@ -15,6 +15,9 @@ require CheckAll::CheckItem;
 my $HIGHLIGHT = "\e[33;40m";
 my $RESET = "\e[0m";
 
+# Set a path, particularly for OnUp/OnDown actions.
+$ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$ENV{PATH}";
+
 our $opt_c='';			# Configuration file (service list).
 our $opt_h=0;			# Help
 our $opt_v=0;			# Verbose option.

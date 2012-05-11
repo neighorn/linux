@@ -85,7 +85,7 @@ $SIG{ALRM} = sub {
 #
 # Process options.  @OptSpec is global, so we can change options dynamically.
 #
-ProcessOptions();
+exit 8 unless ProcessOptions();
 
 our $DV = Dumpvalue->new(
     tick         => qq{"},
@@ -156,7 +156,7 @@ sub ProcessOptions () {
         "stats!", "eta!", "compare!", "debug+", "cpinterval:600", "proginterval:30",
         "statinterval:5000", "load-maps=s")
       or die;
-    GetOptions(\%Opt, @OptSpec) or die;
+    return 0 unless (GetOptions(\%Opt, @OptSpec));
     foreach my $name (qw(dry-run logfile progress stats eta compare debug)) {
     	$Opt{$name} = 0 unless (exists($Opt{$name}));
     }
@@ -216,7 +216,7 @@ sub ProcessOptions () {
          $AlarmInterval=$Opt{cpinterval};
     }
     alarm($AlarmInterval - (time() % $AlarmInterval));	# Schedule the first alarm.
-    
+    return 1;
 }
 
 
