@@ -324,6 +324,20 @@ sub WriteLog {
 #
 sub FileKey {
     my ( $md5, @stat ) = @_;
+    # stat 0 - dev #
+    # stat 1 - inode #
+    # stat 2 - mode
+    # stat 3 - number of hard links
+    # stat 4 - uid
+    # stat 5 - gid
+    # stat 6 - device identifier (special files only)
+    # stat 7 - size
+    # stat 8 - atime
+    # stat 9 - mtime
+    # stat 10 - ctime
+    # stat 11 - preferred block size for file system I/O
+    # stat 12 - blocks allocated
+    
     return "$md5,$stat[0],$stat[2],$stat[4],$stat[5],$stat[7]";
 }
 

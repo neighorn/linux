@@ -308,7 +308,7 @@ sub ProcessServiceLine {
 	#		eval("use CheckAll::$Keyword;");
 		eval qq[require "CheckAll/$Keyword.pm"];
 		if ($@) {
-			warn qq[$ServiceList:$StartLine: Unable to include a "$Keyword" module -- skipped\n];
+			warn qq[$FileName:$StartLine: Unable to include a "$Keyword" module: $@\n];
 			return 1;
 		}
 	}
@@ -317,12 +317,12 @@ sub ProcessServiceLine {
 	my $Item;
 	eval {
 		$Item = $Keyword->new (
-			"$ServiceList",	# For object error msgs.
+			"$FileName",	# For object error msgs.
 			"$StartLine",	# For object error msgs.
 			$Rest);		# Other parameters.
 	};
 	if ($@) {
-		warn qq[$ServiceList:$StartLine: Unable to create a "$Keyword" item: $@\n];
+		warn qq[$FileName:$StartLine: Unable to create a "$Keyword" item: $@\n];
 		return 2;	
 	}
 	else {
