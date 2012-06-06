@@ -174,7 +174,7 @@ sub SetOptions {
 			}
 			
 			$Value = '' unless (defined($Value));
-			eval "\$Self->$Field('${Operator}$Value');";
+			eval "\$Self->$Field(\${Operator} . \$Value);";
 			if ($@) {
 				warn "$Self->{FILE}:$Self->{LINE}: Unable to set $Field: $@\n";
 			}
