@@ -41,7 +41,7 @@ sub Target {
 
 sub Check {
 
-	# See if this item is up.
+	# See if this item is OK.
 	my $Self = shift;
 
 	my $File = $Self->{'FILE'};

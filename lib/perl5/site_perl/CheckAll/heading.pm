@@ -1,4 +1,4 @@
-#-------------------------------- Heading Item -----------------------------------
+#-------------------------------- heading Item -----------------------------------
 #
 # heading - print a heading
 #
@@ -20,7 +20,8 @@ sub SetOptions {
 	# Headings don't use the standard xxx=yyy format.  Instead, it's just
 	# a single line of text.  Save it as the description.
 
-	my $Value = shift;
+	my $ValueRef = shift;
+	my $Value = $ValueRef->[0];
 	$Value = '' unless (defined($Value));	# Allow blank lines.
 	$Value =~ s/^(["'])(.*)\1/$2/;		# Strip quotes if present.
 	$Self->{Desc} = $Value;
@@ -32,7 +33,7 @@ sub SetOptions {
 
 sub Check {
 
-	# See if this item is up.
+	# See if this item is OK.
 	my $Self = shift;
 
 	return "Status=" . $Self->CHECK_OK;		# Headings never fail.

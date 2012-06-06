@@ -12,10 +12,10 @@ use Fcntl;
 use FindBin qw($RealBin $RealScript);
 require CheckAll::CheckItem;
 
-my $HIGHLIGHT = "\e[33;40m";
+my $HIGHLIGHT = "\e[33;40;1m";	# Yellow FG, Black BG, Bright.
 my $RESET = "\e[0m";
 
-# Set a path, particularly for OnUp/OnDown actions.
+# Set a path, particularly for OnOK/OnFail actions.
 $ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$ENV{PATH}";
 
 our $opt_c='';			# Configuration file (service list).
@@ -24,16 +24,16 @@ our $opt_v=0;			# Verbose option.
 our $opt_t=0;			# Test option.
 our $opt_q=0;			# Quiet option.
 our $opt_P='';			# Who to page on errors.
-our $opt_R=120;			# Set number of minutes to re-report down items.
+our $opt_R=120;			# Set number of minutes to re-report fail items.
 our $opt_s='';			# Alert subject
 our $Prog = $RealScript;	# Get our program name.
 $Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off path, if present.
 my @ItemList;			# List of item objects to check.
-my @NowDown;			# Newly down items.
-my @NowUp;			# Newly up items.
-my @StillDown;			# On-going down items.
-my %DownItems;			# List of items previously down.
+my @NowFail;			# Newly failing items.
+my @NowOK;			# Newly OK items.
+my @StillFail;			# On-going fail items.
+my %FailItems;			# List of items previously failing.
 my @OtherItems;			# Stuff in the status file from other check lists.
 $| = 1;				# Unbuffer output.
 my $StartTime = time();
@@ -61,12 +61,12 @@ else {
 openlog("$Prog");
 
 
-my $DownMessages;
+my $FailMessages;
 if ($opt_q) {
-	# Prepare the Down-Message header text.
+	# Prepare the Fail-Message header text.
 	my($Minutes,$Hours)=(localtime())[1,2];
 	$Minutes="0$Minutes" if ($Minutes <= 9);
-	$DownMessages="The following services were detected down at 
+	$FailMessages="The following services have failed at 
 $Hours:$Minutes...";
 }
 
@@ -88,7 +88,7 @@ foreach (@ARGV) {
 if (@ItemList+0 == 0) {
 	# Nothing to monitor.
 	warn "No services found in $ServiceList to monitor.";
-	push @NowDown,"No services found to monitor";
+	push @NowFail,"No services found to monitor";
 }
 
 # Load any prior statuses.
@@ -147,56 +147,53 @@ foreach my $Item (@ItemList) {
 	my $Desc = $Item->Desc;
 	my $Status = $Item->Report($DescLen);
 	if ($Status == 0) {
-		#CHECK_STILL_UP -- can't get constants to export.
-		# syslog('INFO','%s is still up',$Desc)  - don't fill log with "still up".
+		#CHECK_STILL_OK -- can't get constants to export.
+		# syslog('INFO','%s is still OK',$Desc)  - don't fill log with "still OK".
 	 	#	if (ref $Item ne 'heading' and $^O !~ /MSWin/);
 	}	
 	elsif ($Status == 1) {
-		#CHECK_STILL_DOWN {
-		syslog('INFO','%s is still down',$Desc)
+		syslog('INFO','%s is still failing',$Desc)
 			if ($^O !~ /MSWin/);
-		push @StillDown, $Desc;
+		push @StillFail, $Desc;
 		$Renotify++
 			 if ((time() - $Item->PriorNotification) >
 				60 * $Item->Renotifyinterval);
 		$Errors++;
 	}
 	elsif ($Status == 2) {
-		#CHECK_NOW_UP {
-		syslog('INFO','%s is NOW up',$Desc)
+		syslog('INFO','%s is NOW OK',$Desc)
 			if ($^O !~ /MSWin/);
-		push @NowUp, $Desc;
-		if (my $Action = $Item->Onup) {
+		push @NowOK, $Desc;
+		if (my $Action = $Item->Onok) {
 			if ($opt_t) {
-				print "\t\tTesting: OnUp for $Desc suppressed.\n";
+				print "\t\tTesting: OnOK for $Desc suppressed.\n";
 			}
 			else {
-				print "Triggering OnUp for $Desc\n" if ($opt_v);
+				print "Triggering OnOK for $Desc\n" if ($opt_v);
 				$Action =~ s/%D/$Desc/g;
 				system("($Action)&");
-				syslog('INFO',"Executed OnUp actions for $Desc.  Status $?")
+				syslog('INFO',"Executed OnOK actions for $Desc.  Status $?")
 					if ($^O !~ /MSWin/);
 			}
 		}
 	}
 	elsif ($Status == 3) {
-		#CHECK_NOW_DOWN {
-		syslog('INFO','%s is NOW down',$Desc)
+		syslog('INFO','%s is NOW FAILING',$Desc)
 			if ($^O !~ /MSWin/);
-		push @NowDown, $Desc;
-		if (my $Action = $Item->Ondown) {
+		push @NowFail, $Desc;
+		if (my $Action = $Item->Onfail) {
 			if ($opt_t) {
-				print "\t\tTesting: OnDown action for $Desc suppressed.\n";
+				print "\t\tTesting: OnFail action for $Desc suppressed.\n";
 			}
 			else {
-				print "Triggering OnDown for $Desc\n" if ($opt_v);
+				print "Triggering OnFail for $Desc\n" if ($opt_v);
 				$Action =~ s/%D/$Desc/g;
 				system("($Action)&");
-				syslog('INFO',"Executed OnDown actions for $Desc.  Status $?")
+				syslog('INFO',"Executed OnFail actions for $Desc.  Status $?")
 					if ($^O !~ /MSWin/);
 			}
 		}
-		$Item->FirstDown($StartTime);	# Remember when it went down.
+		$Item->FirstFail($StartTime);	# Remember when it failed.
 		$Errors++;
 	}
 	else {
@@ -204,17 +201,17 @@ foreach my $Item (@ItemList) {
 	}
 }
 
-if (@NowDown+@NowUp+$Renotify > 0 and $opt_P and ! $opt_t) {
+if (@NowFail+@NowOK+$Renotify > 0 and $opt_P and ! $opt_t) {
 	my($MAIL,$MailFile) = tempfile();
 	
-	if (@NowDown) {
-		print $MAIL "Now down: " . join(', ',@NowDown) . "\n";
+	if (@NowFail) {
+		print $MAIL "Now fail: " . join(', ',@NowFail) . "\n";
 	}
-	if (@StillDown) {
-		print $MAIL "Still down: " . join(', ',@StillDown) . "\n";
+	if (@StillFail) {
+		print $MAIL "Still failing: " . join(', ',@StillFail) . "\n";
 	}
-	if (@NowUp) {
-		print $MAIL "Now up: " . join(', ',@NowUp) . "\n";
+	if (@NowOK) {
+		print $MAIL "Now OK: " . join(', ',@NowOK) . "\n";
 	}
 	printf $MAIL strftime("\nFrom $HostName at %T on %D\n",localtime());
 	close $MAIL;
@@ -227,18 +224,18 @@ if (@NowDown+@NowUp+$Renotify > 0 and $opt_P and ! $opt_t) {
 	}
 }
 
-# Write the status file, so we know "still down" from "now down".
+# Write the status file, so we know "still failing" from "now failing".
 WriteStatusFile($StartTime,$StatusFile,\@ItemList,\@OtherItems) unless ($opt_t);
 
-if (@NowDown+@StillDown > 0) {
-	printf "%s==> %d " . ($Errors == 1?'service is':'services are') . " down.%s\n",
+if (@NowFail+@StillFail > 0) {
+	printf "%s==> %d " . ($Errors == 1?'service is':'services are') . " failing.%s\n",
 		$HIGHLIGHT, $Errors, $RESET
 		unless ($opt_q);
 	exit 8;
 }
 else {
-	print "All services are up.\n" unless ($opt_q);
-	syslog('INFO',"All services are up.")
+	print "All services are OK.\n" unless ($opt_q);
+	syslog('INFO',"All services are OK.")
 		if ($^O !~ /MSWin/);
 	exit 0;
 }
@@ -342,18 +339,18 @@ sub LoadPriorStatuses {
 
 	my($StatusFile,$MapRef,$OtherRef) = @_;
 
-	# Load table of items that have already been reported down.
+	# Load table of items that have already been reported failing.
 	my $STATUS;
 	if (-f $StatusFile) {
 		if (sysopen($STATUS,$StatusFile,O_RDONLY)) {
-			# Load up any items that were previously down.
+			# Load up any items that were previously failing.
 			while (<$STATUS>) {
 				next unless
-					(/^Name=(.*), DownAt=(\d+)=\S+ \S+, LastNotify=(\d+)=\S+ \S+, LastCheck=(\d+)=\S+ \S+,?/);
-				my($Name,$FirstDown,$LastNotify,$LastCheck)=($1,$2,$3,$4);
+					(/^Name=(.*), FailAt=(\d+)=\S+ \S+, LastNotify=(\d+)=\S+ \S+, LastCheck=(\d+)=\S+ \S+,?/);
+				my($Name,$FirstFail,$LastNotify,$LastCheck)=($1,$2,$3,$4);
 				if(exists($MapRef->{$Name})) {
 					$MapRef->{$Name}->{PriorStatus} = 8;
-					$MapRef->{$Name}->{FirstDown} = $FirstDown;
+					$MapRef->{$Name}->{FirstFail} = $FirstFail;
 					$MapRef->{$Name}->{PriorNotification} = $LastNotify;
 				}
 				elsif ((time()-$LastCheck)/86400 <= 60) {
@@ -382,12 +379,12 @@ sub WriteStatusFile {
 	my $STATUS;
 	if (open ($STATUS,"> $StatusFile")) {
 		foreach my $Item (@$ArrayRef) {
-			next if ($Item->Status eq 0);		# Skip up services.
+			next if ($Item->Status eq 0);		# Skip OK services.
 			next if (ref $Item eq 'history');	# We don't track history lines.
-			printf $STATUS "Name=%s, DownAt=%d=%s, LastNotify=%d=%s, LastCheck=%d=%s, File=%s:%d\n",
+			printf $STATUS "Name=%s, FailAt=%d=%s, LastNotify=%d=%s, LastCheck=%d=%s, File=%s:%d\n",
 				$Item->Name,
-				$Item->FirstDown,
-				strftime("%D %T",localtime($Item->FirstDown)),
+				$Item->FirstFail,
+				strftime("%D %T",localtime($Item->FirstFail)),
 				$Item->PriorNotification,
 				strftime("%D %T",localtime($Item->PriorNotification)),
 				$StartTime,
@@ -413,7 +410,7 @@ sub WriteStatusFile {
 =head2 Overview
 
 checkall checks critical services to make sure they're running.  It can optionally 
-take action when a service comes up or goes down, and/or send out notifications.
+take action when a service fails or recovers, and/or send out notifications.
 
 =head2 Command format:
 
@@ -437,8 +434,8 @@ Help -- print this documentation
 
 =item -P address
 
-Page -- send a message to this e-mail address whenever services transition from up
-to down or vice versa, or if enough time has elapsed to warrant renotification.
+Page -- send a message to this e-mail address whenever services transition from OK
+to failing or vice versa, or if enough time has elapsed to warrant renotification.
 
 =item -q
 
@@ -446,7 +443,7 @@ Quiet - suppress status messages.
 
 =item -R minutes
 
-Renotify -- send out another page if a service has been down for this many minutes
+Renotify -- send out another page if a service has been failing for this many minutes
 since the last page.  Default is 120 (2 hours).
 
 =item -s subject

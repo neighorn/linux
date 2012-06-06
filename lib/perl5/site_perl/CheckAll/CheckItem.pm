@@ -3,6 +3,7 @@
 # CheckItem - basic monitoring item - base class.
 #
 package CheckItem;
+$VERSION = 1.0;
 
 use strict;
 use warnings;
@@ -14,20 +15,22 @@ use Exporter;
 
 use constant CHECK_OK => 0;
 use constant CHECK_FAIL => 8;
-use constant CHECK_HIGHLIGHT => "\e[33;40m";
+use constant CHECK_HIGHLIGHT => "\e[33;40;1m"; # Yellow FG, Black BG, Bright
 use constant CHECK_RESET => "\e[0m";
 
-use constant CHECK_STILL_UP => 0;
-use constant CHECK_STILL_DOWN => 1;
-use constant CHECK_NOW_UP => 2;
-use constant CHECK_NOW_DOWN => 3;
+use constant CHECK_STILL_OK => 0;
+use constant CHECK_STILL_FAILING => 1;
+use constant CHECK_NOW_OK => 2;
+use constant CHECK_NOW_FAILING => 3;
 
 our @ISA = ('Exporter');
 our @EXPORT = qw(
 	CHECK_OK CHECK_FAIL CHECK_HIGHLIGHT CHECK_RESET
-	CHECK_STILL_UP CHECK_STILL_DOWN CHECK_NOW_UP CHECK_NOW_DOWN
+	CHECK_STILL_OK CHECK_STILL_FAILING CHECK_NOW_OK CHECK_NOW_FAILING
 );
 
+my %Attributes;
+my %Operators;
 my $x = $main::opt_R;	# suppress warning
 
 # Define fields.  Note that Autoload normalizes all field names to "first-upper rest lowercase".
@@ -40,12 +43,12 @@ use fields (
 	'Target',		# Target of check (host:port, process pattern, etc.).
 	'Status',		# Current status (set by Check).
 	'StatusDetail',		# Additional detail
-	'FirstDown',		# When this was first detected down
-	'PriorStatus',		# Its prior status.  Detects "Now down" vs "Still down".
-	'PriorNotification',	# The last time we told someone it was down.
-	'Ondown',		# Run this command when it goes down.
-	'Onup',			# Run this command when it comes up.
-	'Renotifyinterval',	# How often to repeat down notifications (unimplemented).
+	'FirstFail',		# When this was first detected failing
+	'PriorStatus',		# Its prior status.  Detects "Now failing" vs "Still failing".
+	'PriorNotification',	# The last time we told someone it was failing.
+	'Onfail',		# Run this command when it first fails.
+	'Onok',			# Run this command when it becomes OK again.
+	'Renotifyinterval',	# How often to repeat failing notifications (unimplemented).
 	'Verbose',		# Verbose (unimplemented).
 );
 
@@ -62,12 +65,12 @@ sub new{
 	# Initialize some fields.  
 	$Self->{FILE} = shift @_;			# Store the file name.
 	$Self->{LINE} = shift @_;			# Store the line number.
-	$Self->{FirstDown} = 0;				# Not down, unless status file changes it.
+	$Self->{FirstFail} = 0;				# Not failing, unless status file changes it.
 	$Self->{PriorNotification} = 0;			# Ditto.
 	$Self->{Renotifyinterval} = $main::opt_R;	# Default renotify minutes.
 
 	# Set options from the caller (from the file).
-	$Self->SetOptions(@_);				# Run through our initialization code.
+	$Self->SetOptions(\@_,\%Operators,\%Attributes);				# Run through our initialization code.
 	return $Self;
 }
 
@@ -85,53 +88,93 @@ sub Report {
 	# Return our status + status change information.
 	if ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_OK) {
 		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q);
-		return CHECK_STILL_UP;
+		return CHECK_STILL_OK;
 	}
 	elsif ($Self->{Status} eq CHECK_FAIL and $Self->{PriorStatus} eq CHECK_FAIL) {
 		my $Since;
-		my $FirstDown = $Self->FirstDown;
-		if (time() - $FirstDown < 84200) {
-			$Since = strftime("%T",localtime($FirstDown));
+		my $FirstFail = $Self->FirstFail;
+		if (time() - $FirstFail < 84200) {
+			$Since = strftime("%T",localtime($FirstFail));
 		}
 		else {
-			$Since = strftime("%D %T",localtime($FirstDown));
+			$Since = strftime("%D %T",localtime($FirstFail));
 		}
-		printf "\t\t%s%s DOWN since %s %s%s\n",
+		printf "\t\t%s%s FAILING since %s %s%s\n",
 			CHECK_HIGHLIGHT,
 			$Self->{Desc},
 			$Since,
 			($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail},
 			CHECK_RESET
 				if (!$main::opt_q);
-		return CHECK_STILL_DOWN;
+		return CHECK_STILL_FAILING;
 	}
 	elsif ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_FAIL) {
 		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q);
-		return CHECK_NOW_UP;
+		return CHECK_NOW_OK;
 	}
 	else {
-		printf "\t\t%s%s now DOWN %s%s\n",
+		printf "\t\t%s%s now FAILING %s%s\n",
 			CHECK_HIGHLIGHT,
 			$Self->{Desc},
 			($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail},
 			CHECK_RESET
 				if (!$main::opt_q);
-		return CHECK_NOW_DOWN;
+		return CHECK_NOW_FAILING;
 	}
 }
 
 
 sub SetOptions {
-	# Set options.
+	#
+	# Set options. Calling arguments: ($Self,\@Options,\%Oper,\%Attr)
+	#	
         my $Self = shift;
+        my $OptionRef = shift;		# Get the array of options from the service file record.
+	my $HashRef = shift;		# Get the valid operators for each field.
+	my %Oper = %$HashRef;		 
+	$HashRef = shift;		# Get the any attributes for each field.
+	my %Attr = %$HashRef;
 
 	# Assign any values they passed on init/new.
-	foreach my $InitItem (@_) {
-		foreach (shellwords($InitItem)) {
-			my($Field,$Value) = (/^(\S+?)=(.*)$/);
+	foreach my $InitItem (@$OptionRef) {
+		foreach my $Parm (shellwords($InitItem)) {
+			my($Field,$Rest) = ($Parm =~ /^([A-Za-z0-9_]+)(.*)\s*$/);
 			$Field = ucfirst(lc($Field));	# Normalize case.
+			# Support old field names.
+			if ($Field eq 'Ondown') {
+				$Field = 'Onfail';
+			}
+			elsif ($Field eq 'OnUp') {
+				$Field = 'OnOK';
+			}
+			my $OperRegEx = (exists($Oper{$Field})?$Oper{$Field}:qr/=/o);
+			my($Operator,$Value) = ($Rest =~ /^($OperRegEx)(.*)$/);
+			if (!defined($Operator)) {
+				warn "$Self->{FILE}:$Self->{LINE}: Invalid operator specified for $Field -- ignored.\n";
+				next;
+			}
+			# Normalize some operators.
+			if ($Operator eq '=<') {
+				$Operator = '<=';
+			}
+			elsif ($Operator eq '=>') {
+				$Operator = '>=';
+			}
+			elsif ($Operator eq '=' ) {
+				$Operator = '==';
+			}
+			elsif ($Operator =~ /^(<>|><)$/) {
+				$Operator = '!=';
+			}
+			if (exists($Attr{$Field}) and $Attr{$Field} =~ /\bkeep-operator\b/) {
+				$Operator .= ' ';	# Separate operator from value with space.
+			}
+			else {
+				$Operator = '';		# Delete operator so we prepend nothing.
+			}
+			
 			$Value = '' unless (defined($Value));
-			eval "\$Self->$Field(\$Value);";
+			eval "\$Self->$Field('${Operator}$Value');";
 			if ($@) {
 				warn "$Self->{FILE}:$Self->{LINE}: Unable to set $Field: $@\n";
 			}
@@ -241,11 +284,19 @@ Desc: This is the description of this item, used when reporting the status of th
 
 =item *
 
-OnDown: A command to execute when the target is first discovered down.
+OnFail: A command to execute when the target is first discovered failing.
 
 =item *
 
-OnUp: A ccommand to execute when a previously down target is first discovered up.
+OnDown: Deprecated synonym for OnFail
+
+=item *
+
+OnOK: A command to execute when a previously failing target is first discovered OK.
+
+=item *
+
+OnUp: Deprecated synonym for OnOK
 
 =item *
 
@@ -276,26 +327,26 @@ LINE: The line number of the service list file that defined this item.
 
 =item *
 
-Status: The status of the service (up or down), as set by the Check method.
+Status: The status of the service (OK or failing), as set by the Check method.
 
 =item *
 
 StatusDetail: Additional text information about the status.  This is typically used to indicate that
-a service was marked as "DOWN" for unusual reasons, such as a configuration error.
+a service was marked as "FAILING" for unusual reasons, such as a configuration error.
 
 =item *
 
-PriorStatus: The previous status of this item (defaults to "up" for new items).  This is used to
-determine if an item is "now down" (newly down), "still down", "now up", or "still up".
+PriorStatus: The previous status of this item (defaults to "OK" for new items).  This is used to
+determine if an item is "now failing" (newly failing), "still failing", "now OK", or "still OK".
 
 =item *
 
-FirstDown: The time at which the item was first detected down.
+FirstFail: The time at which the item was first detected failing.
 
 =item *
 
 PriorNotification: The time at which the most recent alert was sent about this item being
-down.  This is only applicable if notifications were requested with the checkall -P option.
+failing.  This is only applicable if notifications were requested with the checkall -P option.
 
 =item *
 

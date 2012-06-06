@@ -48,7 +48,7 @@ sub Target {
 
 sub Check {
 
-	# See if this item is up.
+	# See if this item is OK.
 	my $Self = shift;
 
 	my $File = $Self->{'FILE'};
@@ -92,12 +92,12 @@ sub Check {
 				last;			# Don't need to do any further checking.
 			}
 			else {
-				# Connection is down.
-				printf "\r%5d           %s DOWN: $!\n", $$,$Desc if ($main::opt_v);
+				# Connection failing.
+				printf "\r%5d           %s FAILING: $!\n", $$,$Desc if ($main::opt_v);
 				close($socket) if ($socket);
 			}
 		}
-		exit($GroupOK);		# Tell the parent whether it was up or down.
+		exit($GroupOK);		# Tell the parent whether it was OK or FAILING.
 	}
 }
 =pod
