@@ -113,8 +113,8 @@ sub Check {
 			. '-o "NumberOfPasswordPrompts 0" '
 			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
 			. ($Self->{User}?"$Self->{User}@":'')
-			. $Self->{Host}
-			. qq[perl -e 'print join(",",stat("$Self->{Target}")) . "\n";'] 
+			. $Self->{Host} . ' '
+			. "stat -c %d,%i,%f,%h,%u,%g,%t,%s,%X,%Y,%Z,%o,%b $Self->{Target}"
 			;
 		my $Data;
 		eval('$Data = `$Cmd`;');
@@ -130,6 +130,7 @@ sub Check {
 			        $Self->{StatusDetail} = "Unable to find/read file system stat data";
 				return "Status=" . $Self->CHECK_FAIL;
 			}
+			$StatData[2] = hex($StatData[2]);
 		}
 	}
 	else {
