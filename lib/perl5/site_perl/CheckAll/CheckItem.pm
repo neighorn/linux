@@ -145,7 +145,7 @@ sub SetOptions {
 				$Field = 'Onfail';
 			}
 			elsif ($Field eq 'OnUp') {
-				$Field = 'OnOK';
+				$Field = 'Onok';
 			}
 			my $OperRegEx = (exists($Oper{$Field})?$Oper{$Field}:qr/=/o);
 			my($Operator,$Value) = ($Rest =~ /^($OperRegEx)(.*)$/);

@@ -3,6 +3,7 @@
 use strict;
 no strict 'refs';
 use warnings;
+use Getopt::Long qw(:config bundling no_auto_abbrev gnu_compat no_ignore_case);
 use Sys::Syslog;
 use Getopt::Std;
 use IO::Socket;
@@ -23,7 +24,7 @@ our $opt_h=0;			# Help
 our $opt_v=0;			# Verbose option.
 our $opt_t=0;			# Test option.
 our $opt_q=0;			# Quiet option.
-our $opt_P='';			# Who to page on errors.
+our @opt_P='';			# Who to page on errors.
 our $opt_R=120;			# Set number of minutes to re-report fail items.
 our $opt_s='';			# Alert subject
 our $Prog = $RealScript;	# Get our program name.
@@ -44,7 +45,16 @@ my $ServiceList="/usr/local/etc/$Prog.list";
 my $HostName = `hostname`;
 chomp $HostName;
 
-getopts('c:hP:qR:s:tv');
+GetOptions (
+	'v|verbose+'	=> \$opt_v,
+	'c|config=s'	=> \$opt_v,
+	'h|help'	=> \$opt_h,
+	't|test'	=> \$opt_t,
+	'q|quiet'	=> \$opt_q,
+	'P|page=s'	=> \@opt_P,
+	'R|renotify=i'	=> \$opt_R,
+	's|subject=s'	=> \$opt_s,
+);
 
 # Check options.
 if ($opt_h) {
@@ -201,7 +211,7 @@ foreach my $Item (@ItemList) {
 	}
 }
 
-if (@NowFail+@NowOK+$Renotify > 0 and $opt_P and ! $opt_t) {
+if (@NowFail+@NowOK+$Renotify > 0 and (@opt_P+0) and ! $opt_t) {
 	my($MAIL,$MailFile) = tempfile();
 	
 	if (@NowFail) {
@@ -215,7 +225,7 @@ if (@NowFail+@NowOK+$Renotify > 0 and $opt_P and ! $opt_t) {
 	}
 	printf $MAIL strftime("\nFrom $HostName at %T on %D\n",localtime());
 	close $MAIL;
-	system("sed 's/  */ /g' $MailFile | mail -s \"$opt_s\" $opt_P") && warn "Unable to send mail: $!\n";
+	system("sed 's/  */ /g' $MailFile | mail -s \"$opt_s\" " . join(' ',@opt_P)) && warn "Unable to send mail: $!\n";
 	unlink $MailFile;
 	
 	# Update all the notification times.
@@ -428,30 +438,31 @@ if one or more list names are provided on the command line.  The -c option provi
 alternate way of identifying a service file, when the desired file isn't named according
 to the "listname" standard (i.e. isn't located in /usr/local/etc).
 
-=item -h
+=item -h, --help
 
 Help -- print this documentation
 
-=item -P address
+=item -P address, --page=address
 
 Page -- send a message to this e-mail address whenever services transition from OK
 to failing or vice versa, or if enough time has elapsed to warrant renotification.
+This option may be repeated to send e-mails to multiple addresses.
 
-=item -q
+=item -q, --quiet
 
 Quiet - suppress status messages.
 
-=item -R minutes
+=item -R minutes, --renotify=minutes
 
 Renotify -- send out another page if a service has been failing for this many minutes
 since the last page.  Default is 120 (2 hours).
 
-=item -s subject
+=item -s subject, --subject=subject
 
 Subject -- use this subject line when sending out pages.  "%C" is replaced with the
 host ("Computer") name.
 
-=item -v
+=item -v, --verbose
 
 Verbose -- turn on diagnostics.
 
