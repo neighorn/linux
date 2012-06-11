@@ -12,6 +12,7 @@ no strict 'refs';
 use Text::ParseWords;
 use POSIX qw(strftime);
 use Exporter;
+use Sys::Syslog;
 
 use constant CHECK_OK => 0;
 use constant CHECK_FAIL => 8;
@@ -99,13 +100,18 @@ sub Report {
 		else {
 			$Since = strftime("%D %T",localtime($FirstFail));
 		}
-		printf "\t\t%s%s FAILING since %s %s%s\n",
+		my $text = $Self->{Desc}
+			. " FAILING since "
+			. $Since
+			. ($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail}
+			;
+		printf "\t\t%s%s%s\n",
 			CHECK_HIGHLIGHT,
-			$Self->{Desc},
-			$Since,
-			($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail},
+			$text,
 			CHECK_RESET
 				if (!$main::opt_q);
+		syslog('WARNING','%s',$text)
+			if ($^O !~ /MSWin/);
 		return CHECK_STILL_FAILING;
 	}
 	elsif ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_FAIL) {
@@ -113,12 +119,16 @@ sub Report {
 		return CHECK_NOW_OK;
 	}
 	else {
-		printf "\t\t%s%s now FAILING %s%s\n",
+		my $text = $Self->{Desc}
+			. " now FAILING "
+			. ($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail};
+		printf "\t\t%s%s%s\n",
 			CHECK_HIGHLIGHT,
-			$Self->{Desc},
-			($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail},
+			$text,
 			CHECK_RESET
 				if (!$main::opt_q);
+		syslog('WARNING','%s',$text)
+			if ($^O !~ /MSWin/);
 		return CHECK_NOW_FAILING;
 	}
 }

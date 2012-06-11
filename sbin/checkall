@@ -24,7 +24,7 @@ our $opt_h=0;			# Help
 our $opt_v=0;			# Verbose option.
 our $opt_t=0;			# Test option.
 our $opt_q=0;			# Quiet option.
-our @opt_P='';			# Who to page on errors.
+our @opt_P;			# Who to page on errors.
 our $opt_R=120;			# Set number of minutes to re-report fail items.
 our $opt_s='';			# Alert subject
 our $Prog = $RealScript;	# Get our program name.
@@ -162,7 +162,7 @@ foreach my $Item (@ItemList) {
 	 	#	if (ref $Item ne 'heading' and $^O !~ /MSWin/);
 	}	
 	elsif ($Status == 1) {
-		syslog('INFO','%s is still failing',$Desc)
+		syslog('WARNING','%s',"$Desc is still failing")
 			if ($^O !~ /MSWin/);
 		push @StillFail, $Desc;
 		$Renotify++
@@ -171,7 +171,7 @@ foreach my $Item (@ItemList) {
 		$Errors++;
 	}
 	elsif ($Status == 2) {
-		syslog('INFO','%s is NOW OK',$Desc)
+		syslog('INFO','%s', "$Desc is NOW OK")
 			if ($^O !~ /MSWin/);
 		push @NowOK, $Desc;
 		if (my $Action = $Item->Onok) {
@@ -182,13 +182,14 @@ foreach my $Item (@ItemList) {
 				print "Triggering OnOK for $Desc\n" if ($opt_v);
 				$Action =~ s/%D/$Desc/g;
 				system("($Action)&");
-				syslog('INFO',"Executed OnOK actions for $Desc.  Status $?")
+				my $Status = $?;
+				syslog(($Status?'WARNING':'INFO'),'%s',"Executed OnOK actions for $Desc.  Status $Status.")
 					if ($^O !~ /MSWin/);
 			}
 		}
 	}
 	elsif ($Status == 3) {
-		syslog('INFO','%s is NOW FAILING',$Desc)
+		syslog('WARNING','%s', "$Desc is NOW FAILING")
 			if ($^O !~ /MSWin/);
 		push @NowFail, $Desc;
 		if (my $Action = $Item->Onfail) {
@@ -199,7 +200,8 @@ foreach my $Item (@ItemList) {
 				print "Triggering OnFail for $Desc\n" if ($opt_v);
 				$Action =~ s/%D/$Desc/g;
 				system("($Action)&");
-				syslog('INFO',"Executed OnFail actions for $Desc.  Status $?")
+				my $Status = $?;
+				syslog(($Status?'WARNING':'INFO'),'%s',"Executed OnFail actions for $Desc.  Status $Status.")
 					if ($^O !~ /MSWin/);
 			}
 		}
@@ -211,7 +213,7 @@ foreach my $Item (@ItemList) {
 	}
 }
 
-if (@NowFail+@NowOK+$Renotify > 0 and (@opt_P+0) and ! $opt_t) {
+if (@NowFail+@NowOK+$Renotify > 0 and @opt_P > 0 and ! $opt_t) {
 	my($MAIL,$MailFile) = tempfile();
 	
 	if (@NowFail) {
@@ -245,7 +247,7 @@ if (@NowFail+@StillFail > 0) {
 }
 else {
 	print "All services are OK.\n" unless ($opt_q);
-	syslog('INFO',"All services are OK.")
+	syslog('INFO','All services are OK.')
 		if ($^O !~ /MSWin/);
 	exit 0;
 }
