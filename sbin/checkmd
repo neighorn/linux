@@ -117,7 +117,8 @@ while (<MDSTAT>) {
 	if (/\s*[\[\]=>.]+\s*recovery/) {
 		# This is a recovery line.  Display it to show how
 		# far along we are.
-		warn $_;
+		chomp;
+		warn "$_\n";
 		$ErrorFlag=1;
 	}
 }

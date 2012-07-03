@@ -1,4 +1,4 @@
-#! /usr/bin/sh
+#! /bin/sh
 #
 # quick code to replace duplicate files in dirvish trees with hardlinks.
 #
@@ -67,4 +67,3 @@ find $1 -type f -print |
     done |
     tail -1
 exit 0
-

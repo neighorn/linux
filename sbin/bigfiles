@@ -6,6 +6,7 @@
 #
 # $Log$
 #
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 
 
@@ -93,8 +94,8 @@ do
 	# Sort based on size (field 2)
 	# Print the top 60.
     find $subtree -xdev -size "+${minimum}c" $ModTime -type f -ls | \
-	/usr/bin/awk '{print $5, $7, $8, $9, $10, $11, $12}' | \
-	/usr/bin/sort -k 2,2nr | \
-        /usr/bin/awk '{printf "%8.8s %12.12s %3.3s %2.2s %5.5s %s\n", $1, $2, $3, $4, $5, $6}' |\
-	/usr/bin/head -60
+	awk '{print $5, $7, $8, $9, $10, $11, $12}' | \
+	sort -k 2,2nr | \
+        awk '{printf "%8.8s %12.12s %3.3s %2.2s %5.5s %s\n", $1, $2, $3, $4, $5, $6}' |\
+	head -60
 done

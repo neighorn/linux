@@ -229,7 +229,7 @@ sub RunDangerousCmd {
 		print "Executing: $Cmd\n" if ($opt_v);
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
-				$Line=~s/[
+				$Line=~s/[ 
 ]//g;
 				chomp $Line;
 				print "$Line\n";
@@ -313,14 +313,14 @@ __END__
 # The following are normal messages we don't need to see.
 #
 IGNORE	/^tar: .* socket ignored$/
-IGNORE	"^\s*ls: cannot access /usr/local/backup/\S+/\[01\]\[0-9\]-\[0-3\]\[0-9\]: No such file or directory$"
+IGNORE	"^\s*ls: (cannot access )?/usr/local/backup/\S+/\[01\]\[0-9\]-\[0-3\]\[0-9\]: No such file or directory$"
 IGNORE	"^tar: Removing leading `/' from member names$"
 IGNORE	"^tar: .*: file changed as we read it$"i
 IGNORE	"^tar: .*: file removed before we read it$"i
 IGNORE	"^tar: .*: Cannot stat: No such file or directory$"
 IGNORE	"^tar: Error exit delayed from previous errors$"
 IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+ s(econds)?, \d+(\.\d+)? [kmgKMG]B$"
-IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+(e-\d+)? s, \d+(\.\d+)? [kmgKMG]B/s$"
+IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+(e-\d+)? s(econds)?, \d+(\.\d+)? [kmgKMG]B/s$"
 IGNORE	"^\s*recovery-info started on \S+ on"
 IGNORE  /^\s*$/
 #
