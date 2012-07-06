@@ -77,6 +77,7 @@ if (! -d $opt_o) {
 }
 
 # Capture sector 0 of each disk.
+my $FirstDisk;		# Need a valid disk name later for parted.
 open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(mapper|md|dm-)' |") ||
 	die("Unable to start fdisk process: $!\n");
 while (<$FDISK>) {
@@ -84,6 +85,7 @@ while (<$FDISK>) {
 	s/^Disk\s*//;
 	s/:\s.*$//;
 	$InputName = $_;
+	$FirstDisk=$InputName unless ($FirstDisk);
 	($OutputName=$_) =~ s"^/dev/"$opt_o/";
 	$OutputName .= ".sector0";
 	RunDangerousCmd("mv $OutputName $OutputName.1")
@@ -99,6 +101,8 @@ close $FDISK;
 # if no specific disk is named.
 RunDangerousCmd("fdisk -l > $opt_o/fdisk.out");
 RunDangerousCmd("sfdisk -l -d > $opt_o/sfdisk.out");
+RunDangerousCmd("which parted > /dev/null 2>&1 && parted -s $FirstDisk print all > $opt_o/parted.out");
+RunDangerousCmd("which lsscsi > /dev/null 2>&1 && (lsscsi -H; lsscsi -d) > $opt_o/lsscsi.out");
 
 # Document the current mounts and sizes.
 RunDangerousCmd("df -h > $opt_o/df.out");
