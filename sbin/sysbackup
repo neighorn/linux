@@ -229,7 +229,7 @@ sub RunDangerousCmd {
 		print "Executing: $Cmd\n" if ($opt_v);
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
-				$Line=~s/[ 
+				$Line=~s/[
 ]//g;
 				chomp $Line;
 				print "$Line\n";
