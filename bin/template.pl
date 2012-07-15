@@ -86,7 +86,13 @@ if (@ARGV) {
 if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 	
 # Set up our logging and output filtering.
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput({
+	ALWAYS_MAIL_LIST =>	$opt_m,
+	ALWAYS_PAGE_LIST =>	$opt_p,
+	ERROR_MAIL_LIST =>	$opt_e,
+	ERROR_PAGE_LIST =>	$opt_P,
+	SYSLOG_FACILITY =>	$Syslog,
+});
 
 # Verify the command line.
 die("No files specified on the command line.  See \"$Prog -h\" for usage.")
@@ -110,6 +116,7 @@ sub RunDangerousCmd {
 	$Cmd=join(' ',@_);
 	if ($opt_t) {
 		print "Test: $Cmd\n";
+		return 0;
 	} else {
 		print "Executing: $Cmd\n" if ($opt_v);
 		if (open($FH,"$Cmd 2>&1 |")) {
