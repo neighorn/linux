@@ -1,0 +1,232 @@
+#!/usr/bin/perl
+
+use LogOutput;
+use ProcessOptions;
+use Text::ParseWords;
+
+# Set up the environment.
+$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/bin:/bin';
+
+# Initialize variables.
+$Prog=$0;			# Get our name, for messages.
+$Prog=~s/^.*\///;		# Trim off the path, if present.
+@Args=@ARGV;			# Preserve orig command for ref.
+$ErrorFlag=0;			# No errors so far.
+$Syslog='user';			# Name of Syslog facility.  '' for no logging.
+$LogFile='';			# Log file name, or null for none.
+$BaseDir='/usr/local/etc';	# Set our base directory.
+$ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+
+# Set our base directory.
+chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
+
+# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
+#	1) We define a new type l (lowercase L), which is a list (i.e. if
+#	   specified multiple times, values are concatenated & blank separated.o
+#	   Normal =s and =i would replace values instead of concatenate.
+#	2) We don't support long option names, except as aliases.
+# These are the standard production options.  Add more options here as needed.
+$OptSpec='d h m=l e=l p=l P=l O=s k=s';
+
+# Load the config file.
+if (-e $ConfigFile) {
+        open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+        # Build a hash of settings found in the config file.
+        while (<CONFIG>) {
+                next if (/^\s*#/);      # Comment.
+                next if (/^\s*$/);      # Blank line.
+                ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
+                $name=~tr/[a-z]/[A-Z]/;
+                $Config{$name}=$settings;
+        }
+}
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Process the command line options, if any.
+if (@ARGV) {
+	# Process the command line arguments.
+	ProcessOptions($OptSpec);
+} else {
+	# No command line options.  Run the default job.
+	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
+		if (defined($Config{'DEFAULTJOB'}));
+}
+
+if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
+	
+# Set up our logging and output filtering.
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+
+if ($Config{DISABLEUNTIL}) {
+	if ($Config{DISABLEUNTIL} =~ m"^(\d\d?)[/-](\d\d?)[/-](\d\d(\d\d)?)") {
+		my($AMonth,$ADay, $AYear) = ($1,$2,$3);
+		my($CDay,$CMonth,$CYear) =(localtime())[3..5];
+		$CMonth++;
+		$CYear+=1900;
+		$AYear += (int($CYear/100)*100) if ($AYear < 100);
+		$CDate = $CYear * 10000 + $CMonth * 100 + $CDay;
+		$ADate = $AYear * 10000 + $AMonth * 100 + $ADay;
+		if ($CDate < $ADate) {
+			print "Checks disabled until $AMonth/$ADay/$AYear per config file.\n";
+			exit 0;
+		}
+	}
+	else {
+              print "Invalid DisableUntil date specified in config file: $Config{DISABLEUNTIL} -- ignored.\n";
+	}
+}
+
+# Typical /proc/drbd records...
+# 1: cs:Connected ro:Secondary/Primary ds:UpToDate/UpToDate C r-----
+#    ns:0 nr:11520 dw:11520 dr:0 al:0 bm:28 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:0
+
+RunDangerousCmd("cat /proc/drbd");
+
+exit(0);
+
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($opt_t) {
+		print "Test: $Cmd\n";
+	} else {
+		print "Executing: $Cmd\n" if ($opt_v);
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+
+#
+# SampleSub - sample subroutine
+#
+sub SampleSub {
+
+	#my($x,$y,$z,...)=@_;		# Get our calling arguments.
+
+	# Declare local variables.
+	#my($a);		# Variable description.	
+
+}
+
+
+#
+# Untaint  -- use very carefully!
+#
+
+sub untaint {
+        local(@parms) = @_;
+        foreach (@parms) {
+                s/^(.*)$/$1/;
+                $_=$1;
+        }
+        if (@parms == 1) {
+                # Return scalar
+                return $parms[$[];
+        } else {
+                # Return list
+                return (@parms);
+        }
+}
+
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	open (PAGENATER,$ENV{'PAGER'}?"| $ENV{'PAGER'}":"| more") || die("Unable to start pagenater: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - (1 line description here)
+
+Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
+		[-k keyfile]
+	$Prog [-h]
+
+Flags:
+	-e mailid:	Error: Send an execution report to this e-mail address
+			if errors are detected.
+	-m mailid:	Mailid: Send an execution report to this e-mail address.
+	-p mailid:	Page: Send a very brief message (suitable for a pager)
+			to this e-mail address when this job completes.
+	-P mailid:	Page error: Send a very brief message to this e-mail 
+			address if errors are detected in this job.
+	-O config:	Insert the "config" configuration options from
+			$ConfigFile into
+			the command line at this point.
+	-k keyfile:	Key file: name of the user's key file.  The default
+			is ~/bin/pw.lst.
+	-h	:	Help: display this panel
+
+Examples:
+
+Return codes:
+	0	:	Normal termination
+	1	:	Help panel displayed.
+	2	:	Invalid or unrecognized command line options.
+	3	:	Invalid or unrecognized command line option value.
+	4	:	Incorrect command line parameters.
+	5	:	Unexpected message found in output.
+ENDUSAGE
+close PAGENATER;
+exit 1;
+}
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:	Ignore - Don't display this message, it's not interesting.
+#		LogOnly - Write this message to the syslog and log file, but
+#			don't display it on STDOUT.
+#		Show - Display this message, but it's not an error condition.
+#		# - This is a comment, ignore it.
+#
+#  Pattern:	an ordinary perl pattern.  All patterns for a given score
+#		are joined by logical OR conditions.
+#
+#  Notes:
+#	1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#	2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+IGNORE	/^\s*$/
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY	"^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY	/^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW	/^\s*debug:/
+SHOW	/^\s*Checks disabled until/
+SHOW	/^Job ended normally with status 0 and signal 0$/
+IGNORE	"^\s*version: \d+.\d+.\d+"
+IGNORE	"^\s*srcversion:\s+[0-9A-F]+\s*$" 
+IGNORE	"^\s*\d+: cs:Connected ro:(Primary|Secondary)/(Primary|Secondary) ds:UpToDate/UpToDate . r-----$"
+IGNORE	"^\s*ns:\d+ nr:\d+ dw:\d+ dr:\d+ al:\d+ bm:\d+ lo:\d+ pe:\d+ ua:\d+ ap:\d+ ep:\d+ wo:. oos:\d+$"
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.
