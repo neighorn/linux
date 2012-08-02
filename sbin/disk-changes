@@ -1,0 +1,20 @@
+#! /bin/bash
+export PATH='/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin'
+# Quick and dirty code to measure data changed per day.
+mount | while read source trash mountpoint trash type trash
+do
+     [[ "$source" == "none" ]] && continue
+     [[ "$type" == "proc" ]] && continue
+     [[ "$type" == "nfs" ]] && continue
+     echo $mountpoint
+done |
+sort |
+while read name
+do
+        find $name -xdev -type f -mtime -1 -ls |
+        awk -vname=$name '
+                BEGIN                   {Total=0}
+                /^[0-9]+ +[0-9]+/       {Total=Total+$7}
+                END                     {Total=int(Total/1024/1024/1024+0.5);printf "%-20.20s % 6dG\n",name,Total}
+'
+done 2>&1 | logger -t 'disk-changes'
