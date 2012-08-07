@@ -24,7 +24,7 @@ rsync -aH --delete -i $DryRun					\
 	--exclude /var				 		\
 	firewall:/ / 						\
 	2>&1 |
-		/usr/local/bin/ir -olt sync-to-fw
+		/usr/local/bin/ir -olt sync-to-fw -f /tmp/sync-to-fw.out
 
 rsync -aH --delete -i $DryRun					\
 	--exclude /locks					\
@@ -32,14 +32,18 @@ rsync -aH --delete -i $DryRun					\
 	--exclude /mrtg						\
 	--exclude /lib/ntp/proc 				\
 	--exclude /run						\
+	--exclude /spool/mail					\
 	--exclude /tmp						\
 	firewall:/var/ /var/					\
 	2>&1 |
-		/usr/local/bin/ir -olt sync-to-fw
+		/usr/local/bin/ir -olt sync-to-fw -a /tmp/sync-to-fw.out
 
-# Rebuild initrd in case there were kernel updates.
-$Test mkinitrd
+# Rebuild initrd if there were kernel updates.
+if grep -q ' boot/' /tmp/sync-to-fw.out
+then
+	$Test mkinitrd
 
-# Reboot, to make any software updates effective.
-[[ $Test = '' ]] && echo Preparing to reboot...
-$Test sleep 15 && $Test shutdown -r now
+	# Reboot, to make any software updates effective.
+	[[ $Test = '' ]] && echo Preparing to reboot...
+	$Test sleep 15 && $Test shutdown -r now
+fi
