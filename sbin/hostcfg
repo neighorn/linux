@@ -336,9 +336,15 @@ ENDEDIT
 foreach (@BootCmds) {
 	my($line,$hostlist,$command) = split(/\s+/,$_,3);
 	if (CheckCond($line,$opt_H,$hostlist)) {
+		my $VerboseLevel = 1;
 		$command =~ s/%HOST/$opt_H/g;	# %HOST to host name.
-		$command = "$EditFile $command" if ($command =~ /EDITFILE/);
-		my $Status = RunDangerousCmd($command);
+		if ($command =~ /EDITFILE/) {
+			print "Executing: $command\n" if ($opt_v > 0 and $opt_v < 2);
+			print "Test: $command\n" if ($opt_t > 0 and $opt_t < 2);
+			$command = "$EditFile $command";
+			$VerboseLevel = 2;
+		}
+		my $Status = RunDangerousCmd($command,$VerboseLevel);
 		$ExitCode = ($Status != 0?8:$ExitCode);
 	}
 }
@@ -499,13 +505,14 @@ sub SetService {
 # RunDangerousCmd - run a command, or suppress it if -t specified.
 #
 sub RunDangerousCmd {
-	my ($Cmd,$FH,$Line);
-	$Cmd=join(' ',@_);
-	if ($opt_t) {
+	my ($Cmd,$VerboseLevel) = @_;
+	my ($FH,$Line);
+	$VerboseLevel = 1 unless (defined($VerboseLevel));
+	if ($opt_t >= $VerboseLevel) {
 		print "Test: $Cmd\n";
 		return 0;
 	} else {
-		print "Executing: $Cmd\n" if ($opt_v);
+		print "Executing: $Cmd\n" if ($opt_v >= $VerboseLevel);
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
 				$Line=~s/[
