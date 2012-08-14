@@ -212,7 +212,8 @@ foreach $Target (@Parms) {
 # Print the disk space report.
 if (%FileSystems) {
 	print "_"x60 . "\nDisk space report:\n";
-	RunDangerousCmd("df -hP| grep -E '^(" . join('|',keys(%FileSystems)) . ") '");
+	my $units = ($^O eq 'aix'?'g':'h');
+	RunDangerousCmd("df -$units -P| grep -E '^(" . join('|',keys(%FileSystems)) . ") '");
 	print "\n";
 }
 
@@ -387,8 +388,8 @@ SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
 SHOW	"^\s*Disk space report:$"
 SHOW	"^\s*Filesystem\s+Size\s+Used\s+Avail\s+Use%\s+Mounted on\s*$"
-SHOW	"^\s*/dev/...\d\s+\d+[TGMK]\s+\d+[TGMK]\s+\d+[TGMK]\s+(\d|[1-8])%"
-SHOW	"^\s*/dev/[a-z0-9/-]+\s+[0-9.]+[TGMK]\s+[0-9.]+[TGMK]\s+[0-9.]+[TGMK]\s+(\d|[1-8]\d|9[0-5])%"
+SHOW	"^\s*/dev/\S+\s+\d+[TGMK]\s+\d+[TGMK]\s+\d+[TGMK]\s+(\d|[1-8])%"
+SHOW	"^\s*/dev/\S+\s+[0-9.]+[TGMK]?\s+[0-9.]+[TGMK]?\s+[0-9.]+[TGMK]?\s+(\d|[1-8]\d|9[0-5])%"
 IGNORE	"^\s*\*\*\* Execution cycle \d \*\*\*\s*$"
 IGNORE	"^\s*Copyright \(c\) \d\d\d\d Water Technologies Inc.\s*$"
 IGNORE	"^\s*All access is prohibited unless expressly authorized.$"
