@@ -402,6 +402,7 @@ SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
 IGNORE	"^\s*job \d+ at "
+IGNORE  "^\s*Job \S+.a will be run at ... ... .. ........ ... ....\.$"
 SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
 SHOW    /^Test:/
 SHOW    /^Executing:/
