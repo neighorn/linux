@@ -10,7 +10,7 @@ while (! $ARGV[0]) {
 	exit unless ($ARGV[0]);
 }
 
-getopts("p:qU:D:S:s:i:h");
+getopts("p:qU:D:S:s:i:hv");
 
 $opt_i=5 unless ($opt_i);		# Set default interval.
 if ($opt_i !~ /\d+/) {
@@ -35,25 +35,32 @@ if ($opt_h) {
 # issues in some platforms.
 
 # Begin monitoring the host.
+$State='';		# State unknown.
 $Ping=Net::Ping->new("icmp");
 for (;;) {
 	# See if it's up.
 	if ($Ping->ping($ARGV[0])) {
 		# Ping came back OK.  The interface is up, at least.
 		$State="int";
-		# See if any services are up.
-		foreach $port (@Ports) {
-			if ($socket=IO::Socket::INET->new("$ARGV[0]:$port")) {
-	    			# Connected OK.
-            			$State="up";
-            			close($socket);
-	    			last;		# Don't need to do any further checking.
-			}
-        	}
-        } else {
-		# Ping failed.  We're down.
-		$State='down';
+		print "Verbose: ping successful\n" if ($opt_v);
 	}
+	else {
+		print "Verbose: ping failed\n" if ($opt_v);
+	}
+	# See if any services are up.  Decoupled from ping.  Some don't ping.
+	foreach $port (@Ports) {
+		if ($socket=IO::Socket::INET->new("$ARGV[0]:$port")) {
+	    		# Connected OK.
+            		$State="up";
+            		close($socket);
+			print "Verbose: port $port is up\n" if ($opt_v);
+	    		last;		# Don't need to do any further checking.
+		}
+		else {
+			print "Verbose: port $port is down\n" if ($opt_v);
+		}
+	}
+	$State = 'down' unless ($State);
 
 	# Now that we know it's state, see if it has changed.
 	if ($State ne $PriorState) {
@@ -75,17 +82,22 @@ for (;;) {
 			$Desc=" services are down";
 			system($opt_s) if ($opt_s);
 		}
-		syswrite STDOUT,"\n$ARGV[0]$Desc" unless ($opt_q);
+		if (! $opt_q) {
+			syswrite STDOUT,"\n$ARGV[0]$Desc";
+			syswrite STDOUT,"\n" if ($opt_v);
+		}
 		$PriorState=$State;
 		sleep($opt_i);
 		$Count=0;
 	} else {
 		# No change.  Print a ., or | instead every 5th time.
-		$Count++;
-		if (($Count % 5)) {
-			syswrite(STDOUT,'.') unless ($opt_q);
-		} else {
-			syswrite(STDOUT,'|') unless ($opt_q);
+		if (! $opt_v) {
+			$Count++;
+			if (($Count % 5)) {
+				syswrite(STDOUT,'.') unless ($opt_q);
+			} else {
+				syswrite(STDOUT,'|') unless ($opt_q);
+			}
 		}
 		sleep($opt_i);
 	}
