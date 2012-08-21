@@ -61,12 +61,6 @@ if ($opt_h) {
 	system("pod2text $RealBin/$RealScript");
 	exit 1;
 }
-if ($opt_s) {
-	$opt_s =~ s/%C/$HostName/g;
-}
-else {
-	$opt_s = "$HostName alert";
-}
 
 openlog("$Prog");
 
@@ -214,6 +208,24 @@ foreach my $Item (@ItemList) {
 }
 
 if (@NowFail+@NowOK+$Renotify > 0 and @opt_P > 0 and ! $opt_t) {
+	# Set up the e-mail subject.
+	my $TotalDown = @NowFail + @StillFail;
+	my $Status;
+	if ($TotalDown) {
+		$Status = "$TotalDown service" . ($TotalDown > 1?'s':'') . " down";	# Something is down.
+	}
+	elsif (@NowOK) {
+		$Status = 'All services restored';	# Was down, but all up now.
+	}
+	else {
+		$Status = 'All services up';		# Never was done (shouldn't happen).
+	}
+	$opt_s = '%C alert: %S' unless ($opt_s);
+	$opt_s =~ s/%C/$HostName/g;
+	$opt_s =~ s/%N/$TotalDown/g;
+	$opt_s =~ s/%S/$Status/g;
+
+	# Build the e-mail text.	
 	my($MAIL,$MailFile) = tempfile();
 	
 	if (@NowFail) {
@@ -225,6 +237,8 @@ if (@NowFail+@NowOK+$Renotify > 0 and @opt_P > 0 and ! $opt_t) {
 	if (@NowOK) {
 		print $MAIL "Now OK: " . join(', ',@NowOK) . "\n";
 	}
+
+	# Send the e-mail.
 	printf $MAIL strftime("\nFrom $HostName at %T on %D\n",localtime());
 	close $MAIL;
 	system("sed 's/  */ /g' $MailFile | mail -s \"$opt_s\" " . join(' ',@opt_P)) && warn "Unable to send mail: $!\n";
@@ -461,8 +475,11 @@ since the last page.  Default is 120 (2 hours).
 
 =item -s subject, --subject=subject
 
-Subject -- use this subject line when sending out pages.  "%C" is replaced with the
-host ("Computer") name.
+Subject -- use this subject line when sending out pages.  The following substitutions 
+are made:
+	"%C" is replaced with the host Computer name.
+	"%N" is replaced with the Number of services down.
+	"%S" is replaced with an English status phrase (e.g. "All services restored").
 
 =item -v, --verbose
 
