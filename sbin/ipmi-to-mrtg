@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# Read sensor data and create mrtg-readable information
+# Read IPMI sensor data and create mrtg-readable information
 #
 use strict;
 use warnings;
@@ -20,9 +20,7 @@ my($Syslog)='';				# Name of Syslog facility.  '' for none.
 my($BaseDir)="/usr/local/sbin";		# Set our base directory.
 my($LogFile)="";			# Name of the log file.
 my($ConfigFile)="$BaseDir/${Prog}.cfg"; # Name of config file.
-my($DataDir)="/var/mrtg/sensors";	# Where we store our data files.
-my($DataFile)="$DataDir/sensors.dat";	# Name of our data file.
-our($Scale)="";				# Defaults to Celcius.
+my($DataDir)="/var/mrtg/ipmi";	# Where we store our data files.
 our(%Reference);			# A list of reference values.
 my($RefValue)="0";			# A specific reference value.
 our %Config;
@@ -55,7 +53,7 @@ chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='h t m=l e=l O=s p=l P=l s t v f c r=l';
+my $OptSpec='h t m=l e=l O=s p=l P=l s t v r=l';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -116,36 +114,20 @@ RunDangerousCmd("rm -rf $DataDir/*") &&
 umask(0022);
 
 my $FH_SENSOR;
-open($FH_SENSOR,"sensors $Scale |") ||
-	die "Unable to open sensors process: $!\n";
+open($FH_SENSOR,"ipmitool sensor |") ||
+	die "Unable to open ipmitool process: $!\n";
 my $Adapter;
 while (<$FH_SENSOR>) {
 	chomp;
-	next if (/^\s*$/);	# Skip blank lines.
-	next if (/^    /);	# Skip indented (continuation?) lines.
-	next if (/.*?:\s*$/);	# Skip labels with no data (alarms:, beep_enabled:)
-	if ($_ !~ /:/) {
-		# No colon.  Must be the adaptor name.  Save it
-		# without any special characters.
-		($Adapter=$_) =~ s/[^a-zA-Z0-9-]/_/g;
-		if (! -d "$DataDir/$Adapter") {
-			RunDangerousCmd("mkdir -m 655 -p $DataDir/$Adapter") &&
-				die("Unable to create $DataDir/$Adapter: $!\n");
-		}
-
-		# Write the uptime data here, too.
-		WriteValue("$DataDir/$Adapter/LoadAvg",$OneMin,"0");
-	}
-	else {
-		# Has a colon.  Must be a data value.
-		/^\s*(.*)\s*:\s*(\S+)/;
-		my($Item,$Value)=($1,$2);
-		$Item=~s/[^a-zA-Z0-9+-]/_/g;		# Replace special symbols.
-		$Value=$Value*100 if ($Value =~ /^\s*[+-]?\d+\.\d+\s*$/);	# MRTG doesn't do floats.
-		$RefValue=$Reference{"$Adapter/$Item"};
-		$RefValue=$RefValue?$RefValue:0;
-		$RefValue=$RefValue*100 if ($RefValue =~ /^\s*[+-]?\d+\.\d+\s*$/);	# MRTG doesn't do floats.
-		WriteValue("$DataDir/$Adapter/$Item",$Value, $RefValue);
+	my ($Name,$Value) = split(/\s*\|\s*/);
+	$Name =~ s/^\s*//;	# Strip leading spaces.
+	if ($Name && $Value =~ /^-?\d[\d.]*$/) {
+		$Name =~ tr/a-zA-Z0-9.+-/_/c;		# Suppress special characters.
+		$Value = $Value + 0;			# Normalize
+		$Value = int($Value * 100) if ($Value != int($Value));	# Keep 2 digits on floating point.
+		$Value = 0 - $Value if ($Value < 0);
+		print "Verbose: Name=$Name, Value=$Value\n" if ($opt_v);
+		WriteValue("$DataDir/$Name",$Value, $RefValue);
 	}
 }
 
@@ -218,16 +200,14 @@ sub opt_h {
 
 	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
 	print PAGENATER <<"ENDUSAGE";
-$Prog - Convert sensors output to an MRTG-compatible format
+$Prog - extract IPMI sensor data and write it in a MRTG-compatible format.
 
-Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v]
+Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
 	$Prog -h
 
 Flags:
-	-c:		Celsius: Use Celsius numbers (default)
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
-	-f:		Fahrenheit: use fahrenheit numbers.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
@@ -242,7 +222,7 @@ Flags:
 	-h      :       Help: display this panel
 
 Parameters:
- 	(none)
+	(none)
 
 Return codes:
 	0       :       Normal termination
@@ -255,14 +235,6 @@ Return codes:
 ENDUSAGE
 close PAGENATER;
 exit 1;
-}
-
-sub opt_c {
-	$Scale="";		# No fahrenheit.
-}
-
-sub opt_f {
-	$Scale="-f";		# Fahrenheit.
 }
 
 __END__
@@ -300,6 +272,7 @@ IGNORE	"Subroutine SNMP(v1)?_Session::pack_sockaddr_in6 redefined at"
 SHOW    /^Test:/
 SHOW    /^Executing:/
 SHOW	/^\s*debug:/
+SHOW	/^\s*Verbose:/
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
