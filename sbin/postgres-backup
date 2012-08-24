@@ -112,7 +112,7 @@ my $OutDir=dirname($opt_o);
 RunDangerousCmd("find $OutDir -type f -name '$DeletePattern' -mtime +$opt_r -exec echo Deleting {} \\; -delete");
 
 # Now back up all our databases.
-RunDangerousCmd("su - postgres -c pg_dumpall > $opt_o");
+RunDangerousCmd("su - postgres -c 'pg_dumpall --clean' > $opt_o");
 if (-f $opt_o) {
 	print commify((stat($opt_o))[7]) . " bytes written to $opt_o\n";
 	RunDangerousCmd("gzip $opt_o") if ($opt_z);
