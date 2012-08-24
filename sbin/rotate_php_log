@@ -1,0 +1,327 @@
+#! /usr/bin/perl
+#
+# Copyright (c) 2005,2009,2011 Martin Consulting Services, Inc.
+# Licensed under the Lesser Gnu Public License (LGPL).
+# 
+# ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
+# CODE IS STRICTLY AT YOUR OWN RISK.
+#
+
+#
+# Rotate php log files.  logrotate doesn't work well because the files 
+# have a different file name each day.
+#
+use lib '/usr/local/lib/perl5/site_perl';
+use strict;
+use warnings;
+use LogOutput;
+use ProcessOptions;
+use Text::ParseWords;
+use FindBin qw($RealBin $RealScript);
+use File::Find;
+
+# Initialize variables.
+our $Prog=$RealScript;              	# Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+our $Errors=0;				# No errors so far.
+our $Syslog='user';			# Name of Syslog facility.  '' for none.
+our $BaseDir='/var/www/vhosts/secure.teamhively.com/httpdocs/system/logs';			# Set our base directory.
+our $LogFile="";			# Name of the log file.
+our $ConfigFile="$RealBin";		# Deterimine the name of our config file
+$ConfigFile =~ s"/.[^/]*$"/etc/${Prog}.cfg";# 	Ditto.
+our @Parms;				# Array of remaining cmdline parms.
+our %Config;				# Our configuration options.
+my $ExitCode;				# Code we'll exit with.
+#
+our $opt_A = 5;				# -A (archive) after this many days
+our $opt_D = 30;			# -D (delete) option - delete after this many days.
+our $opt_a = '/var/www/vhosts/secure.teamhively.com/httpdocs/system/logs/archive';					# -a (archive dir) archive directory.
+our $opt_h;				# -h (help) option.
+our $opt_e;				# -e (error mail) option.
+our $opt_m;				# -m (mail) option.
+our $opt_p;				# -p (pager mail) option.
+our $opt_P;				# -P (pager error mail) option.
+our $opt_t;				# -t (test) option.
+our $opt_v;				# -v (verbose) option.
+#
+our $Archived = 0;			# Archive counter.
+our $Deleted = 0;			# Deletion counter.
+
+chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+
+# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
+#       1) We define a new type l (lowercase L), which is a list (i.e. if
+#          specified multiple times, values are concatenated & blank separated.o
+#          Normal =s and =i would replace values instead of concatenate.
+#       2) We don't support long option names, except as aliases.
+# These are the standard production options.  Add more options here as needed.
+my $OptSpec='a=s A=i D=i e=l h m=l O=s p=l P=l t v';
+
+# Load the config file.
+if (-e $ConfigFile) {
+	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+	# Build a hash of settings found in the config file.
+	while (<CONFIG>) {
+		next if (/^\s*#/);      # Comment.
+		next if (/^\s*$/);      # Blank line.
+		chomp;
+		my ($name,$settings)=split(/:?\s+/,$_,2);
+		$name=~tr/[a-z]/[A-Z]/;
+		$Config{$name}.=$settings . ',' ;
+	}
+	close CONFIG;
+	foreach (keys(%Config)) {
+		$Config{$_} =~ s/,$//;	# Remove trailing comma
+	}
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Process the command line options, if any.
+if (@ARGV) {
+	# Process the command line arguments.
+	ProcessOptions($OptSpec);
+} else {
+	# No command line options.  Run the default job.
+	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
+		if (defined($Config{'DEFAULTJOB'}));
+}
+if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
+	
+# Set up our logging and output filtering.
+LogOutput({
+	ALWAYS_MAIL_LIST =>	$opt_m,
+	ALWAYS_PAGE_LIST =>	$opt_p,
+	ERROR_MAIL_LIST =>	$opt_e,
+	ERROR_PAGE_LIST =>	$opt_P,
+	SYSLOG_FACILITY =>	$Syslog,
+});
+
+# Verify the command line.
+die("Excess parameters specified on the command line.  See \"$Prog -h\" for usage.")
+	unless (@Parms == 0);
+die("-A ($opt_A) must be <= -D ($opt_D)\n")
+	unless ($opt_A <= $opt_D);
+
+print "Processing $BaseDir\n" if ($opt_v);
+find(\&FoundLog,($BaseDir));
+
+print "Processing $opt_a\n" if ($opt_v);
+find(\&FoundArchive,($opt_a));
+print "$Prog complete: $Archived logs archived.  $Deleted archived logs deleted.\n";
+
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+$ExitCode=$Errors?10:0;
+exit($ExitCode);
+
+
+#
+# FoundLog - found a (possible) log file.  If confirmed, move it to the archive.
+#
+sub FoundLog {
+
+	my $ShortName = $_;
+	my $LongName = $File::Find::name;
+
+	if (-d $LongName and $ShortName ne '.') {
+		# Don't process subdirectories.
+		print "\tPruning $ShortName\n" if ($opt_v);
+		$File::Find::prune = 1;
+		return;
+	}
+	if (! -f $LongName) {
+		print "\tSkipping $ShortName - not a file\n" if ($opt_v);
+		return;
+	}
+	# log-2012-08-15.php
+	if ($ShortName !~ /^log.*\.php.*$/) {
+		print "\tSkipping $ShortName - wrong file name\n" if ($opt_v);
+		return;
+	}
+	if (-M $LongName < $opt_A) {
+		print "\tSkipping $ShortName - not old enough to archive\n" if ($opt_v);
+		return;
+	}
+	my $Prefix = ($opt_t?'Test: ':'');
+	print "\t\t${Prefix}Moving $LongName\n" if ($opt_v);
+	if (RunDangerousCmd(qq<mv "$LongName" "$opt_a">) == 0) {
+		RunDangerousCmd("gzip $opt_a/$ShortName") unless ($ShortName =~ /.gz$/);
+		$Archived++;
+	}
+	else {
+		$ExitCode = 11;
+	}
+}
+
+
+#
+# FoundArchive - found a (possible) log file.  If confirmed, check age and delete.
+#
+sub FoundArchive {
+
+	my $ShortName = $_;
+	my $LongName = $File::Find::name;
+
+	if (-d $LongName and $ShortName ne '.') {
+		# Don't process subdirectories.
+		print "\tPruning $ShortName\n" if ($opt_v);
+		$File::Find::prune = 1;
+		return;
+	}
+	if (! -f $LongName) {
+		print "\tSkipping $ShortName - not a file\n" if ($opt_v);
+		return;
+	}
+	if ($ShortName !~ /^log.*\.php.*$/) {
+		print "\tSkipping $ShortName - wrong file name\n" if ($opt_v);
+		return;
+	}
+	if (-M $LongName < $opt_D) {
+		print "\tSkipping $ShortName - not old enough to delete\n" if ($opt_v);
+		return;
+	}
+	my $Prefix = ($opt_t?'Test: ':'');
+	print "\t\t${Prefix}Deleting $LongName\n" if ($opt_v);
+	if (RunDangerousCmd(qq<rm "$LongName">) == 0) {
+		$Deleted++;
+	}
+	else {
+		$ExitCode = 11;
+	}
+
+}
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($opt_t) {
+		print "Test: $Cmd\n";
+		return 0;
+	} else {
+		print "Executing: $Cmd\n" if ($opt_v);
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	my $Pagenater=$ENV{PAGENATER};
+	$Pagenater="more" unless ($Pagenater);
+	system("pod2text $RealBin/$RealScript | $Pagenater");
+	exit(1);
+}
+
+=pod
+=head1 $Prog - Manage php log files
+
+=head3 Usage:  
+	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
+		[-a archivedir] [-A days] [-D days]
+
+	$Prog -h
+
+=head3 Flags:
+	-e mailid:      Error: Send an execution report to this e-mail address
+			if errors are detected.
+	-m mailid:      Mailid: Send an execution report to this e-mail address.
+	-p mailid:      Page: Send a very brief message (suitable for a pager)
+			to this e-mail address when this job completes.
+	-P mailid:      Page error: Send a very brief message to this e-mail 
+			address if errors are detected in this job.
+	-O config:      Insert the "config" configuration options from
+			$ConfigFile.
+			the command line at this point.
+	-t	:	Test: echo commands instead of running them.
+	-v	:	Verbose: echo commands before running them.
+	-h      :       Help: display this panel
+	-a dir	:	Archive Dir: move log files to this archive directory.
+			Defaults to /var/www/vhosts/secure.teamhively.com/httpdocs/system/logs/archive.
+	-A days	:	Archive: move log files older than "days" days to the
+			archive directory and compress them.  Defaults to 30.
+	-D days	:	Delete: delete archive files older than "days" days.
+			Note that the compression step resets the date, so 
+			this measures days since archived, not days since
+			originally written.  Default is 5 days.
+
+=head3 Parameters:
+	(none)
+
+=head3 Return codes:
+	0       :       Normal termination
+	1       :       Help panel displayed.
+	2       :       Invalid or unrecognized command line options.
+	3       :       Invalid or unrecognized command line option value.
+	4       :       Incorrect command line parameters.
+	5       :       Unexpected message found in output.
+
+=cut
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:        Ignore - Don't display this message, it's not interesting.
+#               LogOnly - Write this message to the syslog and log file, but
+#                       don't display it on STDOUT.
+#               Show - Display this message, but it's not an error condition.
+#               # - This is a comment, ignore it.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given score
+#               are joined by logical OR conditions.
+#
+#  Notes:
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#       2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+IGNORE  /^\s*$/
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY /^Command: /
+#
+# These are normal messages that we want to see.
+#
+SHOW    "^\s*Job ended normally with status 0 and signal 0$"
+SHOW    "^\s*Test:"
+SHOW    "^\s*Executing:"
+SHOW	"^\s*debug:"
+SHOW	"^\s*Processing /"
+SHOW	"^\s*Pruning "
+SHOW	"^\s*Skipping "
+SHOW	"^\s*Moving "
+SHOW	"^\s*Deleting "
+SHOW	"^\s*\S+ complete. "
+#
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.
