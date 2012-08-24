@@ -14,8 +14,8 @@ do
 	grep tree/ |
 	while read trash pid trash fh trash trash trash trash filename
 	do
-		[[ $fh = [0-9]*r ]] || continue		# Filter out output file.
-		printf "%-s %5d %s\n" $now $pid "rsync: $filename"
+		#[[ $fh = [0-9]*r ]] || continue		# Filter out output file.
+		printf "%-s %5d %s\n" $now $pid "rsync:  $filename"
 	done |
 	sort
 
