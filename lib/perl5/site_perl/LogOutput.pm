@@ -14,11 +14,12 @@ use Mail::Sendmail;
 use LogOutput_cfg;
 use POSIX qw(strftime);
 use Sys::Syslog;
+use File::Glob;
 
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.7;
+our $Version	= 3.8;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -65,9 +66,12 @@ sub LogOutput {
 	_CleanEmailLists();
 
 	# LogOutput can't run under debug mode.  Can't figure out the fork logic.
-	if (defined($DB::single)) {
-		warn "$Options{PROGRAM_NAME} is in debug mode - LogOutput call suppressed.\n";
-		return;
+	{
+		no warnings "once";
+		if (defined($DB::single)) {
+			warn "$Options{PROGRAM_NAME} is in debug mode - LogOutput call suppressed.\n";
+			return;
+		}
 	}
 
 	# Unbuffer stdout and stderr.
@@ -490,57 +494,71 @@ sub _LoadFilters {
 	my @NormalPatterns;		# Collected patterns from FilterHandle.
 	my @MailOnlyPatterns;		# Collected patterns from FilterHandle.
 
-	# Make sure we can read our filter file.
+	# Get a list of our filter file(s).
+	my @FilterList;
 	if ($Options{FILTER_FILE}) {
+		@FilterList = <$Options{FILTER_FILE}>;
+		die("Unable to find filter file $Options{FILTER_FILE}\n") unless (@FilterList);
+	}
+	else {
+		push @FilterList,'__DATA__';
+	}
+
+	# Process each filter file.
+	foreach my $FilterFile (@FilterList) {
 		# They provided us with a filter file.
-		open($FilterHandle,$Options{FILTER_FILE}) ||
-			die("Unable to open $Options{FILTER_FILE} $!\n");
-		print "LogOutput: Loading filters from $Options{FILTER_FILE}\n" if $Options{VERBOSE};
-	} else {
-		# They didn't provide us with a filter file.  Use DATA.
-		$FilterHandle=*main::DATA{IO};
-		print "LogOutput: Loading filters from DATA\n" if $Options{VERBOSE};
-	}
-
-	# Build arrays of our scoring patterns.
-	$PatternNum=0;
-	while (<$FilterHandle>) {
-		$PatternNum++;
-		print "LogOutput: read $PatternNum: $_\n"
-			if ($Options{VERBOSE} >= 2);
-		chomp;
-
-		# Split out the type from the pattern.
-		($Type,$Pattern)=split('\s+',$_,2);
-
-		# Skip comments and strip white space.
-		next if ($Type =~ /^\s*#/);	# Comment.
-		$Pattern=~s/\s+$//;		# Strip trailing whitespace.
-
-		# Check for syntax errors.
-		eval "qr$Pattern;";		# Check pattern for syntax problems.
-		if ($@) {
-			print qq<LogOutput: Syntax error in pattern $PatternNum ("> 
-				. substr($Pattern,0,50)
-				. qq<"): $@\n>;
-			next;
+		if ($FilterFile eq '__DATA__') {
+			# They didn't provide us with a filter file.  Use DATA.
+			$FilterHandle=*main::DATA{IO};
+			print "LogOutput: Loading filters from DATA\n" if $Options{VERBOSE};
 		}
-
-		# Add to the appropriate pattern list.
-		if ($Type =~ /ignore/i) {
-			# Add it to this array.
-			push @IgnorePatterns, $Pattern;
-		} elsif ($Type =~ /show/i) {
-			# Add it to this array.
-			push @NormalPatterns, $Pattern;
-		} elsif ($Type =~ /mailonly|logonly/i) {
-			# Add it to this array.
-			push @MailOnlyPatterns, $Pattern;
-		} else {
-			warn "LogOutput: Invalid type $Type in pattern record $PatternNum -- ignored.\n";
+		else {
+			print "LogOutput: Loading filters from $Options{FILTER_FILE}\n" if $Options{VERBOSE};
+			if (!open($FilterHandle,$Options{FILTER_FILE})) {
+				warn("Unable to open $Options{FILTER_FILE} $!\n");
+			}
 		}
+	
+		# Build arrays of our scoring patterns.
+		$PatternNum=0;
+		while (<$FilterHandle>) {
+			$PatternNum++;
+			print "LogOutput: \tread $PatternNum: $_\n"
+				if ($Options{VERBOSE} >= 2);
+			chomp;
+	
+			# Split out the type from the pattern.
+			($Type,$Pattern)=split('\s+',$_,2);
+	
+			# Skip comments and strip white space.
+			next if ($Type =~ /^\s*#/);	# Comment.
+			$Pattern=~s/\s+$//;		# Strip trailing whitespace.
+	
+			# Check for syntax errors.
+			eval "qr$Pattern;";		# Check pattern for syntax problems.
+			if ($@) {
+				print qq<LogOutput: \tSyntax error in $FilterFile line $PatternNum ("> 
+					. substr($Pattern,0,50)
+					. qq<"): $@\n>;
+				next;
+			}
+	
+			# Add to the appropriate pattern list.
+			if ($Type =~ /ignore/i) {
+				# Add it to this array.
+				push @IgnorePatterns, $Pattern;
+			} elsif ($Type =~ /show/i) {
+				# Add it to this array.
+				push @NormalPatterns, $Pattern;
+			} elsif ($Type =~ /mailonly|logonly/i) {
+				# Add it to this array.
+				push @MailOnlyPatterns, $Pattern;
+			} else {
+				warn "LogOutput: Invalid type $Type in pattern record $PatternNum -- ignored.\n";
+			}
+		}
+		close ($FilterHandle);
 	}
-	close ($FilterHandle);
 
 	# Add our standard messages on the end of the normal list, so they don't
 	# get flagged as errors.  Note that ignore patterns take precedence, so
@@ -915,15 +933,19 @@ For details on the overall implementation approach, see
 =head2 FILTER_FILE
 
 This option contains a file name of a file containing message
-filtering
-information.  The message filters allow LogOutput to determine whether the 
-script generated any unexpected messages, and allows it to reduce the amount
-of information sent in the e-mail'd execution reports.  If no file name 
-has been provided, LogOutput reads <DATA>, the reserved file handle that refers
-to data following the logical end-of-file mark in the calling program.  See
-"Filtering and Error Detection" below for filter file syntax.
+filtering information.  Wildcards are allowed, in which case all
+files matching the pattern are loaded.  The default value is "__DATA__",
+which is a reserve word instructing LogOutput to load the filter
+data from the built-in Perl <DATA> file handle.
 
-Example:  FILTER_FILE => '/home/joeuser/jobname.filter'
+The message filters allow LogOutput to determine whether the 
+script generated any unexpected messages, and allows it to reduce the amount
+of information sent in the e-mail'd execution reports. 
+See "Filtering and Error Detection" below for filter file syntax.
+
+Examples:
+    FILTER_FILE => '/home/joeuser/jobname.filter'
+    FILTER_FILE => '/home/joeuser/jobname.*.filter'
 
 =head2 SYSLOG_FACILITY
 
