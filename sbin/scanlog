@@ -96,7 +96,17 @@ die(qq<Incorrect number of parameters.  See "$Prog -h" for usage.\n">)
 # Set up our logging and output filtering.
 my $BaseFileName;
 ($BaseFileName=$Parms[0]) =~ s"^(.*/)?([^-]+)(-.+)?$"$2";
-$opt_f="$FilterDir/$BaseFileName.filter" unless ($opt_f);
+if (!$opt_f) {
+	# No filter file name specified.  Can we find a directory for this log file?
+	if (-d "$FilterDir/$BaseFileName") {
+		# Yes, load all *.filter files in the directory.
+		$opt_f = "$FilterDir/$BaseFileName/*.filter";
+	}
+	else {
+		# No.  Load a specific file name and hope it exists.
+		$opt_f="$FilterDir/$BaseFileName.filter";
+	}
+}
 $opt_S =~ s/%F/$BaseFileName/g;
 
 LogOutput({
@@ -107,6 +117,7 @@ LogOutput({
 	FILTER_FILE => $opt_f,
 	PROGRAM_NAME => $Prog,
 	MAIL_SUBJECT => $opt_S,
+	VERBOSE => $opt_v,
 });
 
 # Verify the command line.
