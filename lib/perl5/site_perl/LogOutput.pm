@@ -383,6 +383,7 @@ sub _SetOptions {
 			}
 		}
 	}
+	$Options{VERBOSE} = 0 unless defined($Options{VERBOSE});	# In case supplied $opt_v is undef.
 }
 
 
@@ -498,6 +499,8 @@ sub _LoadFilters {
 	my @FilterList;
 	if ($Options{FILTER_FILE}) {
 		@FilterList = <$Options{FILTER_FILE}>;
+		print "LogOutput: glob of $Options{FILTER_FILE} -> " . join(', ',@FilterList) . "\n"
+			if ($Options{VERBOSE});
 		die("Unable to find filter file $Options{FILTER_FILE}\n") unless (@FilterList);
 	}
 	else {
@@ -513,9 +516,9 @@ sub _LoadFilters {
 			print "LogOutput: Loading filters from DATA\n" if $Options{VERBOSE};
 		}
 		else {
-			print "LogOutput: Loading filters from $Options{FILTER_FILE}\n" if $Options{VERBOSE};
-			if (!open($FilterHandle,$Options{FILTER_FILE})) {
-				warn("Unable to open $Options{FILTER_FILE} $!\n");
+			print "LogOutput: Loading filters from $FilterFile\n" if $Options{VERBOSE};
+			if (!open($FilterHandle,$FilterFile)) {
+				warn("Unable to open $FilterFile $!\n");
 			}
 		}
 	
