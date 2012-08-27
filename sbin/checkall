@@ -42,7 +42,7 @@ my $StartTime = time();
 my $StatusFile="$ENV{HOME}/.$Prog.dat";
 my $ServiceList="/usr/local/etc/$Prog.list";
 
-my $HostName = `hostname`;
+our $HostName = `hostname`;
 chomp $HostName;
 
 GetOptions (
@@ -319,6 +319,56 @@ sub ProcessServiceLine {
 
 	my($Keyword,$Rest) = split('\s+',$Line,2);
 	$Keyword = lc($Keyword);				# Ignore case.
+
+	# Is there an "ifhost" prefix to this test?
+##### ifhost and ifcmd need quote processing on the second argument only.
+	if ($Keyword eq 'ifhost') {
+		# Ifhost /pattern/ selection statement.
+		my $HostPattern;
+		# Split the pattern off of the rest of the line.
+		($HostPattern,$Rest) = split('\s+',$Rest,2);
+		# Return nothing if we don't match.
+		eval "('$HostName' =~ $HostPattern);";
+		my $Match = $?;
+		# Report any pattern errors.
+		if ($@) {
+			warn qq"$FileName:$StartLine: Unable to evaluate $HostPattern: $@\n";
+			return 0;
+		}
+		if ($Match) {
+			# Now process the rest of the line normally.
+			return ProcessServiceLine($FileName, $StartLine, $ArrayRef, $MapRef, $Rest);
+		}
+		else {
+			return 0;  # Not for this host.
+		}
+	}
+
+	# Is there an "ifcmd" prefix to this test.
+	if ($Keyword eq 'ifcmd') {
+		# Ifcmd "cmd" selection statement.
+		my($Command, $Negate);
+		# Split the pattern off of the rest of the line.
+		($Command,$Rest) = split(/\s+/,$Rest,2);
+		$Command =~ s/^(["'])(.*)\1$/$2/;	# Strip quotes.
+		if ($Command =~ /^!(.*)$/) {
+			$Negate = 1;
+			$Command =~ $1;
+		}
+		else {
+			$Negate = 0;
+		}
+		# Run command.
+		my $Status = (system($Command) ne 0);
+		print "debug: $Status, $Command\n";
+		if ($Status eq $Negate) {
+			return ProcessServiceLine($FileName, $StartLine, $ArrayRef, $MapRef, $Rest);
+		}
+		else {
+			return 0;  # Not for this host.
+		}
+	}
+		
 	if ($Keyword eq 'include') {
 		# Include file.
 		$Rest =~ s/^(["'])(.*)\1$/$2/;	# Strip quotes.
