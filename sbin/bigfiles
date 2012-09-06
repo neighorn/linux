@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 #
 # bigfiles - find the big files in a file system or directory tree.
 #
