@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 #
 # bigdirs - find the directories within a filesystem that use lots of disk space
 #
