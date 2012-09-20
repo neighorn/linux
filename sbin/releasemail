@@ -1,0 +1,1 @@
+postconf -e 'default_transport=smtp' && service postfix restart && echo mail has been released.;  mailq 2> /dev/null | tail -1
