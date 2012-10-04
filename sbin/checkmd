@@ -91,13 +91,13 @@ while (<MDSTAT>) {
 	chomp;
 	next if (/^\s*$/);
 	#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
-	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d\[\d\](\([SF]\))?)+$/) {
+	if (/^\s*(md\d+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d+\[\d+\](\([SF]\))?)+$/) {
 		# This is a "mdx : active raid1" line.
 		($mdname, $status, $type) = ($1,$2,$3);
 		my $rest;
 		($rest = $_) =~ s/^.*?://;
 		($mdindex=$mdname) =~s/^md//;
-		if ($status =~ /^active/ && $type =~ /raid[15]/ && $_ !~ /\(F\)/) {
+		if ($status =~ /^active/ && $type =~ /raid[156]/ && $_ !~ /\(F\)/) {
 			# Everything is normal.
 			$Summary[$mdindex]=1;
 		} else {
