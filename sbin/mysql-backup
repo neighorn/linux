@@ -44,7 +44,7 @@ our $opt_z;				# Compress.
 my $Syslog='user';			# Name of Syslog facility.  '' for no logging.
 my $LogFile='';			# Log file name, or null for none.
 my $ConfigDir = $Bin;
-$ConfigDir =~ s"/[^/]*$"/etc";
+$ConfigDir =~ s'/[^/]*$'/etc';
 my $ConfigFile="$ConfigDir/${Prog}.cfg";# Name of config file.
 my $Subject;				# E-mail subject line.
 
@@ -114,8 +114,10 @@ my $OutDir=dirname($opt_o);
 # or at least the weekly back-ups have captured them.
 RunDangerousCmd("find $OutDir -type f -name '$DeletePattern' -mtime +$opt_r -exec echo Deleting {} \\; -delete");
 
-# Now back up all our databases.
-RunDangerousCmd("mysqldump -u $opt_U --opt --all-databases --add-drop-database --add-drop-table --allow-keywords --quote-names -r $opt_o");
+# Now back up all our databases.  Leave out --add-drop-database so that if we excerpt part of the code
+# to restore a table, we don't accidentally include code that drops some database.  Dropping databases
+# manually isn't very difficult or time-consuming.
+RunDangerousCmd("mysqldump -u $opt_U --opt --all-databases --add-drop-table --allow-keywords --quote-names -r $opt_o");
 if (-f $opt_o) {
 	print commify((stat($opt_o))[7]) . " bytes written to $opt_o\n";
 	RunDangerousCmd("gzip $opt_o") if ($opt_z);
