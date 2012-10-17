@@ -2,11 +2,11 @@ bank:
 	/usr/local/dirvish
 	/media/disk/dirvish
 exclude:
-	media/
-	mnt/
-	proc/
-	sys/
-	dev/shm
+	/media/
+	/mnt/
+	/proc/
+	/sys/
+	/dev/shm
 Runall:
 	xxx
 
