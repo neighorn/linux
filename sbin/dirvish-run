@@ -180,7 +180,7 @@ foreach $Target (@Parms) {
 	# Do we need to initialize this disk?  Need at least 1 tree and a hist file.
 	my $Status = system('/bin/ls ./*/tree > /dev/null 2>&1');
 	$Status = system('/bin/ls ./dirvish/*.hist > /dev/null 2>&1') if ($Status eq 0);
-	my $Init = ($Status eq 0?'':'--init');	# Add --init if no trees.
+	my $Init = ($Status eq 0?'':'--init "--expire=+3 months"');	# Add --init if no trees.
 
 	# Run the back-up.
 	my $AdditionalOptions = join(' ',@opt_D);
@@ -230,7 +230,7 @@ sub Summarize {
 	my($Directory);			# Current directory we're processing.
 	foreach $Directory (@_) {
 		# Document any errors in the execution report.
-		system("cat $Directory/rsync_error") if (-f "$Directory/rsync_error");
+		system("tail -1 $Directory/summary");
 		$TotalItems=0;
 		$TotalSize=0;
 		$NewItems=0;
@@ -398,6 +398,7 @@ IGNORE	"^\s*rsync error: unexplained error \(code 24\) at main.c\(1045\)\s*$"
 IGNORE	"^\s*rsync warning: some files vanished before they could be transferred"
 IGNORE	"^\s*rsync: open.* failed: No such file or directory"
 IGNORE	"^\s*(file|directory) has vanished: "
+SHOW	"^\s*Status: success$"
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
