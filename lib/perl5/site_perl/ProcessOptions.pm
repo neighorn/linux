@@ -111,7 +111,7 @@ sub ProcessOptions {
 				unshift @ARGV,
 					quotewords(" ",0,$main::Config{$Value});
 				$$opt_name=$Value if(defined($$opt_name));
-				push @$opt_name,$Value if (defined(@$opt_name));
+				push @$opt_name,$Value if (@$opt_name);
 			} else {
 				warn "$Value configuration not found in $main::ConfigFile.\n";
 				$ErrorFlag=3;
