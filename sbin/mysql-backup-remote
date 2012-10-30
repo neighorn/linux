@@ -26,7 +26,7 @@ our $Syslog='';				# Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
 our $ConfigFile="$BaseDir";		# Deterimine the name of our config file.
-$ConfigFile =~ s'/.[^/]*$'/etc/${Prog}.cfg';# 	Ditto.
+$ConfigFile =~ s</.[^/]*$></etc/${Prog}.cfg>;# 	Ditto.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
@@ -39,11 +39,7 @@ our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
-my @Machines = qw(
-	dev-api		dev-app		dev-www
-	stage-api	stage-app	stage-www
-	prod-api	prod-app	prod-www
-);
+my @Machines;
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
@@ -208,8 +204,8 @@ SHOW	"^\s*-{30} \S+\s+-{30}$"
 SHOW	"^\s*-+$"
 IGNORE	"^\s*Command: /usr/local/sbin/mysql-backup"
 IGNORE	"^\s*$"
-SHOW	"^\s*[0-9,]{8,} bytes written to /usr/local/backup/mysql/....-..-...sql$"
-IGNORE	"^s*Job ended on 02/23/2012 at 12:56:53 - run time: $"
+SHOW	"^\s*[,\d]+ bytes written to "
+IGNORE	"^\s*Job ended on ../../.... at ..:..:.. - run time: $"
 SHOW	"^\s*Job ended normally with status 0 and signal 0$"
 # The following are normal messages we don't need to see.
 #
