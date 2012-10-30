@@ -47,7 +47,7 @@ chomp $HostName;
 
 GetOptions (
 	'v|verbose+'	=> \$opt_v,
-	'c|config=s'	=> \$opt_v,
+	'c|config=s'	=> \$opt_c,
 	'h|help'	=> \$opt_h,
 	't|test'	=> \$opt_t,
 	'q|quiet'	=> \$opt_q,
