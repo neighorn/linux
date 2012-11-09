@@ -1,0 +1,17 @@
+# /bin/sh
+#
+# Quick program to cause raid devices to run verifications.
+#
+
+# echo idle > /sys/block/mdX/sync_action to cancel
+grep -E '^md\[0-9]+ ' /proc/mdstat |
+while read device trash
+do
+	date "+Beginning check of $device at $D $T"
+	echo check > /sys/block/$device/md/sync_action
+	while grep -q 'check' /sys/block/$device/md/sync_action
+	do
+		sleep 60
+	done
+	date "+Check of $device complete at $D $T"
+done
