@@ -144,7 +144,10 @@ if ($LOG_FH) {
 };
 
 my $Elapsed = ElapsedTime();
-print strftime( "\nDONE @ %T on %D.  Elapsed time = $Elapsed.\n", localtime());
+my $Summary = strftime( "DONE @ %T on %D.  Elapsed time = $Elapsed.", localtime());
+print "\n$Summary\n";
+my @MailAddresses = @{$Opt{mail}};
+system("echo '$Summary' | mail -s '$Prog done' " . join(' ',@MailAddresses));
 
 
 #
@@ -152,9 +155,9 @@ print strftime( "\nDONE @ %T on %D.  Elapsed time = $Elapsed.\n", localtime());
 #
 sub ProcessOptions () {
 
-    @OptSpec = ("maxlinks=i", "dry-run|n", "logfile|l=s", "progress!",
-        "stats!", "eta!", "compare!", "debug+", "cpinterval:600", "proginterval:30",
-        "statinterval:5000", "load-maps=s")
+    @OptSpec = ('maxlinks=i', 'dry-run|n', 'logfile|l=s', 'progress!',
+        'stats!', 'eta!', 'compare!', 'debug+', 'cpinterval:600', 'proginterval:30',
+        'statinterval:5000', 'load-maps=s', 'mail|m=s@')
       or die;
     return 0 unless (GetOptions(\%Opt, @OptSpec));
     foreach my $name (qw(dry-run logfile progress stats eta compare debug)) {
