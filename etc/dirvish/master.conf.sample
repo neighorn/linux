@@ -1,23 +1,25 @@
 bank:
 	/usr/local/dirvish
-	/media/disk/dirvish
 exclude:
 	/media/
 	/mnt/
 	/proc/
 	/sys/
 	/dev/shm
+	/home/*/.gvfs
+	/usr/local/backup/*/*/*.gz
+	/usr/local/dirvish/*/*/tree/*
 Runall:
-	xxx
+	gaia hyperion eos mercury hercules
+post-server:  echo DIRVISH_DEST, $DIRVISH_DEST, ${DIRVISH_DEST%/*/tree} latest | /usr/bin/logger -t test
 
 rsync-options:
+	-a
 log: gzip
-
+zxfer:		true
 image-default: %Y-%m-%d-%a
-image-temp: latest
 
 branch-default: daily
-#expire-default: +95 days
 expire-rule:
 #       MIN HR    DOM   MON       DOW  STRFTIME_FMT
 	*   *     1-7   *         0    +6 months
