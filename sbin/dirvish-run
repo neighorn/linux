@@ -230,7 +230,23 @@ sub Summarize {
 	my($Directory);			# Current directory we're processing.
 	foreach $Directory (@_) {
 		# Document any errors in the execution report.
+		if (!open(SUMMARY,'<', "$Directory/summary")) {
+			warn "Unable to open $Directory/summary: $!\n";
+		}
+		else {
+			my $LastLine='';
+			while (<SUMMARY>) {
+				$LastLine = $_ if (!/^\s*$/);
+			}
+			$LastLine =~ s/\s*Status:\s*//;
+			$LastLine =~ s/\s*$//;
+			print "Unexpected summary status: $LastLine\n"
+				unless ($LastLine =~ /^success$|file vanished on sender/);
+		}
+			
 		system("tail -1 $Directory/summary");
+
+		# Calculate totals.
 		$TotalItems=0;
 		$TotalSize=0;
 		$NewItems=0;
@@ -398,7 +414,8 @@ IGNORE	"^\s*rsync error: unexplained error \(code 24\) at main.c\(1045\)\s*$"
 IGNORE	"^\s*rsync warning: some files vanished before they could be transferred"
 IGNORE	"^\s*rsync: open.* failed: No such file or directory"
 IGNORE	"^\s*(file|directory) has vanished: "
-SHOW	"^\s*Status: success$"
+IGNORE	"^\s*Status: warning \(24\) -- file vanished on sender$"
+IGNORE	"^\s*Status: success$"
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"

@@ -57,6 +57,7 @@ our @OptSpec;		   # Specs for GetOptions;
 our $StartTime = time();   # Start time, for elapsed reports.
 our $tl_dirs_total;	   # # of top level dirs in this root.
 our $tl_dirs_doing;	   # Which top level dir we're on in this root.
+our $LastPrint='';	   # What we last printed (stats, progress);
 
 #
 # Signals.
@@ -119,6 +120,7 @@ foreach $Root ( @ARGV_Copy ) {
         warn "Unable to cd to $Root -- skipped: $!\n";
         next;
     }
+    print "\n" if ($LastPrint eq 'stats');
     print strftime("%D %T Starting $Root" . ' 'x30 . "\n",localtime())
         if (@ARGV > 1);
     find(
@@ -402,6 +404,7 @@ sub PrintStatistics () {
 	FormatStorage($Savedspc),
         $RootStub,
     );
+    $LastPrint = "stats";
     if ($PrintStats) {
 
         # This was a manual request.  Don't overwrite it.
@@ -772,6 +775,7 @@ sub ManageStats {
 
         # We've received a request for a progress report.
         print strftime( "%D %T Now processing $cand\n", localtime( time() ) );
+	$LastPrint = "progress";
         $PrintProgress = 0;    # Turn off flag.
     }
 
@@ -797,9 +801,11 @@ sub ManageStats {
                 my $ETA =
                   time() +
                   $TimePerTLD * ( $tl_dirs_total - $tl_dirs_doing - 1 );
+                print "\n" if ($LastPrint eq 'stats');
                 print $Root
                   . strftime( " estimated completion time: %T on %D\n",
                     localtime($ETA) );
+		$LastPrint="ETA";
             }
         }
     }
