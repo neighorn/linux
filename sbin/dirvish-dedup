@@ -110,7 +110,13 @@ $| = 1;
 # Begin processing arguments.
 #
 die "No directories specified.  Enter $Prog -h for usage.\n" unless (@ARGV);
-my @ARGV_Copy = @ARGV;		# In case CheckInterrupt has to reuse @ARGV.
+my @ARGV_Copy;		# In case CheckInterrupt has to reuse @ARGV.
+if ($Opt{reverse}) {
+	@ARGV_Copy = reverse(@ARGV);
+}
+else {
+	@ARGV_Copy = @ARGV;
+}
 $ArgCount = 0 + @ARGV;		# Count, for statistics.
 foreach $Root ( @ARGV_Copy ) {
     $tl_dirs_total = 0;
@@ -159,7 +165,7 @@ sub ProcessOptions () {
 
     @OptSpec = ('maxlinks=i', 'dry-run|n', 'logfile|l=s', 'progress!',
         'stats!', 'eta!', 'compare!', 'debug+', 'cpinterval:600', 'proginterval:30',
-        'statinterval:5000', 'load-maps=s', 'mail|m=s@')
+        'statinterval:5000', 'load-maps=s', 'mail|m=s@', 'reverse')
       or die;
     return 0 unless (GetOptions(\%Opt, @OptSpec));
     foreach my $name (qw(dry-run logfile progress stats eta compare debug)) {
@@ -860,6 +866,11 @@ dirvish-dedup - traverse directories, find identical files, replace with hard li
                           attributes match.  Slow.  --nocompare is the default.
   --cpinterval=n          Write a checkpoint files every "n" seconds
                           (default=600).
+  --mail=address	  Send a brief e-mail to "address" on completion.
+			  May be repeated.
+  --reverse		  Process the command-line parameters in reverse order.
+			  This is useful when using wild-cards but needing
+			  to process the folders in newest-to-oldest order.
   --
                           extra full file read of both files.
                           Default is to trust the MD5 + file size.
