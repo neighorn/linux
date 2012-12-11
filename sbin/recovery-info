@@ -94,6 +94,8 @@ while (<$FDISK>) {
 	$OutputName =~ s"\.sector0"";	# Two steps make sure we don't ...
 	$OutputName .= ".info";		# ... fail and overwrite sector0 file.
 	RunDangerousCmd("smartctl -i $InputName > $OutputName");
+	$OutputName =~ s/.info$/.parted/;
+	system("which parted > /dev/null 2>&1") || RunDangerousCmd("parted $InputName p > $OutputName");
 }
 close $FDISK;
 
@@ -108,7 +110,8 @@ RunDangerousCmd("which lsscsi > /dev/null 2>&1 && (lsscsi -H; lsscsi -d) > $opt_
 RunDangerousCmd("df -h > $opt_o/df.out");
 
 # Capture installed packages.
-RunDangerousCmd("which rpm > /dev/null 2>&1 && rpm -q -a | sort > $opt_o/rpms.out");
+RunDangerousCmd("which rpm > /dev/null 2>&1 && rpm -q -a | sort > $opt_o/rpm.out");
+RunDangerousCmd("which yum > /dev/null 2>&1 && yum list -q installed | sort > $opt_o/yum.out");
 
 # Capture the normal security tables.
 RunDangerousCmd("iptables -nvL > $opt_o/iptables.out");
@@ -128,6 +131,10 @@ RunDangerousCmd("lvdisplay > $opt_o/lvdisplay.out");
 # Capture network configuration.
 RunDangerousCmd("ifconfig -a > $opt_o/ifconfig.out");
 RunDangerousCmd("netstat -nr > $opt_o/netstat.out");
+
+# Capture MD and DRBD configuration.
+RunDangerousCmd("cp /proc/mdstat $opt_o/mdstat") if (-e "/proc/mdstat");
+RunDangerousCmd("cp /proc/drbd $opt_o/drbd") if (-e "/proc/drbd");
 	
 exit(0);
 
