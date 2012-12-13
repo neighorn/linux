@@ -103,7 +103,7 @@ $From ='root@' . hostname() unless ($From !~ /^\s*$/);
 $Subject =~ s/^Subject: //;	# Strip prefix.
 $Subject =~ s/^(\S+)\.\S+\.(nwiglobal\.net|nwiservices\.com) /\U$1 /;
 $Subject =~ s/ output\s*$//;	# Strip unnecessary text.
-$Subject = "%m/%d %C %N %E %* %* %*" unless ($Subject);
+$Subject = "%* %m/%d %C %N %E %* %* %*" unless ($Subject);
 	
 # Set up our logging and output filtering.
 LogOutput({
@@ -112,7 +112,7 @@ LogOutput({
 	ERROR_MAIL_LIST =>	$opt_e,
 	ERROR_PAGE_LIST =>	$opt_P,
 	SYSLOG_FACILITY =>	$Syslog,
-	MAIL_SUBJECT	=>	"%m/%d $Subject %E %* %* %*",
+	MAIL_SUBJECT	=>	"%* %m/%d $Subject %E %* %* %*",
 	MAIL_FROM	=>	$From,
 	CLEAN_UP	=>	\&Cleanup,
 });

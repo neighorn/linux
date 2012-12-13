@@ -85,11 +85,11 @@ push @Parms,"/" unless (@Parms > 0);
 # Set up our logging and output filtering.
 my $Subject;
 if ($opt_N) {
-	$Subject="%m/%d %C %N $opt_N %E %*%*%*" ;
+	$Subject="%* %m/%d %C %N $opt_N %E %*%*%*" ;
 } elsif (@Parms == 1) {
-	$Subject="%m/%d %C %N $Parms[0] %E %*%*%*" ;
+	$Subject="%* %m/%d %C %N $Parms[0] %E %*%*%*" ;
 } else {
-	$Subject="%m/%d %C %N %E %*%*%*";
+	$Subject="%* %m/%d %C %N %E %*%*%*";
 };
 
 LogOutput({
