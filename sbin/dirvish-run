@@ -92,9 +92,9 @@ my $Subject;
 if ($opt_N) {
 	$Subject="$opt_N" ;
 } elsif (@Parms >= 1) {
-	$Subject="%m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
+	$Subject="%*%*%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
 } else {
-	$Subject="%m/%d %C %N %E %*%*%*" ;
+	$Subject="%*%*%* %m/%d %C %N %E %*%*%*" ;
 };
 
 LogOutput({
