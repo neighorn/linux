@@ -321,7 +321,7 @@ sub _SetOptions {
 	$Options{PROGRAM_NAME}=(caller(1))[1];	# Get the caller's filename.
 	$Options{PROGRAM_NAME}=~ s"^.*[/\\]"";	# Strip path.
 	$Options{PROGRAM_NAME}=~ s"\..*?$"";	# Strip suffix.
-	$Options{MAIL_SUBJECT} = "%*%*%* %m/%d %C %N %E %*%*%*";
+	$Options{MAIL_SUBJECT} = "%* %m/%d %C %N %E %*%*%*";
 	$Options{VERBOSE}=0;
 
 	# Now load our site defaults.  May be overridden by calling args.

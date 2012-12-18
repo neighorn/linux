@@ -1,0 +1,22 @@
+=head2 Mon Nov 19 22:20:58 2012: C<Module> L<Getopt::Mixed|Getopt::Mixed>
+
+=over 4
+
+=item *
+
+C<installed into: /usr/local/share/perl/5.14.2>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 1.11>
+
+=item *
+
+C<EXE_FILES: >
+
+=back
+
