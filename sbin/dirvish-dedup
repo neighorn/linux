@@ -58,6 +58,7 @@ our @OptSpec;		   # Specs for GetOptions;
 our $StartTime = time();   # Start time, for elapsed reports.
 our $tl_dirs_total;	   # # of top level dirs in this root.
 our $tl_dirs_doing;	   # Which top level dir we're on in this root.
+our $td_slashes;	   # Number of slashes to our current top domain.
 our $LastPrint='';	   # What we last printed (stats, progress);
 our $LastStats='';         # Our most recent statistics report.
 
@@ -158,12 +159,20 @@ if ($LOG_FH) {
 my $Elapsed = ElapsedTime();
 my $Summary = strftime( "Done @ %T on %D.  Elapsed time = $Elapsed.", localtime());
 print "\n$Summary\n";
+<<<<<<< HEAD
 if (exists($Opt{mail})) {
 	system(qq<echo "$LastStats" | mail -s "$Prog done" > . join(' ',@{$Opt{mail}}));
 }
 syslog('info',"$Prog complete.  $LastStats");
 closelog();
 exit(0);
+=======
+if ($Opt{mail}) {
+	my @MailAddresses = @{$Opt{mail}};
+	system("echo '$Summary' | mail -s '$Prog done' " . join(' ',@MailAddresses));
+}
+exit 0;
+>>>>>>> af7d4ea71bb4499ef3553add1f4fd023a7825c00
 
 
 #
@@ -284,7 +293,7 @@ sub ReplaceWithLink ($$) {
         my $link_err = $!;
         my $firstlinks = (stat($first))[3];
         if ($link_err =~ /too many link/i and (!$Opt{maxlinks} or $Opt{maxlinks} > $firstlinks) ) {
-            warn "Unable to link $cand to $first: $link_err.  Setting --maxlinks to $firstlinks";
+            warn "Unable to link $cand to $first: $link_err.  Setting --maxlinks to $firstlinks\n";
             $Opt{maxlinks} = $firstlinks;
         }
         else {
@@ -802,11 +811,12 @@ sub ManageStats {
         opendir my ($dh), $td;
         my (@tl) = grep { !/^\./ && -d "$td/$_" } readdir $dh;
         $tl_dirs_total = @tl;
+	$td_slashes = $td =~ tr|/||;
     }
     elsif (-d) {
         # We're continuing an item.  Find out if this is a new TLD.
         my $slashes = $cand =~ tr|/||;
-        if ( $slashes == 1 ) {
+        if ( $slashes == $td_slashes + 1 ) {
             # It's a new TLD.  Update stats and ETA.
             $tl_dirs_doing++;
             if ( $Opt{eta} and $tl_dirs_doing > 1 ) {

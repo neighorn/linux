@@ -2,13 +2,13 @@
 COMPANY=""
 export COMPANY
 # Set our path.
-[[ -s "$COMPANY" ]] && PATH="/usr/$COMPANY/sbin:/usr/$COMPANY/bin:$PATH"
+test -s "$COMPANY" && PATH="/usr/$COMPANY/sbin:/usr/$COMPANY/bin:$PATH"
 PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:$PATH
 export PATH
 # Set up our aliases.
 alias r="fc -s"
 # Expand our PERL path.
-[[ -s "$COMPANY" ]] && PERL5LIB="/usr/$COMPANY/lib/perl5/site_perl:$PERL5LIB"
+test -s "$COMPANY" && PERL5LIB="/usr/$COMPANY/lib/perl5/site_perl:$PERL5LIB"
 PERL5LIB="/usr/local/lib/perl5/site_perl:$PERL5LIB"
 PERL5LIB="${PERL5LIB%:}"	# Strip trailing colon, if any.
 export PERL5LIB

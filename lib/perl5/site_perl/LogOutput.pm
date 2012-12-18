@@ -19,7 +19,7 @@ use File::Glob;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.8;
+our $Version	= 3.9;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -321,7 +321,7 @@ sub _SetOptions {
 	$Options{PROGRAM_NAME}=(caller(1))[1];	# Get the caller's filename.
 	$Options{PROGRAM_NAME}=~ s"^.*[/\\]"";	# Strip path.
 	$Options{PROGRAM_NAME}=~ s"\..*?$"";	# Strip suffix.
-	$Options{MAIL_SUBJECT} = "%m/%d %C %N %E %*%*%*";
+	$Options{MAIL_SUBJECT} = "%* %m/%d %C %N %E %*%*%*";
 	$Options{VERBOSE}=0;
 
 	# Now load our site defaults.  May be overridden by calling args.
@@ -872,7 +872,7 @@ Options and defaults are shown in the table below:
    MAIL_DOMAIN		| -none-	| Domain to append to unqualified
    			|		| e-mail addresses
    MAIL_SERVER		| 127.0.0.1	| Address of the SMTP server
-   MAIL_SUBJECT		| %m/%d %C %N %E %*%*%*	| Subject line used in
+   MAIL_SUBJECT		| %*%*%* %m/%d %C %N %E %*%*%*	| Subject line used in
    			|		| e-mail.  See % variables.
    NORMAL_RETURN_CODES	| (0)		| List of normal exit codes
    PROGRAM_NAME		| Name of caller| Program name for logs and e-mail
