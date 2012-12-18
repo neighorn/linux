@@ -20,6 +20,7 @@ use FindBin qw($Script);
 use String::ShellQuote;		# For shell_quote.
 use Data::Dumper::Simple;
 use Text::ParseWords;
+use Sys::Syslog;
 
 # 
 # Prototype declarations.
@@ -59,6 +60,7 @@ our $tl_dirs_total;	   # # of top level dirs in this root.
 our $tl_dirs_doing;	   # Which top level dir we're on in this root.
 our $td_slashes;	   # Number of slashes to our current top domain.
 our $LastPrint='';	   # What we last printed (stats, progress);
+our $LastStats='';         # Our most recent statistics report.
 
 #
 # Signals.
@@ -101,6 +103,7 @@ our $DV = Dumpvalue->new(
 
 my %reported;
 my $files         = 0;
+openlog($Prog,'pid','user');
 
 select(STDERR);
 $| = 1;
@@ -130,6 +133,7 @@ foreach $Root ( @ARGV_Copy ) {
     print "\n" if ($LastPrint eq 'stats');
     print strftime("%D %T Starting $Root" . ' 'x30 . "\n",localtime())
         if (@ARGV > 1);
+    syslog('info',"Starting $Root");
     find(
         {
             wanted     => \&ProcessFile,
@@ -153,13 +157,22 @@ if ($LOG_FH) {
 };
 
 my $Elapsed = ElapsedTime();
-my $Summary = strftime( "DONE @ %T on %D.  Elapsed time = $Elapsed.", localtime());
+my $Summary = strftime( "Done @ %T on %D.  Elapsed time = $Elapsed.", localtime());
 print "\n$Summary\n";
+<<<<<<< HEAD
+if (exists($Opt{mail})) {
+	system(qq<echo "$LastStats" | mail -s "$Prog done" > . join(' ',@{$Opt{mail}}));
+}
+syslog('info',"$Prog complete.  $LastStats");
+closelog();
+exit(0);
+=======
 if ($Opt{mail}) {
 	my @MailAddresses = @{$Opt{mail}};
 	system("echo '$Summary' | mail -s '$Prog done' " . join(' ',@MailAddresses));
 }
 exit 0;
+>>>>>>> af7d4ea71bb4499ef3553add1f4fd023a7825c00
 
 
 #
@@ -192,7 +205,6 @@ sub ProcessOptions () {
 
     # Load a pre-existing map file
     if ($Opt{'load-maps'}) {
-        $Opt{'load-maps'}='';	# Don't reload the maps more than once (^C-options, restart).
         if (open(my $MAPFH,'<',$Opt{'load-maps'})) {
             print "Loading $Opt{'load-maps'}\n";
             local %Opt;		# Don't want these updated.
@@ -211,6 +223,7 @@ sub ProcessOptions () {
             warn "Unable to open map file: $!";
         }
     }
+    $Opt{'load-maps'}='';	# Don't reload the maps more than once (^C-options, restart).
         
     # Manage the alarm clock.  Do this last so we don't start the timer before long processes.
     $Opt{cpinterval} = 600 unless ($Opt{cpinterval});
@@ -400,7 +413,7 @@ sub PrintStatistics () {
     $ElapsedSeconds = 1 if ($ElapsedSeconds < 1);	# Sometimes get first alarm in second #0.
     my $RootStub=$Root;
     $RootStub =~ s"^.*/([^/])"$1";
-    printf(
+    $LastStats = sprintf(
         "%s elapsed=%s, arg=%s/%s, tlds=%s/%s, %s files, %s unique, %s files/s, %s/s, %s used, %s saved, %s    \r",
         strftime("%D %T",localtime()), 
         $ElapsedTime,
@@ -414,6 +427,7 @@ sub PrintStatistics () {
 	FormatStorage($Savedspc),
         $RootStub,
     );
+    print $LastStats;
     $LastPrint = "stats";
     if ($PrintStats) {
 
@@ -757,9 +771,10 @@ sub CheckInterrupt {
                 }
                 print "Enter new options or null to exit: ";
 		$Line = <STDIN>;
+		last unless ($Line);
                 @ARGV = shellwords($Line);
                 ProcessOptions();
-            } until ($Line =~ /^\s*$/);
+            };
         }
         elsif ( $Response eq 'r' ) {
             print "Resuming processing.\n";
@@ -876,6 +891,7 @@ dirvish-dedup - traverse directories, find identical files, replace with hard li
   --reverse		  Process the command-line parameters in reverse order.
 			  This is useful when using wild-cards but needing
 			  to process the folders in newest-to-oldest order.
+  --load-maps=file	  Load a checkpoint file from a prior run.
   --
                           extra full file read of both files.
                           Default is to trust the MD5 + file size.

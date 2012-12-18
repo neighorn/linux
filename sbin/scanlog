@@ -8,7 +8,7 @@ use lib '/usr/local/lib/perl5/site_perl'; # Required to run via logrotate.
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
-use feature 'switch';
+use Switch;		# feature 'switch' isn't available in 5.8.8.
 
 use FindBin;
 
@@ -143,11 +143,11 @@ foreach my $File (@Files) {
 		next;
 	}
 	my $Unpack;
-	given ($File) {
-		when (/.xz$/)	{ $Unpack = 'xzcat'; }
-		when (/.bz2$/)	{ $Unpack = 'bunzip2 -c'; }
-		when (/.gz$/)	{ $Unpack = 'zcat'; }
-		default		{ $Unpack = 'cat'; }
+	switch ($File) {
+		case (/.xz$/)	{ $Unpack = 'xzcat'; }
+		case (/.bz2$/)	{ $Unpack = 'bunzip2 -c'; }
+		case (/.gz$/)	{ $Unpack = 'zcat'; }
+		else		{ $Unpack = 'cat'; }
 	}
 	my $Status =
 		RunDangerousCmd("$Unpack $File | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
