@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+use strict;
+use warnings;
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
@@ -8,14 +10,23 @@ use Text::ParseWords;
 $ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/bin:/bin';
 
 # Initialize variables.
-$Prog=$0;			# Get our name, for messages.
+our $Prog=$0;			# Get our name, for messages.
 $Prog=~s/^.*\///;		# Trim off the path, if present.
-@Args=@ARGV;			# Preserve orig command for ref.
-$ErrorFlag=0;			# No errors so far.
-$Syslog='user';			# Name of Syslog facility.  '' for no logging.
-$LogFile='';			# Log file name, or null for none.
-$BaseDir='/usr/local/etc';	# Set our base directory.
-$ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+our @Parms;
+our $opt_d;
+our $opt_h;
+our $opt_m;
+our $opt_e;
+our $opt_p;
+our $opt_P;
+our $opt_O;
+my @Args=@ARGV;			# Preserve orig command for ref.
+my $ErrorFlag=0;			# No errors so far.
+my $Syslog='user';			# Name of Syslog facility.  '' for no logging.
+my $LogFile='';			# Log file name, or null for none.
+my $BaseDir='/usr/local/etc';	# Set our base directory.
+my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+my %Config;
 
 # Set our base directory.
 chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
@@ -26,7 +37,7 @@ chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
 #	   Normal =s and =i would replace values instead of concatenate.
 #	2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-$OptSpec='d h m=l e=l p=l P=l O=s k=s';
+my $OptSpec='d h m=l e=l p=l P=l O=s';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -35,7 +46,7 @@ if (-e $ConfigFile) {
         while (<CONFIG>) {
                 next if (/^\s*#/);      # Comment.
                 next if (/^\s*$/);      # Blank line.
-                ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
+                my ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
                 $name=~tr/[a-z]/[A-Z]/;
                 $Config{$name}=$settings;
         }
@@ -67,8 +78,8 @@ if ($Config{DISABLEUNTIL}) {
 		$CMonth++;
 		$CYear+=1900;
 		$AYear += (int($CYear/100)*100) if ($AYear < 100);
-		$CDate = $CYear * 10000 + $CMonth * 100 + $CDay;
-		$ADate = $AYear * 10000 + $AMonth * 100 + $ADay;
+		my $CDate = $CYear * 10000 + $CMonth * 100 + $CDay;
+		my $ADate = $AYear * 10000 + $AMonth * 100 + $ADay;
 		if ($CDate < $ADate) {
 			print "Checks disabled until $AMonth/$ADay/$AYear per config file.\n";
 			exit 0;
@@ -91,18 +102,15 @@ while (<MDSTAT>) {
 	chomp;
 	next if (/^\s*$/);
 	#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
-	if (/^\s*(md[0-9]+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d\[\d\](\([SF]\))?)+$/) {
+	if (/^\s*(md\d+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d*\[\d+\](\([SF]\))?)+$/) {
 		# This is a "mdx : active raid1" line.
 		($mdname, $status, $type) = ($1,$2,$3);
 		my $rest;
 		($rest = $_) =~ s/^.*?://;
-		($mdindex=$mdname) =~s/^md//;
-		if ($status =~ /^active/ && $type =~ /raid[15]/ && $_ !~ /\(F\)/) {
+		if ($status =~ /^active/ && $type =~ /raid[156]/ && $_ !~ /\(F\)/) {
 			# Everything is normal.
-			$Summary[$mdindex]=1;
 		} else {
 			warn "Unexpected response from $mdname: $rest\n";
-			$Summary[$mdindex]=0;
 			$ErrorFlag=1;
 		}
 	}
@@ -110,15 +118,21 @@ while (<MDSTAT>) {
 		# This is a "xxxxxx blocks [2/2] [UU]" line.
 		if ($1 !~ /^\[UU+\]/) {
 			warn "$mdname is degraded ($1)\n";
-			$Summary[$mdindex]=0;
 			$ErrorFlag=1;
 		}
 	}
-	if (/\s*[\[\]=>.]+\s*recovery/) {
-		# This is a recovery line.  Display it to show how
-		# far along we are.
+	if (/\s*[\[\]=>.]+\s*(recovery|resync)/) {
+		# This is a recovery line.  It's an error, unless we're
+		# checking the RAID.  Find out.
+		my $FH;
+		if (open($FH,'<',"/sys/block/$mdname/md/sync_action")) {
+			my $sync_action=<$FH>;
+			close $FH;
+			next if ($sync_action =~ /^check/);	# We're verifying.
+		}
+		# We're recovering.  Report.
 		chomp;
-		warn "$_\n";
+		warn "$mdname: $_\n";
 		$ErrorFlag=1;
 	}
 }
@@ -144,7 +158,7 @@ sub SampleSub {
 #
 
 sub untaint {
-        local(@parms) = @_;
+        my(@parms) = @_;
         foreach (@parms) {
                 s/^(.*)$/$1/;
                 $_=$1;
@@ -232,6 +246,7 @@ LOGONLY	/^Command: /
 #
 SHOW	/^\s*debug:/
 SHOW	/^\s*Checks disabled until/
+SHOW	/^\s*\S+:\s*resync/
 SHOW	/^Job ended normally with status 0 and signal 0$/
 #
 # Anything that doesn't match one of these three sets of patterns is considered

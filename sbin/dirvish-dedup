@@ -20,6 +20,7 @@ use FindBin qw($Script);
 use String::ShellQuote;		# For shell_quote.
 use Data::Dumper::Simple;
 use Text::ParseWords;
+use Sys::Syslog;
 
 # 
 # Prototype declarations.
@@ -57,6 +58,9 @@ our @OptSpec;		   # Specs for GetOptions;
 our $StartTime = time();   # Start time, for elapsed reports.
 our $tl_dirs_total;	   # # of top level dirs in this root.
 our $tl_dirs_doing;	   # Which top level dir we're on in this root.
+our $td_slashes;	   # Number of slashes to our current top domain.
+our $LastPrint='';	   # What we last printed (stats, progress);
+our $LastStats='';         # Our most recent statistics report.
 
 #
 # Signals.
@@ -99,6 +103,7 @@ our $DV = Dumpvalue->new(
 
 my %reported;
 my $files         = 0;
+openlog($Prog,'pid','user');
 
 select(STDERR);
 $| = 1;
@@ -109,7 +114,13 @@ $| = 1;
 # Begin processing arguments.
 #
 die "No directories specified.  Enter $Prog -h for usage.\n" unless (@ARGV);
-my @ARGV_Copy = @ARGV;		# In case CheckInterrupt has to reuse @ARGV.
+my @ARGV_Copy;		# In case CheckInterrupt has to reuse @ARGV.
+if ($Opt{reverse}) {
+	@ARGV_Copy = reverse(@ARGV);
+}
+else {
+	@ARGV_Copy = @ARGV;
+}
 $ArgCount = 0 + @ARGV;		# Count, for statistics.
 foreach $Root ( @ARGV_Copy ) {
     $tl_dirs_total = 0;
@@ -119,8 +130,10 @@ foreach $Root ( @ARGV_Copy ) {
         warn "Unable to cd to $Root -- skipped: $!\n";
         next;
     }
+    print "\n" if ($LastPrint eq 'stats');
     print strftime("%D %T Starting $Root" . ' 'x30 . "\n",localtime())
         if (@ARGV > 1);
+    syslog('info',"Starting $Root");
     find(
         {
             wanted     => \&ProcessFile,
@@ -144,7 +157,22 @@ if ($LOG_FH) {
 };
 
 my $Elapsed = ElapsedTime();
-print strftime( "\nDONE @ %T on %D.  Elapsed time = $Elapsed.\n", localtime());
+my $Summary = strftime( "Done @ %T on %D.  Elapsed time = $Elapsed.", localtime());
+print "\n$Summary\n";
+<<<<<<< HEAD
+if (exists($Opt{mail})) {
+	system(qq<echo "$LastStats" | mail -s "$Prog done" > . join(' ',@{$Opt{mail}}));
+}
+syslog('info',"$Prog complete.  $LastStats");
+closelog();
+exit(0);
+=======
+if ($Opt{mail}) {
+	my @MailAddresses = @{$Opt{mail}};
+	system("echo '$Summary' | mail -s '$Prog done' " . join(' ',@MailAddresses));
+}
+exit 0;
+>>>>>>> af7d4ea71bb4499ef3553add1f4fd023a7825c00
 
 
 #
@@ -152,9 +180,9 @@ print strftime( "\nDONE @ %T on %D.  Elapsed time = $Elapsed.\n", localtime());
 #
 sub ProcessOptions () {
 
-    @OptSpec = ("maxlinks=i", "dry-run|n", "logfile|l=s", "progress!",
-        "stats!", "eta!", "compare!", "debug+", "cpinterval:600", "proginterval:30",
-        "statinterval:5000", "load-maps=s")
+    @OptSpec = ('maxlinks=i', 'dry-run|n', 'logfile|l=s', 'progress!',
+        'stats!', 'eta!', 'compare!', 'debug+', 'cpinterval:600', 'proginterval:30',
+        'statinterval:5000', 'load-maps=s', 'mail|m=s@', 'reverse')
       or die;
     return 0 unless (GetOptions(\%Opt, @OptSpec));
     foreach my $name (qw(dry-run logfile progress stats eta compare debug)) {
@@ -177,7 +205,6 @@ sub ProcessOptions () {
 
     # Load a pre-existing map file
     if ($Opt{'load-maps'}) {
-        $Opt{'load-maps'}='';	# Don't reload the maps more than once (^C-options, restart).
         if (open(my $MAPFH,'<',$Opt{'load-maps'})) {
             print "Loading $Opt{'load-maps'}\n";
             local %Opt;		# Don't want these updated.
@@ -196,6 +223,7 @@ sub ProcessOptions () {
             warn "Unable to open map file: $!";
         }
     }
+    $Opt{'load-maps'}='';	# Don't reload the maps more than once (^C-options, restart).
         
     # Manage the alarm clock.  Do this last so we don't start the timer before long processes.
     $Opt{cpinterval} = 600 unless ($Opt{cpinterval});
@@ -265,7 +293,7 @@ sub ReplaceWithLink ($$) {
         my $link_err = $!;
         my $firstlinks = (stat($first))[3];
         if ($link_err =~ /too many link/i and (!$Opt{maxlinks} or $Opt{maxlinks} > $firstlinks) ) {
-            warn "Unable to link $cand to $first: $link_err.  Setting --maxlinks to $firstlinks";
+            warn "Unable to link $cand to $first: $link_err.  Setting --maxlinks to $firstlinks\n";
             $Opt{maxlinks} = $firstlinks;
         }
         else {
@@ -385,7 +413,7 @@ sub PrintStatistics () {
     $ElapsedSeconds = 1 if ($ElapsedSeconds < 1);	# Sometimes get first alarm in second #0.
     my $RootStub=$Root;
     $RootStub =~ s"^.*/([^/])"$1";
-    printf(
+    $LastStats = sprintf(
         "%s elapsed=%s, arg=%s/%s, tlds=%s/%s, %s files, %s unique, %s files/s, %s/s, %s used, %s saved, %s    \r",
         strftime("%D %T",localtime()), 
         $ElapsedTime,
@@ -399,6 +427,8 @@ sub PrintStatistics () {
 	FormatStorage($Savedspc),
         $RootStub,
     );
+    print $LastStats;
+    $LastPrint = "stats";
     if ($PrintStats) {
 
         # This was a manual request.  Don't overwrite it.
@@ -741,9 +771,10 @@ sub CheckInterrupt {
                 }
                 print "Enter new options or null to exit: ";
 		$Line = <STDIN>;
+		last unless ($Line);
                 @ARGV = shellwords($Line);
                 ProcessOptions();
-            } until ($Line =~ /^\s*$/);
+            };
         }
         elsif ( $Response eq 'r' ) {
             print "Resuming processing.\n";
@@ -769,6 +800,7 @@ sub ManageStats {
 
         # We've received a request for a progress report.
         print strftime( "%D %T Now processing $cand\n", localtime( time() ) );
+	$LastPrint = "progress";
         $PrintProgress = 0;    # Turn off flag.
     }
 
@@ -779,11 +811,12 @@ sub ManageStats {
         opendir my ($dh), $td;
         my (@tl) = grep { !/^\./ && -d "$td/$_" } readdir $dh;
         $tl_dirs_total = @tl;
+	$td_slashes = $td =~ tr|/||;
     }
     elsif (-d) {
         # We're continuing an item.  Find out if this is a new TLD.
         my $slashes = $cand =~ tr|/||;
-        if ( $slashes == 1 ) {
+        if ( $slashes == $td_slashes + 1 ) {
             # It's a new TLD.  Update stats and ETA.
             $tl_dirs_doing++;
             if ( $Opt{eta} and $tl_dirs_doing > 1 ) {
@@ -794,9 +827,11 @@ sub ManageStats {
                 my $ETA =
                   time() +
                   $TimePerTLD * ( $tl_dirs_total - $tl_dirs_doing - 1 );
+                print "\n" if ($LastPrint eq 'stats');
                 print $Root
                   . strftime( " estimated completion time: %T on %D\n",
                     localtime($ETA) );
+		$LastPrint="ETA";
             }
         }
     }
@@ -851,6 +886,12 @@ dirvish-dedup - traverse directories, find identical files, replace with hard li
                           attributes match.  Slow.  --nocompare is the default.
   --cpinterval=n          Write a checkpoint files every "n" seconds
                           (default=600).
+  --mail=address	  Send a brief e-mail to "address" on completion.
+			  May be repeated.
+  --reverse		  Process the command-line parameters in reverse order.
+			  This is useful when using wild-cards but needing
+			  to process the folders in newest-to-oldest order.
+  --load-maps=file	  Load a checkpoint file from a prior run.
   --
                           extra full file read of both files.
                           Default is to trust the MD5 + file size.

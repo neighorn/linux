@@ -8,7 +8,7 @@
 #
 
 #
-# Run remote MySQL backups on the MT servers
+# VerifyMD - run MD verification on the specified meta-device(s).
 #
 use strict;
 use warnings;
@@ -16,6 +16,7 @@ use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
+use POSIX qw(strftime);
 
 # Initialize variables.
 our $Prog=$RealScript;              	# Get our name, for messages.
@@ -26,7 +27,7 @@ our $Syslog='';				# Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
 our $ConfigFile="$BaseDir";		# Deterimine the name of our config file.
-$ConfigFile =~ s</.[^/]*$></etc/${Prog}.cfg>;# 	Ditto.
+$ConfigFile =~ s"/.[^/]*$"/etc/${Prog}.cfg";# 	Ditto.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
@@ -39,7 +40,6 @@ our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
-my @Machines;
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
@@ -89,15 +89,56 @@ if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 # Set up our logging and output filtering.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
-@Machines = @Parms if (@Parms);
-foreach my $Machine (@Machines) {
-	printf "%s %-10.10s %s\n", '-'x30, $Machine, '-'x30;
-	RunDangerousCmd("ssh $Machine /usr/local/sbin/mysql-backup -F /usr/local/etc/filter-accept-all.filter");
-	warn "ssh to $Machine failed with status $?: $@" if ($?);
-}
-print '-'x72 . "\n";
+# Verify the command line.
+die("No devices specified on the command line.  See \"$Prog -h\" for usage.")
+	unless (@Parms > 0);
 
-#
+foreach my $device (@Parms) {
+	$device =~ s"^/dev/"";
+	my $SyncFile = "/sys/block/$device/md/sync_action";
+	if (! -e $SyncFile ) {
+		warn "/dev/$device does not exist\n";
+		next;
+	}
+	my $Status = GetStatus($SyncFile);
+	if ($Status eq 'idle' or $Status eq 'check') {
+		if ($Status eq 'idle') {
+			print strftime(
+				"Beginning check of /dev/$device at %T on %D\n",
+				localtime());
+			;
+			my $FH;
+			if (open($FH,'>',$SyncFile)) {
+				print $FH "check\n";
+				close $FH;
+			}
+			else {
+				warn "Unable to write to $SyncFile: $!\n";
+				next;
+			}
+			close $FH;
+		}
+		else {
+			print "/dev/$device is already being verified.  Waiting for completion...\n";
+		}
+		while (($Status=GetStatus($SyncFile)) eq 'check') {
+			sleep 60;
+		}
+		if ($Status eq 'idle') {
+			print strftime(
+				"Completed check of /dev/$device at %T on %D\n",
+				localtime());
+			;
+		}
+		else {
+			warn "Unexpected status '$Status' found in $SyncFile\n";
+		}
+	}
+	else {
+		warn "Unexpected status '$Status' found in $SyncFile - device skipped\n";
+	}
+}
+			
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {
@@ -106,6 +147,26 @@ if ($ExitCode) {
 
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
+
+
+#
+# GetStatus - retrieve the status of a device
+#
+sub GetStatus {
+	my $SyncFile = shift;
+	my $FH;
+	if (open($FH,'<',$SyncFile)) {
+		my $Status = <$FH>;
+		chomp $Status;
+		close $FH;
+		return $Status;
+	} 
+	else {
+		warn "Unable to open $SyncFile: $!\n";
+		return "unknown";
+	}
+}
+	
 
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
@@ -146,10 +207,10 @@ sub opt_h {
 }
 
 =pod
-=head1 $Prog - backup up remote MySQL databases
+=head1 $Prog - run MD device verification
 
 =head3 Usage:  
-	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] [server1...]
+	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] device-file...
 
 	$Prog -h
 
@@ -169,8 +230,7 @@ sub opt_h {
 	-h      :       Help: display this panel
 
 =head3 Parameters:
-	server1...:	one or more servers to back up.  The default is to backup
-			all Media Temple servers according to an internal list.
+	device-file:	one or more devices to process.
 
 =head3 Return codes:
 	0       :       Normal termination
@@ -199,14 +259,6 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 #
-IGNORE	"^\s*mysql-backup started on \S+ on ../../.... at ..:..:..$"
-SHOW	"^\s*-{30} \S+\s+-{30}$"
-SHOW	"^\s*-+$"
-IGNORE	"^\s*Command: /usr/local/sbin/mysql-backup"
-IGNORE	"^\s*$"
-SHOW	"^\s*[,\d]+ bytes written to "
-IGNORE	"^\s*Job ended on ../../.... at ..:..:.. - run time: $"
-SHOW	"^\s*Job ended normally with status 0 and signal 0$"
 # The following are normal messages we don't need to see.
 #
 IGNORE  /^\s*$/
@@ -218,11 +270,13 @@ LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
-IGNORE	"^\s*Job ended normally with status 0 and signal 0$"
+SHOW    "^\s*Job ended normally with status 0 and signal 0$"
 SHOW    "^\s*Test:"
-IGNORE	"^\s*Deleting /"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
+SHOW	"^\s*Beginning check of /dev/"
+SHOW	"^\s*Completed check of /dev/"
+SHOW	"^\s*/dev/\S+ is already being verified.  Waiting for completion...$"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.

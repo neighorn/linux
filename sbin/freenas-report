@@ -8,25 +8,27 @@
 #
 
 #
-# Run remote MySQL backups on the MT servers
+# Read and filter FreeNAS reports.
 #
 use strict;
 use warnings;
+use lib '/usr/local/lib/perl5/site_perl';
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
+use Sys::Hostname;
 
 # Initialize variables.
 our $Prog=$RealScript;              	# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 our $Errors=0;				# No errors so far.
-our $Syslog='';				# Name of Syslog facility.  '' for none.
+our $Syslog='USER';			# Name of Syslog facility.  '' for none.
 our $BaseDir=$RealBin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
 our $ConfigFile="$BaseDir";		# Deterimine the name of our config file.
-$ConfigFile =~ s</.[^/]*$></etc/${Prog}.cfg>;# 	Ditto.
+$ConfigFile =~ s"/.[^/]*$"/etc/${Prog}.cfg";# 	Ditto.
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
@@ -39,7 +41,6 @@ our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
-my @Machines;
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
@@ -85,19 +86,47 @@ if (@ARGV) {
 		if (defined($Config{'DEFAULTJOB'}));
 }
 if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
+
+# Get the e-mail, so we can retrieve the From and Subject line
+print "Reading from STDIN...\n";
+my @lines = <STDIN>;
+my $From='';
+my $Subject='';
+foreach (@lines) {
+	last if (/^\s*$/);		# Blank line meands end of headers.
+	$From = $_ if (/^From /i and ! $From);
+	$Subject = $_ if (/^Subject: /i and ! $Subject);
+	last if ($From and $Subject);	# Found all we wanted.
+}
+$From =~ s/^From //i;		# Strip prefix.
+$From ='root@' . hostname() unless ($From !~ /^\s*$/);
+$Subject =~ s/^Subject: //;	# Strip prefix.
+$Subject =~ s/^(\S+)\.\S+\.(nwiglobal\.net|nwiservices\.com) /\U$1 /;
+$Subject =~ s/ output\s*$//;	# Strip unnecessary text.
+$Subject = "%* %m/%d %C %N %E %* %* %*" unless ($Subject);
 	
 # Set up our logging and output filtering.
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput({
+	ALWAYS_MAIL_LIST =>	$opt_m,
+	ALWAYS_PAGE_LIST =>	$opt_p,
+	ERROR_MAIL_LIST =>	$opt_e,
+	ERROR_PAGE_LIST =>	$opt_P,
+	SYSLOG_FACILITY =>	$Syslog,
+	MAIL_SUBJECT	=>	"%* %m/%d $Subject %E %* %* %*",
+	MAIL_FROM	=>	$From,
+	CLEAN_UP	=>	\&Cleanup,
+});
 
-@Machines = @Parms if (@Parms);
-foreach my $Machine (@Machines) {
-	printf "%s %-10.10s %s\n", '-'x30, $Machine, '-'x30;
-	RunDangerousCmd("ssh $Machine /usr/local/sbin/mysql-backup -F /usr/local/etc/filter-accept-all.filter");
-	warn "ssh to $Machine failed with status $?: $@" if ($?);
+# Verify the command line.
+die("Excess parameters specified on the command line.  See \"$Prog -h\" for usage.")
+	unless (@Parms == 0);
+
+my $EndOfHeaders = 0;
+foreach (@lines) {
+	$EndOfHeaders = 1 if (/^\s*$/);
+	print $_ if ($EndOfHeaders);
 }
-print '-'x72 . "\n";
-
-#
+warn "No end-of-headers line found\n" unless $EndOfHeaders;
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {
@@ -115,6 +144,7 @@ sub RunDangerousCmd {
 	$Cmd=join(' ',@_);
 	if ($opt_t) {
 		print "Test: $Cmd\n";
+		return 0;
 	} else {
 		print "Executing: $Cmd\n" if ($opt_v);
 		if (open($FH,"$Cmd 2>&1 |")) {
@@ -133,6 +163,12 @@ sub RunDangerousCmd {
 	}
 }
 
+sub Cleanup {
+	# Force exit code 0, so postfix/alias invocation doesn't think there are problems.
+	$LogOutput::ExitCode = 0;
+	return 0;
+}
+
 
 #
 # opt_h: Usage
@@ -146,10 +182,10 @@ sub opt_h {
 }
 
 =pod
-=head1 $Prog - backup up remote MySQL databases
+=head1 $Prog - >>description<<
 
 =head3 Usage:  
-	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] [server1...]
+	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
 
 	$Prog -h
 
@@ -169,8 +205,7 @@ sub opt_h {
 	-h      :       Help: display this panel
 
 =head3 Parameters:
-	server1...:	one or more servers to back up.  The default is to backup
-			all Media Temple servers according to an internal list.
+	files	:	one or more files to process.
 
 =head3 Return codes:
 	0       :       Normal termination
@@ -199,14 +234,6 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 #
-IGNORE	"^\s*mysql-backup started on \S+ on ../../.... at ..:..:..$"
-SHOW	"^\s*-{30} \S+\s+-{30}$"
-SHOW	"^\s*-+$"
-IGNORE	"^\s*Command: /usr/local/sbin/mysql-backup"
-IGNORE	"^\s*$"
-SHOW	"^\s*[,\d]+ bytes written to "
-IGNORE	"^\s*Job ended on ../../.... at ..:..:.. - run time: $"
-SHOW	"^\s*Job ended normally with status 0 and signal 0$"
 # The following are normal messages we don't need to see.
 #
 IGNORE  /^\s*$/
@@ -218,11 +245,65 @@ LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
-IGNORE	"^\s*Job ended normally with status 0 and signal 0$"
+SHOW    "^\s*Job ended normally with status 0 and signal 0$"
 SHOW    "^\s*Test:"
-IGNORE	"^\s*Deleting /"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
+#
+# FreeNAS filters
+#
+SHOW	"^\s*From "
+IGNORE	"^\s*Return-Path: "
+IGNORE	"^\s*X-Original-To: "
+IGNORE	"^\s*Delivered-To: "
+IGNORE	"^\s*Received: from "
+IGNORE	"^\s*by mercury (Postfix) with ESMTP id "
+IGNORE	"^\s*for <freenas-report\@mercury>; "
+IGNORE	"^\s*Content-Type: "
+IGNORE	"^\s*MIME-Version: "
+IGNORE	"^\s*Content-Transfer-Encoding: "
+SHOW	"^\s*Subject: "
+IGNORE	"^\s*From: "
+IGNORE	"^\s*To: "
+IGNORE	"^\s*Date: "
+SHOW	"^\s*Checking for uids of 0:$"
+IGNORE	"^\s*root 0$"
+SHOW	"^\s*Checking for passwordless accounts:\s*$"
+SHOW	"^\s*Checking login.conf permissions:\s*$"
+SHOW	"^\s*Checking for ports with mismatched checksums:\s*$"
+IGNORE	"^\s*\S+ login failures:\s*$"
+IGNORE	"^\s*\S+ refused connections:\s*$"
+SHOW	"^\s*Reading from STDIN\.\.\.$"
+IGNORE	"^\s*Removing stale files from /var/preserve:$"
+IGNORE	"^\s*Cleaning out old system announcements:$"
+IGNORE	"^\s*Backup passwd and group files:$"
+IGNORE	"^\s*Verifying group file syntax:$"
+IGNORE	"^\s*/etc/group is fine$"
+IGNORE	"^\s*Disk status:$"
+IGNORE	"^\s*Filesystem             Size    Used   Avail Capacity  Mounted on$"
+IGNORE	"^\s*devfs\s+[0-9.]+.\s+[0-9.]+.\s+[0-9.]+.\s+\d+%\s+/dev$"
+IGNORE	"^\s*\S+\s+[0-9.]+.\s+[0-9.]+.\s+[0-9.]+.\s+(\d+|[0-8]\d+|9[0-4])%\s+\S+$"
+IGNORE	"^\s*Last dump\(s\) done \(Dump '>' file systems\):$"
+IGNORE	"^\s*Checking status of zfs pools:$"
+SHOW	"^\s*all pools are healthy$"
+SHOW	"^\s*Checking status of ATA raid partitions:$"
+IGNORE	"^\s*Checking status of gmirror\(\d+\) devices:$"
+IGNORE	"^\s*Checking status of graid3\(\d+\) devices:$"
+IGNORE	"^\s*Checking status of gstripe\(\d+\) devices:$"
+IGNORE	"^\s*Network interface status:$"
+SHOW	"^\s*Name\s+Mtu\s+Network\s+Address\s+Ipkts\s+Ierrs\s+Idrop\s+Opkts\s+"
+IGNORE	"^\s*errs\s+Coll$"
+#             Name             Mtu    Network Address   Ipkts  Ierrs   Idrop   Opkts  Oerrs   Odrop
+IGNORE	"^\s*(lo0|em\d+\*?)\s+ \S+\s+ \S+\s+  (\S+\s+)? \d+\s+ [0-]\s+ [0-]\s+ \d+\s+ [0-]\s+ [0-]\s*$"x
+IGNORE	"^\s*(lo0|em\d+\*?)\s+ \S+\s+ \S+\s+  (\S+\s+)? \d+\s+ [0-]\s+ [0-]\s+ \d+\s*="x
+IGNORE	"^\s*[0-]\s+[0-]$"
+IGNORE	"^\s*(lo0|em\d+)\s+\S+\s+\S+\s+\S+\s+\d+\s+[0-]\s+[0-]\s+\d+\s+([0-]\s+[0-])?$"
+IGNORE	"^\s*Security check:$"
+IGNORE	"^\s*\(output mailed separately\)$"
+IGNORE	"^\s*Checking status of 3ware RAID controllers:$"
+IGNORE	"^\s*Alarms \(most recent first\):$"
+SHOW	"^\s*No new alarms.$"
+IGNORE	"^\s*-- End of \S+ output --$"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.

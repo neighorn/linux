@@ -47,7 +47,7 @@ chomp $HostName;
 
 GetOptions (
 	'v|verbose+'	=> \$opt_v,
-	'c|config=s'	=> \$opt_v,
+	'c|config=s'	=> \$opt_c,
 	'h|help'	=> \$opt_h,
 	't|test'	=> \$opt_t,
 	'q|quiet'	=> \$opt_q,
@@ -229,7 +229,7 @@ if (@NowFail+@NowOK+$Renotify > 0 and @opt_P > 0 and ! $opt_t) {
 	my($MAIL,$MailFile) = tempfile();
 	
 	if (@NowFail) {
-		print $MAIL "Now fail: " . join(', ',@NowFail) . "\n";
+		print $MAIL "Now failing: " . join(', ',@NowFail) . "\n";
 	}
 	if (@StillFail) {
 		print $MAIL "Still failing: " . join(', ',@StillFail) . "\n";
