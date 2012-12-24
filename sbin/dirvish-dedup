@@ -123,6 +123,7 @@ else {
 }
 $ArgCount = 0 + @ARGV;		# Count, for statistics.
 foreach $Root ( @ARGV_Copy ) {
+    $Root =~ s"/+$"";		# Strip trailing /
     $tl_dirs_total = 0;
     $tl_dirs_doing = 0;
     $CurrentArg++;		# Increment count for stats.
@@ -159,20 +160,11 @@ if ($LOG_FH) {
 my $Elapsed = ElapsedTime();
 my $Summary = strftime( "Done @ %T on %D.  Elapsed time = $Elapsed.", localtime());
 print "\n$Summary\n";
-<<<<<<< HEAD
-if (exists($Opt{mail})) {
-	system(qq<echo "$LastStats" | mail -s "$Prog done" > . join(' ',@{$Opt{mail}}));
-}
-syslog('info',"$Prog complete.  $LastStats");
-closelog();
-exit(0);
-=======
 if ($Opt{mail}) {
 	my @MailAddresses = @{$Opt{mail}};
 	system("echo '$Summary' | mail -s '$Prog done' " . join(' ',@MailAddresses));
 }
 exit 0;
->>>>>>> af7d4ea71bb4499ef3553add1f4fd023a7825c00
 
 
 #
