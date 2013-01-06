@@ -3,6 +3,7 @@ bank:
 exclude:
 	/media/
 	/mnt/
+	/net/
 	/proc/
 	/sys/
 	/dev/shm
