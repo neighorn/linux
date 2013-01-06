@@ -21,6 +21,7 @@ use String::ShellQuote;		# For shell_quote.
 use Data::Dumper::Simple;
 use Text::ParseWords;
 use Sys::Syslog;
+use File::Glob 'bsd_glob';
 
 # 
 # Prototype declarations.
@@ -114,6 +115,12 @@ $| = 1;
 # Begin processing arguments.
 #
 die "No directories specified.  Enter $Prog -h for usage.\n" unless (@ARGV);
+# If we only have one argument, move into subdirectories.  This makes stats and
+# --reverse more useful.
+while (@ARGV == 1 and -d $ARGV[0]) {
+	# Only one argument.  Move down one leve.
+	@ARGV = bsd_glob($ARGV[0] . '/*');
+}
 my @ARGV_Copy;		# In case CheckInterrupt has to reuse @ARGV.
 if ($Opt{reverse}) {
 	@ARGV_Copy = reverse(@ARGV);
@@ -162,6 +169,7 @@ my $Summary = strftime( "Done @ %T on %D.  Elapsed time = $Elapsed.", localtime(
 print "\n$Summary\n";
 if ($Opt{mail}) {
 	my @MailAddresses = @{$Opt{mail}};
+	$Summary .= "\n$LastStats\n";
 	system("echo '$Summary' | mail -s '$Prog done' " . join(' ',@MailAddresses));
 }
 exit 0;
@@ -791,6 +799,7 @@ sub ManageStats {
     if ($PrintProgress) {
 
         # We've received a request for a progress report.
+	print "\n" if ($LastPrint eq 'stats');
         print strftime( "%D %T Now processing $cand\n", localtime( time() ) );
 	$LastPrint = "progress";
         $PrintProgress = 0;    # Turn off flag.
