@@ -19,7 +19,7 @@ use File::Glob;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.9;
+our $Version	= 3.10;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -54,7 +54,7 @@ sub LogOutput {
 	my $TimeStamp;			# Start/stop time stamp
 	my $StopTime;			# Stop time.
 
-	my($StartTime)=time();		# Record our start time.
+	our($StartTime)=time();		# Record our start time.
 	
 	# Set %Options based on our defaults, site defaults and calling options.
 	# All output is stored in %Options.
@@ -239,7 +239,7 @@ if ($ErrorsDetected > 0) {
 }
 
 # Tweak up the subject line, now that we know how we ended.
-$Options{MAIL_SUBJECT} = _MakeSubstitutions($Options{MAIL_SUBJECT});
+$Options{MAIL_SUBJECT} = _MakeSubstitutions($Options{MAIL_SUBJECT}, $StartTime);
 $Options{MAIL_SUBJECT} =~ s/^\s*//;		# Strip leading blanks.
 $Options{MAIL_SUBJECT} =~ s/\s*$//;		# Strip trailing blanks.
 $Options{MAIL_SUBJECT} =~ s/\s\s/ /g;	# Strip embedded multiple blanks.
@@ -640,6 +640,8 @@ sub _MakeSubstitutions {
 
 	my $Text = shift;
 	return $Text unless ($Text =~ /%/);	# Exit unless % variables present.
+	my $StartTime = shift;			# Optional time stamp.
+	$StartTime = time() unless ($StartTime);	
 
 	# Simple substitutions.
 	$Text =~ s/%%/%p/g;		# Change %% to %p so it doesn't match other % constructs.
@@ -677,7 +679,7 @@ sub _MakeSubstitutions {
 	$Text =~ s/%p/%%/g;		# Change %% back for strftime.
 	if ($Text =~ /%/) {
 		# Still have percent signs.  Call strftime for the rest.
-		$Text = strftime($Text,localtime);
+		$Text = strftime($Text,localtime($StartTime));
 	}
 	
 	return($Text);
