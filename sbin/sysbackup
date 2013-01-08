@@ -2,27 +2,60 @@
 #
 # =====Description====
 #
+use strict;
+use warnings;
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 use POSIX qw(strftime);
 
 # Initialize variables.
-$Prog=$0;			# Get our name, for messages.
+my $Prog=$0;			# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off the path, if present.
 $ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
-@Args=@ARGV;			# Preserve orig command for ref.
-$ErrorFlag=0;			# No errors so far.
-$ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
+my @Args=@ARGV;			# Preserve orig command for ref.
+my $ErrorFlag=0;			# No errors so far.
+my $ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
+our $Errors=0;
+our %Config;
+our $opt_d;
+our $opt_e;
+our $opt_m;
+our $opt_p;
+our $opt_P;
+our $opt_t;
+our $opt_v;
 our @opt_x;
+our @opt_X;
 our $opt_D;
 our $opt_C=5;		# Number of cycles to keep.
+our @Parms;	
+our $Parms;
+my %TypeExclude = (	# Populate a default list of types to exclude.
+	'binfmt_misc' 	=> 1,
+	'cgroup' 	=> 1,
+	'debugfs' 	=> 1,
+	'devpts' 	=> 1,
+	'devtmpfs' 	=> 1,
+	'fusectl' 	=> 1,
+	'nfs' 		=> 1,
+	'none' 		=> 1,
+	'proc' 		=> 1,
+	'rpc_pipefs' 	=> 1,
+	'securityfs' 	=> 1,
+	'subfs' 	=> 1,
+	'sysfs' 	=> 1,
+	'sysfs' 	=> 1,
+	'tmpfs' 	=> 1,
+	'usbfs' 	=> 1,
+);
+our $ExitCode;
 
 my $HostName = `hostname`;
 chomp $HostName;
 $HostName =~ s/\..*$//;		# Strip domain.
-$BaseDir="/usr/local/backup/$HostName";	# Set our base directory.
+our $BaseDir="/usr/local/backup/$HostName";	# Set our base directory.
 #
 # ---------------------------------------------------------
 #
@@ -45,7 +78,7 @@ chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin:
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-$OptSpec='C=s D=s h t m=l e=l O=s p=l P=l x=l t v';
+my $OptSpec='C=s D=s h t m=l e=l O=s p=l P=l x=l X=l t v';
 
 # ---------------------------------------------------------
 #
@@ -58,7 +91,7 @@ if (-e $ConfigFile) {
 		next if (/^\s*#/);      # Comment.
 		next if (/^\s*$/);      # Blank line.
 		chomp;
-		($name,$settings)=split(/:?\s+/,$_,2);
+		my ($name,$settings)=split(/:?\s+/,$_,2);
 		$name=~tr/[a-z]/[A-Z]/;
 		$Config{$name}.=$settings . ',' ;
 	}
@@ -103,18 +136,22 @@ die("Excess parameters on the command line.  See \"$Prog -h\" for usage.")
 die("Invalid number \"$opt_C\" for -C.  See \"$Prog -h\" for usage.")
 	unless ($opt_C =~ /^\s*\d+\s*$/);
 
+# Add any additional file type exclusions.
+foreach (@opt_X) {
+	$TypeExclude{$_}=1;
+}
+
 # ---------------------------------------------------------
 #
 # Delete any failed back-ups.
 #
-RunDangerousCmd("rm -rf $BaseDir/*.bad")
-	if (-e glob("$BaseDir/*.bad"));
+RunDangerousCmd("rm -rf $BaseDir/*.bad 2> /dev/null");
 
 # ---------------------------------------------------------
 #
 # Keep the most recent $opt_C back-ups.
 #
-if (open($FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
+if (open(my $FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
         my $Count=0;
 	while (<$FHLS>) {
 		$Count++;
@@ -140,24 +177,27 @@ if (! $opt_t ) {
 #
 # Use the mount command to determine what to back up.
 #
-if (open($FHMOUNT,'mount |')) {
+if (open(my $FHMOUNT,'mount |')) {
 	MOUNT: while (<$FHMOUNT>) {
 		chomp;
 
 		# Skip transient file systems based on type.
-		next if (/type (binfmt_misc|debugfs|devpts|fusectl|none|proc|securityfs|subfs|sysfs|sysfs|tmpfs|usbfs)/);
+		/\stype\s+(\S+)\s/;
+		next if ($TypeExclude{$1});
 
 
 		# Skip anything under /mnt as being temporary.
 		next if (m"^\S+ on /mnt/");
 
 		# Skip our own output area.
-		next if (m"^\S+ on $BaseDir");
+		my $BackupRoot = $BaseDir;
+		$BackupRoot =~ s"/[^/]*$"";		# Drop host name.
+		next if (m"^\S+ on $BackupRoot");
 		
 		# Get the mount point, and compare to our exclude list.
 		my $MountPt;
 		($MountPt)=(split(/\s+/))[2];
-		foreach $ExcludedMount (@opt_x) {
+		foreach my $ExcludedMount (@opt_x) {
 			next MOUNT if ($MountPt =~ m"^$ExcludedMount(/.*)?$");
 		}
 
@@ -176,6 +216,7 @@ if (open($FHMOUNT,'mount |')) {
 			$ExcludeFile = "";
 		}
 			
+		print "  Backing up $MountPt\n";
                 RunDangerousCmd("tar -cz --one-file-system " .
 			"-f $OutputDir/$OutputFile " .
 			"-C $MountPt " .
@@ -250,6 +291,7 @@ sub RunDangerousCmd {
 #
 sub opt_h {
 
+	my $ExcludeTypes = join(', ',sort(keys(%TypeExclude)));
 	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
 	print PAGENATER <<"ENDUSAGE";
 $Prog - Back-up key file-systems
@@ -275,6 +317,9 @@ Flags:
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
 	-x mountpoint: 	eXclude: exclude this mount point.  May be repeated.
+	-X mounttype:	eXclude: exclude any mount points of this type (e.g.
+			"ext4").  May be repeated.  This list is prepopulated
+			with $ExcludeTypes.
 
 Parameters:
 	(none)
@@ -331,6 +376,7 @@ LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
+SHOW    "^\s*Backing up "
 SHOW    /^\s*Job ended normally with status 0 and signal 0$/
 SHOW    /^\s*Test:/
 SHOW    /^\s*Executing:/
