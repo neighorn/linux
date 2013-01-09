@@ -35,6 +35,7 @@ my $ExitCode;				# Code we'll exit with.
 our $opt_h;				# -h (help) option.
 our $opt_e;				# -e (error mail) option.
 our $opt_m;				# -m (mail) option.
+our $opt_n;				# -n (nth) only run on nth week.
 our $opt_p;				# -p (pager mail) option.
 our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
@@ -50,7 +51,7 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l t v';
+my $OptSpec='e=l h m=l n=s O=s p=l P=l t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -85,6 +86,15 @@ if (@ARGV) {
 		if (defined($Config{'DEFAULTJOB'}));
 }
 if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
+
+if ($opt_n) {
+	die "Invalid value for -n ($opt_n): must be 1-5\n" unless ($opt_n =~ /^[1-5]$/);
+	my $weeknum = int(((localtime())[3] + 6) / 7);
+	if ($weeknum != $opt_n) {
+		print "Skipping run.  Week number is $weeknum, not $opt_n\n";
+		exit 0;
+	}
+}
 	
 # Set up our logging and output filtering.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);

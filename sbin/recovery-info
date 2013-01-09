@@ -76,7 +76,7 @@ if (! -d $opt_o) {
 		die "Unable to create $opt_o: $!";
 }
 
-# Capture sector 0 of each disk.
+# Capture data for each disk present.
 my $FirstDisk;		# Need a valid disk name later for parted.
 open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(mapper|md|dm-)' |") ||
 	die("Unable to start fdisk process: $!\n");
@@ -96,6 +96,8 @@ while (<$FDISK>) {
 	RunDangerousCmd("smartctl -i $InputName > $OutputName");
 	$OutputName =~ s/.info$/.parted/;
 	system("which parted > /dev/null 2>&1") || RunDangerousCmd("parted $InputName p > $OutputName");
+	$OutputName =~ s/.parted$/.gdisk/;
+	system("which gdisk > /dev/null 2>&1") || RunDangerousCmd("parted $InputName p > $OutputName");
 }
 close $FDISK;
 
@@ -133,8 +135,12 @@ RunDangerousCmd("ifconfig -a > $opt_o/ifconfig.out");
 RunDangerousCmd("netstat -nr > $opt_o/netstat.out");
 
 # Capture MD and DRBD configuration.
-RunDangerousCmd("cp /proc/mdstat $opt_o/mdstat") if (-e "/proc/mdstat");
-RunDangerousCmd("cp /proc/drbd $opt_o/drbd") if (-e "/proc/drbd");
+RunDangerousCmd("cp /proc/mdstat $opt_o/mdstat.out") if (-e "/proc/mdstat");
+RunDangerousCmd("cp /proc/drbd $opt_o/drbd.out") if (-e "/proc/drbd");
+
+# Capture hardware information.
+system("which dmidecode > /dev/null 2>&1") || RunDangerousCmd("dmidecode > $opt_o/dmidecode.out");
+system("which lshw > /dev/null 2>&1") || RunDangerousCmd("lshw > $opt_o/lshw.out");
 	
 exit(0);
 
