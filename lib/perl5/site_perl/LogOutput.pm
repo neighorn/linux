@@ -210,7 +210,7 @@ $RunTime = "$RunHour hour" . ($RunHour == 1?'':'s') . ", $RunTime"
 $RunTime = "$RunDay day" . ($RunDay == 1?'':'s') . ", $RunTime"
 	if ($RunDay);
 $RawRunTime="$RunDay:$RunHour:$RunMin:$RunSec";
-$Options{LOG_FILE_PREFIX}='';		# Don't prefix wrap-up messages.
+$Options{MAIL_FILE_PREFIX}='';		# Don't prefix wrap-up messages.
 $ErrorsDetected += _FilterMessage("   Job ended on $TimeStamp - run time: $RunTime");
 
 # Force an error if the job exited with a bad status code or signal.
@@ -291,7 +291,7 @@ sub _SetOptions {
 		ERROR_PAGE_LIST => 1,
 		FILTER_FILE => 1,
 		#LOG_FILE => 1,
-		#LOG_FILE_PREFIX => 1,
+		MAIL_FILE_PREFIX => 1,
 		MAIL_FILE => 1,
 		MAIL_FROM => 1,
 		MAIL_DOMAIN => 1,
@@ -311,7 +311,7 @@ sub _SetOptions {
 	$Options{CLEANUP}=undef();
 	$Options{ERROR_MAIL_LIST}=[];
 	$Options{ERROR_PAGE_LIST}=[];
-	#$Options{LOG_FILE_PREFIX}='';
+	$Options{MAIL_FILE_PREFIX}='';
 	$Options{MAIL_FILE}='';
 	$Options{MAIL_FROM}='%U@%O';
 	$Options{MAIL_SERVER}='127.0.0.1';
@@ -746,8 +746,8 @@ sub WriteMessage {
 
 	# Write it to the log file if requested.
 	if ($MailFile) {
-		$Message = _MakeSubstitutions($Options{LOG_FILE_PREFIX}) . " $Message"
-			if ($Options{LOG_FILE_PREFIX});
+		$Message = _MakeSubstitutions($Options{MAIL_FILE_PREFIX}) . " $Message"
+			if ($Options{MAIL_FILE_PREFIX});
 		if (!(printf $WRITELOGFILE_FH "%s\n", $Message)) {
 			warn "LogOutput: Unable to write to $Options{MAIL_FILE} $!";
 			$Options{MAIL_FILE}='';
