@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# The goal with the offsite disk arrays is that we only
+# assemble the RAID when we need it, and we unassemble (stop)
+# the RAID when it's idle.  This allows the RAID to be pulled
+# when it is not active without manual intervention.
+#
+# The automounter doesn't appear to have a facility to notify
+# us when it is unmounting a device.  Instead, we need to set
+# up a separate cron job to unassemble these devices at regular
+# intervals.  The mdadm command will reject the request if the
+# raid is still in use.
+
+# $1 is passed-over from automount
+# key refers to the mount point we are looking for
+key="$1"
+
+# default mount options
+opts="-fstype=jfs,rw"
+
+# Figure out the associated RAID device
+if [[ "$key" = set* ]]
+then
+	raid="md1${key#set}"
+else
+	echo "Invalid key $key" | /usr/bin/logger -t auto.offsite
+	exit 	# Invalid device name.
+fi
+
+# See if the RAID is currently assembled.  If not assemble everything we can find.
+[[ -d /sys/block/$raid ]] || mdadm --assemble --scan > /dev/null 2>&1
+
+# If the RAID is present, return it for mount.  Otherwise return nothing.
+if [[ -d /sys/block/$raid ]]
+then
+	echo "Mounting /dev/$raid for $key" | /usr/bin/logger -t auto.offsite
+	echo -e "$opts\t:/dev/${raid}"
+else
+	echo "/dev/$raid not present for $key" | /usr/bin/logger -t auto.offsite
+fi
+exit
