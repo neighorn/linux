@@ -150,9 +150,9 @@ df checks on the output from a df -Pk command.
 
 =head2 Syntax
 
-  process Target=/var MaxPercent=80
-  Process Target=ALL MaxPercent=90
-  process Target=/opt Host=hostname MaxPercent=70
+  df Target=/var MaxPercent=80
+  df Target=ALL MaxPercent=90
+  df Target=/opt Host=hostname MaxPercent=70
   
 
 =head2 Fields
