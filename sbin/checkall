@@ -27,6 +27,7 @@ our $opt_q=0;			# Quiet option.
 our @opt_P;			# Who to page on errors.
 our $opt_R=120;			# Set number of minutes to re-report fail items.
 our $opt_s='';			# Alert subject
+our $opt_w=20;			# Wait time in seconds (for checks that timeout)
 our $Prog = $RealScript;	# Get our program name.
 $Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off path, if present.
@@ -54,6 +55,7 @@ GetOptions (
 	'P|page=s'	=> \@opt_P,
 	'R|renotify=i'	=> \$opt_R,
 	's|subject=s'	=> \$opt_s,
+	'w|waittime=i'	=> \$opt_w,
 );
 
 # Check options.
@@ -316,6 +318,7 @@ sub LoadServiceList {
 sub ProcessServiceLine {
 	my($FileName, $StartLine, $ArrayRef, $MapRef, $Line) = @_;
 	return if ($Line =~ /^\s*$/);		# Skip empty lines.
+	print "Verbose: Processing line $StartLine: $Line\n" if ($opt_v >= 3);
 
 	my($Keyword,$Rest) = split('\s+',$Line,2);
 	$Keyword = lc($Keyword);				# Ignore case.
@@ -534,6 +537,13 @@ are made:
 =item -v, --verbose
 
 Verbose -- turn on diagnostics.
+
+=item -w seconds, --waittime=seconds
+
+Wait Time -- Wait up to "seconds" seconds for individual checks to complete.  Some checks
+(primarily network checks) support time-out values.  Other checks ignore this value.
+
+The effective value for any given check is the larger of this value or a waittime value specified in the check definition.  The default value is 20 seconds.
 
 =back
 

@@ -68,6 +68,12 @@ sub Check {
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
 
+	# If we don't have a waittime, or it's shorter than the main value,
+	# change it to the main value.
+	if (! $Self->{'Waittime'} or $Self->{'Waittime'} < $main::opt_w) {
+		$Self->{'Waittime'} = $main::opt_w;
+	}
+
 	# Spin off a child process to check the status of this item.
 	my $pid = fork();
 	if ($pid) {
@@ -84,7 +90,7 @@ sub Check {
 			my($host,$port)=split(/:/);
 			# try to connect.
 			printf "\r\%5d   Checking %s:%d (%s)\n", $$,$host,$port,$Desc if ($main::opt_v);
-			if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>20)) {
+			if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>$Self->{'Waittime'})) {
 				# Connected OK.
 				printf "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($main::opt_v);
 				close($socket);

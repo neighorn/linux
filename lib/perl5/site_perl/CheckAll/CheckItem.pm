@@ -51,6 +51,7 @@ use fields (
 	'Onok',			# Run this command when it becomes OK again.
 	'Renotifyinterval',	# How often to repeat failing notifications (unimplemented).
 	'Verbose',		# Verbose (unimplemented).
+	'Waittime',		# WaitTime: time in seconds to wait for conn.
 );
 
 
@@ -362,6 +363,12 @@ failing.  This is only applicable if notifications were requested with the check
 
 Renotifyinterval: The time in minutes after which another notification must be sent.  This is
 currently unimplemented at the service item level.
+
+=item *
+
+Waittime: The time in seconds to wait for this check to complete.  The effective value for this
+is the greater of the specified value (if specified), or the main program -w value.  This value
+is not meaningful for all types of checks and is primarily used to with network connections.
 
 =back
 
