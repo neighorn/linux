@@ -14,6 +14,7 @@ our $Prog=$0;			# Get our name, for messages.
 $Prog=~s/^.*\///;		# Trim off the path, if present.
 our @Parms;
 our $opt_d;
+our $opt_f;
 our $opt_h;
 our $opt_m;
 our $opt_e;
@@ -37,7 +38,7 @@ chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
 #	   Normal =s and =i would replace values instead of concatenate.
 #	2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='d h m=l e=l p=l P=l O=s';
+my $OptSpec='d f h m=l e=l p=l P=l O=s';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -71,7 +72,7 @@ if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
 # Set up our logging and output filtering.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
-if ($Config{DISABLEUNTIL}) {
+if ($Config{DISABLEUNTIL} and not $opt_f) {
 	if ($Config{DISABLEUNTIL} =~ m"^(\d\d?)[/-](\d\d?)[/-](\d\d(\d\d)?)") {
 		my($AMonth,$ADay, $AYear) = ($1,$2,$3);
 		my($CDay,$CMonth,$CYear) =(localtime())[3..5];
@@ -81,7 +82,7 @@ if ($Config{DISABLEUNTIL}) {
 		my $CDate = $CYear * 10000 + $CMonth * 100 + $CDay;
 		my $ADate = $AYear * 10000 + $AMonth * 100 + $ADay;
 		if ($CDate < $ADate) {
-			print "Checks disabled until $AMonth/$ADay/$AYear per config file.\n";
+			print "Checks disabled until $AMonth/$ADay/$AYear per config file. Use -f to force execution.\n";
 			exit 0;
 		}
 	}
@@ -208,6 +209,7 @@ Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
 Flags:
 	-e mailid:	Error: Send an execution report to this e-mail address
 			if errors are detected.
+	-f:		Force: Ignore "DisableUntil" parameter from the config file.
 	-m mailid:	Mailid: Send an execution report to this e-mail address.
 	-p mailid:	Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
@@ -221,6 +223,12 @@ Flags:
 	-h	:	Help: display this panel
 
 Examples:
+	checkmd
+
+Notes:
+	The config file may contain "DISABLEUNTIL: mm/dd/yyyy" to disable alerts
+	until the specified date.  This can be used to suppress alerts for known
+	issues until the specified date.  This date can be ignored with -f.
 
 Return codes:
 	0	:	Normal termination
