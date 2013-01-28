@@ -19,7 +19,7 @@ use File::Glob;
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.10;
+our $Version	= 3.11;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -99,7 +99,9 @@ sub LogOutput {
 			warn "LogOutput: Syslog is not supported under this operating system.";
 			$Options{SYSLOG_FACILITY}=0;
 		} else {
-			openlog($Options{PROGRAM_NAME},'',$Options{SYSLOG_FACILITY});
+			my $options = $Options{SYSLOG_OPTIONS};
+			$options='pid' unless (defined($options));
+			openlog($Options{PROGRAM_NAME},$options,$Options{SYSLOG_FACILITY});
 		}
 	}
 
@@ -301,6 +303,7 @@ sub _SetOptions {
 		NORMAL_RETURN_CODES => 1,
 		PROGRAM_NAME => 1,
 		SYSLOG_FACILITY => 1,
+		SYSLOG_OPTIONS => 1,
 		VERBOSE => 1,
 	);
 
@@ -879,6 +882,7 @@ Options and defaults are shown in the table below:
    NORMAL_RETURN_CODES	| (0)		| List of normal exit codes
    PROGRAM_NAME		| Name of caller| Program name for logs and e-mail
    SYSLOG_FACILITY	| -none-	| SYSLOG facility code to use
+   SYSLOG_OPTIONS	| pid		| SYSLOG options
    VERBOSE		| 0		| Diagnostic/verbosity level (0-9).
 
 The option names (i.e. "ALWAYS_MAIL_LIST") are case-insensitive.
@@ -959,6 +963,14 @@ use.  See
 the "syslog" man pages for details on facility codes.  In general, "USER" is
 a good facility code to use.  If this argument is not provided, the execution
 is not logged to the system log.
+
+Example:  SYSLOG_FACILITY => 'USER'
+
+=head2 SYSLOG_OPTIONS
+
+This option contains a string of options for the open_syslog call.
+See the "syslog" man pages for details on options.  If not set, 'pid'
+is used.  
 
 Example:  SYSLOG_FACILITY => 'USER'
 
