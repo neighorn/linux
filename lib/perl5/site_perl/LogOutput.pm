@@ -154,7 +154,7 @@ sub LogOutput {
 		select STDOUT;
 
 		# Begin our log.
-		$TimeStamp=strftime("%m/%d/%Y at %H:%M:%S",localtime($));
+		$TimeStamp=strftime("%A, %m/%d/%Y at %H:%M:%S",localtime($));
 		my @ArgList = @main::ARGV;
 		foreach (@ArgList) { 
 			$_ = '' unless defined($_)
@@ -195,7 +195,7 @@ print "LogOutput: Child ended with Status=$Status (Exit Code = $ExitCode, Signal
 	if ($Options{VERBOSE});
 
 $StopTime=time();
-$TimeStamp=strftime("%m/%d/%Y at %H:%M:%S",localtime($StopTime));
+$TimeStamp=strftime("%A, %m/%d/%Y at %H:%M:%S",localtime($StopTime));
 $RunTime=$StopTime-$;
 my($RunSec,$RunMin,$RunHour,$RunDay);
 $RunSec = $RunTime % 60;		# localtime($RunTime) gave weird results
