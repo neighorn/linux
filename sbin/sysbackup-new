@@ -2,73 +2,31 @@
 #
 # =====Description====
 #
-use strict;
-use warnings;
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
-use POSIX qw(strftime);
+use lib '/usr/local/lib/perl5/site_perl';
 
 # Initialize variables.
-my $Prog=$0;			# Get our name, for messages.
+$Prog=$0;			# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off the path, if present.
 $ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
-my @Args=@ARGV;			# Preserve orig command for ref.
-my $ErrorFlag=0;			# No errors so far.
-my $ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
-our $Errors=0;
-our %Config;
-our $opt_d;
-our $opt_e;
-our $opt_m;
-our $opt_p;
-our $opt_P;
-our $opt_t;
-our $opt_v;
-our @opt_x;
-our @opt_X;
-our $opt_D;
+@Args=@ARGV;			# Preserve orig command for ref.
+$ErrorFlag=0;			# No errors so far.
+$Syslog='user';			# Name of Syslog facility.  '' for none.
+$LogFile="";			# Name of the log file.
+$ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
+our @opt_x;		# Excluded patterns and mount points.
+our $opt_D;		# Output directory
 our $opt_C=5;		# Number of cycles to keep.
-our @Parms;	
-our $Parms;
-my %TypeExclude = (	# Populate a default list of types to exclude.
-	'binfmt_misc' 	=> 1,
-	'cgroup' 	=> 1,
-	'debugfs' 	=> 1,
-	'devpts' 	=> 1,
-	'devtmpfs' 	=> 1,
-	'fusectl' 	=> 1,
-	'nfs' 		=> 1,
-	'none' 		=> 1,
-	'proc' 		=> 1,
-	'rpc_pipefs' 	=> 1,
-	'securityfs' 	=> 1,
-	'subfs' 	=> 1,
-	'sysfs' 	=> 1,
-	'sysfs' 	=> 1,
-	'tmpfs' 	=> 1,
-	'usbfs' 	=> 1,
-);
-our $ExitCode;
+our @opt_X;		# Excluded mount point types.
 
 my $HostName = `hostname`;
 chomp $HostName;
 $HostName =~ s/\..*$//;		# Strip domain.
-our $BaseDir="/usr/local/backup/$HostName";	# Set our base directory.
+$BaseDir="/usr/local/backup/$HostName";	# Set our base directory.
 #
-# ---------------------------------------------------------
-#
-# Identify the output directory.  Do this early for Cleanup().
-#
-our $OutputDir;			# Name of directory we're creating.
-if ($opt_D) {
-	$OutputDir = $opt_D;
-}
-else {
-	$OutputDir=strftime("$BaseDir/%m-%d",localtime());
-}
-
 
 chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin: $!\n";
 
@@ -78,7 +36,7 @@ chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin:
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='C=s D=s h t m=l e=l O=s p=l P=l x=l X=l t v';
+$OptSpec='C=s D=s h t m=l e=l O=s p=l P=l x=l X=l t v';
 
 # ---------------------------------------------------------
 #
@@ -91,7 +49,7 @@ if (-e $ConfigFile) {
 		next if (/^\s*#/);      # Comment.
 		next if (/^\s*$/);      # Blank line.
 		chomp;
-		my ($name,$settings)=split(/:?\s+/,$_,2);
+		($name,$settings)=split(/:?\s+/,$_,2);
 		$name=~tr/[a-z]/[A-Z]/;
 		$Config{$name}.=$settings . ',' ;
 	}
@@ -121,14 +79,7 @@ if (@ARGV) {
 if ($ErrorFlag) {exit $ErrorFlag;}      # Exit if errors were detected.
 	
 # Set up our logging and output filtering.
-LogOutput({
-	ALWAYS_MAIL_LIST => $opt_m,
-	ERROR_MAIL_LIST => $opt_e,
-	ALWAYS_PAGE_LIST => $opt_p,
-	ERROR_PAGE_LIST => $opt_P,
-	CLEAN_UP => \&Cleanup,
-	SYSLOG_FACILITY => 'user',
-});
+LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 # Verify the command line.
 die("Excess parameters on the command line.  See \"$Prog -h\" for usage.")
@@ -136,22 +87,32 @@ die("Excess parameters on the command line.  See \"$Prog -h\" for usage.")
 die("Invalid number \"$opt_C\" for -C.  See \"$Prog -h\" for usage.")
 	unless ($opt_C =~ /^\s*\d+\s*$/);
 
-# Add any additional file type exclusions.
-foreach (@opt_X) {
-	$TypeExclude{$_}=1;
-}
-
 # ---------------------------------------------------------
 #
-# Delete any failed back-ups.
+# Identify the output directory and create it if necessary.
 #
-RunDangerousCmd("rm -rf $BaseDir/*.bad 2> /dev/null");
+my $OutputDir;
+if ($opt_D) {
+	$OutputDir = $opt_D;
+}
+else {
+	$OutputDir=`date +$BaseDir/%m-%d`;
+}
+chomp $OutputDir;
+
+RunDangerousCmd("mkdir -p --mode=750 $OutputDir") unless (-e $OutputDir);
+RunDangerousCmd("chgrp sys $OutputDir") &&
+	die "Unable to set group for $OutputDir: $!\n";
+if (! $opt_t ) {
+	chdir $OutputDir || die "Unable to change directories to $OutputDir: $!\n";
+}
+
 
 # ---------------------------------------------------------
 #
 # Keep the most recent $opt_C back-ups.
 #
-if (open(my $FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
+if (open($FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
         my $Count=0;
 	while (<$FHLS>) {
 		$Count++;
@@ -164,67 +125,110 @@ if (open(my $FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
 
 # ---------------------------------------------------------
 #
-# Create the output directory if necessary.
+# Gather mount-point data.
 #
-RunDangerousCmd("mkdir -p --mode=750 $OutputDir") unless (-e $OutputDir);
-RunDangerousCmd("chgrp sys $OutputDir") &&
-	die "Unable to set group for $OutputDir: $!\n";
-if (! $opt_t ) {
-	chdir $OutputDir || die "Unable to change directories to $OutputDir: $!\n";
+my %MountList;
+if (open($FHMOUNT,'mount |')) {
+	while (<$FHMOUNT>) {
+		chomp;
+		next unless (/^(.*?) on (.*) type (\S+)\s/);
+		@{$MountList{$2}}=($1,$3);
+	}
+}
+else {
+	die "Unable to issue mount command: $!\n";
 }
 
 # ---------------------------------------------------------
 #
-# Use the mount command to determine what to back up.
+# Interpret the exclude list (excluded mount points vs exclude patterns).
 #
-if (open(my $FHMOUNT,'mount |')) {
-	MOUNT: while (<$FHMOUNT>) {
-		chomp;
+my %ExcludedMounts;
+my %specific_excluded_patterns;
+my @general_exclude_patterns;
 
-		# Skip transient file systems based on type.
-		/\stype\s+(\S+)\s/;
-		next if ($TypeExclude{$1});
+foreach my $item (@opt_x) {
+	if (defined($MountList{$item})) {
+		# This is a mount point.  Exclude it.
+		$ExcludedMounts{$item} = 1;
+	}
+	elsif ($item =~ m'^/') {
+		# This is an absolute path.  Figure out which mount point
+		# it applies to, and add it to the list for that mount.
+		my $ParentMount;
+		foreach my $MountPoint (sort(keys(%MountList))) {
+			my $TmpMountPoint = ($MountPoint eq '/'?'/':"$MountPoint/");
+			if ($item =~ m"^$TmpMountPoint") {
+				$ParentMount = $TmpMountPoint;
+			}
+		}
+		$item =~ s"^$ParentMount"./";
+		push @{$specific_excluded_patterns{$ParentMount}},$item;
+		print "debug:   added $item to excluded patterns for $ParentMount\n";
+	}
+	else {
+		# It's a general exclude pattern.  Add it to the general list.
+		push @general_exclude_patterns,$item;
+		print "debug:   added $item to general excluded list\n";
+	}
+}
 
+# ---------------------------------------------------------
+#
+# Convert the Type exclude list into a hash for easy reference.
+#
+my %ExcludedTypes;
+foreach (@opt_X) {
+	$ExcludedTypes{$_}=1;
+}
+
+# ---------------------------------------------------------
+#
+# Now loop through the mounts, and back up the ones that haven't been excluded.
+#
+foreach my $MountPoint (sort(keys(%MountList))) {
+	my ($device,$type) = @{$MountList{$MountPoint}};
+	if ($ExcludedTypes{$type}) {
+		print "Excluding $MountPoint -- type $type listed in -X list\n" if ($opt_v or $opt_t);
+		next;
+	}
+
+	if (defined($ExcludedMounts{$MountPoint})) {
+		print "Excluding $MountPoint -- mount listed in -x list\n" if ($opt_v or $opt_t);
+		next;
+	}
+#		next if (/type (binfmt_misc|debugfs|devpts|fusectl|none|proc|securityfs|subfs|sysfs|sysfs|tmpfs|usbfs)/);
 
 		# Skip anything under /mnt as being temporary.
-		next if (m"^\S+ on /mnt/");
+#		next if (m"^\S+ on /mnt/");
 
 		# Skip our own output area.
-		my $BackupRoot = $BaseDir;
-		$BackupRoot =~ s"/[^/]*$"";		# Drop host name.
-		next if (m"^\S+ on $BackupRoot");
+#		next if (m"^\S+ on $BaseDir");
 		
-		# Get the mount point, and compare to our exclude list.
-		my $MountPt;
-		($MountPt)=(split(/\s+/))[2];
-		foreach my $ExcludedMount (@opt_x) {
-			next MOUNT if ($MountPt =~ m"^$ExcludedMount(/.*)?$");
-		}
+	# Build the output file name.
+	my $OutputFile;
+	my $OutputName;
+        ($OutputName="$MountPoint") =~ s"^.*/"";
+        $OutputName="root" if ($OutputName eq '');
+        $OutputFile="$OutputName.tgz";
 
-		# Build the output file name.
-		my $OutputFile;
-		my $OutputName;
-                ($OutputName="$MountPt") =~ s"^.*/"";
-                $OutputName="root" if ($OutputName eq '');
-                $OutputFile="$OutputName.tgz";
+	# Build the exclude pattern list.
+	my $ExcludeParm = join(' ',
+		map(qq<"--exclude=$_">,(@general_exclude_list,@{$specific_exclude_list{$MountPoint}})));
 
-		# Do it.
-		my $ExcludeFile = "$BaseDir/$OutputName.exclude";
-		if (-f $ExcludeFile) {
-			$ExcludeFile = "-X $ExcludeFile";
-		} else {
-			$ExcludeFile = "";
-		}
+	# Do it.
+#		my $ExcludeFile = "$BaseDir/$OutputName.exclude";
+#		if (-f $ExcludeFile) {
+#			$ExcludeFile = "-X $ExcludeFile";
+#		} else {
+#			$ExcludeFile = "";
+#		}
 			
-		print "  Backing up $MountPt\n";
-                RunDangerousCmd("tar -cz --one-file-system " .
-			"-f $OutputDir/$OutputFile " .
-			"-C $MountPt " .
-                        "$ExcludeFile ."
-                        );
-	}
-} else {
-	die "Unable to issue mount command: $!\n";
+        RunDangerousCmd("tar -cz --one-file-system " .
+		"-f $OutputDir/$OutputFile " .
+		"-C $MountPoint " .
+		"$ExcludeParm ."
+	);
 }
 
 # ---------------------------------------------------------
@@ -241,20 +245,6 @@ if ($ExitCode) {
 
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
-
-# ---------------------------------------------------------
-#
-# Cleanup - runs at end of job.
-#
-sub Cleanup {
-	my ($ExitCode,$LogFile,$ErrorsDetected) = @_;
-	if ($ExitCode && $OutputDir) {
-		warn "Job failed with exit code $ExitCode -- moving $OutputDir to $OutputDir.bad\n";
-		RunDangerousCmd("mv $OutputDir $OutputDir.bad");
-	}
-	
-	return $ExitCode
-}
 
 # ---------------------------------------------------------
 #
@@ -291,7 +281,6 @@ sub RunDangerousCmd {
 #
 sub opt_h {
 
-	my $ExcludeTypes = join(', ',sort(keys(%TypeExclude)));
 	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
 	print PAGENATER <<"ENDUSAGE";
 $Prog - Back-up key file-systems
@@ -316,10 +305,15 @@ Flags:
 			the command line at this point.
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
-	-x mountpoint: 	eXclude: exclude this mount point.  May be repeated.
-	-X mounttype:	eXclude: exclude any mount points of this type (e.g.
-			"ext4").  May be repeated.  This list is prepopulated
-			with $ExcludeTypes.
+	-x item: 	eXclude: Exclude this item.  "item" may be:
+				- a mount point (e.g. "/tmp").  Must start with
+				  a /.
+				- a file or file pattern within a specific mount
+				  point (e.g. "/tmp/*~".).  Must start with a /.
+				- a generic file pattern applying to all mount
+				  points (e.g. "*~", ".gvfs");
+	-X type:	eXclude type: excludes a particular file system type
+			(e.g. "proc", "cdrfs", "ext2").
 
 Parameters:
 	(none)
@@ -335,6 +329,7 @@ ENDUSAGE
 close PAGENATER;
 exit 1;
 }
+
 __END__
 #
 # ---------------------------------------------------------
@@ -358,15 +353,15 @@ __END__
 # The following are normal messages we don't need to see.
 #
 IGNORE	/^tar: .* socket ignored$/
-IGNORE	"^\s*ls: (cannot access )?/usr/local/backup/\S+/\[01\]\[0-9\]-\[0-3\]\[0-9\]: No such file or directory$"
+SHOW	/^.*.: file changed as we read it$/
+IGNORE	"^\s*ls: cannot access /usr/local/backup/\S+/\[01\]\[0-9\]-\[0-3\]\[0-9\]: No such file or directory$"
 IGNORE	"^tar: Removing leading `/' from member names$"
-IGNORE	"^tar: .*: file changed as we read it$"i
-IGNORE	"^tar: .*: file removed before we read it$"i
+SHOW	"^tar: .*: file changed as we read it$"
 IGNORE	"^tar: .*: Cannot stat: No such file or directory$"
 IGNORE	"^tar: Error exit delayed from previous errors$"
 IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+ s(econds)?, \d+(\.\d+)? [kmgKMG]B$"
-IGNORE	"^\s*512 bytes \(512 B\) copied, \d+(\.\d+)?(e-\d+)? s(econds)?, \d+(\.\d+)? [kmgKMG]B/s$"
-IGNORE	"^\s*recovery-info started on "
+IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+(e-\d+)? s, \d+(\.\d+)? [kmgKMG]B/s$"
+IGNORE	"^\s*recovery-info started on \S+ on \S+, "
 IGNORE  /^\s*$/
 #
 # These are normal messages that we want to see in the e-mail log only.
@@ -376,7 +371,6 @@ LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
-SHOW    "^\s*Backing up "
 SHOW    /^\s*Job ended normally with status 0 and signal 0$/
 SHOW    /^\s*Test:/
 SHOW    /^\s*Executing:/

@@ -301,7 +301,7 @@ IGNORE  /^\s*$/
 #
 SHOW	"^\s*Backing up \S+ to \S+ at \d+:\d+\:\d+$"
 SHOW	"^\s*Backup of \S+ finished normally at \d+:\d+:\d+$"
-LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.

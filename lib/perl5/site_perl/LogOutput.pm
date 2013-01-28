@@ -570,7 +570,7 @@ sub _LoadFilters {
 	# get flagged as errors.  Note that ignore patterns take precedence, so
 	# the caller can still choose to ignore them.
 	push @MailOnlyPatterns, '"^Job ended normally with status \d and signal \d+"';
-	push @MailOnlyPatterns, '"^\s*Job ended on \d+.\d+.\d\d\d\d"';
+	push @MailOnlyPatterns, '"^\s*Job ended on \S+, \d+.\d+.\d\d\d\d"';
 
 	# Now turn them in to patterns within three anonymous subroutines.  This
 	# means the patterns only get compiled once, making our pattern

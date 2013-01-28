@@ -242,14 +242,14 @@ IGNORE	"^tar: /var/lib/mysql/maia/maia_mail.MYD: file changed as we read it$"
 IGNORE	"^tar: Error exit delayed from previous errors$"
 IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+ seconds, \d+\.\d+ [kmgKMG]B$"
 IGNORE	"^\s*512 bytes \(512 B\) copied, \d+.\d+(e-\d+)? s, \d+\.\d+ [kmgKMG]B/s"
-IGNORE	"^\s*recovery-info started on \S+ on"
+IGNORE	"^\s*recovery-info started on "
 IGNORE  /^\s*$/
 IGNORE	"ls: cannot access /usr/local/backup/ldap/[01][0-9]-[0-3][0-9].ldif: No such file or directory$"
 IGNORE	"bdb_monitor_db_open: monitoring disabled; configure monitor database to enable"
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
-LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.

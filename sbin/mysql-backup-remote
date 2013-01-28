@@ -199,7 +199,7 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 #
-IGNORE	"^\s*mysql-backup started on \S+ on ../../.... at ..:..:..$"
+LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 SHOW	"^\s*-{30} \S+\s+-{30}$"
 SHOW	"^\s*-+$"
 IGNORE	"^\s*Command: /usr/local/sbin/mysql-backup"

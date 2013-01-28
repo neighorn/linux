@@ -265,7 +265,7 @@ IGNORE	/^\s*$/
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
-LOGONLY	"^\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY	/^Command: /
 #
 # These are normal messages that we want to see.
