@@ -22,6 +22,7 @@ use Data::Dumper::Simple;
 use Text::ParseWords;
 use Sys::Syslog;
 use File::Glob 'bsd_glob';
+use Mail::Sendmail;
 
 # 
 # Prototype declarations.
@@ -52,6 +53,7 @@ our $Root;                 # Current root dir (ARGV item).
 our $LastCheckpoint = time();	# Time of last checkpoint.
 our $WriteCheckpoint = 0;  # 1 = time to write a checkpoint file.
 our @OrigARGV = @ARGV;	   # For checkpoint.
+our @ARGV_Copy;		   # In case CheckInterrupt has to reuse @ARGV.
 our $AlarmInterval;	   # How long between alarms.
 our $ArgCount;		   # How many args we have, for stats.
 our $CurrentArg = 0;	   # Which arg we're on, for stats.
@@ -121,7 +123,6 @@ while (@ARGV == 1 and -d $ARGV[0]) {
 	# Only one argument.  Move down one leve.
 	@ARGV = bsd_glob($ARGV[0] . '/*');
 }
-my @ARGV_Copy;		# In case CheckInterrupt has to reuse @ARGV.
 if ($Opt{reverse}) {
 	@ARGV_Copy = reverse(@ARGV);
 }
@@ -167,11 +168,7 @@ if ($LOG_FH) {
 my $Elapsed = ElapsedTime();
 my $Summary = strftime( "Done @ %T on %D.  Elapsed time = $Elapsed.", localtime());
 print "\n$Summary\n";
-if ($Opt{mail}) {
-	my @MailAddresses = @{$Opt{mail}};
-	$Summary .= "\n$LastStats\n";
-	system("echo '$Summary' | mail -s '$Prog done' " . join(' ',@MailAddresses));
-}
+SendMail($Summary) if ($Opt{mail});
 exit 0;
 
 
@@ -396,8 +393,9 @@ sub ElapsedTime () {
 	$String = sprintf(":%02d",$Elapsed % $_) . $String;
         $Elapsed = int($Elapsed/$_);
     }
-    $String = "$Elapsed" . $String;
     $String =~ s/^[0:]*//;		# Remove high order zeros.
+    $String = '0' unless ($String);	# Be sure to leave *something*.
+    $String = "$Elapsed" . $String;
     return $String;
 }
 
@@ -840,6 +838,32 @@ sub ManageStats {
 }
 
 
+#
+# Send mail
+#
+sub SendMail {
+	$Summary = shift;
+
+	my $domain = `domainname`;
+	chomp $domain;
+	$domain = "localhost" unless ($domain and $domain ne '(none)');
+	my $sender = ($ENV{LOGNAME} || $ENV{USER} || getpwuid($<)) . "\@$domain";
+	my @MailAddresses = @{$Opt{mail}};
+	my %mail = (
+		SMTP_Server	=> 'localhost',
+		To 		=> join(',',@MailAddresses),
+		From		=> $sender,
+		Subject		=> "Subject: dirvish-dedup done",
+		Message		=> 
+			"Dedup complete for "
+			. join(", ", @ARGV_Copy)
+			. "\n"
+			. "$LastStats\n"
+			. "$Summary\n"
+	);
+	sendmail(%mail)
+		or warn "Unable to send e-mail: $!\n";
+}
 
 #
 # FormatStorage - 
