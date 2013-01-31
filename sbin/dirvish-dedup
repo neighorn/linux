@@ -853,7 +853,7 @@ sub SendMail {
 		SMTP_Server	=> 'localhost',
 		To 		=> join(',',@MailAddresses),
 		From		=> $sender,
-		Subject		=> "Subject: dirvish-dedup done",
+		Subject		=> "dirvish-dedup done",
 		Message		=> 
 			"Dedup complete for "
 			. join(", ", @ARGV_Copy)
