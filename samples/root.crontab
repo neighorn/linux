@@ -1,17 +1,24 @@
 # Set up the environment
 PERL5LIB="/usr/local/lib/perl5/site_perl"
 #
+# Clean up tmp files
+00 01 * * * /usr/bin/find /tmp /var/tmp /var/preserve -type f -mtime +8 -exec echo Deleting {} \; -delete 2>&1 | /usr/bin/logger -t cron.tmp
+00 02 * * * /usr/bin/find /tmp /var/tmp /var/preserve -depth -type d -empty \( -wholename /tmp -prune -o -wholename /var/tmp -prune -o -wholename /var/preserve -prune \) -o -exec echo Deleting {} \; -delete 2>&1 | /usr/bin/logger -t cron.tmp2
+#
+# Clean up log files that aren't beeing cleaned some other way.
+00 01 * * * /usr/bin/find /var/log /var/spool/amavis/virusmails -type f -mtime +60 -exec echo Deleting {} \; -exec rm {} \; 2>&1 | /bin/logger -t cron.logs
+#
 # Monitor software RAID devices.
-05 * * * * /usr/local/sbin/checkmd > /dev/null
+#05 * * * * /usr/local/sbin/checkmd > /dev/null
 #
 # Update ClamAV
-12 * * * * /usr/local/bin/freshclam > /dev/null
+#12 * * * * /usr/local/bin/freshclam > /dev/null
 #
 # Local virus scan.
-00 18 * * 0 /usr/local/sbin/scanav > /dev/null
+#00 18 * * 0 /usr/local/sbin/scanav > /dev/null
 #
 # Keep mrtg up to date.
-00-59/5 * * * * (/usr/local/sbin/sensors-to-mrtg -e sysadmin || /usr/local/sbin/startsys lm_sensors) && /usr/bin/mrtg /usr/local/etc/mrtg/mrtg.cfg > /dev/null
+#00-59/5 * * * * (/usr/local/sbin/sensors-to-mrtg -e sysadmin || /usr/local/sbin/startsys lm_sensors) && /usr/bin/mrtg /usr/local/etc/mrtg/mrtg.cfg > /dev/null
 #
 # Document disk space utilization.
 05 0,6,12,18 * * * /bin/df -hP | /bin/grep -vE '/mnt/|/cd-roms/' | /bin/logger -t cron.df
@@ -21,9 +28,6 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 #
 # Check on key system services
 05 * * * * /usr/local/sbin/checkall > /dev/null
-#
-# Clean up log files that aren't beeing cleaned some other way.
-00 01 * * * /usr/bin/find /var/log /var/spool/amavis/virusmails -type f -mtime +60 -exec echo Deleting {} \; -exec rm {} \; 2>&1 | /bin/logger -t cron.logs
 #
 # On-site back-ups
 00 18 * * * ls /mnt/dirvish/offsite* > /dev/null 2>&1;/usr/local/sbin/dirvish-expire 2>&1 | /usr/local/bin/ir -lt dirvish-expire
