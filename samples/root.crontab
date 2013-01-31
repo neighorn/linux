@@ -3,7 +3,7 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 #
 # Clean up tmp files
 00 01 * * * /usr/bin/find /tmp /var/tmp /var/preserve -type f -mtime +8 -exec echo Deleting {} \; -delete 2>&1 | /usr/bin/logger -t cron.tmp
-00 02 * * * /usr/bin/find /tmp /var/tmp /var/preserve -depth -type d -empty \( -wholename /tmp -prune -o -wholename /var/tmp -prune -o -wholename /var/preserve -prune \) -o -exec echo Deleting {} \; -delete 2>&1 | /usr/bin/logger -t cron.tmp2
+00 02 * * * /usr/bin/find /tmp /var/tmp /var/preserve -depth -type d -mtime +8 -empty \( -wholename /tmp -prune -o -wholename /var/tmp -prune -o -wholename /var/preserve -prune \) -o -exec echo Deleting {} \; -delete 2>&1 | /usr/bin/logger -t cron.tmp2
 #
 # Clean up log files that aren't beeing cleaned some other way.
 00 01 * * * /usr/bin/find /var/log /var/spool/amavis/virusmails -type f -mtime +60 -exec echo Deleting {} \; -exec rm {} \; 2>&1 | /bin/logger -t cron.logs
