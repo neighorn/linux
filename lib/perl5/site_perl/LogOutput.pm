@@ -569,6 +569,7 @@ sub _LoadFilters {
 	# Add our standard messages on the end of the normal list, so they don't
 	# get flagged as errors.  Note that ignore patterns take precedence, so
 	# the caller can still choose to ignore them.
+	push @MailOnlyPatterns, '"^\s*\S+ started on \S+ on \S+, \d\d/\d\d/\d\d\d\d at \d\d:\d\d:\d\d$"';
 	push @MailOnlyPatterns, '"^Job ended normally with status \d and signal \d+"';
 	push @MailOnlyPatterns, '"^\s*Job ended on \S+, \d+.\d+.\d\d\d\d"';
 
