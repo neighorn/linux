@@ -123,6 +123,7 @@ LogOutput({
 	ALWAYS_PAGE_LIST => $opt_p,
 	ERROR_PAGE_LIST => $opt_P,
 	NORMAL_RETURN_CODES => [0,1],
+	MAIL_FILE_PREFIX => '%T',
 });
 
 # Verify the command line.
