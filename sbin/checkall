@@ -229,6 +229,13 @@ if (@NowFail+@NowOK+$Renotify > 0 and @opt_P > 0 and ! $opt_t) {
 
 	# Build the e-mail text.	
 	my($MAIL,$MailFile) = tempfile();
+	my $ToList=join(', ',@opt_P);
+	print $MAIL <<ENDHeaders;
+X-Jobsummary: Name=checkall Status=8 RunTime=0:0:0:20
+To: $ToList
+Subject: $opt_s
+
+ENDHeaders
 	
 	if (@NowFail) {
 		print $MAIL "Now failing: " . join(', ',@NowFail) . "\n";
@@ -243,7 +250,7 @@ if (@NowFail+@NowOK+$Renotify > 0 and @opt_P > 0 and ! $opt_t) {
 	# Send the e-mail.
 	printf $MAIL strftime("\nFrom $HostName at %T on %D\n",localtime());
 	close $MAIL;
-	system("sed 's/  */ /g' $MailFile | mail -s \"$opt_s\" " . join(' ',@opt_P)) && warn "Unable to send mail: $!\n";
+	system("sed 's/  */ /g' $MailFile | sendmail " . join(' ',@opt_P)) && warn "Unable to send mail: $!\n";
 	unlink $MailFile;
 	
 	# Update all the notification times.
