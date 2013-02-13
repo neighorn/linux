@@ -1,6 +1,7 @@
 backup/
 dirvish/
 etc/*
+lib/perl5/site_perl/LogOutput_cfg.pm
 man/
 !*.sample
 *~
