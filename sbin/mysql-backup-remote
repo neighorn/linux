@@ -199,7 +199,7 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 #
-LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
+LOGONLY "^\S+ started on \S+ on( \S+,)? \d+/\d+/\d+ at \d+:\d+:\d+"
 SHOW	"^\s*-{30} \S+\s+-{30}$"
 SHOW	"^\s*-+$"
 IGNORE	"^\s*Command: /usr/local/sbin/mysql-backup"
