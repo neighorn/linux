@@ -91,8 +91,11 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 @Machines = @Parms if (@Parms);
 foreach my $Machine (@Machines) {
+	local $opt_t=$main::opt_t;
 	printf "%s %-10.10s %s\n", '-'x30, $Machine, '-'x30;
-	RunDangerousCmd("ssh $Machine /usr/local/sbin/mysql-backup -F /usr/local/etc/filter-accept-all.filter");
+	my $TestFlag=($opt_t?'-t':' ');
+	$opt_t='';
+	RunDangerousCmd("ssh $Machine /usr/local/sbin/mysql-backup $TestFlag -F /usr/local/etc/filter-accept-all.filter");
 	warn "ssh to $Machine failed with status $?: $@" if ($?);
 }
 print '-'x72 . "\n";
@@ -199,22 +202,19 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 #
-LOGONLY "^\S+ started on \S+ on( \S+,)? \d+/\d+/\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*\S+ started on \S+ on \d+/\d+/\d+"
+LOGONLY "^\s*\S+ started on \S+ on( \S+,)? \d+/\d+/\d+ at \d+:\d+:\d+"
+LOGONLY /^\s*Command: /
 SHOW	"^\s*-{30} \S+\s+-{30}$"
 SHOW	"^\s*-+$"
 IGNORE	"^\s*Command: /usr/local/sbin/mysql-backup"
 IGNORE	"^\s*$"
 SHOW	"^\s*[,\d]+ bytes written to "
-IGNORE	"^\s*Job ended on ../../.... at ..:..:.. - run time: "
+IGNORE	"^\s*Job ended on( \S+,)? ../../.... at ..:..:.. - run time: "
 SHOW	"^\s*Job ended normally with status 0 and signal 0$"
 # The following are normal messages we don't need to see.
 #
 IGNORE  /^\s*$/
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
-LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
