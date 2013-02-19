@@ -140,83 +140,100 @@ my $PriorDay="";
 my $TimeStamp;
 my $RecCount=0;
 my $BlockInterval=300;		# Write records every 5 minutes.
+my $FH;
+my $OpenName;
 
-@ARGV = @Parms;
-while (<>) {
-	chomp;
-	$RecCount++;
-	next unless (/^(...) ([1-3 ][0-9]) (\d\d):(\d\d):(\d\d)/);
-	my($Month,$Day,$Hour,$Minute,$Second) = ($MonthTable{$1},$2,$3,$4,$5);
-	my $TimeStamp = timelocal($Second,$Minute,$Hour,$Day,$MonthTable{$1},$opt_Y-1900);
-	if (int($TimeStamp/$BlockInterval) != $PriorTimeBlock) {
-		# Report on this 5-minute block.
-		UpdateRRD($RRDFile,$PriorTimeStamp,%Counts) if ($PriorTimeStamp);
-		# Add this block into the totals for the day.
-		foreach (keys(%Counts)){
-			$DayCounts{$_} += $Counts{$_};
-			$Counts{$_} = 0;
-		}
-		$PriorTimeBlock = int($TimeStamp/$BlockInterval);	# Remember we're in a new time block.
+foreach my $FileName (@Parms) {
+	if ($FileName =~ /.xz$/) {
+		$OpenName = "xzcat $FileName |";
 	}
-	if ("$Month/$Day/$opt_Y" ne $PriorDay) {
-		# We're in a new day.  Print reports for yesterday.
-		PrintReport($PriorTimeStamp,\%DayCounts,\%Destinations,\%RBL) if ($PriorDay);
-		# Reset daily counts.
-		foreach (%DayCounts) {$_ = 0};
-		%Destinations = ();
-		%RBL = ();
-		$RecCount=0;
-		$PriorDay = "$Month/$Day/$opt_Y";
+	elsif ($FileName =~ /.gz$/) {
+		$OpenName = "gunzip -c $FileName |";
 	}
-	$PriorTimeStamp=$TimeStamp;
-	given ($_) {
-		when (/postfix\/smtpd\[\d+\]: connect from \S+\[(\d+\.\d+\.\d+\.\d+)\]/) {
-			$Counts{Inbound_Connections}++ unless ($1 =~ /$ConnectExclude/o); # Counts if it's not internal.
-		}
-		when (/smtpd.*NOQUEUE: reject:.*Client host.*blocked using (\S+?);/) {
-			$Counts{RBL_Total}++;
-			if (exists($RBL{$1})) {
-				$RBL{$1}++;
+	else {
+		$OpenName = "< $FileName";
+	}
+	if (! open($FH,$OpenName)) {
+		warn "Unable to open $FileName: $!\n";
+		next;
+	}
+	
+	while (<$FH>) {
+		chomp;
+		$RecCount++;
+		next unless (/^(...) ([1-3 ][0-9]) (\d\d):(\d\d):(\d\d)/);
+		my($Month,$Day,$Hour,$Minute,$Second) = ($MonthTable{$1},$2,$3,$4,$5);
+		my $TimeStamp = timelocal($Second,$Minute,$Hour,$Day,$MonthTable{$1},$opt_Y-1900);
+		if (int($TimeStamp/$BlockInterval) != $PriorTimeBlock) {
+			# Report on this 5-minute block.
+			UpdateRRD($RRDFile,$PriorTimeStamp,%Counts) if ($PriorTimeStamp);
+			# Add this block into the totals for the day.
+			foreach (keys(%Counts)){
+				$DayCounts{$_} += $Counts{$_};
+				$Counts{$_} = 0;
 			}
-			else {
-				$RBL{$1}=1;
+			$PriorTimeBlock = int($TimeStamp/$BlockInterval);	# Remember we're in a new time block.
+		}
+		if ("$Month/$Day/$opt_Y" ne $PriorDay) {
+			# We're in a new day.  Print reports for yesterday.
+			PrintReport($PriorTimeStamp,\%DayCounts,\%Destinations,\%RBL) if ($PriorDay);
+			# Reset daily counts.
+			foreach (%DayCounts) {$_ = 0};
+			%Destinations = ();
+			%RBL = ();
+			$RecCount=0;
+			$PriorDay = "$Month/$Day/$opt_Y";
+		}
+		$PriorTimeStamp=$TimeStamp;
+		given ($_) {
+			when (/postfix\/smtpd\[\d+\]: connect from \S+\[(\d+\.\d+\.\d+\.\d+)\]/) {
+				$Counts{Inbound_Connections}++ unless ($1 =~ /$ConnectExclude/o); # Counts if it's not internal.
 			}
-		}
-		when (/smtpd.*NOQUEUE: reject:.*http:\/\/www.openspf.org\//) {
-			$Counts{SPF_Blocked}++;
-		}
-		when (/smtpd.*NOQUEUE: reject:.*Recipient address rejected: Greylisted/) {
-			$Counts{Postgrey_Blocked}++;
-		}
-		when (/smtpd.*NOQUEUE: reject:/) {
-			$Counts{Postfix_Blocked}++;
-		}
-		when (/postgrey: action=pass, reason/) {
-			$Counts{Postgrey_Allowed}++;
-		}
-		when (/amavis\[\d+\]: .* Blocked INFECTED/) {
-			$Counts{Viruses_Blocked}++;
-		}
-		when (/amavis\[\d+\]: .* Blocked /) {
-			$Counts{Amavis_Blocked}++;
-		}
-		when (/amavis\[\d+\]: .* Passed SPAMMY,/) {
-			$Counts{Amavis_SPAMMY}++;
-		}
-		when (m"postfix/local\[\d+\]: .* to=<(\S+)\@.* relay=local, .* status=sent \(delivered") {
-			$Counts{Delivered_Local}++;
-			my $Dest = lc($1);
-			if (defined($Destinations{$Dest})) {
-				$Destinations{$Dest}++;
+			when (/smtpd.*NOQUEUE: reject:.*Client host.*blocked using (\S+?);/) {
+				$Counts{RBL_Total}++;
+				if (exists($RBL{$1})) {
+					$RBL{$1}++;
+				}
+				else {
+					$RBL{$1}=1;
+				}
 			}
-			else {
-				$Destinations{$Dest}=1;
+			when (/smtpd.*NOQUEUE: reject:.*http:\/\/www.openspf.org\//) {
+				$Counts{SPF_Blocked}++;
 			}
+			when (/smtpd.*NOQUEUE: reject:.*Recipient address rejected: Greylisted/) {
+				$Counts{Postgrey_Blocked}++;
+			}
+			when (/smtpd.*NOQUEUE: reject:/) {
+				$Counts{Postfix_Blocked}++;
+			}
+			when (/postgrey: action=pass, reason/) {
+				$Counts{Postgrey_Allowed}++;
+			}
+			when (/amavis\[\d+\]: .* Blocked INFECTED/) {
+				$Counts{Viruses_Blocked}++;
+			}
+			when (/amavis\[\d+\]: .* Blocked /) {
+				$Counts{Amavis_Blocked}++;
+			}
+			when (/amavis\[\d+\]: .* Passed SPAMMY,/) {
+				$Counts{Amavis_SPAMMY}++;
+			}
+			when (m"postfix/local\[\d+\]: .* to=<(\S+)\@.* relay=local, .* status=sent \(delivered") {
+				$Counts{Delivered_Local}++;
+				my $Dest = lc($1);
+				if (defined($Destinations{$Dest})) {
+					$Destinations{$Dest}++;
+				}
+				else {
+					$Destinations{$Dest}=1;
+				}
+			}
+			when (/postfix\/smtp\[\d+\]: .*relay=(?!(127\.0\.0\.\d+|192\.168\.\d+\.\d+|172\.1[6-9]\.\d+\.\d+|172\.2\d\.\d+\.\d+|172\.3[0-2]\.\d+\.\d+)).* status=sent/) {
+				$Counts{Delivered_Remote}++;
+			}
+			default { print "debug: $_\n" if ($opt_I);}
 		}
-		when (/postfix\/smtp\[\d+\]: .*relay=(?!(127\.0\.0\.\d+|192\.168\.\d+\.\d+|172\.1[6-9]\.\d+\.\d+|172\.2\d\.\d+\.\d+|172\.3[0-2]\.\d+\.\d+)).* status=sent/) {
-			$Counts{Delivered_Remote}++;
-		}
-		default { print "debug: $_\n" if ($opt_I);}
 	}
 }
 
