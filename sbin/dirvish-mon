@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 while ps -ef | grep dirvish | grep -qv grep
 do
 	now=`date +%T`
