@@ -112,9 +112,6 @@ die "No BANKS defined in configuration file(s)"
 		and $Config{BANKS});
 my @Banks = shellwords(($Config{BANKS}));
 
-die "Invalid value $opt_S for -S -- must be numeric\n"
-	if ($opt_S and $opt_S !~ /^\d+$/);
-
 foreach (@opt_B) {
 	# Run any initialization scripts.
 	print "Running: $_\n";
@@ -256,30 +253,24 @@ sub Summarize {
 		$NewSize=0;
 		find(\&FoundItem,$Directory);
 		my $WarnText='';
-		if ($opt_S and $TotalSize > $opt_S) {
-			$WarnText = "Total size exceeds threshold of " . commify($opt_S) . "\n";
+		if ($opt_S and $NewSize > $opt_S) {
+			$WarnText = "New item size of " . FormatSize($NewSize) . " exceeds alert threshold of " . FormatSize($opt_S) . ".\n";
 		}
-		$TotalSize=$TotalSize/1024/1024;
-		my $TotalUnits='M';
-		if ($TotalSize > 1024) {
-			$TotalSize /= 1024;
-			$TotalUnits='G';
-		}
-		$NewSize=$NewSize/1024/1024;
-		my $NewUnits='M';
-		if ($NewSize > 1024) {
-			$NewSize /= 1024;
-			$NewUnits='G';
-		}
+		$TotalSize=FormatSize($TotalSize);
+		$NewSize=FormatSize($NewSize);
 		printf "$Target $Directory: " . 
-			"Total Items: %d (%.1f%s), " .
-			"New Items: %d (%.1f%s)\n",
-			$TotalItems, $TotalSize, $TotalUnits,
-			$NewItems, $NewSize, $NewUnits;
+			"Total Items: %d (%s), " .
+			"New Items: %d (%s)\n",
+			$TotalItems, $TotalSize,
+			$NewItems, $NewSize;
 		print $WarnText if ($WarnText);
 	}
 }
 
+
+#
+# FoundItem - process a found file
+#
 sub FoundItem {
 	
 	my($Links);			# Number of hardlinks.
@@ -293,6 +284,38 @@ sub FoundItem {
 		$NewItems++;
 		$NewSize+=$Size;
 	}
+}
+
+
+#
+# FormatSize - standardize formatting size.
+#
+sub FormatSize {
+
+	my $Size = shift;
+	my $Unit = 'B';
+	foreach (qw(K M G T)) {
+		if ($Size >= 1024) {
+			$Size = $Size/1024;
+			$Unit = $_;
+		}
+		else {
+			last;
+		}
+	}
+	$Size = sprintf("%.1f%s",$Size,$Unit);
+	$Size =~ s/\.0// if ($Size =~ /\d+\.0.$/);	# Normalize number.
+	return $Size;
+}
+
+
+#
+# commify - insert commas in numbers.
+#
+sub commify {
+	local $_ = shift;
+	1 while s/^(-?\d+)(\d{3})/$1,$2/;
+	return $_;
 }
 
 #
