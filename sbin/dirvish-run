@@ -31,7 +31,7 @@ our $opt_O;
 our $opt_p;
 our $opt_P;
 our $opt_R;
-our $opt_s;
+our $opt_S;
 our $opt_t;			# Test
 our $opt_v;
 our $opt_N = '';
@@ -49,7 +49,7 @@ my %FileSystems;
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-$OptSpec='B=l D=l h m=l N=s e=l O=s p=l P=l s R t v';
+$OptSpec='B=l D=l h m=l N=s e=l O=s p=l P=l s S=s R t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -111,6 +111,9 @@ die "No BANKS defined in configuration file(s)"
 		and exists($Config{BANKS})
 		and $Config{BANKS});
 my @Banks = shellwords(($Config{BANKS}));
+
+die "Invalid value $opt_S for -S -- must be numeric\n"
+	if ($opt_S and $opt_S !~ /^\d+$/);
 
 foreach (@opt_B) {
 	# Run any initialization scripts.
@@ -252,6 +255,10 @@ sub Summarize {
 		$NewItems=0;
 		$NewSize=0;
 		find(\&FoundItem,$Directory);
+		my $WarnText='';
+		if ($opt_S and $TotalSize > $opt_S) {
+			$WarnText = "Total size exceeds threshold of " . commify($opt_S) . "\n";
+		}
 		$TotalSize=$TotalSize/1024/1024;
 		my $TotalUnits='M';
 		if ($TotalSize > 1024) {
@@ -269,6 +276,7 @@ sub Summarize {
 			"New Items: %d (%.1f%s)\n",
 			$TotalItems, $TotalSize, $TotalUnits,
 			$NewItems, $NewSize, $NewUnits;
+		print $WarnText if ($WarnText);
 	}
 }
 
@@ -315,6 +323,30 @@ sub RunDangerousCmd {
 }
 
 
+
+#
+# opt_S - size threshold
+#
+sub opt_S {
+	my $Value = shift;
+	if ($Value =~ /^(\d+)K$/i) {
+		$opt_S = $1*1024;
+	}
+	elsif ($Value =~ /^(\d+)M$/i) {
+		$opt_S = $1*1024*1024;
+	}
+	elsif ($Value =~ /^(\d+)G$/i) {
+		$opt_S = $1*1024*1024*1024;
+	}
+	elsif ($Value =~ /^(\d+)T$/i) {
+		$opt_S = $1*1024*1024*1024*1024;
+	}
+	else {
+		die <Invalid value "$opt_S" for -S.\n>;
+	}
+}
+
+
 #
 # opt_h: Usage
 #
@@ -328,13 +360,14 @@ Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v
 	$Prog -h
 
 Flags:
-	-D parms	Dirvish: Pass the following parameters and options
+	-B script:	Begin: Execute "script" before starting the job.
+	-D parms:	Dirvish: Pass the following parameters and options
 			directly to dirvish.  Spaces need to be escaped or
 			quoted.
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
-	-N text		Name: Set subject line to this.  Accepts variable subst.
+	-N text	:	Name: Set subject line to this.  Accepts variable subst.
 	-O config:      Insert the "config" configuration options from
 			$ConfigFile.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
@@ -342,6 +375,10 @@ Flags:
 	-P mailid:      Page error: Send a very brief message to this e-mail 
 			address if errors are detected in this job.
 			the command line at this point.
+	-S size	:	Size: Issue a warning if the size of the new items 
+			exceeds "size".  "size" is measured in bytes, but may
+			be followed by a unit of "k", "m", "g", or "t" 
+			(case-insensitive).
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
 	-h      :       Help: display this panel
