@@ -459,7 +459,7 @@ IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
 IGNORE	"^\s*\S+:\S+\s+.*\s+==\s+\d{4}-\d\d-\d\d \d\d:\d\d\s*$"
 #
-SHOW	"^\S+ \S+: Total Items: \d+ \(\d+\.\d[GM]\), New Items: \d+ \(\d+\.\d[GM]\)$"
+SHOW	"^\S+ \S+: Total Items: \d+ \(\d+(\.\d)?[BKGMT]\), New Items: \d+ \(\d+(\.\d)?[BKGMT]\)$"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
 SHOW	"^\s*Disk space report:$"
