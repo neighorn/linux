@@ -15,7 +15,8 @@ do
 	while read trash pid trash fh trash trash trash trash filename
 	do
 		#[[ $fh = [0-9]*r ]] || continue		# Filter out output file.
-		printf "%-s %5d %s\n" $now $pid "rsync:  $filename"
+		percent=`df -h "$filename" | awk '/dev/{print $5}'`
+		printf "%-s %5d rsync %s %s\n" $now $pid $percent "$filename"
 	done |
 	sort
 
