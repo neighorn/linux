@@ -57,7 +57,7 @@ use fields (
 	'Onok',				# Run this command when it becomes OK again.
 	'Renotifyinterval',		# How often to repeat failing notifications.
 	'Timeout',			# Timeout: time in seconds to wait for conn.
-	'Verbose',			# Verbose (unimplemented).
+	'Verbose',			# Verbose.
 );
 
 
@@ -76,6 +76,7 @@ sub new{
 	$Self->{FirstFail} = 0;				# Not failing, unless status file changes it.
 	$Self->{NextNotification} = 0;			# Ditto.
 	$Self->{Renotifyinterval} = $main::opt_R;	# Default renotify minutes.
+	$Self->{Verbose} = $main::opt_v;		# Default verbose flag.
 
 	# Set options from the caller (from the file).
 	$Self->SetOptions(\@_,\%Operators,\%Attributes);				# Run through our initialization code.

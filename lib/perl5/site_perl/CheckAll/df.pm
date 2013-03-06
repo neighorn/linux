@@ -116,10 +116,12 @@ sub Check {
 	
 	my $Status = $Self->CHECK_OK;		# Assume no errors.
 	my $Detail = '';
+	printf "\r%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
+		if ($Self->{Verbose});
 	foreach my $Target (@TargetList) {
-		print __PACKAGE__ . "::Check: $File:$Line Checking $Self->{Target}\n"
-			if ($Self->{Verbose});
 		($device,$total,$used,$free,$percent) = @{$Hash{$Target}};
+		printf "\r\%5d   Checking %s at %d%%\n", $$, $device, $percent
+			if ($Self->{Verbose});
 		if ($Self->{Maxpercent}) {
 			if (defined($percent)) {
 				if ($percent > $Self->{Maxpercent}) {

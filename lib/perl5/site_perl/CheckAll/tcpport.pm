@@ -83,23 +83,23 @@ sub Check {
 	else {
 		# We're the child.  Go test this service.
 		my $Desc = $Self->{'Desc'};
-		print "\n$$ Checking $Desc\n" if ($main::opt_v);
+		print "\n$$ Checking $Desc\n" if ($Self->Verbose);
 		my $GroupOK=$Self->CHECK_FAIL;
 		my $socket;
 		foreach (@{$Self->_TargetArray}) {
 			my($host,$port)=split(/:/);
 			# try to connect.
-			printf "\r\%5d   Checking %s:%d (%s)\n", $$,$host,$port,$Desc if ($main::opt_v);
+			printf "\r\%5d   Checking %s:%d (%s)\n", $$,$host,$port,$Desc if ($Self->Verbose);
 			if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>$Self->{'Timeout'})) {
 				# Connected OK.
-				printf "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($main::opt_v);
+				printf "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
 				close($socket);
 				$GroupOK=$Self->CHECK_OK;	# One of this target group worked.
 				last;			# Don't need to do any further checking.
 			}
 			else {
 				# Connection failing.
-				printf "\r%5d           %s FAILING: $!\n", $$,$Desc if ($main::opt_v);
+				printf "\r%5d           %s FAILING: $!\n", $$,$Desc if ($Self->Verbose);
 				close($socket) if ($socket);
 			}
 		}
