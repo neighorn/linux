@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package df;
 use base 'CheckItem';
-use fields qw(Host Port User Maxpercent);
+use fields qw(Host Port User Maxpercent Exclude);
 
 my %HostHash;	# Hash of lists of df data.
 
@@ -37,6 +37,24 @@ sub Maxpercent {
 	}
 }
 
+sub Exclude {
+	# Retrieve or validate and save the target.
+	my $Self = shift;
+
+	$Self->{Exclude} = () unless ($Self->{Exclude});
+	if (@_) {
+		my @List=split(',',shift);
+		foreach (@List) {
+			s/^\s+//;
+			s/\s+$//;
+			$Self->{Exclude}{$_}=1;
+		}
+	}
+	else {
+		return %{$Self->{Exclude}};
+	}
+}
+			
 #================================= Public Methods ===============================
 
 sub Check {
@@ -119,6 +137,7 @@ sub Check {
 	printf "\r%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
 		if ($Self->{Verbose});
 	foreach my $Target (@TargetList) {
+		next if ($Self->{Exclude}{$Target});
 		($device,$total,$used,$free,$percent) = @{$Hash{$Target}};
 		printf "\r\%5d   Checking %s at %d%%\n", $$, $device, $percent
 			if ($Self->{Verbose});
@@ -152,9 +171,9 @@ df checks on the output from a df -Pk command.
 
 =head2 Syntax
 
-  df Target=/var MaxPercent=80
-  df Target=ALL MaxPercent=90
-  df Target=/opt Host=hostname MaxPercent=70
+  df Target=/var MaxPercent=90
+  df Target=/opt Host=hostname MaxPercent=90
+  df Target=ALL MaxPercent=80 Exclude=/var,/opt
   
 
 =head2 Fields
@@ -166,6 +185,12 @@ The target field specifies a mount point to check.
 In addition, the following optional fields are supported:
 
 =over 4
+
+=item *
+
+Exclude = a comma separated list of files systems (mount points) to ignore.  This
+is primarily intended for use with a target of "ALL" to test all but a fixed
+set of file systems.
 
 =item *
 
@@ -199,7 +224,7 @@ file systems.
 
 =item *
 
-ALL may be specified to check all items reported by df, except ones using a device of "none".
+The target of "ALL" may be specified to check all items reported by df, except ones using a device of "none".
 
 =back
 

@@ -153,6 +153,7 @@ foreach my $Item (@ItemList) {
 	# Call report to issue visible status, and count failures.
 	my $Desc = $Item->Desc;
 	my $Status = $Item->Report($DescLen);
+	my $DoDownActions = 0;
 	if ($Status == 0) {
 		#CHECK_STILL_OK -- can't get constants to export.
 		# syslog('INFO','%s is still OK',$Desc)  - don't fill log with "still OK".
@@ -169,11 +170,16 @@ foreach my $Item (@ItemList) {
 				60*(defined($Item->Renotifyinterval)?$Item->Renotifyinterval:$opt_R)
 			);
 		}
-		$Errors++;
+		if ($Item->FirstNotification == 0) {
+			# This was a DelayFirstNotification target, that has remained down through the delay period.
+			$DoDownActions = 1;
+			$Item->FirstNotification($Now);
+		}
 	}
 	elsif ($Status == 2) {
 		syslog('INFO','%s', "$Desc is NOW OK")
 			if ($^O !~ /MSWin/);
+		next if ($Item->FirstNotification == 0);	# Recovered within DelayFirstNotification period.
 		push @NowOK, $Desc;
 		if (my $Action = $Item->Onok) {
 			if ($opt_t) {
@@ -196,6 +202,7 @@ foreach my $Item (@ItemList) {
 		
 		# Delay errors on first notification if DelayFirstNotification time specified.
 		if ($Item->Delayfirstnotification) {
+			$Item->FirstNotification(0);
 			$Item->NextNotification($Now + 60*$Item->Delayfirstnotification);
 			syslog('DEBUG','%s', "$Desc notification delayed per config file")
 				if ($^O !~ /MSWin/);
@@ -203,6 +210,15 @@ foreach my $Item (@ItemList) {
 		}
 
 		# Not delaying first notification.
+		$DoDownActions = 1;
+		$Item->FirstNotification($Now);
+	}
+	else {
+		die "$Item->{FILE}:$Item->{LINE} Unexpected status $Status returned.";
+	}
+
+	# Common code for "Now Down and no delay notification" or "Still down and delay time expired"
+	if ($DoDownActions) {
 		push @NowFail, $Desc;
 		if (my $Action = $Item->Onfail) {
 			if ($opt_t) {
@@ -222,9 +238,6 @@ foreach my $Item (@ItemList) {
 				60*(defined($Item->Renotifyinterval)?$Item->Renotifyinterval:$opt_R)
 		);
 		$Errors++;
-	}
-	else {
-		die "$Item->{FILE}:$Item->{LINE} Unexpected status $Status returned.";
 	}
 }
 
@@ -446,12 +459,13 @@ sub LoadPriorStatuses {
 			# Load up any items that were previously failing.
 			while (<$STATUS>) {
 				next unless
-					(/^Name=(.*), FailAt=(\d+)=\S+ \S+, NextNotify=(\d+)=\S+ \S+, LastCheck=(\d+)=\S+ \S+,?/);
-				my($Name,$FirstFail,$NextNotify,$LastCheck)=($1,$2,$3,$4);
+					(/^Name=(.*), FailAt=(\d+)=\S+ \S+, FirstNotify=(\d+)=\S+ \S+, NextNotify=(\d+)=\S+ \S+, LastCheck=(\d+)=\S+ \S+,?/);
+				my($Name,$FirstFail,$FirstNotify,$NextNotify,$LastCheck)=($1,$2,$3,$4);
 				if(exists($MapRef->{$Name})) {
-					$MapRef->{$Name}->{PriorStatus} = 8;
 					$MapRef->{$Name}->{FirstFail} = $FirstFail;
+					$MapRef->{$Name}->{FirstNotification} = $FirstNotify;
 					$MapRef->{$Name}->{NextNotification} = $NextNotify;
+					$MapRef->{$Name}->{PriorStatus} = 8;	# Must be down or it wouldn't be listed here.
 				}
 				elsif ((time()-$LastCheck)/86400 <= 60) {
 					# Not one of ours.  Must come from another config file.  Just 
@@ -481,10 +495,12 @@ sub WriteStatusFile {
 		foreach my $Item (@$ArrayRef) {
 			next if ($Item->Status eq 0);		# Skip OK services.
 			next if (ref $Item eq 'history');	# We don't track history lines.
-			printf $STATUS "Name=%s, FailAt=%d=%s, NextNotify=%d=%s, LastCheck=%d=%s, File=%s:%d\n",
+			printf $STATUS "Name=%s, FailAt=%d=%s, FirstNotify=%d=%s, NextNotify=%d=%s, LastCheck=%d=%s, File=%s:%d\n",
 				$Item->Name,
 				$Item->FirstFail,
 				strftime("%D %T",localtime($Item->FirstFail)),
+				$Item->FirstNotification,
+				strftime("%D %T",localtime($Item->FirstNotification)),
 				$Item->NextNotification,
 				strftime("%D %T",localtime($Item->NextNotification)),
 				$StartTime,

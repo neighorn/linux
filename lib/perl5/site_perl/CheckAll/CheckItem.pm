@@ -51,6 +51,7 @@ use fields (
 	'Status',			# Current status (set by Check).
 	'StatusDetail',			# Additional detail
 	'FirstFail',			# When this was first detected failing
+	'FirstNotification',		# When we first reported it down (for DelayFirstNotification).
 	'PriorStatus',			# Its prior status.  Detects "Now failing" vs "Still failing".
 	'NextNotification',		# The last time we told someone it was failing.
 	'Onfail',			# Run this command when it first fails.
