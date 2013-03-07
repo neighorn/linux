@@ -18,6 +18,7 @@ use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($RealBin $RealScript);
 use Sys::Hostname;
+use POSIX qw(strftime);
 
 # Initialize variables.
 our $Prog=$RealScript;              	# Get our name, for messages.
@@ -33,6 +34,7 @@ our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
 my $ExitCode;				# Code we'll exit with.
 #
+our $opt_f;				# -f (file) option.
 our $opt_h;				# -h (help) option.
 our $opt_e;				# -e (error mail) option.
 our $opt_m;				# -m (mail) option.
@@ -51,7 +53,7 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l t v';
+my $OptSpec='f=s e=l h m=l O=s p=l P=l t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -121,8 +123,18 @@ LogOutput({
 die("Excess parameters specified on the command line.  See \"$Prog -h\" for usage.")
 	unless (@Parms == 0);
 
+# Open the copy file if requested.
+my $COPYFILE;
+$opt_f =~ s/%U/$ENV{LOGNAME}/g;
+$opt_f = strftime($opt_f,localtime());
+if ($opt_f) {
+	warn "Unable to open $opt_f: $!" 
+	unless open($COPYFILE,'>',$opt_f);
+}
+
 my $EndOfHeaders = 0;
 foreach (@lines) {
+	print $COPYFILE $_ if ($COPYFILE);
 	$EndOfHeaders = 1 if (/^\s*$/);
 	print $_ if ($EndOfHeaders);
 }
@@ -285,7 +297,7 @@ IGNORE	"^\s*Filesystem             Size    Used   Avail Capacity  Mounted on$"
 IGNORE	"^\s*devfs\s+[0-9.]+.\s+[0-9.]+.\s+[0-9.]+.\s+\d+%\s+/dev$"
 IGNORE	"^\s*\S+\s+[0-9.]+.\s+[0-9.]+.\s+[0-9.]+.\s+(\d+|[0-8]\d+|9[0-4])%\s+\S+$"
 IGNORE	"^\s*NAME\s*SIZE\s+ALLOC\s+FREE\s+CAP\s+DEDUP\s+HEALTH\s+ALTROOT"
-IGNORE	"^\s*\S+\s+[\d.]+[TG]\s*[\d.]+[TG]\s*[\d.\]+\s*([0-8]\d|9[0-4])%\s+[\d.]+x\s*ONLINE\s"
+IGNORE	"^\s*\S+\s+[\d.]+[TG]\s+[\d.]+[TG]\s+[\d.]+[TG]\s*([0-8]\d|9[0-4])%\s+[\d.]+x\s+ONLINE\s"
 IGNORE	"^\s*Last dump\(s\) done \(Dump '>' file systems\):$"
 IGNORE	"^\s*Checking status of zfs pools:$"
 SHOW	"^\s*all pools are healthy$"
