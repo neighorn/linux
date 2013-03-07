@@ -34,24 +34,31 @@ my %Attributes;
 my %Operators;
 my $x = $main::opt_R;	# suppress warning
 
+my %IntegerFields = (
+	Delayfirstnotification => 1,
+	Renotifyinterval =>1,
+);
+
 # Define fields.  Note that Autoload normalizes all field names to "first-upper rest lowercase".
 # Names with multiple uppercase characters are not settable from the service files.
 use fields (
-	'FILE',			# File this definition came from
-	'LINE',			# Line in file this definition came from
-	'Name',			# Unique descriptor for status file - defaults to desc.
-	'Desc',			# Description of service, for messages.
-	'Target',		# Target of check (host:port, process pattern, etc.).
-	'Status',		# Current status (set by Check).
-	'StatusDetail',		# Additional detail
-	'FirstFail',		# When this was first detected failing
-	'PriorStatus',		# Its prior status.  Detects "Now failing" vs "Still failing".
-	'PriorNotification',	# The last time we told someone it was failing.
-	'Onfail',		# Run this command when it first fails.
-	'Onok',			# Run this command when it becomes OK again.
-	'Renotifyinterval',	# How often to repeat failing notifications (unimplemented).
-	'Verbose',		# Verbose (unimplemented).
-	'Waittime',		# WaitTime: time in seconds to wait for conn.
+	'FILE',				# File this definition came from
+	'LINE',				# Line in file this definition came from
+	'Name',				# Unique descriptor for status file - defaults to desc.
+	'Delayfirstnotification',	# Delay the first notification this much time.
+	'Desc',				# Description of service, for messages.
+	'Target',			# Target of check (host:port, process pattern, etc.).
+	'Status',			# Current status (set by Check).
+	'StatusDetail',			# Additional detail
+	'FirstFail',			# When this was first detected failing
+	'FirstNotification',		# When we first reported it down (for DelayFirstNotification).
+	'PriorStatus',			# Its prior status.  Detects "Now failing" vs "Still failing".
+	'NextNotification',		# The last time we told someone it was failing.
+	'Onfail',			# Run this command when it first fails.
+	'Onok',				# Run this command when it becomes OK again.
+	'Renotifyinterval',		# How often to repeat failing notifications.
+	'Timeout',			# Timeout: time in seconds to wait for conn.
+	'Verbose',			# Verbose.
 );
 
 
@@ -68,8 +75,9 @@ sub new{
 	$Self->{FILE} = shift @_;			# Store the file name.
 	$Self->{LINE} = shift @_;			# Store the line number.
 	$Self->{FirstFail} = 0;				# Not failing, unless status file changes it.
-	$Self->{PriorNotification} = 0;			# Ditto.
+	$Self->{NextNotification} = 0;			# Ditto.
 	$Self->{Renotifyinterval} = $main::opt_R;	# Default renotify minutes.
+	$Self->{Verbose} = $main::opt_v;		# Default verbose flag.
 
 	# Set options from the caller (from the file).
 	$Self->SetOptions(\@_,\%Operators,\%Attributes);				# Run through our initialization code.
@@ -221,18 +229,23 @@ sub AUTOLOAD {
 	$Value =~ s/\s+$//;		# Strip trailing blanks
 	$Value =~ s/(['"])(.*)\1$/$2/;	# Strip quotes.
 	$Value += 0 if ($Value =~ /^[+-]?([0-9]+|[0-9]+\.[0-9]*|[0-9]*\.[0-9]+)$/);
+
+	if ($IntegerFields{$Attribute} and $Value !~ /^\d+$/) {
+		die qq[$Attribute has an invalid value "$Value".\n];
+	}
 	# Can't validate attribute in advance on later Perls (>= 5.9).  Just try, and Perl
 	# will block it if it's invalid.
 	eval "\$Self->{$Attribute} = \$Value;";
 	if ($@ =~ /Attempt to access disallowed key/) {
-		die qq[$Self->{FILE}:$Self->{LINE}: "$Attribute" is an invalid attribute.\n];
+		die qq["$Attribute" is an invalid attribute.\n];
 	}
 	elsif ($@) {
-		die qq[$Self->{FILE}:$Self->{LINE}: $@\n];
+		die qq[$@\n];
 	}
 	
 	return $Value;
 }
+
 1;
 
 =pod
@@ -338,17 +351,9 @@ LINE: The line number of the service list file that defined this item.
 
 =item *
 
-Status: The status of the service (OK or failing), as set by the Check method.
-
-=item *
-
-StatusDetail: Additional text information about the status.  This is typically used to indicate that
-a service was marked as "FAILING" for unusual reasons, such as a configuration error.
-
-=item *
-
-PriorStatus: The previous status of this item (defaults to "OK" for new items).  This is used to
-determine if an item is "now failing" (newly failing), "still failing", "now OK", or "still OK".
+Delayfirstnotification: Time in minutes before the first notification should be sent.  If the
+error clears during that interval, no notification is sent.  This can be used to suppress
+transient errors, at the risk of delaying notification.
 
 =item *
 
@@ -361,12 +366,26 @@ failing.  This is only applicable if notifications were requested with the check
 
 =item *
 
-Renotifyinterval: The time in minutes after which another notification must be sent.  This is
-currently unimplemented at the service item level.
+PriorStatus: The previous status of this item (defaults to "OK" for new items).  This is used to
+determine if an item is "now failing" (newly failing), "still failing", "now OK", or "still OK".
 
 =item *
 
-Waittime: The time in seconds to wait for this check to complete.  The effective value for this
+Renotifyinterval: The time in minutes after which another notification should be sent.  If not set,
+this defaults to the current value of -R.
+
+=item *
+
+Status: The status of the service (OK or failing), as set by the Check method.
+
+=item *
+
+StatusDetail: Additional text information about the status.  This is typically used to indicate that
+a service was marked as "FAILING" for unusual reasons, such as a configuration error.
+
+=item *
+
+Timeout: The time in seconds to wait for this check to complete.  The effective value for this
 is the greater of the specified value (if specified), or the main program -w value.  This value
 is not meaningful for all types of checks and is primarily used to with network connections.
 

@@ -15,10 +15,7 @@ do
 	while read trash pid trash fh trash trash trash trash filename
 	do
 		#[[ $fh = [0-9]*r ]] || continue		# Filter out output file.
-		filename="${filename% (*}"			# Clean up NFS mounts.
-		filename="${filename%/*}"			# Get to directory, not temp file.
-		percent=`df -h "$filename" | awk '/dev/ {print \$5}'`
-		[[ $? -ne 0 ]] && echo "debug: cmd was: $cmd"
+		percent=`df -h "$filename" | awk '/dev/{print $5}'`
 		printf "%-s %5d rsync %s %s\n" $now $pid $percent "$filename"
 	done |
 	sort
