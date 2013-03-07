@@ -465,7 +465,7 @@ SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 SHOW	"^\s*Disk space report:$"
 SHOW	"^\s*Filesystem\s+Size\s+Used\s+Avail\s+Use%\s+Mounted on\s*$"
 SHOW	"^\s*/dev/\S+\s+\d+[TGMK]\s+\d+[TGMK]\s+\d+[TGMK]\s+(\d|[1-8])%"
-SHOW	"^\s*/dev/\S+\s+[0-9.]+[TGMK]?\s+[0-9.]+[TGMK]?\s+[0-9.]+[TGMK]?\s+(\d|[1-8]\d|9[0-5])%"
+SHOW	"^\s*(/dev/|\S+:)\S+\s+[0-9.]+[TGMK]?\s+[0-9.]+[TGMK]?\s+[0-9.]+[TGMK]?\s+(\d|[1-8]\d|9[0-5])%"
 IGNORE	"^\s*\*\*\* Execution cycle \d \*\*\*\s*$"
 IGNORE	"^\s*Copyright \(c\) \d\d\d\d Water Technologies Inc.\s*$"
 IGNORE	"^\s*All access is prohibited unless expressly authorized.$"
