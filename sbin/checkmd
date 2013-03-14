@@ -5,6 +5,7 @@ use warnings;
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
+use Time::Local;
 
 # Set up the environment.
 $ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/sbin:/usr/sbin:/usr/bin:/bin';
@@ -73,16 +74,15 @@ if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 if ($Config{DISABLEUNTIL} and not $opt_f) {
-	if ($Config{DISABLEUNTIL} =~ m"^(\d\d?)[/-](\d\d?)[/-](\d\d(\d\d)?)") {
-		my($AMonth,$ADay, $AYear) = ($1,$2,$3);
-		my($CDay,$CMonth,$CYear) =(localtime())[3..5];
-		$CMonth++;
-		$CYear+=1900;
-		$AYear += (int($CYear/100)*100) if ($AYear < 100);
-		my $CDate = $CYear * 10000 + $CMonth * 100 + $CDay;
-		my $ADate = $AYear * 10000 + $AMonth * 100 + $ADay;
-		if ($CDate < $ADate) {
-			print "Checks disabled until $AMonth/$ADay/$AYear per config file. Use -f to force execution.\n";
+	if ($Config{DISABLEUNTIL} =~ m"^(\d\d\d\d)[/-](\d\d?)[/-](\d\d?)(?:\s+(\d\d?):(\d\d?)(?::(\d\d+))?)?") {
+		my($AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond) = ($1,$2,$3,$4,$5,$6);
+		$AHour = 8 unless (defined($AHour));
+		$AMinute = 0 unless (defined($AMinute));
+		$ASecond = 0 unless (defined($ASecond));
+		my $ADate = timelocal($ASecond,$AMinute,$AHour,$ADay,$AMonth,$AYear);
+		if (time() < $ADate) {
+			printf "Checks disabled until %d/%.2d/%.2d %d:%.2d:%.2d per config file. Use -f to force execution.\n",
+				$AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond;
 			exit 0;
 		}
 	}
@@ -226,8 +226,9 @@ Examples:
 	checkmd
 
 Notes:
-	The config file may contain "DISABLEUNTIL: mm/dd/yyyy" to disable alerts
-	until the specified date.  This can be used to suppress alerts for known
+	The config file may contain "DISABLEUNTIL: yyyy/mm/dd" or
+	"DISABLEUNTIL: yyyy/mm/dd hh:mm:ss" to disable alerts until the
+	specified date (and time).  This can be used to suppress alerts for known
 	issues until the specified date.  This date can be ignored with -f.
 
 Return codes:
