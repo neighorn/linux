@@ -79,7 +79,7 @@ if ($Config{DISABLEUNTIL} and not $opt_f) {
 		$AHour = 8 unless (defined($AHour));
 		$AMinute = 0 unless (defined($AMinute));
 		$ASecond = 0 unless (defined($ASecond));
-		my $ADate = timelocal($ASecond,$AMinute,$AHour,$ADay,$AMonth,$AYear);
+		my $ADate = timelocal($ASecond,$AMinute,$AHour,$ADay,$AMonth-1,$AYear);
 		if (time() < $ADate) {
 			printf "Checks disabled until %d/%.2d/%.2d %d:%.2d:%.2d per config file. Use -f to force execution.\n",
 				$AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond;
