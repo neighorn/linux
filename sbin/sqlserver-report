@@ -93,10 +93,12 @@ if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 # Get the e-mail, so we can retrieve the From and Subject line
 print "Reading from STDIN...\n";
 my @lines = <STDIN>;
+my $SendingHost='';
 my $From='';
 my $Subject='';
 foreach (@lines) {
 	last if (/^\s*$/);		# Blank line means end of headers.
+	$SendingHost = $1 if (/^Received: from (\S+)/i and ! $SendingHost);
 	$From = $_ if (/^From /i and ! $From);
 	$Subject = $_ if (/^Subject: /i and ! $Subject);
 	last if ($From and $Subject);	# Found all we wanted.
@@ -104,9 +106,12 @@ foreach (@lines) {
 $From =~ s/^From //i;		# Strip prefix.
 $From ='root@' . hostname() unless ($From !~ /^\s*$/);
 # Subject: SQL Server Job System: 'Test Job' completed on \\ZEUS
-my($JobName, $Host) = $Subject =~ /.*'(.*?)' completed on \\\\(\S+)/;
+my($JobName) = $Subject =~ /.*'(.*?)' completed /;
+my($Host) = $Subject =~ /.*' completed on \\\\(\S+)/;
 $JobName = "(unknown job)" unless ($JobName);
+$Host = $SendingHost unless ($Host);
 $Host = "(unknown host)" unless ($Host);
+$Host=uc($Host);
 
 # See if we can find a customized filter file.
 my $FilterFile='';
@@ -324,7 +329,7 @@ IGNORE	"^\s*for <sqlserver-report\@ "
 IGNORE	"^\s*Content-Type: "
 IGNORE	"^\s*MIME-Version: "
 IGNORE	"^\s*Content-Transfer-Encoding: "
-SHOW	"^\s*Subject: SQL Server Job System: '.+' completed on \S+$"
+SHOW	"^\s*Subject: SQL Server Job System: '.+' completed on"
 IGNORE	"^\s*From: "
 IGNORE	"^\s*To: "
 IGNORE	"^\s*Date: "
