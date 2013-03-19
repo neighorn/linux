@@ -190,6 +190,7 @@ foreach $Target (@Parms) {
 			chomp;
 			next if (/^dirvish$/);
 			my $Dir = "$MachineDirectory/$_";
+			next unless ( -d "$Dir" and ! -l "$Dir");	# Skip symbolic links ("latest"), etc.
 			my $ModTime=(-M "$Dir");
 			Summarize("$Dir") 
 				if ($ModTime < 0);	# Newer than this job.

@@ -1,0 +1,33 @@
+#! /bin/bash
+
+# Create a symbolic link called latest, pointing to the latest dirvish backup.
+
+
+if [[ $# -eq 1 ]]
+then
+	Dir="$1"
+elif [[ -s "$DIRVISH_DEST" ]]
+then
+	Dir="$DIRVISH_DEST"
+else
+	echo "No target directory specified on the command line or in DIRVISH_DEST.  No action taken."
+	exit 8
+fi
+	
+
+Dir=${Dir%/tree}
+Link=${Dir%/*}/latest
+
+if [[ -e "$Link" ]]
+then
+	if [[ ! -L "$Link" ]]
+	then
+		echo "$Link exists and is not a symbolic link -- no action taken" >&2
+		exit 9
+	else
+		rm "$Link"
+	fi
+fi
+
+/bin/ln -s "$Dir" "$Link"
+exit $?
