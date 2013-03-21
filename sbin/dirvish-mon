@@ -26,7 +26,7 @@ do
 		filename="${filename%/*}"			# Get to directory, not temp file.
 		percent=`df -h "$filename" | awk '/dev/ {print \$5}'`
 		[[ $? -ne 0 ]] && echo "debug: cmd was: $cmd"
-		printf "%-s %5d rsync %s %s\n" $now $pid $percent "$filename"
+		printf "%-s %5d rsync %s:\t%s\n" $now $pid $percent "$filename"
 	done |
 	sort
 
@@ -46,7 +46,7 @@ do
 	while read trash pid trash trash trash trash trash trash dir
 	do
 		dir=${dir%%/tree/*}
-		printf "%-s %5d %s %s\n" $now $pid "expire: $dir"
+		printf "%-s %5d %s\t%s\n" $now $pid "expire:" $dir
 	done |
 	sort -r |
 	while read current
