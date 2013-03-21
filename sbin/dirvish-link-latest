@@ -29,5 +29,6 @@ then
 	fi
 fi
 
-/bin/ln -s "$Dir" "$Link"
+cd $Dir/.. && /bin/ln -sf "${Dir##*/}" latest
+
 exit $?
