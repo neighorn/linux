@@ -12,8 +12,15 @@ do
 		lsof -p $pid
 	done |
 	grep tree/ |
-	while read trash pid trash fh trash trash trash trash filename
+	while read trash pid trash fh type trash item7 item8 rest
 	do
+		if [[ "$type" = "unknown" ]]
+		then
+			filename="$item7 item8 rest"
+		else
+			filename="${rest# *}"
+			filename="${filename# *}"
+		fi
 		#[[ $fh = [0-9]*r ]] || continue		# Filter out output file.
 		filename="${filename% (*}"			# Clean up NFS mounts.
 		filename="${filename%/*}"			# Get to directory, not temp file.
