@@ -46,7 +46,7 @@ do
 	while read trash pid trash trash trash trash trash trash dir
 	do
 		dir=${dir%%/tree/*}
-		printf "%-s %5d %s\t%s\n" $now $pid "expire:" $dir
+		printf "%-s %5d %s    \t%s\n" $now $pid "expire:" $dir
 	done |
 	sort -r |
 	while read current
