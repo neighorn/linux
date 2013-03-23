@@ -5,7 +5,8 @@ use ProcessOptions;
 use Text::ParseWords;
 # override CORE::glob in current package
 use File::Find;
-use Fcntl qw(:flock);
+use Fcntl qw(:flock :mode);
+use File::Temp qw(mktemp);
 #use strict;
 use warnings;
 use POSIX qw(strftime);
@@ -172,9 +173,25 @@ foreach $Target (@Parms) {
 	}
 
 	# Is this a rerun?
-	if ($opt_R and -d './latest') {
-		RunDangerousCmd("mv ./latest ./latest.old") && die "Unable to rename 'latest' in response to -R: $!";
-		RunDangerousCmd("echo rm -rf ./latest.old | at now");
+	if ($opt_R) {
+		my $LS;
+		if (open($LS,'ls -t |')) {
+			# Find the newest directory that isn't dirvish.
+			while (my $dir = <$LS>) {
+				chomp $dir;
+				next if ( $dir =~ /^dirvish$/);
+				my $mode = (lstat($dir))[2];		# Get the mode. lstat detects symlinks.
+				next unless (S_ISDIR($mode));		# Skip non-directories.
+				my $trash = mktemp("./trash.XXXX");
+				RunDangerousCmd("mv $dir $trash") && warn "Unable to rename '$dir' in response to -R: $!";
+				RunDangerousCmd("echo rm -rf ./$trash | at now");
+				last;
+			}
+			close $LS;
+		}
+		else {
+			warn "Unable to launch ls to delete prior backup: $!";
+		}
 	}
 
 	# Do we need to initialize this disk?  Need at least 1 tree and a hist file.
