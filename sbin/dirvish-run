@@ -150,7 +150,7 @@ foreach $Target (@Parms) {
 
 	# Insert separators between tasks.
 	print "_"x60 . "\n";
-	print strftime("Starting $Target at %H:%M:%S ...\n",localtime());
+	print strftime("Starting $Target at %H:%M:%S on %A, %Y-%m-%d...\n",localtime());
 
 	if (!chdir $MachineDirectory) {
 		warn "Unable to CD to $MachineDirectory: $!\n";
@@ -202,16 +202,16 @@ foreach $Target (@Parms) {
 
 	# Run the back-up.
 	my $AdditionalOptions = join(' ',@opt_D);
+	my $TargetStartTime = time();
 	$Status = RunDangerousCmd("dirvish --vault $Target $Init $AdditionalOptions");
 	if ($Status == 0) {
 		foreach (`ls -tr $MachineDirectory`) {
 			chomp;
 			next if (/^dirvish$/);
 			my $Dir = "$MachineDirectory/$_";
-			next unless ( -d "$Dir" and ! -l "$Dir");	# Skip symbolic links ("latest"), etc.
-			my $ModTime=(-M "$Dir");
-			Summarize("$Dir") 
-				if ($ModTime < 0);	# Newer than this job.
+			next unless ( -d "$Dir" and ! -l "$Dir");		# Skip symbolic links ("latest"), etc.
+			next unless ((stat($Dir))[9] > $TargetStartTime);	# Skip older backups.
+			Summarize("$Dir");
 		}
 	} else {
 		print "dirvish failed with status $Status\n";
@@ -471,7 +471,7 @@ LOGONLY /^Command: /
 # These are normal messages that we want to see.
 #
 SHOW	"^\s*[-_]+\s*$"
-SHOW	"^\s*Starting \S+ at \S+ ...\s*$"
+SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, ...\s*$"
 # Ignore dirvish-expire messages
 IGNORE	"^\s*Expiring\s"
 IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
