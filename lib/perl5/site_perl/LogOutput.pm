@@ -154,7 +154,7 @@ sub LogOutput {
 		select STDOUT;
 
 		# Begin our log.
-		$TimeStamp=strftime("%A, %m/%d/%Y at %H:%M:%S",localtime($));
+		$TimeStamp=strftime("%A, %Y-%m-%d at %H:%M:%S",localtime($));
 		my @ArgList = @main::ARGV;
 		foreach (@ArgList) { 
 			$_ = '' unless defined($_)
@@ -195,7 +195,7 @@ print "LogOutput: Child ended with Status=$Status (Exit Code = $ExitCode, Signal
 	if ($Options{VERBOSE});
 
 $StopTime=time();
-$TimeStamp=strftime("%A, %m/%d/%Y at %H:%M:%S",localtime($StopTime));
+$TimeStamp=strftime("%A, %Y-%m-%d at %H:%M:%S",localtime($StopTime));
 $RunTime=$StopTime-$;
 my($RunSec,$RunMin,$RunHour,$RunDay);
 $RunSec = $RunTime % 60;		# localtime($RunTime) gave weird results
@@ -569,9 +569,9 @@ sub _LoadFilters {
 	# Add our standard messages on the end of the normal list, so they don't
 	# get flagged as errors.  Note that ignore patterns take precedence, so
 	# the caller can still choose to ignore them.
-	push @MailOnlyPatterns, '"^\s*\S+ started on \S+ on \S+, \d\d/\d\d/\d\d\d\d at \d\d:\d\d:\d\d$"';
+	push @MailOnlyPatterns, '"^\s*\S+ started on \S+ on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d$"';
 	push @MailOnlyPatterns, '"^Job ended normally with status \d and signal \d+"';
-	push @MailOnlyPatterns, '"^\s*Job ended on \S+, \d+.\d+.\d\d\d\d"';
+	push @MailOnlyPatterns, '"^\s*Job ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d - run time:"';
 
 	# Now turn them in to patterns within three anonymous subroutines.  This
 	# means the patterns only get compiled once, making our pattern
