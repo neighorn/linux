@@ -210,6 +210,7 @@ foreach $Target (@Parms) {
 			next if (/^dirvish$/);
 			my $Dir = "$MachineDirectory/$_";
 			next unless ( -d "$Dir" and ! -l "$Dir");		# Skip symbolic links ("latest"), etc.
+			next unless ( -f "$Dir/summary");			# Skip stray non-backup folders.
 			next unless ((stat($Dir))[9] > $TargetStartTime);	# Skip older backups.
 			Summarize("$Dir");
 		}
@@ -270,7 +271,7 @@ sub Summarize {
 		$TotalSize=0;
 		$NewItems=0;
 		$NewSize=0;
-		find(\&FoundItem,$Directory);
+		find(\&FoundItem,"$Directory/tree");
 		my $WarnText='';
 		if ($opt_S and $NewSize > $opt_S) {
 			$WarnText = "New item size of " . FormatSize($NewSize) . " exceeds alert threshold of " . FormatSize($opt_S) . ".\n";
@@ -471,7 +472,7 @@ LOGONLY /^Command: /
 # These are normal messages that we want to see.
 #
 SHOW	"^\s*[-_]+\s*$"
-SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, ...\s*$"
+SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 # Ignore dirvish-expire messages
 IGNORE	"^\s*Expiring\s"
 IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
