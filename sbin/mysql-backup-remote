@@ -39,7 +39,7 @@ our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
-my @Machines;
+my @Servers;
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
@@ -89,8 +89,9 @@ if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 # Set up our logging and output filtering.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
-@Machines = @Parms if (@Parms);
-foreach my $Machine (@Machines) {
+@Servers = @Parms if (@Parms);
+@Servers = split(/\s+/,$Config{SERVERS}) unless @Servers;
+foreach my $Machine (@Servers) {
 	local $opt_t=$main::opt_t;
 	printf "%s %-10.10s %s\n", '-'x30, $Machine, '-'x30;
 	my $TestFlag=($opt_t?'-t':' ');
@@ -172,8 +173,9 @@ sub opt_h {
 	-h      :       Help: display this panel
 
 =head3 Parameters:
-	server1...:	one or more servers to back up.  The default is to backup
-			all Media Temple servers according to an internal list.
+	server1...:	one or more servers to back up.  If no servers are 
+			listed on the command line, $Prog will look for 
+			a "SERVERS" tag in the configuration file.
 
 =head3 Return codes:
 	0       :       Normal termination
@@ -219,7 +221,7 @@ IGNORE  /^\s*$/
 # These are normal messages that we want to see.
 #
 IGNORE	"^\s*Job ended normally with status 0 and signal 0$"
-SHOW    "^\s*Test:"
+SHOW    "^\s*Test:"i
 IGNORE	"^\s*Deleting /"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
