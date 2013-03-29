@@ -351,7 +351,7 @@ sub LoadServiceList {
 #
 sub ProcessServiceLine {
 	my($FileName, $StartLine, $ArrayRef, $MapRef, $Line) = @_;
-	return if ($Line =~ /^\s*$/);		# Skip empty lines.
+	return if (!defined($Line) or $Line =~ /^\s*$/);		# Skip empty lines.
 	print "Verbose: Processing line $StartLine: $Line\n" if ($opt_v >= 3);
 
 	my($Keyword,$Rest) = split('\s+',$Line,2);
