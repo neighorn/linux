@@ -393,9 +393,8 @@ sub ElapsedTime () {
 	$String = sprintf(":%02d",$Elapsed % $_) . $String;
         $Elapsed = int($Elapsed/$_);
     }
-    $String = "$Elapsed" . $String;
-    $String =~ s/^[0:]*//;		# Remove high order zeros.
-    $String = '0' unless ($String);	# Be sure to leave *something*.
+    $String = "$Elapsed:" . $String;
+    $String =~ s/^(00?:)+//;		# Remove high order zeros.
     return $String;
 }
 
