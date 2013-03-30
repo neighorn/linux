@@ -24,9 +24,8 @@ do
 		#[[ $fh = [0-9]*r ]] || continue		# Filter out output file.
 		filename="${filename% (*}"			# Clean up NFS mounts.
 		filename="${filename%/*}"			# Get to directory, not temp file.
-		percent=`df -h "$filename" | awk '/dev/ {print \$5}'`
-		[[ $? -ne 0 ]] && echo "debug: cmd was: $cmd"
-		printf "%-s %5d rsync %s:\t%s\n" $now $pid $percent "$filename"
+		percent=`df -h "$filename" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
+		printf "%-s %5d %-6s % 3d%%: %s\n" $now $pid "rsync" $percent "$filename"
 	done |
 	sort
 
@@ -46,7 +45,8 @@ do
 	while read trash pid trash trash trash trash trash trash dir
 	do
 		dir=${dir%%/tree/*}
-		printf "%-s %5d %s    \t%s\n" $now $pid "expire:" $dir
+		percent=`df -h "$dir" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
+		printf "%-s %5d %-6s % 3d%%: %s\n" $now $pid "expire" $percent "$dir"
 	done |
 	sort -r |
 	while read current
