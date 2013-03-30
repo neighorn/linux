@@ -90,14 +90,16 @@ if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 @Servers = @Parms if (@Parms);
-@Servers = split(/\s+/,$Config{SERVERS}) unless @Servers;
-foreach my $Machine (@Servers) {
+@Servers = split(/\s+/,$Config{SERVERS}) if (! @Servers and $Config{SERVERS});
+die "No remote servers specified on the command line or in the config file\n"
+	unless (@Servers);
+foreach my $Server (@Servers) {
 	local $opt_t=$main::opt_t;
-	printf "%s %-10.10s %s\n", '-'x30, $Machine, '-'x30;
+	printf "%s %-10.10s %s\n", '-'x30, $Server, '-'x30;
 	my $TestFlag=($opt_t?'-t':' ');
 	$opt_t='';
-	RunDangerousCmd("ssh $Machine /usr/local/sbin/mysql-backup $TestFlag -F /usr/local/etc/filter-accept-all.filter");
-	warn "ssh to $Machine failed with status $?: $@" if ($?);
+	RunDangerousCmd("ssh $Server /usr/local/sbin/mysql-backup $TestFlag -F /usr/local/etc/filter-accept-all.filter");
+	warn "ssh to $Server failed with status $?: $@" if ($?);
 }
 print '-'x72 . "\n";
 
