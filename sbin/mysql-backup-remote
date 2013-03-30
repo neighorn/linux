@@ -36,6 +36,8 @@ our $opt_e;				# -e (error mail) option.
 our $opt_m;				# -m (mail) option.
 our $opt_p;				# -p (pager mail) option.
 our $opt_P;				# -P (pager error mail) option.
+our $opt_r = '';			# -r mysql-backup retention-period passthrough
+our $opt_s = '';			# -s mysql-backup retention-period passthrough
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
 #
@@ -50,7 +52,7 @@ my @Servers;
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l t v';
+my $OptSpec='e=l h m=l O=s p=l P=l r=s s=s t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -93,12 +95,14 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 @Servers = split(/\s+/,$Config{SERVERS}) if (! @Servers and $Config{SERVERS});
 die "No remote servers specified on the command line or in the config file\n"
 	unless (@Servers);
+$opt_r = "-r $opt_r" if ($opt_r);
+$opt_s = "-s $opt_s" if ($opt_s);
 foreach my $Server (@Servers) {
 	local $opt_t=$main::opt_t;
 	printf "%s %-10.10s %s\n", '-'x30, $Server, '-'x30;
 	my $TestFlag=($opt_t?'-t':' ');
 	$opt_t='';
-	RunDangerousCmd("ssh $Server /usr/local/sbin/mysql-backup $TestFlag -F /usr/local/etc/filter-accept-all.filter");
+	RunDangerousCmd("ssh $Server /usr/local/sbin/mysql-backup $TestFlag $opt_r $opt_s -F /usr/local/etc/filter-accept-all.filter");
 	warn "ssh to $Server failed with status $?: $@" if ($?);
 }
 print '-'x72 . "\n";
