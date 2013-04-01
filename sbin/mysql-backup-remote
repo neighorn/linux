@@ -101,7 +101,8 @@ $BaseOptions .= " -r $opt_r" if ($opt_r);
 $BaseOptions .= " -s $opt_s" if ($opt_s);
 foreach my $Server (@Servers) {
 	my $Options = $BaseOptions;
-	$Options .= " " . $Config{uc($Server)} if (exists($Config{uc($Server)}));
+	$Options .= " " . $Config{uc("OPTIONS-$Server")}
+		if (exists($Config{uc("OPTIONS-$Server")}));
 	local $opt_t=$main::opt_t;
 	$opt_t='';
 	printf "%s %-10.10s %s\n", '-'x30, $Server, '-'x30;
@@ -205,12 +206,14 @@ Example:
 
 =item 2)
 
-The config file may include an entry matching a server name.  Any items 
+The config file may include an entry matching "options-" followed by a server
+name (case-insensitive).  Any items 
 listed on this line will be passed as options when backing up the specified server.
 
-Example:
+Examples:
 
-    server2:  -r 7 -s 1500000
+    options-server2:  -r 7 -s 1500000
+    OPTIONS-Server2:  -r 14
 
 =back
 
