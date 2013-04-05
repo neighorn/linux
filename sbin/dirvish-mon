@@ -39,6 +39,7 @@ do
 		line=`pstree -p $pid`
 		line=${line##*--rm(}
 		line=${line%%)*}
+		[[ $line =~ /^[0-9]+$/ ]] || continue
 		[[ -n $line ]] && lsof -p $line | 
 			grep ' [0-9]r  *DIR '
 	done |
