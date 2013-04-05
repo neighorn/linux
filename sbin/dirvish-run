@@ -182,6 +182,7 @@ foreach $Target (@Parms) {
 				next if ( $dir =~ /^dirvish$/);
 				my $mode = (lstat($dir))[2];		# Get the mode. lstat detects symlinks.
 				next unless (S_ISDIR($mode));		# Skip non-directories.
+				next unless (-M "$_" <= 1);		# Skip older backups.
 				next unless (-d "$dir/tree" || -d "$dir/log" || -d "$dir/log.tmp");
 				my $trash = mktemp("./trash.XXXX");
 				RunDangerousCmd("mv $dir $trash") && warn "Unable to rename '$dir' in response to -R: $!";
