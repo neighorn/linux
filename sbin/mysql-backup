@@ -37,6 +37,7 @@ our $opt_p;				# Normal page address.
 our $opt_P;				# Error page addresses.
 our $opt_r=7;				# Retention period.
 our $opt_s;				# Minimum size of output file.
+our $opt_S;				# Maximum size of output file.
 our $opt_t;				# Test flag.
 our $opt_U=$ENV{LOGNAME} || $ENV{USER} || getpwuid($<); # Default to our own user name.
 our $opt_v;				# Verbose.
@@ -58,7 +59,7 @@ chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
 #	   Normal =s and =i would replace values instead of concatenate.
 #	2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='d h t v z F=s l=l m=l e=l p=l P=l o=s O=s r=s s=s U=s';
+my $OptSpec='d h t v z F=s l=l m=l e=l p=l P=l o=s O=s r=s s=s S=s U=s';
 
 # Load the config file.
 my %Config;
@@ -124,6 +125,8 @@ if (-f $opt_o) {
 	print commify($size) . " bytes written to $opt_o\n";
 	warn "Warning: backup is less than the minimum expected size ($opt_s bytes)\n"
 	    if ($opt_s and $size < $opt_s);
+	warn "Warning: backup is more than the maximum expected size ($opt_S bytes)\n"
+	    if ($opt_S and $size > $opt_S);
 	if ($opt_z) {
 	    RunDangerousCmd("rm $opt_o.gz") if (-e "$opt_o.gz");
 	    RunDangerousCmd("gzip $opt_o")
@@ -226,6 +229,7 @@ Flags:
 			address if errors are detected in this job.
 	-r days:	Retention: delete old backups after "days" days.  Default=7.
 	-s size:	Size: issue an error if the output is less than "size" bytes (before compression).
+	-S size:	Size: issue an error if the output is more than "size" bytes (before compression).
 	-t:		Test: don't really run commands, just display them.
 	-U username:	User: Log into the database as "username".  Defaults to current name.
 	-v: 		Verbose: display each command before executing it.
@@ -279,6 +283,22 @@ sub opt_s {
 	}
 }
 
+
+
+#
+# opt_S: validate size value
+#
+sub opt_S {
+	my($Value) = @_;
+	if ($Value =~ /^[1-9]\d*$/) {
+		$opt_S = $Value;
+	}
+	else {
+		warn "Invalid maximum size (-S) value: $Value\n";
+		$ErrorFlag = 8;
+		$opt_S = 0;
+	}
+}
 
 #
 # opt_x: handle exclude list.
