@@ -139,8 +139,11 @@ foreach $Root ( @ARGV_Copy ) {
         warn "Unable to cd to $Root -- skipped: $!\n";
         next;
     }
-    if (-l $Root) {
-	print "\n$Root is a symbolic link -- skipped\n";
+    my $FirstNode = $Root;
+    $FirstNode =~ s"(/?[^/]+)/"$1";
+    if (-l $FirstNode) {
+    	print "\n" if ($LastPrint eq 'stats');
+	print strftime("%D %T $FirstNode is a symbolic link -- $Root skipped\n");
 	next;
     }
     print "\n" if ($LastPrint eq 'stats');
