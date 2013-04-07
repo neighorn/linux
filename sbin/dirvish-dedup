@@ -143,7 +143,12 @@ foreach $Root ( @ARGV_Copy ) {
     $FirstNode =~ s"(/?[^/]+)/"$1";
     if (-l $FirstNode) {
     	print "\n" if ($LastPrint eq 'stats');
-	print strftime("%D %T $FirstNode is a symbolic link -- $Root skipped\n");
+	print strftime("%D %T $FirstNode is a symbolic link -- $Root skipped\n",localtime());
+	next;
+    }
+    if (-l $Root) {
+    	print "\n" if ($LastPrint eq 'stats');
+	print strftime("%D %T $Root is a symbolic link -- $Root skipped\n",localtime());
 	next;
     }
     print "\n" if ($LastPrint eq 'stats');
