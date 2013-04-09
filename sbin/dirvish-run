@@ -1,56 +1,67 @@
 #!/usr/bin/perl
 
+use strict;
+use warnings;
 use LogOutput;
-use ProcessOptions;
+#use ProcessOptions;
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 # override CORE::glob in current package
 use File::Find;
 use Fcntl qw(:flock :mode);
 use File::Temp qw(mktemp);
-#use strict;
-use warnings;
 use POSIX qw(strftime);
+use Data::Dumper;
+$Data::Dumper::Pad = "Verbose:\t\t";
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
 # Initialize variables.
 our $Prog=$0;                           # Get our name, for messages.
-$Prog=~s/\.pl$|\.bat$//;            # Trim off the suffix, if present.
-$Prog=~s".*[/\\]"";     	    # Trim off the path, if present.
-#@Args=@ARGV;                        # Preserve orig command for ref.
-my $Errors=0;   	                    # No errors so far.
-my $Syslog='user';                         # Name of Syslog facility.  '' for none.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+my $Errors=0;   	                # No errors so far.
+my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
 my $LogFile="";				# Name of the log file.
-my $ConfigFile="$BaseDir/${Prog}.cfg";     # Name of config file.
-our $opt_B = '';		# -B: begin script (initialization).
-our @opt_B;			# List of initialization scripts.
-our $opt_D = '';		# Additional dirvish options.
-our $opt_e;
-our $opt_m;			# Mail.
-our $opt_O;
-our $opt_p;
-our $opt_P;
-our $opt_R;
-our $opt_S;
-our $opt_t;			# Test
-our $opt_v;
-our $opt_N = '';
-our %Config;
-my $MachineDirectory;		# Base directory for this dirvish item.
-my %FileSystems;
+my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+our %Config;				# Data from the config file.
+our %Options;				# Options settings.
+my $MachineDirectory;			# Base directory for this dirvish item.
+my %FileSystems;			# List of file systems we wrote to.
+our @Parms;				# List of non-option arguments.
+
+our $TotalSize;				# Global for Find/Found
+our $TotalItems;			# Global for Find/Found
+our $NewSize;				# Global for Find/Found
+our $NewItems;				# Global for Find/Found
+
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+our %OptionSpecifications=(
+		'<>'			=>	sub {push @Parms,shift;},
+		'd|debug'		=>	sub {$DB::AutoTrace=1;},
+		'D|dirvish=s'		=>	sub {push @{$Options{Dirvish}},$_[1];},
+		'B|begin=s'		=>	sub {push @{$Options{PreRun}},$_[1];},
+		'h|help|?!'		=>	\&opt_h,
+		'm|mail-always=s'	=>	sub {push @{$Options{Always_Mail}},$_[1];},
+		'M|mail-errors=s'	=>	sub {push @{$Options{Error_Mail}},$_[1];},
+		'N|subject=s'		=>	sub {$Options{Subject}=$_[1];},
+		'O|option-set=s'	=>	\&opt_O,
+		'p|page-always=s'	=>	sub {push @{$Options{Always_Page}},$_[1];},
+		'P|page-errors=s'	=>	sub {push @{$Options{Error_Page}},$_[1];},
+		'R|rerun:1'		=>	sub {$Options{Rerun}=$_[1];},
+		's|min-size=s'		=>	\&opt_s,
+		'S|max-size=s'		=>	\&opt_S,
+		't|test!'		=>	sub {$Options{Test}=$_[1];},
+		'v|verbose'		=>	sub { $Options{Verbose} = (exists($Options{Verbose})?$Options{Verbose}+1:1)},
+);
 #
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
-
-# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
-#       1) We define a new type l (lowercase L), which is a list (i.e. if
-#          specified multiple times, values are concatenated & blank separated.o
-#          Normal =s and =i would replace values instead of concatenate.
-#       2) We don't support long option names, except as aliases.
-# These are the standard production options.  Add more options here as needed.
-$OptSpec='B=l D=l h m=l N=s e=l O=s p=l P=l s S=s R t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -60,7 +71,7 @@ if (-e $ConfigFile) {
 		next if (/^\s*#/);      # Comment.
 		next if (/^\s*$/);      # Blank line.
 		chomp;
-		($name,$settings)=split(/:?\s+/,$_,2);
+		my ($name,$settings)=split(/:?\s+/,$_,2);
 		$name=uc($name);	# Name is not case sensitive.
 		$settings=~s/\s+$//;	# Trim trailing spaces.
 		$Config{$name}.=$settings . ',' ;
@@ -76,36 +87,42 @@ foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 	if (defined($Config{'ALLJOBS'}));
 
-# Process the command line options, if any.
-if (@ARGV) {
-	# Process the command line arguments.
-	ProcessOptions($OptSpec);
-} else {
-	# No command line options.  Run the default job.
-	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
-		if (defined($Config{'DEFAULTJOB'}));
-}
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+	if (!@ARGV && defined($Config{DEFAULTJOB}));
+
+# Pre-process our command line, to get the options we need for LogOutput.
+my @ARGVSave = @ARGV;			# Needed to reprocess command line later.
+%Options=(Verbose => 0);	# Initialize Options.
+$Errors ++ unless (GetOptions(%OptionSpecifications));
 	
 # Set up our logging and output filtering.
-$RunDate=`date +%m/%d`;
+my $RunDate=`date +%m/%d`;
 chomp $RunDate;
 my $Subject;
-if ($opt_N) {
-	$Subject="$opt_N" ;
+if ($Options{Subject}) {
+	$Subject="$Options{Subject}" ;
 } elsif (@Parms >= 1) {
 	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
 } else {
 	$Subject="%* %m/%d %C %N %E %*%*%*" ;
 };
 
+# Make sure some key items exist;
+foreach (qw(Always_Mail Error_Mail Always_Page Error_Page)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
+$Options{Verbose} = 0 unless (exists($Options{Verbose}));
+
 LogOutput({
-	SYSLOG_FACILITY => $Syslog,
-	MAIL_FILE => $LogFile,
-	ALWAYS_MAIL_LIST => $opt_m,
-	ERROR_MAIL_LIST => $opt_e,
-	ALWAYS_PAGE_LIST => $opt_p,
-	ERROR_PAGE_LIST => $opt_P,
-	MAIL_SUBJECT => $Subject,
+	SYSLOG_FACILITY		=> $Syslog,
+	MAIL_FILE		=> $LogFile,
+	ALWAYS_MAIL_LIST	=> \@{$Options{Always_Mail}},
+	ERROR_MAIL_LIST		=> \@{$Options{Error_Mail}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{Always_Page}},
+	ERROR_PAGE_LIST		=> \@{$Options{Error_Page}},
+	MAIL_SUBJECT		=> $Subject,
 });
 die "No BANKS defined in configuration file(s)" 
 	unless (defined($Config{BANKS}) 
@@ -113,14 +130,50 @@ die "No BANKS defined in configuration file(s)"
 		and $Config{BANKS});
 my @Banks = shellwords(($Config{BANKS}));
 
-foreach (@opt_B) {
+foreach (@{$Options{PreRun}}) {
 	# Run any initialization scripts.
 	print "Running: $_\n";
 	RunDangerousCmd($_) &&
 		die "$_ returned status $?: $!\n";
 }
 
-foreach $Target (@Parms) {
+# Now we have to wipe the options (because we've collected things
+# that may be sequence-sensitive), and reprocess them.  This time
+# GetOptions will call ProcessBackup for each non-option argument
+# it finds, effectively running the backups.
+@ARGV=@ARGVSave;		# Restore command line.
+%Options=(Verbose => 0);	# Reinitialize Options.
+$OptionSpecifications{'<>'} = \&ProcessBackup;
+$Errors++ unless GetOptions(%OptionSpecifications);
+
+# Print the disk space report.
+if (%FileSystems) {
+	print "_"x60 . "\nDisk space report:\n";
+	my $units = ($^O eq 'aix'?'g':'h');
+	RunDangerousCmd("df -$units -P| grep -E '^(" . join('|',keys(%FileSystems)) . ") '");
+	print "\n";
+}
+
+if ($Errors) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+exit( ($Errors?10:0) );
+
+
+#
+# ProcessBackup - run a particular backup
+#
+sub ProcessBackup {
+
+	my $Target = shift;
+	if ($Options{Verbose} >= 3) {
+		print "Verbose:	Beginning backup of $Target.  Options:\n";
+		print Dumper(\%Options);
+	}
+
 	# Make sure they gave us a valid vault.
 	if ($Target =~ m"^/") {
 		# They gave us a full path.  See if it's valid.
@@ -130,7 +183,7 @@ foreach $Target (@Parms) {
 		if (! -d $MachineDirectory) {
 			warn "$MachineDirectory not found\n";
 			$Errors++;
-			next;
+			return;
 		};
 	} else {
 		# No full path.  Hunt for it.
@@ -144,7 +197,7 @@ foreach $Target (@Parms) {
 		if (! $MachineDirectory) {
 			warn "Unable to locate $Target in dirvish banks.\n";
 			$Errors++;
-			next;
+			return;
 		}
 	}
 
@@ -155,7 +208,7 @@ foreach $Target (@Parms) {
 	if (!chdir $MachineDirectory) {
 		warn "Unable to CD to $MachineDirectory: $!\n";
 		$Errors++;
-		next;
+		return;
 	}
 
 	# Make sure there's not another copy of us running against this.
@@ -164,16 +217,16 @@ foreach $Target (@Parms) {
 	if (!open($LOCK,'>>',$LockFile)) {
 		warn "Unable to create/open $LockFile: $!";
 		$Errors++;
-		next;
+		return;
 	}
 	if (!flock($LOCK, LOCK_EX | LOCK_NB)) {
 		warn "Unable to lock $LockFile: $!";
 		$Errors++;
-		next;
+		return;
 	}
 
 	# Is this a rerun?
-	if ($opt_R) {
+	if ($Options{Rerun}) {
 		my $LS;
 		if (open($LS,'ls -t |')) {
 			# Find the newest directory that isn't dirvish.
@@ -182,7 +235,7 @@ foreach $Target (@Parms) {
 				next if ( $dir =~ /^dirvish$/);
 				my $mode = (lstat($dir))[2];		# Get the mode. lstat detects symlinks.
 				next unless (S_ISDIR($mode));		# Skip non-directories.
-				next unless (-M "$dir" <= 1);		# Skip older backups.
+				next unless (-M "$dir" <= $Options{Rerun});		# Skip older backups.
 				next unless (-d "$dir/tree" || -d "$dir/log" || -d "$dir/log.tmp");
 				my $trash = mktemp("./trash.XXXX");
 				RunDangerousCmd("mv $dir $trash") && warn "Unable to rename '$dir' in response to -R: $!";
@@ -202,7 +255,7 @@ foreach $Target (@Parms) {
 	my $Init = ($Status eq 0?'':'--init "--expire=+3 months"');	# Add --init if no trees.
 
 	# Run the back-up.
-	my $AdditionalOptions = join(' ',@opt_D);
+	my $AdditionalOptions = (exists($Options{Dirvish})?join(' ',@{$Options{Dirvish}}):'');
 	my $TargetStartTime = time();
 	$Status = RunDangerousCmd("dirvish --vault $Target $Init $AdditionalOptions");
 	if ($Status == 0) {
@@ -213,7 +266,7 @@ foreach $Target (@Parms) {
 			next unless ( -d "$Dir" and ! -l "$Dir");		# Skip symbolic links ("latest"), etc.
 			next unless ( -f "$Dir/summary");			# Skip stray non-backup folders.
 			next unless ((stat($Dir))[9] > $TargetStartTime);	# Skip older backups.
-			Summarize("$Dir");
+			Summarize($Target, $Dir);
 		}
 	} else {
 		print "dirvish failed with status $Status\n";
@@ -230,62 +283,52 @@ foreach $Target (@Parms) {
 	$FileSystems{$fs}=1;
 }
 
-# Print the disk space report.
-if (%FileSystems) {
-	print "_"x60 . "\nDisk space report:\n";
-	my $units = ($^O eq 'aix'?'g':'h');
-	RunDangerousCmd("df -$units -P| grep -E '^(" . join('|',keys(%FileSystems)) . ") '");
-	print "\n";
-}
 
-if ($ExitCode) {
-	warn "$Prog failed.\n";
-} else {
-	#print "$Prog ended normally.\n";
-}
 
-$ExitCode=$Errors?10:0;
-exit($ExitCode);
-
+#
+# Summarize - write a summary about this backup.
+#
 sub Summarize {
-	my($Directory);			# Current directory we're processing.
-	foreach $Directory (@_) {
-		# Document any errors in the execution report.
-		if (!open(SUMMARY,'<', "$Directory/summary")) {
-			warn "Unable to open $Directory/summary: $!\n";
-		}
-		else {
-			my $LastLine='';
-			while (<SUMMARY>) {
-				$LastLine = $_ if (!/^\s*$/);
-			}
-			$LastLine =~ s/\s*Status:\s*//;
-			$LastLine =~ s/\s*$//;
-			print "Unexpected summary status: $LastLine\n"
-				unless ($LastLine =~ /^success$|file vanished on sender/);
-		}
-			
-		system("tail -1 $Directory/summary");
-
-		# Calculate totals.
-		$TotalItems=0;
-		$TotalSize=0;
-		$NewItems=0;
-		$NewSize=0;
-		find(\&FoundItem,"$Directory/tree");
-		my $WarnText='';
-		if ($opt_S and $NewSize > $opt_S) {
-			$WarnText = "New item size of " . FormatSize($NewSize) . " exceeds alert threshold of " . FormatSize($opt_S) . ".\n";
-		}
-		$TotalSize=FormatSize($TotalSize);
-		$NewSize=FormatSize($NewSize);
-		printf "$Target $Directory: " . 
-			"Total Items: %d (%s), " .
-			"New Items: %d (%s)\n",
-			$TotalItems, $TotalSize,
-			$NewItems, $NewSize;
-		print $WarnText if ($WarnText);
+	my($Target,$Directory) = @_;			# Current directory we're processing.
+	# Document any errors in the execution report.
+	if (!open(SUMMARY,'<', "$Directory/summary")) {
+		warn "Unable to open $Directory/summary: $!\n";
 	}
+	else {
+		my $LastLine='';
+		while (<SUMMARY>) {
+			$LastLine = $_ if (!/^\s*$/);
+		}
+		$LastLine =~ s/\s*Status:\s*//;
+		$LastLine =~ s/\s*$//;
+		print "Unexpected summary status: $LastLine\n"
+			unless ($LastLine =~ /^success$|file vanished on sender/);
+	}
+		
+	system("tail -1 $Directory/summary");
+
+	# Calculate totals.
+	$TotalItems=0;
+	$TotalSize=0;
+	$NewItems=0;
+	$NewSize=0;
+	find(\&FoundItem,"$Directory/tree");
+	my $WarnText='';
+	if ($Options{MinSize} and $NewSize < $Options{MinSize}) {
+		$WarnText = "New item size of " . FormatSize($NewSize) . " falls below the alert threshold of " . FormatSize($Options{MinSize}) . ".\n";
+	}
+	if ($Options{MaxSize} and $NewSize > $Options{MaxSize}) {
+		$WarnText = "New item size of " . FormatSize($NewSize) . " exceeds the alert threshold of " . FormatSize($Options{MaxSize}) . ".\n";
+	}
+	$TotalSize=FormatSize($TotalSize);
+	$NewSize=FormatSize($NewSize);
+	printf "%s %s: " . 
+		"Total Items: %d (%s), " .
+		"New Items: %d (%s)\n",
+		$Target,     $Directory,
+		$TotalItems, $TotalSize,
+		$NewItems,   $NewSize;
+	print $WarnText if ($WarnText);
 }
 
 
@@ -345,11 +388,11 @@ sub commify {
 sub RunDangerousCmd {
 	my ($Cmd,$FH,$Line);
 	$Cmd=join(' ',@_);
-	if ($opt_t) {
+	if ($Options{Test}) {
 		print "Test: $Cmd\n";
 		return 0;
 	} else {
-		print "Executing: $Cmd\n" if ($opt_v);
+		print "Executing: $Cmd\n" if ($Options{Verbose});
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
 				$Line=~s/[
@@ -369,24 +412,70 @@ sub RunDangerousCmd {
 
 
 #
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n>;
+	}
+}
+
+
+
+#
+# opt_s - minimum size threshold
+#
+sub opt_s {
+	my(undef,$Value) = @_;
+	if ($Value =~ /^(\d+)$/i) {
+		$Options{MinSize} = $1;
+	}
+	elsif ($Value =~ /^(\d+)K$/i) {
+		$Options{MinSize} = $1*1024;
+	}
+	elsif ($Value =~ /^(\d+)M$/i) {
+		$Options{MinSize} = $1*1024*1024;
+	}
+	elsif ($Value =~ /^(\d+)G$/i) {
+		$Options{MinSize} = $1*1024*1024*1024;
+	}
+	elsif ($Value =~ /^(\d+)T$/i) {
+		$Options{MinSize} = $1*1024*1024*1024*1024;
+	}
+	else {
+		die qq<Invalid value "$Value" for -s/--min-size.\n>;
+	}
+}
+
+
+
+#
 # opt_S - size threshold
 #
 sub opt_S {
-	my $Value = shift;
-	if ($Value =~ /^(\d+)K$/i) {
-		$opt_S = $1*1024;
+	my(undef,$Value) = @_;
+	if ($Value =~ /^(\d+)$/i) {
+		$Options{MaxSize} = $1;
+	}
+	elsif ($Value =~ /^(\d+)K$/i) {
+		$Options{MaxSize} = $1*1024;
 	}
 	elsif ($Value =~ /^(\d+)M$/i) {
-		$opt_S = $1*1024*1024;
+		$Options{MaxSize} = $1*1024*1024;
 	}
 	elsif ($Value =~ /^(\d+)G$/i) {
-		$opt_S = $1*1024*1024*1024;
+		$Options{MaxSize} = $1*1024*1024*1024;
 	}
 	elsif ($Value =~ /^(\d+)T$/i) {
-		$opt_S = $1*1024*1024*1024*1024;
+		$Options{MaxSize} = $1*1024*1024*1024*1024;
 	}
 	else {
-		die <Invalid value "$opt_S" for -S.\n>;
+		die qq<Invalid value "$Value" for -S/--max-size.\n>;
 	}
 }
 
@@ -398,39 +487,85 @@ sub opt_h {
 
 	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
 	print PAGENATER <<"ENDUSAGE";
-$Prog - Zip selected shared folders onto the snap server.
+$Prog - Run dirvish jobs
 
-Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] vault
+Usage:  $Prog [options] vault... [options] vault... ...
 	$Prog -h
 
-Flags:
-	-B script:	Begin: Execute "script" before starting the job.
-	-D parms:	Dirvish: Pass the following parameters and options
-			directly to dirvish.  Spaces need to be escaped or
-			quoted.
-	-e mailid:      Error: Send an execution report to this e-mail address
-			if errors are detected.
-	-m mailid:      Mailid: Send an execution report to this e-mail address.
-	-N text	:	Name: Set subject line to this.  Accepts variable subst.
-	-O config:      Insert the "config" configuration options from
-			$ConfigFile.
-	-p mailid:      Page: Send a very brief message (suitable for a pager)
-			to this e-mail address when this job completes.
-	-P mailid:      Page error: Send a very brief message to this e-mail 
-			address if errors are detected in this job.
-			the command line at this point.
-	-S size	:	Size: Issue a warning if the size of the new items 
-			exceeds "size".  "size" is measured in bytes, but may
-			be followed by a unit of "k", "m", "g", or "t" 
-			(case-insensitive).
-	-t	:	Test: echo commands instead of running them.
-	-v	:	Verbose: echo commands before running them.
-	-h      :       Help: display this panel
+Options:
+	-B|--begin script:		Begin: Execute "script" before running
+					any vault backups.
+
+	-D|--dirvish parms:		Dirvish: Pass the following parameters
+					and options directly to dirvish. 
+					Spaces need to be escaped or quoted.
+
+	-m|--always-mail mailid:	Mail: Send an execution report to this
+					e-mail address.
+
+	-M|--error-mail mailid: 	Mail on error: Send an execution report
+					to this e-mail address only if errors
+					are detected.
+
+	-N|--subject text:		Name: Set subject line to this.  Accepts
+					variable subst.
+
+	-O|--option-set config:		Insert the "config" configuration
+					options from $ConfigFile.
+
+	-p|--always-page mailid: 	Page: Send a very brief message
+					(suitable for a pager or text message)
+					to this e-mail address when this job
+					completes.
+
+	-P|--error-page mailid:		Page on error: Send a very brief message
+					to this e-mail address if errors are
+					detected in this job.
+
+	-R|--rerun [days]:		Rerun: delete the most recent backup, 
+					provided that it is no more than "days"
+					days old.  Days is optional, and 
+					defaults to 1.
+
+	-s|--min-size size:		minimum Size: Issue a warning if the
+					size of the new items are less than
+					"size".  "size" is measured in bytes,
+					but may be followed by a unit of "k",
+					"m", "g", or "t" (case-insensitive)
+					for kilo-, mega-, giga-, or tera-bytes.
+
+	-S|--max-size size:		maximum Size: Issue a warning if the
+					size of the new items exceeds "size".
+					See "-s" above for unit specifications.
+	-t|--test:			Test: echo commands instead of running
+					them.
+	-v|--verbose:			Verbose: echo commands before running
+					them.  May be repeated to increase
+					verbosity.  --test overrides --verbose.
+
+	-h|?|--help:			Help: display this panel
 
 Parameters:
-	vault	:	A vault name (assumed to bin in /usr/local/dirvish), or
-			a fully-qualified path to the vault.  A branch may be 
-			included.
+	vault...:	One or more vault names.  Vault names may be fully 
+			qualified, or else the directories listed in the 
+			"BANKS:" setting in the configuration file ares
+			searched in sequence.  A branch name may be included.
+
+Notes:
+1) Options and vault names may be interspersed, and are applied in the 
+sequence listed.  As a result, most options apply to any vaults that follow.
+For example:
+
+	$Prog -s 10G -S 30G vault1 vault2 -S 20G vault3
+
+In this example, -s 10G applies to all three vaults.  -S 30G applies to
+vault1 and vault2, but is changed to -S20G for vault3.
+
+Some options are used to initialize the program, and as such reply to 
+all vaults, regardless of where they appear.  These are the options that
+configure e-mail notification (-m, -M, -p, -P, -N), run any external
+initialization processes (-B), and the help panel (-h).
+
 
 Return codes:
 	0       :       Normal termination
@@ -505,6 +640,7 @@ IGNORE  "^\s*Job \S+.a will be run at ... ... .. ........ ... ....\.$"
 SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
 SHOW    /^Test:/
 SHOW    /^Executing:/
+SHOW    /^Verbose:/
 SHOW	/^\s*debug:/
 SHOW  /^\s*$/
 # 
