@@ -101,7 +101,7 @@ PageTop[load]: <H1>Load Average</H1><a href="index.shtml">(Return to main page)<
 # CPU Utilization
 #
 Options[_]: growright,nopercent
-Max[Bytes[_]: 400
+MaxBytes[_]: 400
 Unscaled[_]: ymwd
 WithPeak[_]: ymw
 LegendI[_]: %
