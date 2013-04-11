@@ -3,67 +3,103 @@
 # quick code to replace duplicate files in dirvish trees with hardlinks.
 #
 # Assumes the same relative name.
+#
+# Usage: link-dups dir1 [dir2...] dirN
+#	Links all duplicates in dir1 through dirN-1 to dirN
+
+#
+# LinkDups link one directory tree to another.
+#
+function LinkDups {
+	CandidateTree=$1
+	Target=$2
+
+	if [[ ! -d $CandidateTree ]]
+	then
+		echo "Unable to find $CandidateTree or $CandidateTree is not a directory"
+		return
+	fi
+
+	date "+%D %T Linking $CandidateTree to $Target"
+
+	find $CandidateTree -type f -print |
+		sort |
+		while read candidate
+		do
+			((CheckCount=$CheckCount+1))
+			trailing_name=${candidate#$CandidateTree}
+			filename="$Target$trailing_name"
+			if [[ -f "$filename" ]]
+			then
+				# Same file name in both trees.  Are they already linked?
+				if [[ `stat -c %d-%i "$filename"` -eq `stat -c %d-%i "$candidate"` ]]
+				then
+					# Already linked.
+					((AlreadyLinked=$AlreadyLinked+1))
+				else
+					# Not already linked.  Are they the same?
+					filestat=`stat -c %u-%g-%a-%s-%m "$filename"`
+					candstat=`stat -c %u-%g-%a-%s-%m "$candidate"`
+					if [[ "$filestat" = "$candstat" ]]
+					then
+						# uid, gid, perms, size, mountpoint match.  Check content.
+						cmp -s "$filename" "$candidate"
+						if (( $? == 0 ))
+						then
+							ln -f "$candidate" "$filename"
+							((MatchCount=MatchCount+1))
+						fi
+					fi
+				fi
+			fi
+			if [[ ( $CheckCount = *00 ) && ( $Verbose || ( $TTYStat -eq 0 ) ) ]]
+			then
+				printf "\r  $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked\r" > /dev/tty
+			fi
+			echo "  $CandidateTree->$Target complete: $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked"
+		done |
+		tail -1
+}
+
+
+#
+# Mainline code
+#
 
 if [[ $1 = "-v" ]]
 then
-    export Verbose=1
-    shift
+	export Verbose=1
+	shift
 else
-    export Verbose=0
+	export Verbose=0
 fi
 
-if (( $# != 2 ))
+if [[ $# -lt 2 ]]
 then
-    echo "usage: $0 file1 file2"
-    exit 8
+	echo "usage: $0 dir1 ... dirN"
+	exit 8
 fi
 
-if [[ ! -d $1 ]]
+
+Target=${!#}		# Get the last argument.
+if [[ ! -d $Target ]]
 then
-    echo "Unable to find $1 or $1 is not a directory"
-    exit 9
+	echo "Unable to find $Target or $Target is not a directory"
+	exit 9
 fi
 
-if [[ ! -d $2 ]]
-then
-    echo "Unable to find $2 or $2 is not a directory"
-    exit 9
-fi
+tty -s
+TTYStat=$?
 
+# Initialize counters.
 ((CheckCount=0))
 ((MatchCount=0))
 ((AlreadyLinked=0))
-tty -s
-TTYStat=$?
-find $1 -type f -print |
-    sort |
-    while read candidate
-    do
-       ((CheckCount=$CheckCount+1))
-       trailing_name=${candidate#$1}
-       filename="$2$trailing_name"
-       if [[ -f "$filename" ]]
-       then
-	       # Same file name in both trees.  Are they already linked?
-	       if [[ `stat -c %d-%i "$filename"` -eq `stat -c %d-%i "$candidate"` ]]
-	       then
-		   # Already linked.
-	           ((AlreadyLinked=$AlreadyLinked+1))
-	       else
-		   # Not already linked.  Are they the same?
-		       cmp -s "$filename" "$candidate"
-		       if (( $? == 0 ))
-		       then
-		           ln -f "$candidate" "$filename"
-		           ((MatchCount=MatchCount+1))
-		       fi
-	       fi
-       fi
-       if [[ ( $CheckCount = *00 ) && ( $Verbose || ( $TTYStat -eq 0 ) ) ]]
-       then
-		printf "\r  $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked\r" > /dev/tty
-       fi
-       echo "  $1->$2 complete: $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked"
-    done |
-    tail -1
+
+# Loop through all the arguments except the last.
+for CandidateTree in ${@:1:$#-1}
+do
+	LinkDups "$CandidateTree" "$Target"
+done
 exit 0
+
