@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 #
 # quick code to replace duplicate files in dirvish trees with hardlinks.
 #
@@ -44,8 +44,20 @@ function LinkDups {
 					then
 						# uid, gid, perms, size, mountpoint match.  Check content.
 						cmp -s "$filename" "$candidate"
-						if (( $? == 0 ))
+						if [[ $? -eq 0 ]]
 						then
+							size=`stat -c %a "$candidate"`
+							if [[ $size -ge 512*1024 ]]
+							then
+								(( SavedM=$SavedM + ($size/1024/1024) +0.5 ))
+							else
+								(( Saved = $Saved + $size ))
+							fi
+							if [[ $Saved -ge 1024*1024 ]]
+							then
+								(( SavedM=$SavedM + 1 ))
+								(( Saved = $Saved - (1024*1024) ))
+							fi
 							ln -f "$candidate" "$filename"
 							((MatchCount=MatchCount+1))
 						fi
@@ -54,9 +66,9 @@ function LinkDups {
 			fi
 			if [[ ( $CheckCount = *00 ) && ( $Verbose || ( $TTYStat -eq 0 ) ) ]]
 			then
-				printf "\r  $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked\r" > /dev/tty
+				printf "\r  $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked, ${SavedM}MB saved\r" > /dev/tty
 			fi
-			echo "  $CandidateTree->$Target complete: $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked"
+			echo "  $CandidateTree->$Target complete: $CheckCount files checked; $MatchCount new matches; $AlreadyLinked already linked, ${SavedM}MB saved"
 		done |
 		tail -1
 }
@@ -95,6 +107,10 @@ TTYStat=$?
 ((CheckCount=0))
 ((MatchCount=0))
 ((AlreadyLinked=0))
+((Saved=0))
+((SavedM=0))
+
+export CheckCount MatchCount AlreadyLinked Saved SavedM
 
 # Loop through all the arguments except the last.
 for CandidateTree in ${@:1:$#-1}
