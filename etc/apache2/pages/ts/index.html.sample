@@ -3,14 +3,10 @@
 Information Technology Support Tools
 
 <ul>
-<li><a href="http://ts.watertech.com/elog/">ELOG</a> - System change logs
-<li><a href="http://ts.watertech.com/mrtg">MRTG</a> - Network traffic logs
-<!-- <li><a href="http://ts.watertech.com/nagios/">Nagios</a> - System status -->
-<li><a href="http://ts.watertech.com/ntop">NTop</a> - Network traffic breakdown
-<!-- <li><a href="http://ts.watertech.com/tc">TC</a> - Network traffic control statistics -->
-<li><a href="http://ts.watertech.com/technotes">TechNotes</a> - Technical Notes
+<li><a href="/elog/">ELOG</a> - System change logs
+<li><a href="/mrtg">MRTG</a> - Network traffic logs
 <li><a href="mdstat.shtml">mdstat</a> - Metadisk Status
 </ul>
 <br>
 <br>
-<p><small>Copyright &copy; 2006-2009, Water Technologies, Inc.  The items made available on this page are for the exclusive use of the Water Technologies staff only.  All other use is prohibited.</small></p>
+<p><small>Copyright &copy; 202013, Martin Consulting Services, Inc.  The items made available on this page are for the exclusive use of the Water Technologies staff only.  All other use is prohibited.</small></p>
