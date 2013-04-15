@@ -306,6 +306,7 @@ sub PrintStatsFile {
 		$Errors++;
 		return;
 	}
+	chmod(0x644,$Options{StatFile});
 
 	print $STATFH qq[
 		<html>
