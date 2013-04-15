@@ -44,6 +44,7 @@ our %Config;		   # Configuration file data.
 our @Parms;                # Parameters found in @ARGV.
 our $Cancel          = 0;  # 1 = cancel requested.
 our $CancelConfirmed = 0;  # 1 = cancel confirmed.
+our $Candidate;		   # Current file we're processing.  Global for stats.
 our %UniqueFiles;          # Hash of known file signatures (MD5+selected inode data).
 our %Inodes;               # Hash of known inodes and what to link them to.
 our $Usedspc       = 0;    # Total space examined.
@@ -569,7 +570,7 @@ sub PrintStatistics () {
     );
     print $LastStats;
     $LastPrint = "stats";
-    PrintStatFile($LastStats) if ($Opt{statfile});
+    PrintStatFile("$LastStats<br>Now processing $Candidate") if ($Opt{statfile});
     if ($PrintStats) {
 
         # This was a manual request.  Don't overwrite it.
@@ -590,13 +591,6 @@ sub PrintStatFile {
     my $STATFILE;
     if (open($STATFILE,'>',$Opt{statfile})) {
         if ($Opt{statformat} eq 'html') {
-            if ($Text =~ /=/) {
-            	$Text =~ s"(\d\d/)"<table><tr><td>Date/Time=$1";
-		$Text =~ s/ elapsed/, elapsed/;
-            	$Text =~ s"="</td><td>"g;
-            	$Text =~ s", "</td></tr><tr><td>"g;
-		$Text .= "</tr></table>";
-	    }
             print $STATFILE qq[
                 <!DOCTYPE html>
                 <html>
@@ -605,8 +599,9 @@ sub PrintStatFile {
 			<meta HTTP-EQUIV="refresh" CONTENT="60">
                     </head>
                     <body>
-                        <h2>$Prog status</h2>
+			<font face="COURIER NEW" size=2>
 			$Text
+			</font>
                     </body>
                 </html>
             ];
@@ -742,40 +737,40 @@ sub ProcessFile {
     WriteCheckpoint() if ($WriteCheckpoint);
 
     # Skip this item if it has disappeared since we started.
-    my $cand = $File::Find::name;	# Get the full path name of our candidate.
+    $Candidate = $File::Find::name;	# Get the full path name of our candidate.
     my (@candstat) = stat($_);
 
     # Manage stats and generate progress reports.
-    ManageStats($cand);
+    ManageStats($Candidate);
 
     return if -l;          # Skip relative links.  No pay off.
     return unless -f _;    # Skip non-files.
     return unless -s _;    # Skip empty files.  Risk & no pay off.
 
     $files++;
-    print "debug: Checking $cand\n" if ($Opt{debug});
+    print "debug: Checking $Candidate\n" if ($Opt{debug});
 
     # If there's a limit on links, see if we've reached it.
     if ( $Opt{maxlinks} ) {
-        my (@maxlstat) = stat($cand);
+        my (@maxlstat) = stat($Candidate);
         if ( $maxlstat[3] > $Opt{maxlinks} ) {
 
             # the case that we have to make a new file from a link
-            print "debug:   Link limit reached on $cand\n" if ($Opt{debug});
+            print "debug:   Link limit reached on $Candidate\n" if ($Opt{debug});
             my ( $fh, $tempfile ) =
               tempfile( "$Prog-2-XXXXXXXX", DIR => "." );
             unless ($tempfile) {
                 die "Could not create a temporary file: $!";
             }
-            unless ( rename $cand, $tempfile ) {
+            unless ( rename $Candidate, $tempfile ) {
                 die sprintf( "Could not rename %s to %s: %s",
-                    $DV->stringify($cand), $DV->stringify($tempfile), $! );
+                    $DV->stringify($Candidate), $DV->stringify($tempfile), $! );
             }
-            cp $tempfile, $cand
+            cp $tempfile, $Candidate
               or die sprintf(
                 "Could not cp %s to %s: %s",
                 $DV->stringify($tempfile),
-                $DV->stringify($cand), $!,
+                $DV->stringify($Candidate), $!,
               );
             unlink $tempfile;
             $Savedspc -= $maxlstat[7];
@@ -800,7 +795,7 @@ sub ProcessFile {
     }
     if (defined($first) and !$first ) {
         # Case 1: we've seen this before and it stayed as-is.
-        print "debug:   $cand has same inode as $first -- leave as is\n"
+        print "debug:   $Candidate has same inode as $first -- leave as is\n"
             if ($Opt{debug});
         return;			# Leave it as-is.
     }
@@ -808,21 +803,21 @@ sub ProcessFile {
         # Case 2: we've seen this before and it was replaced.
         $match = 1;
 
-        print "debug:   $cand has same inode as prior item -- link to $first\n"
+        print "debug:   $Candidate has same inode as prior item -- link to $first\n"
             if ($Opt{debug});
     }
-    elsif ($first = FindMatch($cand,\$md5,@candstat)) {
+    elsif ($first = FindMatch($Candidate,\$md5,@candstat)) {
         # Case 3: We looked for and found a match.
         @firststat = stat($first);
         $match = 1;
         RegisterInode($first,@candstat);	# Remember how we handle this inode.
-        print "debug:   $cand contents match -- link to $first\n"
+        print "debug:   $Candidate contents match -- link to $first\n"
             if ($Opt{debug});
     }
     else {
         # Case 4: It didn't match anything.
         $match = 0;
-        RegisterFile( $md5, $cand, @candstat );	# Remember for future matches.
+        RegisterFile( $md5, $Candidate, @candstat );	# Remember for future matches.
         RegisterInode('',@candstat);		# Remember this inode.
     }
 
@@ -830,16 +825,16 @@ sub ProcessFile {
         # Don't replace if we've exceeded our maxlinks.
         if ( $Opt{maxlinks} && $firststat[3] >= $Opt{maxlinks} ) {
             # Exceeded our link limit.  Register this as the new target file.
-            RegisterFile( $md5, $cand, @candstat );
+            RegisterFile( $md5, $Candidate, @candstat );
         }
-        elsif ( ReplaceWithLink( $first, $cand ) ) {
+        elsif ( ReplaceWithLink( $first, $Candidate ) ) {
             if ( $candstat[3] == 1 ) {    # we don't save space otherwise
-                $Savedspc += -s $cand;
+                $Savedspc += -s $Candidate;
             }
         }
         else {
             # Tried but failed to hardlink.  Make candidate our new target.
-            RegisterFile( $md5, $cand, @candstat );
+            RegisterFile( $md5, $Candidate, @candstat );
             RegisterInode('',@candstat);
         }
     }
