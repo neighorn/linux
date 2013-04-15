@@ -315,13 +315,13 @@ sub PrintStatsFile {
 				<meta HTTP-EQUIV="refresh" CONTENT="60">
 			</head>
 			<body>
-				<pre>
+				<font face="COURIER NEW" size=2>
 ];
 	foreach (@_) {
 		s/^\s*//;
 		print $STATFH "$_<br>\n";
 	}
-	print $STATFH "\t\t\t\t</pre>\n\t\t\t</body>\n\t\t</html>\n";
+	print $STATFH "\t\t\t\t</font>\n\t\t\t</body>\n\t\t</html>\n";
 	close $STATFH;
 }
 
