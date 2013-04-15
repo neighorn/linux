@@ -36,6 +36,8 @@ our $TotalItems;			# Global for Find/Found
 our $NewSize;				# Global for Find/Found
 our $NewItems;				# Global for Find/Found
 
+our $STATFH;
+
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
@@ -55,6 +57,7 @@ our %OptionSpecifications=(
 		'R|rerun:1'		=>	sub {$Options{Rerun}=$_[1];},
 		's|min-size=s'		=>	\&opt_s,
 		'S|max-size=s'		=>	\&opt_S,
+		'statfile=s'		=>	sub {$Options{StatFile}=$_[1];},
 		't|test!'		=>	sub {$Options{Test}=$_[1];},
 		'v|verbose'		=>	sub { $Options{Verbose} = (exists($Options{Verbose})?$Options{Verbose}+1:1)},
 );
@@ -130,9 +133,13 @@ die "No BANKS defined in configuration file(s)"
 		and $Config{BANKS});
 my @Banks = shellwords(($Config{BANKS}));
 
+PrintStatsFile(strftime("%D %T $Prog started<br>",localtime()));
+chmod(0x644) if ($Options{StatsFile});
+
 foreach (@{$Options{PreRun}}) {
 	# Run any initialization scripts.
 	print "Running: $_\n";
+	PrintStatsFile(strftime("%D %T Running initialization scripts<br>",localtime()));
 	RunDangerousCmd($_) &&
 		die "$_ returned status $?: $!\n";
 }
@@ -156,8 +163,10 @@ if (%FileSystems) {
 
 if ($Errors) {
 	warn "$Prog failed.\n";
+	PrintStatsFile(strftime("%D %T $Prog ended with errors.<br>",localtime()));
 } else {
 	#print "$Prog ended normally.\n";
+	PrintStatsFile(strftime("%D %T $Prog ended normally.<br>",localtime()));
 }
 
 exit( ($Errors?10:0) );
@@ -173,6 +182,7 @@ sub ProcessBackup {
 		print "Verbose:	Beginning backup of $Target.  Options:\n";
 		print Dumper(\%Options);
 	}
+	PrintStatsFile(strftime("\n%D %T Starting $Target\n",localtime()));
 
 	# Make sure they gave us a valid vault.
 	if ($Target =~ m"^/") {
@@ -283,6 +293,36 @@ sub ProcessBackup {
 	$FileSystems{$fs}=1;
 }
 
+
+#
+# PrintStatsFile - write an HTML stats file for easy monitoring.
+#
+sub PrintStatsFile {
+
+	return unless ($Options{StatFile});
+	if (!open($STATFH,'>',$Options{StatFile})) {
+		warn "Unable to open $Options{StatFile}: $!\n";
+		$Options{StatFile}='';
+		$Errors++;
+		return;
+	}
+
+	print $STATFH qq[
+		<html>
+			<head>
+				<title>$Prog status</title>
+				<meta HTTP-EQUIV="refresh" CONTENT="60">
+			</head>
+			<body>
+				<pre>
+];
+	foreach (@_) {
+		s/^\s*//;
+		print $STATFH "$_<br>\n";
+	}
+	print $STATFH "\t\t\t\t</pre>\n\t\t\t</body>\n\t\t</html>\n";
+	close $STATFH;
+}
 
 
 #
