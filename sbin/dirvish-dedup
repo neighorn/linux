@@ -13,7 +13,7 @@ use File::Copy qw(cp);
 use File::Find;
 use File::Temp qw(tempfile);
 use File::Basename;
-use Getopt::Long;
+use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use POSIX qw(strftime);
 use Fcntl;
 use FindBin qw($Script);
@@ -31,14 +31,17 @@ sub PrintStatistics ();
 sub RegisterFile ($$@);
 sub RegisterInode ($@);
 sub FindMatch ($@);
-sub ProcessOptions ();
 sub ElapsedTime ();
+sub ProcessOptions (@);
 
 #
 # Global variables
 #
 our $Prog = $Script;       # Get our program name, for messages and work files.
 our %Opt;                  # Command line options.
+my $ConfigFile = "/usr/local/etc/$Prog.cfg";
+our %Config;		   # Configuration file data.
+our @Parms;                # Parameters found in @ARGV.
 our $Cancel          = 0;  # 1 = cancel requested.
 our $CancelConfirmed = 0;  # 1 = cancel confirmed.
 our %UniqueFiles;          # Hash of known file signatures (MD5+selected inode data).
@@ -53,17 +56,18 @@ our $Root;                 # Current root dir (ARGV item).
 our $LastCheckpoint = time();	# Time of last checkpoint.
 our $WriteCheckpoint = 0;  # 1 = time to write a checkpoint file.
 our @OrigARGV = @ARGV;	   # For checkpoint.
-our @ARGV_Copy;		   # In case CheckInterrupt has to reuse @ARGV.
+our @Parms_Copy;		   # In case CheckInterrupt has to reuse @Parms.
 our $AlarmInterval;	   # How long between alarms.
-our $ArgCount;		   # How many args we have, for stats.
+our $ParmCount;		   # How many args we have, for stats.
 our $CurrentArg = 0;	   # Which arg we're on, for stats.
-our @OptSpec;		   # Specs for GetOptions;
 our $StartTime = time();   # Start time, for elapsed reports.
 our $tl_dirs_total;	   # # of top level dirs in this root.
 our $tl_dirs_doing;	   # Which top level dir we're on in this root.
 our $td_slashes;	   # Number of slashes to our current top domain.
 our $LastPrint='';	   # What we last printed (stats, progress);
 our $LastStats='';         # Our most recent statistics report.
+our $LastProgress = 0;	   # The last time we generated a progress report.
+our $CheckpointDuration;   # The time it takes to write a checkpoint file.
 
 #
 # Signals.
@@ -84,15 +88,22 @@ $SIG{HUP} = $SIG{USR1};    # Don't die because the user sent the default kill.
     # Set us up for regular progress reports.
 $SIG{ALRM} = sub {
     print "Alarm rang.\n" if ($Opt{debug});
-    $PrintProgress = 1 if ( $Opt{'progress'} );	# If they want progress reports, queue it up.
+    $PrintProgress = 1 if ( 
+           ( $Opt{progress} or $Opt{statfile} )
+       and time() - $LastProgress >= $Opt{proginterval});	# If they want progress reports, queue it up.
     $WriteCheckpoint = 1 if (time() - $LastCheckpoint >= $Opt{cpinterval}); 
     alarm($AlarmInterval - (time() % $AlarmInterval));	# Schedule the next alarm.
 };
 
 #
-# Process options.  @OptSpec is global, so we can change options dynamically.
+# Load the configuration file.
 #
-exit 8 unless ProcessOptions();
+LoadConfig($ConfigFile);
+
+#
+# Process options.
+#
+exit 8 unless ProcessOptions(@ARGV);
 
 our $DV = Dumpvalue->new(
     tick         => qq{"},
@@ -113,24 +124,27 @@ $| = 1;
 select(STDOUT);
 $| = 1;
 
+# Initialize the statistics file if requested.
+PrintStatFile(strftime("Started $Prog at %D %T\n",localtime()));
+
 #
 # Begin processing arguments.
 #
-die "No directories specified.  Enter $Prog -h for usage.\n" unless (@ARGV);
+die "No directories specified.  Enter $Prog -h for usage.\n" unless (@Parms);
 # If we only have one argument, move into subdirectories.  This makes stats and
 # --reverse more useful.
-while (@ARGV == 1 and -d $ARGV[0]) {
+while (@Parms == 1 and -d $Parms[0]) {
 	# Only one argument.  Move down one leve.
-	@ARGV = bsd_glob($ARGV[0] . '/*');
+	@Parms = bsd_glob($Parms[0] . '/*');
 }
 if ($Opt{reverse}) {
-	@ARGV_Copy = reverse(@ARGV);
+	@Parms = reverse(@Parms);
 }
 else {
-	@ARGV_Copy = @ARGV;
+	@Parms_Copy = @Parms;
 }
-$ArgCount = 0 + @ARGV;		# Count, for statistics.
-foreach $Root ( @ARGV_Copy ) {
+$ParmCount = 0+@Parms;		# For stats.
+foreach $Root ( @Parms_Copy ) {
     $Root =~ s"/+$"";		# Strip trailing /
     $tl_dirs_total = 0;
     $tl_dirs_doing = 0;
@@ -153,7 +167,7 @@ foreach $Root ( @ARGV_Copy ) {
     }
     print "\n" if ($LastPrint eq 'stats');
     print strftime("%D %T Starting $Root" . ' 'x30 . "\n",localtime())
-        if (@ARGV > 1);
+        if (@Parms > 1);
     syslog('info',"Starting $Root");
     find(
         {
@@ -165,6 +179,15 @@ foreach $Root ( @ARGV_Copy ) {
     );
     PrintStatistics();		# Final stats for this argv item.
     print "\n";
+    if ($CancelConfirmed) {
+        printf "Writing final checkpoint file.  ";
+        if ($CheckpointDuration) {
+       	    print "Estimated time = $CheckpointDuration seconds.\n";
+	}
+	else {
+            print "\n";
+        }
+    }
     WriteCheckpoint();
     last if $Cancel and $CancelConfirmed;
 }
@@ -181,41 +204,128 @@ my $Elapsed = ElapsedTime();
 my $Summary = strftime( "Done @ %T on %D.  Elapsed time = $Elapsed.", localtime());
 print "\n$Summary\n";
 SendMail($Summary) if ($Opt{mail});
+PrintStatFile("$Summary<br>$LastStats") if ($Opt{statfile});
 exit 0;
+
+
+#
+# Load config file
+#
+sub LoadConfig {
+
+    foreach my $ConfigFile (@_) {
+        if (-e $ConfigFile) {
+                open(CONFIG,$ConfigFile) || warn("Unable to open $ConfigFile: $!\n");
+                # Build a hash of settings found in the config file.
+                while (<CONFIG>) {
+                        next if (/^\s*#/);      # Comment.
+                        next if (/^\s*$/);      # Blank line.
+                        chomp;
+                        my ($name,$settings)=split(/:?\s+/,$_,2);
+                        $name=uc($name);        # Name is not case sensitive.
+                        $settings=~s/\s+$//;    # Trim trailing spaces.
+                        $Config{$name}.=$settings . ',' ;
+                }
+                close CONFIG;
+                foreach (keys(%Config)) {
+                        $Config{$_} =~ s/,$//;  # Remove trailing comma
+                }
+        }
+        foreach (keys(%Config)) { s/,$//;};     # Trim off trailing commas.
+    }
+    
+    # Process the config file defaults if present.
+    unshift @main::ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+            if (defined($Config{'ALLJOBS'}));
+}
 
 
 #
 # ProcessOptions
 #
-sub ProcessOptions () {
+sub ProcessOptions (@) {
 
-    @OptSpec = ('maxlinks=i', 'dry-run|n', 'logfile|l=s', 'progress!',
-        'stats!', 'eta!', 'compare!', 'debug+', 'cpinterval:600', 'proginterval:30',
-        'statinterval:5000', 'load-maps=s', 'mail|m=s@', 'reverse')
-      or die;
-    return 0 unless (GetOptions(\%Opt, @OptSpec));
     foreach my $name (qw(dry-run logfile progress stats eta compare debug)) {
     	$Opt{$name} = 0 unless (exists($Opt{$name}));
     }
+    
+    # Define our option specifications.  Use subroutines for everything because
+    # Getopt::Long doesn't seem to work right if called twice when just 
+    # working with variables or a hash directly.  Wc might get called twice if
+    # the user uses ^C and sets new options.
+    my %OptSpec = (
+	'<>'					=>	sub{push @Parms,shift;},
+	'compare!'				=>	sub{$Opt{compare}=$_[1];},
+	'cpinterval:600'			=>	sub{$Opt{cpinterval}=$_[1];},
+	'debug+'				=>	sub{$Opt{debug}++;},
+	'dry-run|n'				=>	\&Opt_dry_run,
+	'eta!'					=>	sub{$Opt{eta}=$_[1];},
+	'loadmap|loadmaps|load-map|load-maps=s'	=>	\&Opt_loadmap,
+	'logfile|l=s'				=>	\&Opt_logfile,
+	'mail|m=s@'				=>	sub{push @{$Opt{mail}},$_[1];},
+	'maxlinks=i'				=>	sub{$Opt{maxlinks}=$_[1];},
+        'optionset|O'				=>	\&Opt_optionset,
+	'proginterval:60',			=>	sub{$Opt{proginterval}=$_[1];},
+	'progress!'				=>	sub{$Opt{progress}=$_[1];},
+	'reverse'				=>	sub{$Opt{reverse}=$_[1];},
+	'statfile=s'				=>	sub{$Opt{statfile}=$_[1];},
+	'statformat=s'				=>	sub{$Opt{statformat}=$_[1];},
+        'statinterval:5000'			=>	sub{$Opt{statinterval}=$_[1];},
+        'stats!'				=>	sub{$Opt{stats}=$_[1];}
+    );
+    return 0 unless (GetOptionsFromArray(\@_,%OptSpec));
 
-    # Manage the dry-run flag.
+    print "debug: options:" . Dumper(%Opt) if ($Opt{debug});
+
+
+    # Manage the alarm clock.  Do this last so we don't start the timer before long processes.
+    $Opt{cpinterval} = 600 unless ($Opt{cpinterval});
+    if ($Opt{cpinterval} <= 60) {
+        warn "Invalid value for --cpinterval -- set to default.\n";
+        $Opt{cpinterval} = 600;
+    }
+    $Opt{proginterval} = 300 unless ($Opt{proginterval});
+    if ($Opt{proginterval} <= 2) {
+        warn "Invalid value for --proginterval -- set to default.\n";
+        $Opt{proginterval} = 30;
+    }
+    $Opt{statinterval} = 5000 unless ($Opt{statinterval});
+    if ($Opt{progress} or $Opt{statfile}) {
+         $AlarmInterval=gcf($Opt{proginterval},$Opt{cpinterval});
+    }
+    else {
+         $AlarmInterval=$Opt{cpinterval};
+    }
+    $AlarmInterval = 10 if ($AlarmInterval < 10);
+    alarm($AlarmInterval - (time() % $AlarmInterval));	# Schedule the first alarm.
+    return 1;
+}
+
+
+#
+# Opt_dry_run - dry-run flag
+#
+sub Opt_dry_run {
+
+    my(undef,$arg) = @_;
+    $Opt{"dry-run"} = $arg;
     warn "Running dry-run without a logfile -- no record of proposed changes will be kept.\n"
         if ($Opt{"dry-run"} and not $Opt{logfile});
     print "Running in dry-run mode...\n"
         if ( $Opt{'dry-run'} );
+}
     
-    # Set up the log file.
-    if ( $Opt{logfile} ) {
-        close $LOG_FH if ($LOG_FH);		# In case we're changing options via ^C.
-        sysopen( $LOG_FH, $Opt{logfile}, O_CREAT +O_WRONLY +O_TRUNC )
-          || die "Unable to open $Opt{logfile}: $!";
-        $LOG_FH->autoflush(1);
-    }
 
+#
+# Opt_loadmap - load a prior map file.
+#
+sub Opt_loadmap {
+
+    my(undef,$map) = @_;
     # Load a pre-existing map file
-    if ($Opt{'load-maps'}) {
-        if (open(my $MAPFH,'<',$Opt{'load-maps'})) {
-            print "Loading $Opt{'load-maps'}\n";
+    if ($map) {
+        if (open(my $MAPFH,'<',$map)) {
+            print "Loading $map\n";
             local %Opt;		# Don't want these updated.
             local @ARGV;	# Don't want these updated.
             my $OldEOL = $/;
@@ -232,28 +342,47 @@ sub ProcessOptions () {
             warn "Unable to open map file: $!";
         }
     }
-    $Opt{'load-maps'}='';	# Don't reload the maps more than once (^C-options, restart).
-        
-    # Manage the alarm clock.  Do this last so we don't start the timer before long processes.
-    $Opt{cpinterval} = 600 unless ($Opt{cpinterval});
-    if ($Opt{cpinterval} <= 60) {
-        warn "Invalid value for --cpinterval -- set to default.\n";
-        $Opt{cpinterval} = 600;
+}
+
+
+#
+# Opt_logfile - dry-run flag
+#
+sub Opt_logfile {
+
+    $Opt{logfile} = $_[1];
+    close $LOG_FH if ($LOG_FH);			# Switching log files?
+    if ( $Opt{logfile} ) {
+        sysopen( $LOG_FH, $Opt{logfile}, O_CREAT +O_WRONLY +O_TRUNC )
+          || die "Unable to open $Opt{logfile}: $!";
+        $LOG_FH->autoflush(1);
     }
-    $Opt{proginterval} = 30 unless ($Opt{proginterval});
-    if ($Opt{proginterval} <= 2) {
-        warn "Invalid value for --proginterval -- set to default.\n";
-        $Opt{proginterval} = 30;
-    }
-    $Opt{statinterval} = 5000 unless ($Opt{statinterval});
-    if ($Opt{progress}) {
-         $AlarmInterval=($Opt{proginterval} < $Opt {cpinterval}?$Opt{proginterval}:$Opt{cpinterval});
+}
+
+
+#
+# Opt_optionset - load a set of options from the config file.
+#
+sub Opt_optionset {
+
+    my $optionset = uc($_[1]);
+
+    if (exists($Config{$optionset})) {
+	ProcessOptions(shellwords($Config{$optionset}));
     }
     else {
-         $AlarmInterval=$Opt{cpinterval};
+        warn "Option set $optionset not found in config file -- skipped\n";
     }
-    alarm($AlarmInterval - (time() % $AlarmInterval));	# Schedule the first alarm.
-    return 1;
+}
+
+
+#
+# gcf - calculate the greatest common factor of two numbers.
+#
+sub gcf {
+	my ($x, $y) = @_;
+	($x,$y) = ($y,$x%$y) while $y;
+	return $x;
 }
 
 
@@ -405,8 +534,9 @@ sub ElapsedTime () {
 	$String = sprintf(":%02d",$Elapsed % $_) . $String;
         $Elapsed = int($Elapsed/$_);
     }
+    
     $String = "$Elapsed:" . $String;
-    $String =~ s/^(00?:)+//;		# Remove high order zeros.
+    $String =~ s/^[0:]*//;		# Remove high order zeros.
     return $String;
 }
 
@@ -422,12 +552,13 @@ sub PrintStatistics () {
     $ElapsedSeconds = 1 if ($ElapsedSeconds < 1);	# Sometimes get first alarm in second #0.
     my $RootStub=$Root;
     $RootStub =~ s"^.*/([^/])"$1";
+    my $TimeStamp = strftime("%D %T",localtime());
     $LastStats = sprintf(
-        "%s elapsed=%s, arg=%s/%s, tlds=%s/%s, %s files, %s unique, %s files/s, %s/s, %s used, %s saved, %s    \r",
-        strftime("%D %T",localtime()), 
+        "%s elapsed=%s, arg=%s/%s, tlds=%s/%s, files=%s, unique=%s, files/s=%s, speed=%s/s, used=%s, saved=%s saved, current=%s    \r",
+        $TimeStamp,
         $ElapsedTime,
         map { Commify($_) } (
-	    $CurrentArg,$ArgCount,
+	    $CurrentArg,$ParmCount,
             $tl_dirs_doing, $tl_dirs_total, $files, $uniq_files,
         int($files/$ElapsedSeconds+0.5),
         ),
@@ -438,6 +569,7 @@ sub PrintStatistics () {
     );
     print $LastStats;
     $LastPrint = "stats";
+    PrintStatFile($LastStats) if ($Opt{statfile});
     if ($PrintStats) {
 
         # This was a manual request.  Don't overwrite it.
@@ -445,6 +577,51 @@ sub PrintStatistics () {
         $PrintStats = 0;    # Turn off manual request flag.
     }
 }
+
+
+
+#
+# PrintStatFile - print an html or text stat file.
+#
+sub PrintStatFile {
+
+    my $Text = shift;
+
+    my $STATFILE;
+    if (open($STATFILE,'>',$Opt{statfile})) {
+        if ($Opt{statformat} eq 'html') {
+            if ($Text =~ /=/) {
+            	$Text =~ s"(\d\d/)"<table><tr><td>Date/Time=\1";
+		$Text =~ s/ elapsed/, elapsed/;
+            	$Text =~ s"="</td><td>"g;
+            	$Text =~ s", "</td></tr><tr><td>"g;
+		$Text .= "</tr></table>";
+	    }
+            print $STATFILE qq[
+                <!DOCTYPE html>
+                <html>
+                    <head>
+                        <title>$Prog status</title>
+			<meta HTTP-EQUIV="refresh" CONTENT="60">
+                    </head>
+                    <body>
+                        <h2>$Prog status</h2>
+			$Text
+                    </body>
+                </html>
+            ];
+        }
+        else {
+            print $STATFILE $Text . "\n";
+        }
+        close $STATFILE;
+    }
+    else {
+        warn "Unable to open $Opt{statfile}: $!\n";
+        $Opt{statfile}='';
+    }
+}
+
 
 
 #
@@ -526,6 +703,7 @@ sub WriteCheckpoint {
         warn "Unable to write checkpoint file: $!";
         return;
     }
+    my $Start = time();
     my $Status = print $CH Dumper(@OrigARGV,%Opt,$Root,%Inodes,%UniqueFiles);
     close $CH;
     if (!$Status) {
@@ -542,6 +720,7 @@ sub WriteCheckpoint {
         warn "Unable to move $CheckpointFile.tmp: $!";
         return;
     }
+    $CheckpointDuration = time() - $Start;
 }
 
        
@@ -756,7 +935,7 @@ sub CheckInterrupt {
     if ( $Cancel and !$CancelConfirmed ) {
 
         # Don't lose hours (or days) of work due to a ^C in the wrong window.
-	print "\nCurrently processing $Root from " . join(' ',@ARGV) . "\n";
+	print "\nCurrently processing $Root\n";
         print "\nProgress report, statistics, options, cancel job, or resume (p/s/o/c/r)? ";
         my $Response = <STDIN>;
 	chomp $Response;
@@ -781,8 +960,7 @@ sub CheckInterrupt {
                 print "Enter new options or null to exit: ";
 		$Line = <STDIN>;
 		last unless ($Line);
-                @ARGV = shellwords($Line);
-                ProcessOptions();
+                ProcessOptions(shellwords($Line));
             };
         }
         elsif ( $Response eq 'r' ) {
@@ -812,11 +990,12 @@ sub ManageStats {
         print strftime( "%D %T Now processing $cand\n", localtime( time() ) );
 	$LastPrint = "progress";
         $PrintProgress = 0;    # Turn off flag.
+	$LastProgress = time();
     }
 
     # Manage our stats.
     if ( $cand eq $Root ) {
-        # We're starting a ARGV item, count it's top-level directories.
+        # We're starting a Parms item, count it's top-level directories.
         my $td = $_;
         opendir my ($dh), $td;
         my (@tl) = grep { !/^\./ && -d "$td/$_" } readdir $dh;
@@ -867,7 +1046,7 @@ sub SendMail {
 		Subject		=> "dirvish-dedup done",
 		Message		=> 
 			"Dedup complete for "
-			. join(", ", @ARGV_Copy)
+			. join(", ", @Parms_Copy)
 			. "\n"
 			. "$LastStats\n"
 			. "$Summary\n"
@@ -882,6 +1061,7 @@ sub SendMail {
 sub FormatStorage {
 
     my $Bytes = shift;
+    $Bytes = int($Bytes+0.5);
     if ($Bytes > 10*1024*1024*1024*1024) {
         return Commify(int($Bytes/1024/1024/1024/1024)) . 'T';
     }
@@ -917,6 +1097,9 @@ dirvish-dedup - traverse directories, find identical files, replace with hard li
   --proginterval=n        Change progress report interval to "n" seconds.
   --(no)stats             print search/link statistics every 5000 files.
   --statinterval=n        Change statistics interval to every "n" files.
+  --statfile=file	  Write the statistics to "file"
+  --statformat=(html|text)	Write the statfile in HTML or text (default)
+			  format.
   -l,--logfile file	  write a link log to "file"
   --(no)compare           physically compare files if the MD5 sum and file
                           attributes match.  Slow.  --nocompare is the default.
@@ -927,7 +1110,7 @@ dirvish-dedup - traverse directories, find identical files, replace with hard li
   --reverse		  Process the command-line parameters in reverse order.
 			  This is useful when using wild-cards but needing
 			  to process the folders in newest-to-oldest order.
-  --load-maps=file	  Load a checkpoint file from a prior run.
+  --loadmaps=file	  Load a checkpoint file from a prior run.
   --
                           extra full file read of both files.
                           Default is to trust the MD5 + file size.
