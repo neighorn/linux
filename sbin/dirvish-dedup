@@ -591,7 +591,7 @@ sub PrintStatFile {
     if (open($STATFILE,'>',$Opt{statfile})) {
         if ($Opt{statformat} eq 'html') {
             if ($Text =~ /=/) {
-            	$Text =~ s"(\d\d/)"<table><tr><td>Date/Time=\1";
+            	$Text =~ s"(\d\d/)"<table><tr><td>Date/Time=$1";
 		$Text =~ s/ elapsed/, elapsed/;
             	$Text =~ s"="</td><td>"g;
             	$Text =~ s", "</td></tr><tr><td>"g;
