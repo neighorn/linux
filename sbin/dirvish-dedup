@@ -256,6 +256,7 @@ sub ProcessOptions (@) {
     # the user uses ^C and sets new options.
     my %OptSpec = (
 	'<>'					=>	sub{push @Parms,shift;},
+	'cd|C=s'				=>	sub{chdir($_[1]) or die "Unable to cd to $_[1]:$!\n";},
 	'compare!'				=>	sub{$Opt{compare}=$_[1];},
 	'cpinterval:600'			=>	sub{$Opt{cpinterval}=$_[1];},
 	'debug+'				=>	sub{$Opt{debug}++;},
@@ -555,8 +556,7 @@ sub PrintStatistics () {
     $RootStub =~ s"^.*/([^/])"$1";
     my $TimeStamp = strftime("%D %T",localtime());
     $LastStats = sprintf(
-        "%s elapsed=%s, arg=%s/%s, tlds=%s/%s, files=%s, unique=%s, files/s=%s, speed=%s/s, used=%s, saved=%s saved, current=%s    \r",
-        $TimeStamp,
+        "elapsed=%s, arg=%s/%s, tlds=%s/%s, %s files, %s unique, %s files/s, speed=%s/s, used=%s, %s saved, current=%s    \r",
         $ElapsedTime,
         map { Commify($_) } (
 	    $CurrentArg,$ParmCount,
@@ -568,9 +568,9 @@ sub PrintStatistics () {
 	FormatStorage($Savedspc),
         $RootStub,
     );
-    print $LastStats;
+    print "$TimeStamp $LastStats";
     $LastPrint = "stats";
-    PrintStatFile("$LastStats<br>Now processing $Candidate") if ($Opt{statfile});
+    PrintStatFile("$TimeStamp Processing $Candidate<br>$LastStats") if ($Opt{statfile});
     if ($PrintStats) {
 
         # This was a manual request.  Don't overwrite it.
@@ -1087,6 +1087,7 @@ dirvish-dedup - traverse directories, find identical files, replace with hard li
  OPTIONS:
 
   --maxlinks N            limit the amount of links per file
+  --cd,-C dir		  cd: Change directories to dir.
   -n,--dry-run		  report changes, but don't really link anything
   --(no)progress	  print progress reports every 60 (default) seconds
   --proginterval=n        Change progress report interval to "n" seconds.
