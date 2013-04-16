@@ -11,13 +11,18 @@ exclude:
 	/usr/local/backup/*/*/*.gz
 	/usr/local/dirvish/*/*/tree/*
 Runall:
-	gaia hyperion eos mercury hercules
-post-server:  echo DIRVISH_DEST, $DIRVISH_DEST, ${DIRVISH_DEST%/*/tree} latest | /usr/bin/logger -t test
+	machine1 machine2 machine3
 
-rsync-options:
-	-a
+rsync-option:
+        -a
+        -i
+
 log: gzip
+
 zxfer:		true
+
+post-server: /usr/local/sbin/dirvish-link-latest
+
 image-default: %Y-%m-%d-%a
 
 branch-default: daily
