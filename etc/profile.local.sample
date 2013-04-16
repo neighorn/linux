@@ -13,3 +13,4 @@ PERL5LIB="/usr/local/lib/perl5/site_perl:$PERL5LIB"
 PERL5LIB="${PERL5LIB%:}"	# Strip trailing colon, if any.
 export PERL5LIB
 #
+export HISTTIMEFORMAT="%F %T "
