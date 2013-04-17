@@ -4,23 +4,9 @@
         order deny,allow
 	deny from all
 	allow from 127.0.0.1/8
-	allow from 192.168.2.1/32
-	allow from 192.168.2.113/32
-	allow from 192.168.2.201/32
-	allow from 192.168.2.202/32
-	allow from 192.168.2.203/32
-	allow from 192.168.2.204/32
-	allow from 192.168.2.221/32
-	allow from 192.168.2.223/32
-	allow from 66.239.114.13/29
 # Brian Martin
-        allow from 71.245.97.115/32
-        allow from 71.245.97.116/32
-# Jon Bass
-        allow from 65.102.56.129/29
-# Ed Sawicki
-        allow from 69.30.87.203/32
-        allow from 69.30.87.204/32
+        allow from 50.43.121.70/32
+        allow from 50.43.121.69/32
 # Password authentication for other locations.
 	AuthName "Tech Support Documents"
 	AuthType Basic
