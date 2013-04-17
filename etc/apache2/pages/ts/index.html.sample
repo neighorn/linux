@@ -2,11 +2,19 @@
 <body>
 Information Technology Support Tools
 
-<ul>
-<li><a href="/elog/">ELOG</a> - System change logs
-<li><a href="/mrtg">MRTG</a> - Network traffic logs
-<li><a href="mdstat.shtml">mdstat</a> - Metadisk Status
-</ul>
+<table border=0 cellspacing=4>
+<tr><td><a href="mdstat.shtml">mdstat</a></td><td>Metadisk Status</td></tr>
+<tr><td><a href="top.shtml">top</a></td><td>Top processes</td></tr>
+<tr><td><a href="ps.shtml">ps</a></td><td>Process Status</td></tr>
+<tr><td><a href="df.shtml">df</a></td><td>Disk Space Status</td></tr>
+<tr><td> </td><td></td></tr>
+<tr><td> </td><td></td></tr>
+<tr><td><a href="/elog/">ELOG</a></td><td>System change logs</td></tr>
+<tr><td><a href="/mrtg">MRTG</a></td><td>Network traffic logs</td></tr>
+<tr><td> </td><td></td></tr>
+<tr><td> </td><td></td></tr>
+<tr><td><a href="dirvish-run.html">dirvish-run</a></td><td>Backup status</td></tr>
+<tr><td><a href="dirvish-dedup.html">dirvish-dedup</a></td><td>Backup deduplication status</td></tr>
+</table>
 <br>
-<br>
-<p><small>Copyright &copy; 202013, Martin Consulting Services, Inc.  The items made available on this page are for the exclusive use of the Water Technologies staff only.  All other use is prohibited.</small></p>
+<p><small>Copyright &copy; 2013, Martin Consulting Services, Inc.  The items made available on this page are for the exclusive use of this company staff only.  All other use is prohibited.</small></p>
