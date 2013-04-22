@@ -2,12 +2,10 @@ Alias /ts /usr/local/etc/apache2/pages/ts
 <Directory /usr/local/etc/apache2/pages/ts>
    DirectoryIndex index.html index.shtml
    Options +Includes
-   ExpiresActive On
-   ExpiresDefault A300
    order deny,allow
    deny from all
    allow from 127.0.0.1
-   allow from 192.168.120.0/16
+   Include /usr/local/etc/apache2/conf.d/admin-only.inc
    AddType text/html .shtml
    AddHandler server-parsed .shtml
    Options +MultiViews
