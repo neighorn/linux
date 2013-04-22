@@ -1,12 +1,12 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN" "http://www.w3.org/TR/html4/frameset.dtd">
+<html>
+<head>
 <title>Tech Support</title>
+<frameset cols="120,*">
+	<frame name="index" src="indextoc.html">
+	<frame name="dynamic" id="dynamic">
+</frameset>
+</head>
 <body>
-Information Technology Support Tools
-
-<ul>
-<li><a href="/elog/">ELOG</a> - System change logs
-<li><a href="/mrtg">MRTG</a> - Network traffic logs
-<li><a href="mdstat.shtml">mdstat</a> - Metadisk Status
-</ul>
-<br>
-<br>
-<p><small>Copyright &copy; 202013, Martin Consulting Services, Inc.  The items made available on this page are for the exclusive use of the Water Technologies staff only.  All other use is prohibited.</small></p>
+</body>
+</html>
