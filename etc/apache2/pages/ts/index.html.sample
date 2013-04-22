@@ -1,5 +1,17 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN" "http://www.w3.org/TR/html4/frameset.dtd">
+<html>
+<head>
 <title>Tech Support</title>
+<frameset cols="120,*">
+	<frame name="index" src="indextoc.html">
+	<frame name="dynamic" id="dynamic">
+</frameset>
+</head>
 <body>
+<<<<<<< HEAD
+</body>
+</html>
+=======
 Information Technology Support Tools
 
 <table border=0 cellspacing=4>
@@ -18,3 +30,4 @@ Information Technology Support Tools
 </table>
 <br>
 <p><small>Copyright &copy; 2013, Martin Consulting Services, Inc.  The items made available on this page are for the exclusive use of this company staff only.  All other use is prohibited.</small></p>
+>>>>>>> 12bb11a277c1b385f63b65737a4811841d674175
