@@ -457,7 +457,6 @@ sub RunDangerousCmd {
 sub opt_Array {
 
 	my($Name,$Value,undef) = @_;
-	print "debug: Name=$Name, Value=$Value\n";
 	if (defined($Value) and length($Value)) {
 		# Add this value to the array.
 		push @{$Options{$Name}},$Value;
@@ -466,7 +465,6 @@ sub opt_Array {
 		# Received "--opt=".  Empty this array.
 		@{$Options{$Name}}=();
 	}
-	print "debug: \$Options{$Name} = " . Dumper(\@{$Options{$Name}}) . "\n";
 }
 
 
