@@ -1,4 +1,25 @@
 #! /bin/bash
+
+function ReadLSOF {
+	grep tree/ |
+	head -n 1 | 
+	while read trash pid trash fh type trash item7 item8 rest
+	do
+		if [[ "$type" = "unknown" ]]
+		then
+			filename="$item7 item8 rest"
+		else
+			filename="${rest# *}"
+			filename="${filename# *}"
+		fi
+		[[ $fh = [0-9]*r ]] && continue			# Filter out input file.
+		filename="${filename% (*}"			# Clean up NFS mounts.
+		filename="${filename%/*}"			# Get to directory, not temp file.
+		percent=`df -h "$filename" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
+		filename=`echo "$filename" | sed 's/^.*\/\(.*\/.*\/tree\)/\1/'`		# Strip down to vault.
+		printf "%-s %5d %-6s % 3d%%: %s\n" $now $pid "rsync" $percent "$filename"
+	done 
+}
 while ps -ef | grep dirvish | grep -qv grep
 do
 	now=`date +%T`
@@ -9,23 +30,8 @@ do
 	grep -v grep |
 	while read trash pid trash
 	do
-		lsof -p $pid
-	done |
-	grep tree/ |
-	while read trash pid trash fh type trash item7 item8 rest
-	do
-		if [[ "$type" = "unknown" ]]
-		then
-			filename="$item7 item8 rest"
-		else
-			filename="${rest# *}"
-			filename="${filename# *}"
-		fi
-		#[[ $fh = [0-9]*r ]] || continue		# Filter out output file.
-		filename="${filename% (*}"			# Clean up NFS mounts.
-		filename="${filename%/*}"			# Get to directory, not temp file.
-		percent=`df -h "$filename" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
-		printf "%-s %5d %-6s % 3d%%: %s\n" $now $pid "rsync" $percent "$filename"
+		lsof -p $pid |
+			ReadLSOF
 	done |
 	sort
 
