@@ -45,15 +45,15 @@ $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
 our %OptionSpecifications=(
 		'<>'			=>	sub {push @Parms,shift;},
 		'd|debug'		=>	sub {$DB::AutoTrace=1;},
-		'D|dirvish=s'		=>	sub {push @{$Options{Dirvish}},$_[1];},
-		'B|begin=s'		=>	sub {push @{$Options{PreRun}},$_[1];},
+		'D|dirvish=s'		=>	\&opt_Array,
+		'B|begin=s'		=>	\&opt_Array,
 		'h|help|?!'		=>	\&opt_h,
-		'm|mail-always=s'	=>	sub {push @{$Options{Always_Mail}},$_[1];},
-		'M|mail-errors=s'	=>	sub {push @{$Options{Error_Mail}},$_[1];},
+		'm|mail-always=s'	=>	\&opt_Array,
+		'M|mail-errors=s'	=>	\&opt_Array,
 		'N|subject=s'		=>	sub {$Options{Subject}=$_[1];},
 		'O|option-set=s'	=>	\&opt_O,
-		'p|page-always=s'	=>	sub {push @{$Options{Always_Page}},$_[1];},
-		'P|page-errors=s'	=>	sub {push @{$Options{Error_Page}},$_[1];},
+		'p|page-always=s'	=>	\&opt_Array,
+		'P|page-errors=s'	=>	\&opt_Array,
 		'R|rerun:1'		=>	sub {$Options{Rerun}=$_[1];},
 		's|min-size=s'		=>	\&opt_s,
 		'S|max-size=s'		=>	\&opt_S,
@@ -451,6 +451,22 @@ sub RunDangerousCmd {
 }
 
 
+#
+# opt_Array - generic array processing
+#
+sub opt_Array {
+
+	my($Name,$Value,undef) = @_;
+	if (defined($Value) and length($Value)) {
+		# Add this value to the array.
+		push @{$Options{$Name}},$Value;
+	}
+	else {
+		# Received "--opt=".  Empty this array.
+		@{$Options{$Name}}=();
+	}
+}
+
 
 #
 # opt_O - Load an option set.
@@ -533,13 +549,15 @@ $Prog - Run dirvish jobs
 Usage:  $Prog [options] vault... [options] vault... ...
 	$Prog -h
 
-Options:
+Options may be intermixed with vault names.  The following list of options
+is divided into "Universal Options" and "Vault Options".  Universal options
+are used at initialization time, and therefore affect all vaults regardless of
+where the universal options appear in the command line.  Vault options apply
+to any following options.
+
+Universal Options:
 	-B|--begin script:		Begin: Execute "script" before running
 					any vault backups.
-
-	-D|--dirvish parms:		Dirvish: Pass the following parameters
-					and options directly to dirvish. 
-					Spaces need to be escaped or quoted.
 
 	-m|--always-mail mailid:	Mail: Send an execution report to this
 					e-mail address.
@@ -551,9 +569,6 @@ Options:
 	-N|--subject text:		Name: Set subject line to this.  Accepts
 					variable subst.
 
-	-O|--option-set config:		Insert the "config" configuration
-					options from $ConfigFile.
-
 	-p|--always-page mailid: 	Page: Send a very brief message
 					(suitable for a pager or text message)
 					to this e-mail address when this job
@@ -562,6 +577,16 @@ Options:
 	-P|--error-page mailid:		Page on error: Send a very brief message
 					to this e-mail address if errors are
 					detected in this job.
+
+	-h|?|--help:			Help: display this panel
+
+Vault Options:
+	-D|--dirvish parms:		Dirvish: Pass the following parameters
+					and options directly to dirvish. 
+					Spaces need to be escaped or quoted.
+
+	-O|--option-set config:		Insert the "config" configuration
+					options from $ConfigFile.
 
 	-R|--rerun [days]:		Rerun: delete the most recent backup, 
 					provided that it is no more than "days"
@@ -584,29 +609,28 @@ Options:
 					them.  May be repeated to increase
 					verbosity.  --test overrides --verbose.
 
-	-h|?|--help:			Help: display this panel
-
 Parameters:
 	vault...:	One or more vault names.  Vault names may be fully 
 			qualified, or else the directories listed in the 
 			"BANKS:" setting in the configuration file ares
 			searched in sequence.  A branch name may be included.
 
-Notes:
-1) Options and vault names may be interspersed, and are applied in the 
-sequence listed.  As a result, most options apply to any vaults that follow.
-For example:
+Example:
 
 	$Prog -s 10G -S 30G vault1 vault2 -S 20G vault3
 
 In this example, -s 10G applies to all three vaults.  -S 30G applies to
 vault1 and vault2, but is changed to -S20G for vault3.
 
-Some options are used to initialize the program, and as such reply to 
-all vaults, regardless of where they appear.  These are the options that
-configure e-mail notification (-m, -M, -p, -P, -N), run any external
-initialization processes (-B), and the help panel (-h).
+Notes:
 
+1) Options that take multiple values may be reset to an empty list by using
+the long form of the name followed by an equal sign and a space.  For example:
+
+    "dirvish-run --dirvish --checksum vault1 --dirvish= vault2".  
+
+Vault1 will be run with the "--checksum" option passed to dirvish, but 
+vault2 will be run without the --checksum option.
 
 Return codes:
 	0       :       Normal termination
