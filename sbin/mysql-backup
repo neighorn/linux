@@ -120,13 +120,13 @@ RunDangerousCmd("find $OutDir -type f \\( -name '$DeletePattern' -o -name '$Dele
 # to restore a table, we don't accidentally include code that drops some database.  Dropping databases
 # manually isn't very difficult or time-consuming.
 RunDangerousCmd("mysqldump -u $opt_U --opt --all-databases --add-drop-table --allow-keywords --quote-names -r $opt_o");
-if (-f $opt_o) {
-	my $size =  (stat($opt_o))[7];
+if (-f $opt_o or $opt_t) {
+	my $size =  ($opt_t?0:(stat($opt_o))[7]);
 	print commify($size) . " bytes written to $opt_o\n";
 	warn "Warning: backup is less than the minimum expected size ($opt_s bytes)\n"
-	    if ($opt_s and $size < $opt_s);
+	    if ($opt_s and $size < $opt_s and ! $opt_t);
 	warn "Warning: backup is more than the maximum expected size ($opt_S bytes)\n"
-	    if ($opt_S and $size > $opt_S);
+	    if ($opt_S and $size > $opt_S and ! $opt_t);
 	if ($opt_z) {
 	    RunDangerousCmd("rm $opt_o.gz") if (-e "$opt_o.gz");
 	    RunDangerousCmd("gzip $opt_o")
