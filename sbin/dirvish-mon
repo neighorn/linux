@@ -58,6 +58,7 @@ do
 		fi
 		prior=$current
 	done
+	[[ "$1" = "1" ]] && exit
 	sleep 30
 done
 date '+No dirvish processes running at %T'
