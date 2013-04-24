@@ -95,9 +95,9 @@ while (<$FDISK>) {
 	$OutputName .= ".info";		# ... fail and overwrite sector0 file.
 	RunDangerousCmd("smartctl -i $InputName > $OutputName");
 	$OutputName =~ s/.info$/.parted/;
-	system("which parted > /dev/null 2>&1") || RunDangerousCmd("parted $InputName p > $OutputName");
+	RunDangerousCmd("parted $InputName p > $OutputName");
 	$OutputName =~ s/.parted$/.gdisk/;
-	system("which gdisk > /dev/null 2>&1") || RunDangerousCmd("parted $InputName p > $OutputName");
+	RunDangerousCmd("parted $InputName p > $OutputName");
 }
 close $FDISK;
 
@@ -105,15 +105,15 @@ close $FDISK;
 # if no specific disk is named.
 RunDangerousCmd("fdisk -l > $opt_o/fdisk.out");
 RunDangerousCmd("sfdisk -l -d > $opt_o/sfdisk.out");
-RunDangerousCmd("which parted > /dev/null 2>&1 && parted -s $FirstDisk print all > $opt_o/parted.out");
-RunDangerousCmd("which lsscsi > /dev/null 2>&1 && (lsscsi -H; lsscsi -d) > $opt_o/lsscsi.out");
+RunDangerousCmd("parted -s $FirstDisk print all > $opt_o/parted.out");
+RunDangerousCmd("(lsscsi -H; lsscsi -d) > $opt_o/lsscsi.out");
 
 # Document the current mounts and sizes.
 RunDangerousCmd("df -h > $opt_o/df.out");
 
 # Capture installed packages.
-RunDangerousCmd("which rpm > /dev/null 2>&1 && rpm -q -a | sort > $opt_o/rpm.out");
-RunDangerousCmd("which yum > /dev/null 2>&1 && yum list -q installed | sort > $opt_o/yum.out");
+RunDangerousCmd("rpm -q -a | sort > $opt_o/rpm.out");
+RunDangerousCmd("yum list -q installed | sort > $opt_o/yum.out");
 
 # Capture the normal security tables.
 RunDangerousCmd("iptables -nvL > $opt_o/iptables.out");
@@ -122,7 +122,7 @@ RunDangerousCmd("iptables -nvL > $opt_o/iptables.out");
 RunDangerousCmd("swapon -s > $opt_o/swapon.out");
 
 # Capture lots of system facts, if we can.
-system("which facter > /dev/null 2>&1") || RunDangerousCmd("facter > $opt_o/facter.out");
+RunDangerousCmd("facter > $opt_o/facter.out");
 
 # Capture LVM configuration information.
 RunDangerousCmd("lvm vgcfgbackup -f $opt_o/vg-%s.out");
@@ -139,8 +139,8 @@ RunDangerousCmd("cp /proc/mdstat $opt_o/mdstat.out") if (-e "/proc/mdstat");
 RunDangerousCmd("cp /proc/drbd $opt_o/drbd.out") if (-e "/proc/drbd");
 
 # Capture hardware information.
-system("which dmidecode > /dev/null 2>&1") || RunDangerousCmd("dmidecode > $opt_o/dmidecode.out");
-system("which lshw > /dev/null 2>&1") || RunDangerousCmd("lshw > $opt_o/lshw.out");
+RunDangerousCmd("dmidecode > $opt_o/dmidecode.out");
+RunDangerousCmd("lshw > $opt_o/lshw.out");
 	
 exit(0);
 
@@ -163,6 +163,9 @@ sub SampleSub {
 #
 sub RunDangerousCmd {
 
+# 	This version is modified for recovery-info to test for the 
+#	existence of commands before running them.
+
 	my($Command)=@_;		# Get our calling arguments.
 	my($FH);			# Autovivified file handle.
 
@@ -170,6 +173,18 @@ sub RunDangerousCmd {
 		print "Test: $Command\n";
 		return 0;
 	} else {
+
+		# See if this command exists on this system.
+		my $CommandName = $Command;
+		$CommandName =~ s/^\s*//;
+		$CommandName =~ s/^\(\s*//;
+		$CommandName =~ s/ .*$//;
+		if (system("which $CommandName > /dev/null 2>&1")) {
+			print "Not found: $Command\n" if ($opt_v);
+			return 0;
+		}
+
+		# Run it.
 		print "Executing: $Command\n" if ($opt_v);
 		if (open($FH, "$Command 2>&1 |")) {
 			while (<$FH>) {print;};
@@ -288,6 +303,7 @@ SHOW	"^512 bytes \(512 B\) copied,"
 SHOW	/^Job ended normally with status 0 and signal 0$/
 SHOW	/^Test:/
 SHOW	/^Executing:/
+SHOW	/^Not found:/
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
