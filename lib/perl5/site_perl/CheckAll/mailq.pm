@@ -48,7 +48,7 @@ sub Check {
 
 	# First, make sure we have the necessary config info.
 	my $Errors = 0;
-	$Self->{Desc} = 'mailq' unless (! $Self->{Desc});
+	$Self->{Desc} = 'mailq' unless ($Self->{Desc});
 	if (! $Self->{Target}) {
 		warn "$File:$Line: Target not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Target not specified";

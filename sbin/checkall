@@ -289,7 +289,8 @@ ENDHeaders
 # Write the status file, so we know "still failing" from "now failing".
 WriteStatusFile($StartTime,$StatusFile,\@ItemList,\@OtherItems) unless ($opt_t);
 
-if (@NowFail+@StillFail > 0) {
+$Errors = @NowFail + @StillFail;
+if ($Errors > 0) {
 	printf "%s==> %d " . ($Errors == 1?'service is':'services are') . " failing.%s\n",
 		$HIGHLIGHT, $Errors, $RESET
 		unless ($opt_q);
@@ -460,7 +461,7 @@ sub LoadPriorStatuses {
 			while (<$STATUS>) {
 				next unless
 					(/^Name=(.*), FailAt=(\d+)=\S+ \S+, FirstNotify=(\d+)=\S+ \S+, NextNotify=(\d+)=\S+ \S+, LastCheck=(\d+)=\S+ \S+,?/);
-				my($Name,$FirstFail,$FirstNotify,$NextNotify,$LastCheck)=($1,$2,$3,$4);
+				my($Name,$FirstFail,$FirstNotify,$NextNotify,$LastCheck)=($1,$2,$3,$4,$5);
 				if(exists($MapRef->{$Name})) {
 					$MapRef->{$Name}->{FirstFail} = $FirstFail;
 					$MapRef->{$Name}->{FirstNotification} = $FirstNotify;
