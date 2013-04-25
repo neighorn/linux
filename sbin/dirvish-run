@@ -97,7 +97,7 @@ push @ARGV,(shellwords($Config{DEFAULTJOB}))
 
 # Pre-process our command line, to get the options we need for LogOutput.
 my @ARGVSave = @ARGV;			# Needed to reprocess command line later.
-%Options=(Verbose => 0);	# Initialize Options.
+%Options=(verbose => 0);	# Initialize Options.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 	
 # Set up our logging and output filtering.
@@ -149,7 +149,7 @@ foreach (@{$Options{jobinit}}) {
 # GetOptions will call ProcessBackup for each non-option argument
 # it finds, effectively running the backups.
 @ARGV=@ARGVSave;		# Restore command line.
-%Options=(Verbose => 0);	# Reinitialize Options.
+%Options=(verbose => 0);	# Reinitialize Options.
 $OptionSpecifications{'<>'} = \&ProcessBackup;
 $Errors++ unless GetOptions(%OptionSpecifications);
 
