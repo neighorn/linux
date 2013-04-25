@@ -1,0 +1,44 @@
+#! /bin/bash
+
+# Quick code to stop offsite raids (md11-md13) if they're not rebuilding.
+# Stop will fail if they're mounted.  Automount will take care of unmounting them.
+function process_compound {
+	device="$1"
+	shift
+	if [[ "$device" = md1[1-3] && "$*" != *finish=* ]]
+	then
+		if mount | grep -q "^/dev/$device "
+		then
+			if umount /dev/$device 2> /dev/null
+			then
+				echo "stop-offsite-raid: Unmounted /dev/$device" | /usr/bin/logger -t stop-offsite-raid
+			else
+				return		# Device is busy.
+			fi
+		fi
+		mdadm --manage /dev/$device --stop
+		((Status=$?))
+		if [[ $Status -eq 0 ]]
+		then
+			echo "stop-offsite-raid: Stopped /dev/$device" | /usr/bin/logger -t stop-offsite-raid
+		else
+			echo "stop-offsite-raid: Failed to stop /dev/$device: $Status" | /usr/bin/logger -t stop-offsite-raid
+		fi
+	fi
+}
+
+compound=''
+while read line
+do
+	[[ "$line" = Personalities* ]] && continue
+	if [[ -z "$line" ]]
+	then
+		# Blank line.  Process what we collected so far.
+		process_compound $compound
+		compound=''
+	else
+		# Data line. Append it to what we've seen so far.
+		compound="$compound $line"
+	fi
+done < /proc/mdstat
+process_compound $compound

@@ -44,22 +44,22 @@ our $STATFH;
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
 our %OptionSpecifications=(
 		'<>'			=>	sub {push @Parms,shift;},
-		'd|debug'		=>	sub {$DB::AutoTrace=1;},
-		'D|dirvish=s'		=>	\&opt_Array,
-		'B|begin=s'		=>	\&opt_Array,
-		'h|help|?!'		=>	\&opt_h,
-		'm|mail-always=s'	=>	\&opt_Array,
-		'M|mail-errors=s'	=>	\&opt_Array,
-		'N|subject=s'		=>	sub {$Options{Subject}=$_[1];},
-		'O|option-set=s'	=>	\&opt_O,
-		'p|page-always=s'	=>	\&opt_Array,
-		'P|page-errors=s'	=>	\&opt_Array,
-		'R|rerun:1'		=>	sub {$Options{Rerun}=$_[1];},
-		's|min-size=s'		=>	\&opt_s,
-		'S|max-size=s'		=>	\&opt_S,
-		'statfile=s'		=>	sub {$Options{StatFile}=$_[1];},
-		't|test!'		=>	sub {$Options{Test}=$_[1];},
-		'v|verbose'		=>	sub { $Options{Verbose} = (exists($Options{Verbose})?$Options{Verbose}+1:1)},
+		'debug|d'		=>	sub {$DB::AutoTrace=1;},
+		'dirvish|D=s'		=>	\&opt_Array,
+		'jobinit|B=s'		=>	\&opt_Array,
+		'help|h|?!'		=>	\&opt_h,
+		'mail-always|m=s'	=>	\&opt_Array,
+		'mail-errors|M=s'	=>	\&opt_Array,
+		'subject|N=s'		=>	sub {$Options{subject}=$_[1];},
+		'option-set|O=s'	=>	\&opt_O,
+		'page-always|p=s'	=>	\&opt_Array,
+		'page-errors|P=s'	=>	\&opt_Array,
+		'rerun|R:1'		=>	sub {$Options{rerun}=$_[1];},
+		'min-size|s=s'		=>	\&opt_s,
+		'max-size|S=s'		=>	\&opt_S,
+		'statfile=s'		=>	sub {$Options{statfile}=$_[1];},
+		'test|t!'		=>	sub {$Options{test}=$_[1];},
+		'verbose|v'		=>	sub { $Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
 
@@ -104,8 +104,8 @@ $Errors ++ unless (GetOptions(%OptionSpecifications));
 my $RunDate=`date +%m/%d`;
 chomp $RunDate;
 my $Subject;
-if ($Options{Subject}) {
-	$Subject="$Options{Subject}" ;
+if ($Options{subject}) {
+	$Subject="$Options{subject}" ;
 } elsif (@Parms >= 1) {
 	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
 } else {
@@ -113,18 +113,18 @@ if ($Options{Subject}) {
 };
 
 # Make sure some key items exist;
-foreach (qw(Always_Mail Error_Mail Always_Page Error_Page)) {
+foreach (qw(always_mail error_mail always_page error_page)) {
 	@{$Options{$_}} = () unless (exists($Options{$_}));
 }
-$Options{Verbose} = 0 unless (exists($Options{Verbose}));
+$Options{verbose} = 0 unless (exists($Options{verbose}));
 
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
 	MAIL_FILE		=> $LogFile,
-	ALWAYS_MAIL_LIST	=> \@{$Options{Always_Mail}},
-	ERROR_MAIL_LIST		=> \@{$Options{Error_Mail}},
-	ALWAYS_PAGE_LIST	=> \@{$Options{Always_Page}},
-	ERROR_PAGE_LIST		=> \@{$Options{Error_Page}},
+	ALWAYS_MAIL_LIST	=> \@{$Options{always_mail}},
+	ERROR_MAIL_LIST		=> \@{$Options{error_mail}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{always_page}},
+	ERROR_PAGE_LIST		=> \@{$Options{error_page}},
 	MAIL_SUBJECT		=> $Subject,
 });
 die "No BANKS defined in configuration file(s)" 
@@ -134,9 +134,9 @@ die "No BANKS defined in configuration file(s)"
 my @Banks = shellwords(($Config{BANKS}));
 
 PrintStatsFile(strftime("%D %T $Prog started<br>",localtime()));
-chmod(0x644) if ($Options{StatsFile});
+chmod(0x644) if ($Options{statsfile});
 
-foreach (@{$Options{PreRun}}) {
+foreach (@{$Options{jobinit}}) {
 	# Run any initialization scripts.
 	print "Running: $_\n";
 	PrintStatsFile(strftime("%D %T Running initialization scripts<br>",localtime()));
@@ -178,7 +178,7 @@ exit( ($Errors?10:0) );
 sub ProcessBackup {
 
 	my $Target = shift;
-	if ($Options{Verbose} >= 3) {
+	if ($Options{verbose} >= 3) {
 		print "Verbose:	Beginning backup of $Target.  Options:\n";
 		print Dumper(\%Options);
 	}
@@ -236,7 +236,7 @@ sub ProcessBackup {
 	}
 
 	# Is this a rerun?
-	if ($Options{Rerun}) {
+	if ($Options{rerun}) {
 		my $LS;
 		if (open($LS,'ls -t |')) {
 			# Find the newest directory that isn't dirvish.
@@ -245,7 +245,7 @@ sub ProcessBackup {
 				next if ( $dir =~ /^dirvish$/);
 				my $mode = (lstat($dir))[2];		# Get the mode. lstat detects symlinks.
 				next unless (S_ISDIR($mode));		# Skip non-directories.
-				next unless (-M "$dir" <= $Options{Rerun});		# Skip older backups.
+				next unless (-M "$dir" <= $Options{rerun});		# Skip older backups.
 				next unless (-d "$dir/tree" || -d "$dir/log" || -d "$dir/log.tmp");
 				my $trash = mktemp("./trash.XXXX");
 				RunDangerousCmd("mv $dir $trash") && warn "Unable to rename '$dir' in response to -R: $!";
@@ -265,7 +265,7 @@ sub ProcessBackup {
 	my $Init = ($Status eq 0?'':'--init "--expire=+3 months"');	# Add --init if no trees.
 
 	# Run the back-up.
-	my $AdditionalOptions = (exists($Options{Dirvish})?join(' ',@{$Options{Dirvish}}):'');
+	my $AdditionalOptions = (exists($Options{dirvish})?join(' ',@{$Options{dirvish}}):'');
 	my $TargetStartTime = time();
 	$Status = RunDangerousCmd("dirvish --vault $Target $Init $AdditionalOptions");
 	if ($Status == 0) {
@@ -299,14 +299,14 @@ sub ProcessBackup {
 #
 sub PrintStatsFile {
 
-	return unless ($Options{StatFile});
-	if (!open($STATFH,'>',$Options{StatFile})) {
-		warn "Unable to open $Options{StatFile}: $!\n";
-		$Options{StatFile}='';
+	return unless ($Options{statfile});
+	if (!open($STATFH,'>',$Options{statfile})) {
+		warn "Unable to open $Options{statfile}: $!\n";
+		$Options{statfile}='';
 		$Errors++;
 		return;
 	}
-	chmod(0x644,$Options{StatFile});
+	chmod(0x644,$Options{statfile});
 
 	print $STATFH qq[
 		<html>
@@ -355,11 +355,11 @@ sub Summarize {
 	$NewSize=0;
 	find(\&FoundItem,"$Directory/tree");
 	my $WarnText='';
-	if ($Options{MinSize} and $NewSize < $Options{MinSize}) {
-		$WarnText = "New item size of " . FormatSize($NewSize) . " falls below the alert threshold of " . FormatSize($Options{MinSize}) . ".\n";
+	if ($Options{minsize} and $NewSize < $Options{minsize}) {
+		$WarnText = "New item size of " . FormatSize($NewSize) . " falls below the alert threshold of " . FormatSize($Options{minsize}) . ".\n";
 	}
-	if ($Options{MaxSize} and $NewSize > $Options{MaxSize}) {
-		$WarnText = "New item size of " . FormatSize($NewSize) . " exceeds the alert threshold of " . FormatSize($Options{MaxSize}) . ".\n";
+	if ($Options{maxsize} and $NewSize > $Options{maxsize}) {
+		$WarnText = "New item size of " . FormatSize($NewSize) . " exceeds the alert threshold of " . FormatSize($Options{maxsize}) . ".\n";
 	}
 	$TotalSize=FormatSize($TotalSize);
 	$NewSize=FormatSize($NewSize);
@@ -429,11 +429,11 @@ sub commify {
 sub RunDangerousCmd {
 	my ($Cmd,$FH,$Line);
 	$Cmd=join(' ',@_);
-	if ($Options{Test}) {
+	if ($Options{test}) {
 		print "Test: $Cmd\n";
 		return 0;
 	} else {
-		print "Executing: $Cmd\n" if ($Options{Verbose});
+		print "Executing: $Cmd\n" if ($Options{verbose});
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
 				$Line=~s/[
@@ -490,19 +490,19 @@ sub opt_O {
 sub opt_s {
 	my(undef,$Value) = @_;
 	if ($Value =~ /^(\d+)$/i) {
-		$Options{MinSize} = $1;
+		$Options{minsize} = $1;
 	}
 	elsif ($Value =~ /^(\d+)K$/i) {
-		$Options{MinSize} = $1*1024;
+		$Options{minsize} = $1*1024;
 	}
 	elsif ($Value =~ /^(\d+)M$/i) {
-		$Options{MinSize} = $1*1024*1024;
+		$Options{minsize} = $1*1024*1024;
 	}
 	elsif ($Value =~ /^(\d+)G$/i) {
-		$Options{MinSize} = $1*1024*1024*1024;
+		$Options{minsize} = $1*1024*1024*1024;
 	}
 	elsif ($Value =~ /^(\d+)T$/i) {
-		$Options{MinSize} = $1*1024*1024*1024*1024;
+		$Options{minsize} = $1*1024*1024*1024*1024;
 	}
 	else {
 		die qq<Invalid value "$Value" for -s/--min-size.\n>;
@@ -517,19 +517,19 @@ sub opt_s {
 sub opt_S {
 	my(undef,$Value) = @_;
 	if ($Value =~ /^(\d+)$/i) {
-		$Options{MaxSize} = $1;
+		$Options{maxsize} = $1;
 	}
 	elsif ($Value =~ /^(\d+)K$/i) {
-		$Options{MaxSize} = $1*1024;
+		$Options{maxsize} = $1*1024;
 	}
 	elsif ($Value =~ /^(\d+)M$/i) {
-		$Options{MaxSize} = $1*1024*1024;
+		$Options{maxsize} = $1*1024*1024;
 	}
 	elsif ($Value =~ /^(\d+)G$/i) {
-		$Options{MaxSize} = $1*1024*1024*1024;
+		$Options{maxsize} = $1*1024*1024*1024;
 	}
 	elsif ($Value =~ /^(\d+)T$/i) {
-		$Options{MaxSize} = $1*1024*1024*1024*1024;
+		$Options{maxsize} = $1*1024*1024*1024*1024;
 	}
 	else {
 		die qq<Invalid value "$Value" for -S/--max-size.\n>;
@@ -556,8 +556,8 @@ where the universal options appear in the command line.  Vault options apply
 to any following options.
 
 Universal Options:
-	-B|--begin script:		Begin: Execute "script" before running
-					any vault backups.
+	-B|--jobinit script:		Begin: Execute "script" before running
+					the first vault backups.
 
 	-m|--always-mail mailid:	Mail: Send an execution report to this
 					e-mail address.
