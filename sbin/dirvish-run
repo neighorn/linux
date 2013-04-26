@@ -8,7 +8,7 @@ use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 # override CORE::glob in current package
 use File::Find;
-use Fcntl qw(:flock :mode);
+use Fcntl qw(:flock :mode :DEFAULT);
 use File::Temp qw(mktemp);
 use POSIX qw(strftime);
 use Data::Dumper;
@@ -37,6 +37,7 @@ our $NewSize;				# Global for Find/Found
 our $NewItems;				# Global for Find/Found
 
 our $STATFH;
+our $StatErrors = 0;			# Remember if we had stat errors.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -134,7 +135,6 @@ die "No BANKS defined in configuration file(s)"
 my @Banks = shellwords(($Config{BANKS}));
 
 PrintStatsFile(strftime("%D %T $Prog started<br>",localtime()));
-chmod(0x644) if ($Options{statsfile});
 
 foreach (@{$Options{jobinit}}) {
 	# Run any initialization scripts.
@@ -169,6 +169,7 @@ if ($Errors) {
 	PrintStatsFile(strftime("%D %T $Prog ended normally.<br>",localtime()));
 }
 
+close $STATFH if ($STATFH);
 exit( ($Errors?10:0) );
 
 
@@ -230,7 +231,7 @@ sub ProcessBackup {
 		return;
 	}
 	if (!flock($LOCK, LOCK_EX | LOCK_NB)) {
-		warn "Unable to lock $LockFile: $!";
+		warn qq<Unable to lock lock file "$LockFile": $!\n>;
 		$Errors++;
 		return;
 	}
@@ -299,16 +300,38 @@ sub ProcessBackup {
 #
 sub PrintStatsFile {
 
-	return unless ($Options{statfile});
-	if (!open($STATFH,'>',$Options{statfile})) {
-		warn "Unable to open $Options{statfile}: $!\n";
-		$Options{statfile}='';
-		$Errors++;
-		return;
+	return if ($StatErrors or ! $Options{statfile});
+	if (defined($STATFH)) {
+		# Rewind to the beginning.
+		seek($STATFH,0,0);
 	}
-	chmod(0x644,$Options{statfile});
+	else {
+		# Not open yet.  Need to open and lock it.
+		if (sysopen($STATFH,$Options{statfile},O_WRONLY|O_TRUNC|O_CREAT,0644)) {
+			# Lock file.
+			if (!flock($STATFH, LOCK_EX | LOCK_NB)) {
+				warn qq<Unable to lock stat file "$Options{statfile}": $!\n>;
+				close $STATFH;
+				$STATFH=undef;
+				$StatErrors++;
+				$Errors++;
+				return;
+			}
+		}
+		else {
+			warn "Unable to open $Options{statfile}: $!\n";
+			close $STATFH;
+			$STATFH=undef;
+			$StatErrors++;
+			$Errors++;
+			return;
+		}
+	}
+	chmod 0644,$Options{statfile};	# Sysopen doesn't change perms on existing files.
 
-	print $STATFH qq[
+	# Write the header.  Use syswrite to avoid buffering, since we don't
+	# close the file until the job is done.
+	syswrite $STATFH,qq[
 		<html>
 			<head>
 				<title>$Prog status</title>
@@ -319,10 +342,9 @@ sub PrintStatsFile {
 ];
 	foreach (@_) {
 		s/^\s*//;
-		print $STATFH "$_<br>\n";
+		syswrite $STATFH,"$_<br>\n";
 	}
-	print $STATFH "\t\t\t\t</font>\n\t\t\t</body>\n\t\t</html>\n";
-	close $STATFH;
+	syswrite $STATFH,"\t\t\t\t</font>\n\t\t\t</body>\n\t\t</html>\n";
 }
 
 
@@ -675,6 +697,7 @@ LOGONLY /^Command: /
 SHOW	"^\s*[-_]+\s*$"
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 # Ignore dirvish-expire messages
+SHOW	/^\s*Unable to lock stat file "\S+": Resource temporarily unavailable/
 IGNORE	"^\s*Expiring\s"
 IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
