@@ -119,7 +119,7 @@ RunDangerousCmd("find $OutDir -type f \\( -name '$DeletePattern' -o -name '$Dele
 # Now back up all our databases.  Leave out --add-drop-database so that if we excerpt part of the code
 # to restore a table, we don't accidentally include code that drops some database.  Dropping databases
 # manually isn't very difficult or time-consuming.
-RunDangerousCmd("mysqldump -u $opt_U --opt --all-databases --add-drop-table --allow-keywords --quote-names -r $opt_o");
+RunDangerousCmd("mysqldump -u $opt_U --opt --all-databases --add-drop-table --allow-keywords --quote-names --events -r $opt_o");
 if (-f $opt_o or $opt_t) {
 	my $size =  ($opt_t?0:(stat($opt_o))[7]);
 	print commify($size) . " bytes written to $opt_o\n";
