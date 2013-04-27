@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package process;
 use base 'CheckItem';
-use fields qw(Host Port User);
+use fields qw(Port User);
 
 my %ProcessHash;	# Hash of lists of processes, keyed by remote host.
 

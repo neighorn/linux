@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package mailq;
 use base 'CheckItem';
-use fields qw(Host Port User);
+use fields qw(Port User);
 
 #================================= Data Accessors ===============================
 sub Target {
@@ -67,6 +67,7 @@ sub Check {
 			. ($Self->{User}?"$Self->{User}@":'')
 			. $Self->{Host}
 			. ' mailq '
+			. ' 2>&1 '
 			;
 		eval("\@Data = `$Cmd`;");
 		warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: $@\n"

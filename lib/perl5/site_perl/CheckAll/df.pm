@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package df;
 use base 'CheckItem';
-use fields qw(Host Port User Maxpercent Exclude);
+use fields qw(Port User Maxpercent Exclude);
 
 my %HostHash;	# Hash of lists of df data.
 

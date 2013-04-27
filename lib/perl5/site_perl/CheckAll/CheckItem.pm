@@ -47,6 +47,7 @@ use fields (
 	'Name',				# Unique descriptor for status file - defaults to desc.
 	'Delayfirstnotification',	# Delay the first notification this much time.
 	'Desc',				# Description of service, for messages.
+	'Host',				# Target host.
 	'Target',			# Target of check (host:port, process pattern, etc.).
 	'Status',			# Current status (set by Check).
 	'StatusDetail',			# Additional detail
@@ -75,6 +76,7 @@ sub new{
 	$Self->{FILE} = shift @_;			# Store the file name.
 	$Self->{LINE} = shift @_;			# Store the line number.
 	$Self->{FirstFail} = 0;				# Not failing, unless status file changes it.
+	$Self->{Host} = 'localhost';			# Assume localhost.
 	$Self->{NextNotification} = 0;			# Ditto.
 	$Self->{Renotifyinterval} = $main::opt_R;	# Default renotify minutes.
 	$Self->{Verbose} = $main::opt_v;		# Default verbose flag.
