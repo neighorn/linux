@@ -23,7 +23,6 @@ $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 my $Errors=0;   	                # No errors so far.
 my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
-my $LogFile="";				# Name of the log file.
 my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
@@ -60,7 +59,8 @@ our %OptionSpecifications=(
 		'max-size|S=s'		=>	\&opt_S,
 		'statfile=s'		=>	sub {$Options{statfile}=$_[1];},
 		'test|t!'		=>	sub {$Options{test}=$_[1];},
-		'verbose|v'		=>	sub { $Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+		'logfile|L=s'		=>	sub {$Options{logfile}=$_[1];},
+		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
 
@@ -118,10 +118,11 @@ foreach (qw(always-mail error-mail always-page error-page)) {
 	@{$Options{$_}} = () unless (exists($Options{$_}));
 }
 $Options{verbose} = 0 unless (exists($Options{verbose}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
 
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
-	MAIL_FILE		=> $LogFile,
+	MAIL_FILE		=> $Options{logfile},
 	ALWAYS_MAIL_LIST	=> \@{$Options{"always-mail"}},
 	ERROR_MAIL_LIST		=> \@{$Options{"error-mail"}},
 	ALWAYS_PAGE_LIST	=> \@{$Options{"always-page"}},
@@ -578,51 +579,52 @@ where the universal options appear in the command line.  Vault options apply
 to any following options.
 
 Universal Options:
-	-B|--jobinit script:		Begin: Execute "script" before running
+	-B|--jobinit=script:		Begin: Execute "script" before running
 					the first vault backups.
 
-	-m|--always-mail mailid:	Mail: Send an execution report to this
+	-L|--logfile=filename
+	-m|--always-mail=mailid:	Mail: Send an execution report to this
 					e-mail address.
 
-	-M|--error-mail mailid: 	Mail on error: Send an execution report
+	-M|--error-mail=mailid: 	Mail on error: Send an execution report
 					to this e-mail address only if errors
 					are detected.
 
-	-N|--subject text:		Name: Set subject line to this.  Accepts
+	-N|--subject=text:		Name: Set subject line to this.  Accepts
 					variable subst.
 
-	-p|--always-page mailid: 	Page: Send a very brief message
+	-p|--always-page=mailid: 	Page: Send a very brief message
 					(suitable for a pager or text message)
 					to this e-mail address when this job
 					completes.
 
-	-P|--error-page mailid:		Page on error: Send a very brief message
+	-P|--error-page=mailid:		Page on error: Send a very brief message
 					to this e-mail address if errors are
 					detected in this job.
 
 	-h|?|--help:			Help: display this panel
 
 Vault Options:
-	-D|--dirvish parms:		Dirvish: Pass the following parameters
+	-D|--dirvish=parms:		Dirvish: Pass the following parameters
 					and options directly to dirvish. 
 					Spaces need to be escaped or quoted.
 
-	-O|--option-set config:		Insert the "config" configuration
+	-O|--option-set=config:		Insert the "config" configuration
 					options from $ConfigFile.
 
-	-R|--rerun [days]:		Rerun: delete the most recent backup, 
+	-R|--rerun=[days]:		Rerun: delete the most recent backup, 
 					provided that it is no more than "days"
 					days old.  Days is optional, and 
 					defaults to 1.
 
-	-s|--min-size size:		minimum Size: Issue a warning if the
+	-s|--min-size=size:		minimum Size: Issue a warning if the
 					size of the new items are less than
 					"size".  "size" is measured in bytes,
 					but may be followed by a unit of "k",
 					"m", "g", or "t" (case-insensitive)
 					for kilo-, mega-, giga-, or tera-bytes.
 
-	-S|--max-size size:		maximum Size: Issue a warning if the
+	-S|--max-size=size:		maximum Size: Issue a warning if the
 					size of the new items exceeds "size".
 					See "-s" above for unit specifications.
 	-t|--test:			Test: echo commands instead of running
