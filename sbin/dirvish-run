@@ -699,7 +699,7 @@ LOGONLY /^Command: /
 SHOW	"^\s*[-_]+\s*$"
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 # Ignore dirvish-expire messages
-SHOW	/^\s*Unable to lock stat file "\S+": Resource temporarily unavailable/
+SHOW	/^\s*Unable to lock (stat|mail) file "\S+": Resource temporarily unavailable/
 IGNORE	"^\s*Expiring\s"
 IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
