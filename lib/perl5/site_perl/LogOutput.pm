@@ -15,18 +15,20 @@ use LogOutput_cfg;
 use POSIX qw(strftime);
 use Sys::Syslog;
 use File::Glob;
+use File::Temp qw(tempfile);
+use Fcntl qw(:flock);
 
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.11;
+our $Version	= 3.12;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
 our($MailServer);		# Who sends our mail.
 our($MailDomain);		# What's our default domain (i.e. "example.com").
 our($READLOGFILE_FH);		# File handle.
-our($WRITELOGFILE_FH);		# File handle.
+our($WRITEMAILFILE_FH) = undef;	# File handle.
 our($Verbose);			# Do we print diagnostics?
 our($Subject);			# Do they want to alter the subject line?
 
@@ -36,10 +38,10 @@ my $PID;			# PID of the child, that will do the
 my $ErrorsDetected = 0;		# Flags whether errors were detected.
 my $HostName;			# Our host name.
 				# productive work while we monitor it.
-#	Tests used to determine how to process messages.
-my($NormalTest);		# Reference to anonymous subroutine.
-my($IgnoreTest);		# Reference to anonymous subroutine.
-my($MailOnlyTest);		# Reference to anonymous subroutine.
+#	Tests used to determine how to process messages.  Initially reject all.
+my($NormalTest) = sub{0;};		# Will reference an anonymous subroutine.
+my($IgnoreTest) = sub{0;};		# Will reference an anonymous subroutine.
+my($MailOnlyTest) = sub{0;};		# Will reference an anonymous subroutine.
 
 
 sub LogOutput {
@@ -96,7 +98,7 @@ sub LogOutput {
 	if ($Options{SYSLOG_FACILITY}) {
 		if ($^O =~ /^(os2|MSWin32|MacOS)$/) {
 			require Sys::Syslog;
-			warn "LogOutput: Syslog is not supported under this operating system.";
+			$ErrorsDetected += _FilterMessage( "LogOutput: Syslog is not supported under this operating system.");
 			$Options{SYSLOG_FACILITY}=0;
 		} else {
 			my $options = $Options{SYSLOG_OPTIONS};
@@ -138,7 +140,7 @@ sub LogOutput {
 	# How did that for go?  Are we the child, parent, or did it fail?
 	if ($PID == 0) {
 		# We're the child.  Close handles only needed by the parent.
-		close($WRITELOGFILE_FH) if ($Options{MAIL_FILE});
+		close($WRITEMAILFILE_FH) if ($Options{MAIL_FILE});
 		closelog() if ($Options{SYSLOG_FACILITY});
 
 		# Unbuffer our pipe.
@@ -182,7 +184,14 @@ sub LogOutput {
 
 # The output is done.
 if ($ErrorsDetected >= 1) {
-	$ErrorsDetected += _FilterMessage("Unexpected messages (\"->\") detected in $Options{PROGRAM_NAME} execution.");
+	$ErrorsDetected += _FilterMessage(
+		$ErrorsDetected 
+		. ' unexpected message'
+		. ($ErrorsDetected==1?'':'s')		# Manage plurals.
+		. ' ("->") detected in '
+		. $Options{PROGRAM_NAME} 
+		. 'execution.'
+	);
 }
 
 # Check the status of the child.
@@ -233,11 +242,11 @@ if ($ErrorsDetected > 0) {
 	# Force a non-zero exit if there was an error the child didn't detect.
 	$ExitCode = 5 if ($ExitCode == 0);
 	$ErrorsDetected += _FilterMessage("Job failed with status $ExitCode and signal $SignalCode");
-	close($WRITELOGFILE_FH) if ($Options{MAIL_FILE});
+	close($WRITEMAILFILE_FH) if ($Options{MAIL_FILE});
 } else {
 	$ErrorsDetected += _FilterMessage(
 		"Job ended normally with status $ExitCode and signal $SignalCode");
-	close($WRITELOGFILE_FH) if ($Options{MAIL_FILE});
+	close($WRITEMAILFILE_FH) if ($Options{MAIL_FILE});
 }
 
 # Tweak up the subject line, now that we know how we ended.
@@ -346,7 +355,7 @@ sub _SetOptions {
 					if ($Options{Verbose});
 			}
 			else {
-				warn "LogOutput: Invalid option '$key' passed from LogOutput_cfg -- ignored.\n";
+				$ErrorsDetected += _FilterMessage("LogOutput: Invalid option '$key' passed from LogOutput_cfg -- ignored.\n");
 				$Options{$key} = undef;
 			}
 		}
@@ -381,7 +390,7 @@ sub _SetOptions {
 					if ($Options{Verbose});
 			}
 			else {
-				warn "LogOutput: Invalid option '$key' passed to LogOutput -- ignored.\n";
+				$ErrorsDetected += _FilterMessage("LogOutput: Invalid option '$key' passed to LogOutput -- ignored.\n");
 				$Options{$key} = undef;
 			}
 		}
@@ -422,66 +431,87 @@ sub _CleanEmailLists {
 #
 # _PrepareMailFile
 # 
+# Return 0 if the file should be kept on exit, or 1 if it should be deleted.
 sub _PrepareMailFile {
 
+	# Do we need a mail file?  Only if they asked for one or we're sending mail.
+	return 0 if (!$Options{MAIL_FILE} && @{$Options{ERROR_MAIL_LIST}} == 0);
+
 	my $DeleteMailFile;		# Do we delete the output file when done?
-	if (!$Options{MAIL_FILE} && @{$Options{ERROR_MAIL_LIST}} > 0) {
-		# They didn't provide a log file, but we need one for e-mail.
-		# Note: ERROR_MAIL_LIST is always >= ALWAYS_MAIL_LIST, since
-		# AML is appended to EML.
-		if ($ eq 'MSWin32') {
-			($Options{MAIL_FILE}="$ENV{'TEMP'}/$Options{PROGRAM_NAME}.$$.log") =~ s'\\'/'g;
-		} else {
-			$Options{MAIL_FILE}="/tmp/$Options{PROGRAM_NAME}.$$.log";
-		}
-		$DeleteMailFile=1;		# Don't keep it after we're done.
-	} else {
-		# They provided a log file, or we don't need one.
-		$DeleteMailFile=0;
+	if ($Options{MAIL_FILE}) {
+		# They supplied a file name.  Try to use that one.
+		$Options{MAIL_FILE} = _MakeSubstitutions($Options{MAIL_FILE});
+		return 0 if (_OpenMailFile($Options{MAIL_FILE}));  # If it worked, we're done.
 	}
 
-	# If we're logging, Make sure the file name is valid.
-	if ($Options{MAIL_FILE}) {
-		# Make sure it's valid.
-		if ($Options{MAIL_FILE} =~ /^([a-zA-Z]:)?[a-zA-Z0-9_\\\/. ~-]+$/) {
-			$Options{MAIL_FILE}=untaint($Options{MAIL_FILE});
-		} else {
-			warn "LogOutput: Unable to open $Options{MAIL_FILE} invalid symbol in file name";
-			$Options{MAIL_FILE}='';
-			$DeleteMailFile=0;
+	# If we got here, either they didn't supply a name or we couldn't open it.
+	# Create a temporary file to use as a mail file.
+	if ($Options{MAIL_FILE} = _OpenMailFile('')) {
+		return 1;	# Created a temporary file.  Delete it on exit.
+	}
+	else {
+		return 0;	# Failed to create it, so we don't need to delete it.
+	}
+}
+
+
+#
+# _OpenMailFile
+#
+# 	On exit, return empty string on error, or the file name on success.
+#
+sub _OpenMailFile {
+
+	my $FileName = shift;
+
+
+	# Do we have a file name?
+	if ($FileName) {
+		# Yes.  Make sure the file name is valid.
+		if ($FileName =~ /^([a-zA-Z]:)?[a-zA-Z0-9_\\\/. ~-]+$/) {
+			$FileName=untaint($FileName);
 		}
+		else {
+			$ErrorsDetected += _FilterMessage(
+				qq<LogOutput: Unable to open "$FileName" invalid symbol in file name.>
+			);
+			return '';
+		}
+	
+		# Open the log file R/W with create and append.  No trunctation until
+		# we get the lock.
+		if (!open($WRITEMAILFILE_FH, '+>>', $FileName)) {
+			close $WRITEMAILFILE_FH;
+			$WRITEMAILFILE_FH = undef;
+			$ErrorsDetected += _FilterMessage( qq<LogOutput: Unable to open "$FileName": $!> );
+			return '';
+		}
+	}
+	else {
+		($WRITEMAILFILE_FH, $FileName) = tempfile();
 	}
 
-	# If we're logging, delete the existing log file.
-	if ($Options{MAIL_FILE}) {
-		# Make sure it doesn't already exist.
-		if (-e $Options{MAIL_FILE}) {
-			# File already exists.  Delete it.  Can't just write
-			# over it for security reasons (may have wrong perms).
-			if (! unlink($Options{MAIL_FILE})) {
-				# Couldn't kill it.
-				warn "LogOutput: Unable to delete $Options{MAIL_FILE} $!";
-				$Options{MAIL_FILE}='';		#We can't log.
-				$DeleteMailFile=0;
-			}
-		}
+	# Lock it, so we don't get another job using the same file.  Primarily just if they picked
+	# a fixed file name.
+        if (!flock($WRITEMAILFILE_FH, LOCK_EX | LOCK_NB)) {
+		close $WRITEMAILFILE_FH;
+		$WRITEMAILFILE_FH = undef;
+                $ErrorsDetected += _FilterMessage( qq<Unable to lock mail file "$FileName": $!\n> );
+                return '';	# We're done -- don't delete mail file on exit.
 	}
+	
+	# We got the lock.  Set the permissions and empty it out.
+	$ErrorsDetected += _FilterMessage( qq<Unable to set file permissions on "$FileName": $!> )
+		unless chmod(0640,$WRITEMAILFILE_FH);
+	seek($WRITEMAILFILE_FH,0,0);		# Rewind to the beginning.
+	truncate($WRITEMAILFILE_FH,0);		# Clean it out.
 
-	# If we're logging, open the log.
-	if ($Options{MAIL_FILE}) {
-		# Open the log file.
-		umask(0077);	# Set our umask.
-		if (open($WRITELOGFILE_FH, '>', $Options{MAIL_FILE})) {
-			select $WRITELOGFILE_FH;
-			$|=1;		# Keep this file unbuffered.
-			select STDOUT;	# Undo prior select.
-		} else {
-			warn "LogOutput: Unable to open $Options{MAIL_FILE} $!";
-				$Options{MAIL_FILE}='';		#We can't log.
-				$DeleteMailFile=0;
-		}
-	}
-	return $DeleteMailFile;
+	# Unbuffer the file.
+	select $WRITEMAILFILE_FH;
+	$|=1;		# Keep this file unbuffered.
+	select STDOUT;	# Undo prior select.
+
+	return $FileName;
 }
 
 
@@ -521,7 +551,9 @@ sub _LoadFilters {
 		else {
 			print "LogOutput: Loading filters from $FilterFile\n" if $Options{VERBOSE};
 			if (!open($FilterHandle,$FilterFile)) {
-				warn("Unable to open $FilterFile $!\n");
+				$ErrorsDetected += _FilterMessage(qq<Unable to open "$FilterFile" $!\n>);
+				close $FilterHandle;
+				next;
 			}
 		}
 	
@@ -560,7 +592,7 @@ sub _LoadFilters {
 				# Add it to this array.
 				push @MailOnlyPatterns, $Pattern;
 			} else {
-				warn "LogOutput: Invalid type $Type in pattern record $PatternNum -- ignored.\n";
+				$ErrorsDetected += _FilterMessage(qq<LogOutput: Invalid type "$Type" in pattern record $PatternNum -- ignored.\n>);
 			}
 		}
 		close ($FilterHandle);
@@ -704,7 +736,7 @@ sub _FilterMessage {
 	# Log everything through Syslog if requested.
 	if ($Options{SYSLOG_FACILITY} && !/^\s*$/) {
 		if (!(syslog("INFO", "%s", $_))) {
-			warn "LogOutput: Unable to write to syslog: $!";
+			$ErrorsDetected += _FilterMessage("LogOutput: Unable to write to syslog: $!");
 			$Options{SYSLOG_FACILITY}=0;
 		}
 	}
@@ -749,11 +781,13 @@ sub WriteMessage {
 	printf STDOUT "%s\n", $Message if ($StdOut);
 
 	# Write it to the log file if requested.
-	if ($MailFile) {
+	if (defined($WRITEMAILFILE_FH)) {
 		$Message = _MakeSubstitutions($Options{MAIL_FILE_PREFIX}) . " $Message"
 			if ($Options{MAIL_FILE_PREFIX});
-		if (!(printf $WRITELOGFILE_FH "%s\n", $Message)) {
-			warn "LogOutput: Unable to write to $Options{MAIL_FILE} $!";
+		if (!(printf $WRITEMAILFILE_FH "%s\n", $Message)) {
+			close $WRITEMAILFILE_FH;
+			$WRITEMAILFILE_FH = undef;
+			$ErrorsDetected += _FilterMessage("LogOutput: Unable to write to $Options{MAIL_FILE} $!");
 			$Options{MAIL_FILE}='';
 		}
 	}
@@ -980,7 +1014,7 @@ Example:  SYSLOG_FACILITY => 'USER'
 This option contains a file name to use to hold e-mail text.  If not
 provided, a
 file is created in /tmp and deleted on termination.  Any prior contents of
-this file are always deleted.
+this file are always deleted.  Symbol substitution is allowed.
 
 Example:  MAIL_FILE => '/home/joeuser/log/jobname.log'
 
