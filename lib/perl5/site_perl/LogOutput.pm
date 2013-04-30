@@ -190,7 +190,7 @@ if ($ErrorsDetected >= 1) {
 		. ($ErrorsDetected==1?'':'s')		# Manage plurals.
 		. ' ("->") detected in '
 		. $Options{PROGRAM_NAME} 
-		. 'execution.'
+		. ' execution.'
 	);
 }
 
