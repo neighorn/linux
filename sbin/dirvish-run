@@ -120,7 +120,7 @@ foreach (qw(always-mail error-mail always-page error-page)) {
 }
 $Options{verbose} = 0 unless (exists($Options{verbose}));
 $Options{logfile} = '' unless (exists($Options{logfile}));
-my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4,0);
+my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,

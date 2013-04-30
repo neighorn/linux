@@ -95,7 +95,7 @@ sub LogOutput {
 	if ($Options{SYSLOG_FACILITY}) {
 		if ($^O =~ /^(os2|MSWin32|MacOS)$/) {
 			require Sys::Syslog;
-			$ErrorsDetected += _FilterMessage( "LogOutput: Syslog is not supported under this operating system.");
+			warn "LogOutput: Syslog is not supported under this operating system.";
 			$Options{SYSLOG_FACILITY}=0;
 		} else {
 			my $options = $Options{SYSLOG_OPTIONS};
@@ -104,7 +104,7 @@ sub LogOutput {
 		}
 	}
 
-	# Prepare our log file.
+	# Prepare our mail file.
 	$DeleteMailFile = _PrepareMailFile();
 
 	# Load in our filters.  Input file comes from %Options.  Output
@@ -460,6 +460,9 @@ sub _PrepareMailFile {
 #
 # 	On exit, return empty string on error, or the file name on success.
 #
+#	Note: can't use _FilterMessage yet -- haven't loaded the filters so the user
+#	can't have any say as to what to ignore (like can't lock log file).
+#
 sub _OpenMailFile {
 
 	my $FileName = shift;
@@ -472,9 +475,8 @@ sub _OpenMailFile {
 			$FileName=untaint($FileName);
 		}
 		else {
-			$ErrorsDetected += _FilterMessage(
-				qq<LogOutput: Unable to open "$FileName" invalid symbol in file name.>
-			);
+			warn qq<LogOutput: Unable to open "$FileName" invalid symbol in file name.>;
+			$ErrorsDetected++;
 			return '';
 		}
 	
@@ -483,7 +485,8 @@ sub _OpenMailFile {
 		if (!open($WRITEMAILFILE_FH, '+>>', $FileName)) {
 			close $WRITEMAILFILE_FH;
 			$WRITEMAILFILE_FH = undef;
-			$ErrorsDetected += _FilterMessage( qq<LogOutput: Unable to open "$FileName": $!> );
+			warn qq<LogOutput: Unable to open "$FileName": $!>;
+			$ErrorsDetected++;
 			return '';
 		}
 	}
@@ -496,12 +499,13 @@ sub _OpenMailFile {
         if (!flock($WRITEMAILFILE_FH, LOCK_EX | LOCK_NB)) {
 		close $WRITEMAILFILE_FH;
 		$WRITEMAILFILE_FH = undef;
-                $ErrorsDetected += _FilterMessage( qq<Unable to lock mail file "$FileName": $!\n> );
+                warn qq<Unable to lock mail file "$FileName": $!\n>;
+		$ErrorsDetected++;
                 return '';	# We're done -- don't delete mail file on exit.
 	}
 	
 	# We got the lock.  Set the permissions and empty it out.
-	$ErrorsDetected += _FilterMessage( qq<Unable to set file permissions on "$FileName": $!> )
+	warn qq<Unable to set file permissions on "$FileName": $!> 
 		unless chmod(0640,$WRITEMAILFILE_FH);
 	seek($WRITEMAILFILE_FH,0,0);		# Rewind to the beginning.
 	truncate($WRITEMAILFILE_FH,0);		# Clean it out.
