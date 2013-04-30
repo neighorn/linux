@@ -500,7 +500,7 @@ sub _OpenMailFile {
 		close $WRITEMAILFILE_FH;
 		$WRITEMAILFILE_FH = undef;
                 warn qq<Unable to lock mail file "$FileName": $!\n>;
-		$ErrorsDetected++;
+		# Don't flag this as an error - it's a transient problem that doesn't mean the job failed.
                 return '';	# We're done -- don't delete mail file on exit.
 	}
 	
