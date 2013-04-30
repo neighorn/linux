@@ -91,9 +91,6 @@ sub LogOutput {
 		$HostName =~ s/\..*//;	# Remove domain name.
 	}
 
-	# Prepare our log file.
-	$DeleteMailFile = _PrepareMailFile();
-
 	# If we're going to the Syslog, set that up now.
 	if ($Options{SYSLOG_FACILITY}) {
 		if ($^O =~ /^(os2|MSWin32|MacOS)$/) {
@@ -106,6 +103,9 @@ sub LogOutput {
 			openlog($Options{PROGRAM_NAME},$options,$Options{SYSLOG_FACILITY});
 		}
 	}
+
+	# Prepare our log file.
+	$DeleteMailFile = _PrepareMailFile();
 
 	# Load in our filters.  Input file comes from %Options.  Output
 	# goes into $NormalTest, $IgnoreTest, $MailOnlyTest.
