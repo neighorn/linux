@@ -120,6 +120,7 @@ foreach (qw(always-mail error-mail always-page error-page)) {
 }
 $Options{verbose} = 0 unless (exists($Options{verbose}));
 $Options{logfile} = '' unless (exists($Options{logfile}));
+my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4,0);
 
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
@@ -129,6 +130,7 @@ LogOutput({
 	ALWAYS_PAGE_LIST	=> \@{$Options{"always-page"}},
 	ERROR_PAGE_LIST		=> \@{$Options{"error-page"}},
 	MAIL_SUBJECT		=> $Subject,
+	VERBOSE			=> $LogOutputVerbose,
 });
 die "No BANKS defined in configuration file(s)" 
 	unless (defined($Config{BANKS}) 
@@ -698,8 +700,8 @@ LOGONLY /^Command: /
 #
 SHOW	"^\s*[-_]+\s*$"
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-# Ignore dirvish-expire messages
 SHOW	/^\s*Unable to lock (stat|mail) file "\S+": Resource temporarily unavailable/
+# Ignore dirvish-expire messages
 IGNORE	"^\s*Expiring\s"
 IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
