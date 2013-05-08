@@ -50,16 +50,17 @@ our %OptionSpecifications=(
 		'help|h|?!'		=>	\&opt_h,
 		'always-mail|m=s'	=>	\&opt_Array,
 		'error-mail|M=s'	=>	\&opt_Array,
-		'subject|N=s'		=>	sub {$Options{subject}=$_[1];},
+		'subject|N=s'		=>	\&opt_Value,
 		'option-set|O=s'	=>	\&opt_O,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
-		'rerun|R:1'		=>	sub {$Options{rerun}=$_[1];},
+		'rerun|R:1'		=>	\&opt_Value,
 		'min-size|s=s'		=>	\&opt_s,
 		'max-size|S=s'		=>	\&opt_S,
-		'statfile=s'		=>	sub {$Options{statfile}=$_[1];},
-		'test|t!'		=>	sub {$Options{test}=$_[1];},
-		'logfile|L=s'		=>	sub {$Options{logfile}=$_[1];},
+		'statfile=s'		=>	\&opt_Value,
+		'test|t!'		=>	\&opt_Value,
+		'logfile|L=s'		=>	\&opt_Value,
+		'ping'			=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -224,6 +225,37 @@ sub ProcessBackup {
 		$Errors++;
 		return;
 	}
+
+	if ($Options{ping}) {
+		# We're only supposed to back this target up if it's reachable.
+		my $branch = ($Target=~/\S+:(\S+%)/?$1:'default');
+		my $CONFFH;
+		my $ConfFile = "$MachineDirectory/dirvish/$branch.conf";
+		my $Client;
+		if (open($CONFFH,'<',$ConfFile)) {
+			while (<$CONFFH>) {
+				next unless /^\s*client:\s*(\S*@)?(\S+)/i;
+				$Client=$2;
+				last;
+			}
+		}
+		else {
+			warn "Unable to open $ConfFile: $!\n";
+			$Errors++;
+		}
+		close $CONFFH;
+		if ($Client) {
+			my $Status = RunDangerousCmd("ping -c 1 $Client > /dev/null 2>&1") >> 8;
+			if ($Status) {
+				print "Unable to ping optional target $Target -- skipped\n";
+				return;
+			}
+		}
+		else {
+			warn "Unable to identify target host for $Target -- assuming it to be pingable\n";		
+		}
+	}
+				
 
 	# Make sure there's not another copy of us running against this.
 	my $LockFile = "$MachineDirectory/dirvish/$Prog.lock";
@@ -475,7 +507,16 @@ sub RunDangerousCmd {
 
 
 #
-# opt_Array - generic array processing
+# opt_Value - generic single-value option processing
+#
+sub opt_Value {
+	my($Name,$Value) = @_;
+	$Options{$Name} = $Value;
+}
+
+
+#
+# opt_Array - generic multi-value optoin  processing
 #
 sub opt_Array {
 
@@ -576,7 +617,7 @@ Options may be intermixed with vault names.  The following list of options
 is divided into "Universal Options" and "Vault Options".  Universal options
 are used at initialization time, and therefore affect all vaults regardless of
 where the universal options appear in the command line.  Vault options apply
-to any following options.
+to ALL following vaults until changed.
 
 Universal Options:
 	-B|--jobinit=script:		Begin: Execute "script" before running
@@ -609,6 +650,10 @@ Vault Options:
 					and options directly to dirvish. 
 					Spaces need to be escaped or quoted.
 
+	--ping				Only run this backup if the host is
+					pingable.  Otherwise, note that the
+					host was unreachable but don't generate
+					an error.
 	-O|--option-set=config:		Insert the "config" configuration
 					options from $ConfigFile.
 
@@ -722,6 +767,7 @@ IGNORE	"^\s*rsync: open.* failed: No such file or directory"
 IGNORE	"^\s*(file|directory) has vanished: "
 IGNORE	"^\s*Status: warning \(24\) -- file vanished on sender$"
 IGNORE	"^\s*Status: success$"
+SHOW	"^\s*Unable to ping optional target"
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
