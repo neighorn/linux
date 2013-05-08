@@ -317,7 +317,6 @@ sub PrintStatsFile {
 				close $STATFH;
 				$STATFH=undef;
 				$StatErrors++;
-				$Errors++;
 				return;
 			}
 		}
@@ -326,7 +325,6 @@ sub PrintStatsFile {
 			close $STATFH;
 			$STATFH=undef;
 			$StatErrors++;
-			$Errors++;
 			return;
 		}
 	}

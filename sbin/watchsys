@@ -2,6 +2,12 @@
 use Getopt::Std;
 use IO::Socket;
 use Net::Ping;
+use FindBin qw($RealBin $RealScript);
+
+if ( (getlogin || getpwuid($<)) !~ 'root') {
+	exec "sudo $RealBin/$RealScript " . join(' ',@ARGV);
+	die "Unable to execute sudo: $!\n";
+}
 
 while (! $ARGV[0]) {
 	print "Host name? ";
