@@ -11,6 +11,7 @@ use File::Find;
 use Fcntl qw(:flock :mode :DEFAULT);
 use File::Temp qw(mktemp);
 use POSIX qw(strftime);
+use IO::Socket;
 use Data::Dumper;
 $Data::Dumper::Pad = "Verbose:\t\t";
 
@@ -60,7 +61,7 @@ our %OptionSpecifications=(
 		'statfile=s'		=>	\&opt_Value,
 		'test|t!'		=>	\&opt_Value,
 		'logfile|L=s'		=>	\&opt_Value,
-		'ping'			=>	\&opt_Value,
+		'ifup'			=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -153,7 +154,10 @@ foreach (@{$Options{jobinit}}) {
 # that may be sequence-sensitive), and reprocess them.  This time
 # GetOptions will call ProcessBackup for each non-option argument
 # it finds, effectively running the backups.
-%Options=(verbose => 0);	# Reinitialize Options.
+%Options=(
+	test => $Options{test},		# Make this global.
+	verbose => $Options{verbose},	# Make this global.
+);
 $OptionSpecifications{'<>'} = \&ProcessBackup;
 $Errors++ unless GetOptions(%OptionSpecifications);
 
@@ -226,7 +230,7 @@ sub ProcessBackup {
 		return;
 	}
 
-	if ($Options{ping}) {
+	if ($Options{ifup}) {
 		# We're only supposed to back this target up if it's reachable.
 		my $branch = ($Target=~/\S+:(\S+%)/?$1:'default');
 		my $CONFFH;
@@ -244,15 +248,21 @@ sub ProcessBackup {
 			$Errors++;
 		}
 		close $CONFFH;
+		my $SOCKET;
 		if ($Client) {
-			my $Status = RunDangerousCmd("ping -c 1 $Client > /dev/null 2>&1") >> 8;
-			if ($Status) {
-				print "Unable to ping optional target $Target -- skipped\n";
+			if ($SOCKET = IO::Socket::INET->new(PeerHost=>$Client,PeerPort=>'ssh',Timeout=>5)) {
+				close $SOCKET;
+			}
+			elsif ($SOCKET = IO::Socket::INET->new(PeerHost=>$Client,PeerPort=>'rsync',Timeout=>5)) {
+				close $SOCKET;
+			}
+			else {
+				print "Skipped $Target -- $Client is unreachable.\n";
 				return;
 			}
 		}
 		else {
-			warn "Unable to identify target host for $Target -- assuming it to be pingable\n";		
+			warn "Unable to identify client for $Target -- assuming it is reachable\n";		
 		}
 	}
 				
@@ -645,13 +655,20 @@ Universal Options:
 
 	-h|?|--help:			Help: display this panel
 
+	-t|--test:			Test: echo commands instead of running
+					them.
+
+	-v|--verbose:			Verbose: echo commands before running
+					them.  May be repeated to increase
+					verbosity.  --test overrides --verbose.
+
 Vault Options:
 	-D|--dirvish=parms:		Dirvish: Pass the following parameters
 					and options directly to dirvish. 
 					Spaces need to be escaped or quoted.
 
-	--ping				Only run this backup if the host is
-					pingable.  Otherwise, note that the
+	--ifup				Only run this backup if the host is
+					reachable.  Otherwise, note that the
 					host was unreachable but don't generate
 					an error.
 	-O|--option-set=config:		Insert the "config" configuration
@@ -672,11 +689,6 @@ Vault Options:
 	-S|--max-size=size:		maximum Size: Issue a warning if the
 					size of the new items exceeds "size".
 					See "-s" above for unit specifications.
-	-t|--test:			Test: echo commands instead of running
-					them.
-	-v|--verbose:			Verbose: echo commands before running
-					them.  May be repeated to increase
-					verbosity.  --test overrides --verbose.
 
 Parameters:
 	vault...:	One or more vault names.  Vault names may be fully 
@@ -767,7 +779,7 @@ IGNORE	"^\s*rsync: open.* failed: No such file or directory"
 IGNORE	"^\s*(file|directory) has vanished: "
 IGNORE	"^\s*Status: warning \(24\) -- file vanished on sender$"
 IGNORE	"^\s*Status: success$"
-SHOW	"^\s*Unable to ping optional target"
+SHOW	"^\s*Skipped \S+ -- \S+ is unreachable.$"
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
