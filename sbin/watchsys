@@ -3,6 +3,9 @@ use Getopt::Std;
 use IO::Socket;
 use Net::Ping;
 use FindBin qw($RealBin $RealScript);
+use POSIX qw(strftime);
+
+my $LastPoll;
 
 if ( (getlogin || getpwuid($<)) !~ 'root') {
 	exec "sudo $RealBin/$RealScript " . join(' ',@ARGV);
@@ -44,6 +47,7 @@ if ($opt_h) {
 $State='';		# State unknown.
 $Ping=Net::Ping->new("icmp");
 for (;;) {
+	$LastPoll=time();
 	# See if it's up.
 	if ($Ping->ping($ARGV[0])) {
 		# Ping came back OK.  The interface is up, at least.
@@ -55,7 +59,11 @@ for (;;) {
 	}
 	# See if any services are up.  Decoupled from ping.  Some don't ping.
 	foreach $port (@Ports) {
-		if ($socket=IO::Socket::INET->new("$ARGV[0]:$port")) {
+		if ($socket=IO::Socket::INET->new(
+			PeerHost=>$ARGV[0],
+			PeerPort=>$port,
+			Timeout=>5,
+		)) {
 	    		# Connected OK.
             		$State="up";
             		close($socket);
@@ -72,24 +80,28 @@ for (;;) {
 	if ($State ne $PriorState) {
 		# State changed.  We need to report this.
 		$CompoundState="$PriorState.$State";
-		if ($CompoundState eq "up.int") {
-			$Desc="'s services are down ";
-			system($opt_s) if ($opt_s);
-		} elsif ($State eq "down") {
+		if ($State eq "down") {
 			$Desc=" is down";
 			system($opt_d) if ($opt_d);
-		} elsif ($State eq "up") {
+		}
+		elsif ($State eq "up") {
 			$Desc=" is up";
 			system($opt_U) if ($opt_U);
-		} elsif ($CompoundState eq "down.int") {
+		}
+		elsif ($CompoundState eq "up.int") {
+			$Desc="'s services are down ";
+			system($opt_s) if ($opt_s);
+		}
+		elsif ($CompoundState eq "down.int") {
 			$Desc=" interfaces came up";
 			system($opt_I) if ($opt_I);
-		} elsif ($CompoundState eq "int") {
+		}
+		elsif ($State eq "int") {
 			$Desc=" services are down";
 			system($opt_s) if ($opt_s);
 		}
 		if (! $opt_q) {
-			syswrite STDOUT,"\n$ARGV[0]$Desc";
+			syswrite STDOUT,strftime("\n%T ",localtime()) . "$ARGV[0]$Desc";
 			syswrite STDOUT,"\n" if ($opt_v);
 		}
 		$PriorState=$State;
@@ -105,6 +117,7 @@ for (;;) {
 				syswrite(STDOUT,'|') unless ($opt_q);
 			}
 		}
-		sleep($opt_i);
+		my $SleepInterval=$opt_i - (time() - $LastPoll);
+		sleep($SleepInterval) unless ($SleepInterval <= 0);;
 	}
 }
