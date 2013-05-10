@@ -86,3 +86,5 @@ service:	*				ntp
 service:	attrib=primary			openvpn
 service:	attrib=primary,testfw		squid
 service:	attrib=primary,testfw		postgrey
+#
+# vim: set syntax=off:
