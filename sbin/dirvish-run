@@ -292,7 +292,7 @@ sub ProcessBackup {
 				my $mode = (lstat($dir))[2];		# Get the mode. lstat detects symlinks.
 				next unless (S_ISDIR($mode));		# Skip non-directories.
 				next unless (-M "$dir" <= $Options{rerun});		# Skip older backups.
-				next unless (-d "$dir/tree" || -d "$dir/log" || -d "$dir/log.tmp");
+				next unless (-d "$dir/tree" || -f "$dir/log" || -f "$dir/log.tmp");
 				my $trash = mktemp("./trash.XXXX");
 				RunDangerousCmd("mv $dir $trash") && warn "Unable to rename '$dir' in response to -R: $!";
 				RunDangerousCmd("echo rm -rf ./$trash | at now");
