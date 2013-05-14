@@ -88,7 +88,7 @@ sub new{
 
 
 sub Report {
-        my($Self,$DescLen) = @_;
+        my($Self,$DescLen,$failonly) = @_;
 	$DescLen = 40 unless ($DescLen);
 
 	# Make sure we have values for everything.
@@ -99,7 +99,7 @@ sub Report {
 
 	# Return our status + status change information.
 	if ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_OK) {
-		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q);
+		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q && !$failonly);
 		return CHECK_STILL_OK;
 	}
 	elsif ($Self->{Status} eq CHECK_FAIL and $Self->{PriorStatus} eq CHECK_FAIL) {
@@ -126,7 +126,7 @@ sub Report {
 		return CHECK_STILL_FAILING;
 	}
 	elsif ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_FAIL) {
-		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q);
+		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q && !$failonly);
 		return CHECK_NOW_OK;
 	}
 	else {

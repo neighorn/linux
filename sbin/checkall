@@ -20,6 +20,7 @@ my $RESET = "\e[0m";
 $ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$ENV{PATH}";
 
 our $opt_c='';			# Configuration file (service list).
+our $opt_f='';			# Configuration file (service list).
 our $opt_h=0;			# Help
 our $opt_v=0;			# Verbose option.
 our $opt_t=0;			# Test option.
@@ -49,6 +50,7 @@ chomp $HostName;
 GetOptions (
 	'v|verbose+'	=> \$opt_v,
 	'c|config=s'	=> \$opt_c,
+	'fail'		=> \$opt_f,
 	'h|help'	=> \$opt_h,
 	't|test'	=> \$opt_t,
 	'q|quiet'	=> \$opt_q,
@@ -152,7 +154,7 @@ my $Now = time();		# Avoid repeated calls.
 foreach my $Item (@ItemList) {
 	# Call report to issue visible status, and count failures.
 	my $Desc = $Item->Desc;
-	my $Status = $Item->Report($DescLen);
+	my $Status = $Item->Report($DescLen,$opt_f);
 	my $DoDownActions = 0;
 	if ($Status == 0) {
 		#CHECK_STILL_OK -- can't get constants to export.
@@ -545,6 +547,10 @@ if one or more list names are provided on the command line.  The -c option provi
 alternate way of identifying a service file, when the desired file isn't named according
 to the "listname" standard (i.e. isn't located in /usr/local/etc).
 
+=item --fail
+
+Fail -- only list failing items.
+
 =item -h, --help
 
 Help -- print this documentation
@@ -557,7 +563,7 @@ This option may be repeated to send e-mails to multiple addresses.
 
 =item -q, --quiet
 
-Quiet - suppress status messages.
+Quiet -- suppress status messages.
 
 =item -R minutes, --renotify=minutes
 

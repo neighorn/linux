@@ -41,9 +41,9 @@ sub Check {
 }
 
 sub Report {
-        my($Self,$DescLen) = @_;
+        my($Self,$DescLen,$failonly) = @_;
 
-        printf "%s\n", $Self->{Desc} if (!$main::opt_q);
+        printf "%s\n", $Self->{Desc} if (!$main::opt_q and !$failonly);
         return $Self->{Status};
 }
 
