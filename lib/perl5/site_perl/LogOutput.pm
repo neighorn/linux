@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.12;
+our $Version	= 3.13;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -303,6 +303,7 @@ sub _SetOptions {
 		FILTER_FILE => 1,
 		#LOG_FILE => 1,
 		MAIL_FILE_PREFIX => 1,
+		MAIL_FILE_PERMS => 1,
 		MAIL_FILE => 1,
 		MAIL_FROM => 1,
 		MAIL_DOMAIN => 1,
@@ -325,6 +326,7 @@ sub _SetOptions {
 	$Options{ERROR_PAGE_LIST}=[];
 	$Options{MAIL_FILE_PREFIX}='';
 	$Options{MAIL_FILE}='';
+	$Options{MAIL_FILE_PERMS}=0640;
 	$Options{MAIL_FROM}='%U@%O';
 	$Options{MAIL_SERVER}='127.0.0.1';
 	$Options{MAIL_DOMAIN}='';
@@ -499,14 +501,14 @@ sub _OpenMailFile {
         if (!flock($WRITEMAILFILE_FH, LOCK_EX | LOCK_NB)) {
 		close $WRITEMAILFILE_FH;
 		$WRITEMAILFILE_FH = undef;
-                warn qq<Unable to lock mail file "$FileName": $!\n>;
+                print qq<Unable to lock mail file "$FileName": $!\n>;	# Print, since it's not a critical error.
 		# Don't flag this as an error - it's a transient problem that doesn't mean the job failed.
                 return '';	# We're done -- don't delete mail file on exit.
 	}
 	
 	# We got the lock.  Set the permissions and empty it out.
 	warn qq<Unable to set file permissions on "$FileName": $!> 
-		unless chmod(0640,$WRITEMAILFILE_FH);
+		unless chmod($Options{MAIL_FILE_PERMS},$WRITEMAILFILE_FH);
 	seek($WRITEMAILFILE_FH,0,0);		# Rewind to the beginning.
 	truncate($WRITEMAILFILE_FH,0);		# Clean it out.
 
@@ -1021,6 +1023,12 @@ file is created in /tmp and deleted on termination.  Any prior contents of
 this file are always deleted.  Symbol substitution is allowed.
 
 Example:  MAIL_FILE => '/home/joeuser/log/jobname.log'
+
+=head2 MAIL_FILE_PERMS
+
+This sets the file permissions for the mail file.  The default is 0640.
+
+Example: MAIL_FILE_PERMS => 0644
 
 =head2 MAIL_FROM
 

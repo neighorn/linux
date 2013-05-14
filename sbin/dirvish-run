@@ -127,6 +127,7 @@ my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
 	MAIL_FILE		=> $Options{logfile},
+	MAIL_FILE_PERMS		=> 0644,
 	ALWAYS_MAIL_LIST	=> \@{$Options{"always-mail"}},
 	ERROR_MAIL_LIST		=> \@{$Options{"error-mail"}},
 	ALWAYS_PAGE_LIST	=> \@{$Options{"always-page"}},
