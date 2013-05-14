@@ -52,6 +52,10 @@ our $opt_P;				# -P (pager error mail) option.
 our $opt_t = 0;				# -t (test) option.
 our $opt_v = 0;				# -v (verbose) option.
 #
+my $WriteNetRules = (-f '/usr/lib/udev/write_net_rules'?'/usr/lib/udev/write_net_rules':'/lib/udev/write_net_rules');
+
+
+
 $ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
 # Note: general purpose script - don't change current directory.
@@ -238,8 +242,14 @@ if (-f '/etc/HOSTNAME') {
 		chomp $line;
 		given ($line) {
 			when (/^\S+\./)	{
-				# Change first node in host.domain.domain.
-				$line =~ s/^([^.])+/${opt_H}/;
+				if ($opt_H =~ /\./) {
+					# We have a new, FQDN.  Use it all.
+					$line = "$opt_H";
+				}
+				else {
+					# Change first node in host.domain.domain.
+					$line =~ s/^([^.])+/${opt_H}/;
+				}
 			}
 			when (/^[^#.]+$/) {
 				# Just the host name.  Replace it completely.
@@ -275,7 +285,7 @@ foreach my $MACAddr (sort(keys(%Interfaces))) {
 			$DeleteFlag = 0;	# Only do this for the first one.
 			RunDangerousCmd("rm /etc/udev/rules.d/*-persistent-net.rules");
 		}
-		my $Status = RunDangerousCmd("/lib/udev/write_net_rules");
+		my $Status = RunDangerousCmd($WriteNetRules);
 	}
 }
 
