@@ -5,6 +5,7 @@
 function process_compound {
 	device="$1"
 	shift
+	fuser -c /dev/$device > /dev/null 2>&1 && return		# Something is using it (could be fsck).
 	if [[ "$device" = md1[1-3] && "$*" != *finish=* ]]
 	then
 		if mount | grep -q "^/dev/$device "
