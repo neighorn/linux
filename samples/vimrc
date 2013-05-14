@@ -1,2 +1,3 @@
 colorscheme zellner
 hi Visual term=reverse ctermfg=Blue ctermbg=Black gui=NONE guifg=Black guibg=Yellow
+set modeline
