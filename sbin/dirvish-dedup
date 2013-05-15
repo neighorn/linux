@@ -16,7 +16,7 @@ use File::Basename;
 use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use POSIX qw(strftime);
 use Fcntl;
-use FindBin qw($Script);
+use FindBin qw($RealBin $RealScript $Script);
 use String::ShellQuote;		# For shell_quote.
 use Data::Dumper::Simple;
 use Text::ParseWords;
@@ -139,7 +139,7 @@ while (@Parms == 1 and -d $Parms[0]) {
 	@Parms = bsd_glob($Parms[0] . '/*');
 }
 if ($Opt{reverse}) {
-	@Parms = reverse(@Parms);
+	@Parms_Copy = reverse(@Parms);
 }
 else {
 	@Parms_Copy = @Parms;
@@ -262,6 +262,7 @@ sub ProcessOptions (@) {
 	'debug+'				=>	sub{$Opt{debug}++;},
 	'dry-run|n'				=>	\&Opt_dry_run,
 	'eta!'					=>	sub{$Opt{eta}=$_[1];},
+	'help|h'				=>	\&Opt_help,
 	'loadmap|loadmaps|load-map|load-maps=s'	=>	\&Opt_loadmap,
 	'logfile|l=s'				=>	\&Opt_logfile,
 	'mail|m=s@'				=>	sub{push @{$Opt{mail}},$_[1];},
@@ -315,6 +316,15 @@ sub Opt_dry_run {
         if ($Opt{"dry-run"} and not $Opt{logfile});
     print "Running in dry-run mode...\n"
         if ( $Opt{'dry-run'} );
+}
+
+
+
+#
+# Opt_help - display the help map
+#
+sub Opt_help {
+	system("pod2text $RealBin/$RealScript");
 }
     
 
