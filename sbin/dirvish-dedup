@@ -126,7 +126,7 @@ select(STDOUT);
 $| = 1;
 
 # Initialize the statistics file if requested.
-PrintStatFile(strftime("Started $Prog at %D %T\n",localtime()));
+PrintStatFile(strftime("Started $Prog at %Y-%m-%d %T\n",localtime()));
 
 #
 # Begin processing arguments.
@@ -158,16 +158,16 @@ foreach $Root ( @Parms_Copy ) {
     $FirstNode =~ s"(/?[^/]+)/"$1";
     if (-l $FirstNode) {
     	print "\n" if ($LastPrint eq 'stats');
-	print strftime("%D %T $FirstNode is a symbolic link -- $Root skipped\n",localtime());
+	print strftime("%m/%d %T $FirstNode is a symbolic link -- $Root skipped\n",localtime());
 	next;
     }
     if (-l $Root) {
     	print "\n" if ($LastPrint eq 'stats');
-	print strftime("%D %T $Root is a symbolic link -- $Root skipped\n",localtime());
+	print strftime("%m/%d %T $Root is a symbolic link -- $Root skipped\n",localtime());
 	next;
     }
     print "\n" if ($LastPrint eq 'stats');
-    print strftime("%D %T Starting $Root" . ' 'x30 . "\n",localtime())
+    print strftime("%m/%d %T Starting $Root" . ' 'x30 . "\n",localtime())
         if (@Parms > 1);
     syslog('info',"Starting $Root");
     find(
@@ -564,7 +564,7 @@ sub PrintStatistics () {
     $ElapsedSeconds = 1 if ($ElapsedSeconds < 1);	# Sometimes get first alarm in second #0.
     my $RootStub=$Root;
     $RootStub =~ s"^.*/([^/])"$1";
-    my $TimeStamp = strftime("%D %T",localtime());
+    my $TimeStamp = strftime("%m/%d %T",localtime());
     $LastStats = sprintf(
         "elapsed=%s, arg=%s/%s, tlds=%s/%s, %s files, %s unique, %s files/s, speed=%s/s, used=%s, %s saved, current=%s    \r",
         $ElapsedTime,
@@ -992,7 +992,7 @@ sub ManageStats {
 
         # We've received a request for a progress report.
 	print "\n" if ($LastPrint eq 'stats');
-        print strftime( "%D %T Now processing $cand\n", localtime( time() ) );
+        print strftime( "%m/%d %T Now processing $cand\n", localtime( time() ) );
 	$LastPrint = "progress";
         $PrintProgress = 0;    # Turn off flag.
 	$LastProgress = time();
