@@ -1,1 +1,1 @@
-Alljobs: -m jobrept -x /proc -x /sys -x /usr/local/backup -x /mnt -x /media -x /sys/kernel/debugd -x /devd -x /dev/ptsd -x /sys/fs/fuse/connectionsd -x /sys/kernel/securityd -x /proc/sys/fs/binfmt_miscd -x /root/.gvfs -x /var/lib/ntp/proc
+Alljobs: -m jobrept -x /usr/local/backup -x /mnt -x /media 
