@@ -1,6 +1,7 @@
-myhostname = hostname.example.com
+inet_interfaces = loopback-only
+mydestination =
+myhostname = host.example.com
 mydomain = example.com
 myorigin = $mydomain
 relayhost = $mydomain
-inet_interfaces = loopback-only
-mydestination =
+smtpd_banner = ESMTP ready
