@@ -1,3 +1,4 @@
+canonical_maps = hash:/usr/local/etc/postfix/canonical
 inet_interfaces = loopback-only
 mydestination =
 myhostname = host.example.com
