@@ -1,0 +1,6 @@
+myhostname = hostname.example.com
+mydomain = example.com
+myorigin = $mydomain
+relayhost = $mydomain
+inet_interfaces = loopback-only
+mydestination =
