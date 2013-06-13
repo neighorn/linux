@@ -70,6 +70,8 @@ our $LastStats='';         # Our most recent statistics report.
 our $LastProgress = 0;	   # The last time we generated a progress report.
 our $CheckpointDuration;   # The time it takes to write a checkpoint file.
 
+my %DFHash;		   # List of file systems we were trying to clean up.
+
 #
 # Signals.
 #
@@ -163,7 +165,12 @@ foreach $Root ( @Parms_Copy ) {
     }
     if (-l $Root) {
     	print "\n" if ($LastPrint eq 'stats');
-	print strftime("%m/%d %T $Root is a symbolic link -- $Root skipped\n",localtime());
+	print strftime("%m/%d %T $Root is a symbolic link -- skipped\n",localtime());
+	next;
+    }
+    if (! -e $Root) {
+    	print "\n" if ($LastPrint eq 'stats');
+	print strftime("%m/%d %T $Root not found -- skipped\n",localtime());
 	next;
     }
     print "\n" if ($LastPrint eq 'stats');
@@ -180,6 +187,13 @@ foreach $Root ( @Parms_Copy ) {
     );
     PrintStatistics();		# Final stats for this argv item.
     print "\n";
+    
+    # Gather stats on the file system for our e-mail.
+    my $df = `df -h $Root | tail -1`;
+    my $key = $df;
+    $key =~ s/^(\S+)\s.*$/$1/;
+    $DFHash{$key}=$df;
+
     if ($CancelConfirmed) {
         printf "Writing final checkpoint file.  ";
         if ($CheckpointDuration) {
@@ -204,6 +218,12 @@ if ($LOG_FH) {
 my $Elapsed = ElapsedTime();
 my $Summary = strftime( "Done @ %T on %D.  Elapsed time = $Elapsed.", localtime());
 print "\n$Summary\n";
+$Summary =
+	`df -h | head -1`		# Get the df header.
+	. join("\n",values(%DFHash))
+	. "\n"
+	. $Summary
+	;
 SendMail($Summary) if ($Opt{mail});
 PrintStatFile("$Summary<br>$LastStats") if ($Opt{statfile});
 exit 0;
