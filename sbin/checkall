@@ -50,7 +50,7 @@ chomp $HostName;
 GetOptions (
 	'v|verbose+'	=> \$opt_v,
 	'c|config=s'	=> \$opt_c,
-	'fail'		=> \$opt_f,
+	'fail|failed'	=> \$opt_f,
 	'h|help'	=> \$opt_h,
 	't|test'	=> \$opt_t,
 	'q|quiet'	=> \$opt_q,
@@ -547,7 +547,7 @@ if one or more list names are provided on the command line.  The -c option provi
 alternate way of identifying a service file, when the desired file isn't named according
 to the "listname" standard (i.e. isn't located in /usr/local/etc).
 
-=item --fail
+=item --fail, --failed
 
 Fail -- only list failing items.
 
