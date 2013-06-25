@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package mailq;
 use base 'CheckItem';
-use fields qw(Port User);
+use fields qw(Port User Filter);
 
 #================================= Data Accessors ===============================
 sub Target {
@@ -54,6 +54,14 @@ sub Check {
 		$Self->{StatusDetail} = "Configuration error: Target not specified";
 		$Errors++;
 	}
+	if ($Self->{Filter}) {
+                eval "\$Self->{Filter} = qr$Self->{Filter};";
+                if ($@) {
+                        print "$Self->{FILE}:$Self->{LINE}: " .
+                                qq[Invalid filter expression "$Self->{Filter}": $@\n];
+                        $Errors++;
+                }
+	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
 
 	# See if we've gathered the process information for this host yet.
@@ -75,6 +83,21 @@ sub Check {
 	}
 	else {
 		@Data = `mailq`;
+	}
+	if (exists($Self->{Filter}) and $Self->{Filter}) {
+		# Strip out anything that doesn't match the filter.
+		my @Data2;
+		foreach (@Data) {
+			if ( $_ =~ $Self->{Filter} ) {
+				push @Data2, $_;
+	                	print __PACKAGE__ . "::Check: $File:$Line Keeping $_\n"
+       		                	if ($Self->{Verbose});
+			}
+			elsif ($Self->{Verbose}) {
+		                print __PACKAGE__ . "::Check: $File:$Line Discarding $_\n";
+			}
+		}
+		@Data = @Data2;
 	}
 
 	my $Status = $Self->CHECK_OK;		# Assume no errors.
@@ -117,9 +140,10 @@ mailq checks on the output from a mailq command.
 
 =head2 Syntax
 
-  mailq	Target=>1		# Output lines must be 1 or greater.
-  mailq	Target=<5		# Output lines must be 5 or less.
-  mailq	Target=3			# Output lines must be 3.
+  mailq	Target=>1 Desc='mailq'		# Output lines must be 1 or greater.
+  mailq	Target=<5 Desc='mailq'		# Output lines must be 5 or less.
+  mailq	Target=3 Desc='mailq'		# Output lines must be 3.
+  mailq Target=<5 Desc='mailq' Filter='/^[\dA-F]+\*?\s/'  Only count selected lines.
 
 =head2 Fields
 
@@ -135,8 +159,13 @@ In addition, the following optional fields are supported:
 
 =item *
 
-Target is a regexp that is used to filter the output from mailq.  This feature
-is currently not implemented.
+Target specifies the number of lines of output required.  Target is an integer, optionally
+prefixed with < or > to mean "less than or equal" or "greater than or equal" respectively.
+
+=item *
+
+Filter is a regexp that is used to filter the output from mailq.  Use of single quotes is
+advised to preserve any backslashes in the filter pattern.
 
 =item *
 
