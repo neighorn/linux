@@ -564,23 +564,10 @@ sub opt_O {
 #
 sub opt_s {
 	my(undef,$Value) = @_;
-	if ($Value =~ /^(\d+)$/i) {
-		$Options{minsize} = $1;
-	}
-	elsif ($Value =~ /^(\d+)K$/i) {
-		$Options{minsize} = $1*1024;
-	}
-	elsif ($Value =~ /^(\d+)M$/i) {
-		$Options{minsize} = $1*1024*1024;
-	}
-	elsif ($Value =~ /^(\d+)G$/i) {
-		$Options{minsize} = $1*1024*1024*1024;
-	}
-	elsif ($Value =~ /^(\d+)T$/i) {
-		$Options{minsize} = $1*1024*1024*1024*1024;
-	}
-	else {
-		die qq<Invalid value "$Value" for -s/--min-size.\n>;
+	$Options{minsize} = ExpandSize($Value);
+	if (! defined($Options{minsize}) ) {
+		warn qq<Invalid value "$Value" for -s/--min-size.\n>;
+		$Options{minsize} = 0;
 	}
 }
 
@@ -591,25 +578,41 @@ sub opt_s {
 #
 sub opt_S {
 	my(undef,$Value) = @_;
-	if ($Value =~ /^(\d+)$/i) {
-		$Options{maxsize} = $1;
-	}
-	elsif ($Value =~ /^(\d+)K$/i) {
-		$Options{maxsize} = $1*1024;
-	}
-	elsif ($Value =~ /^(\d+)M$/i) {
-		$Options{maxsize} = $1*1024*1024;
-	}
-	elsif ($Value =~ /^(\d+)G$/i) {
-		$Options{maxsize} = $1*1024*1024*1024;
-	}
-	elsif ($Value =~ /^(\d+)T$/i) {
-		$Options{maxsize} = $1*1024*1024*1024*1024;
-	}
-	else {
-		die qq<Invalid value "$Value" for -S/--max-size.\n>;
+	$Options{maxsize} = ExpandSize($Value);
+	if (! defined($Options{maxsize}) ) {
+		warn qq<Invalid value "$Value" for -S/--max-size.\n>;
+		$Options{maxsize} = 0;
 	}
 }
+
+
+
+#
+# ExpandSize - convert various number formats to an integer.
+#
+sub ExpandSize {
+	my $Value = shift;
+        $Value =~ s/,//g;               # Ignore commas.
+        if ($Value =~ /^(\d+)$/i) {
+                return $1;
+        }
+        elsif ($Value =~ /^(\d+)K$/i) {
+                return $1*1024;
+        }
+        elsif ($Value =~ /^(\d+)M$/i) {
+                return $1*1024*1024;
+        }
+        elsif ($Value =~ /^(\d+)G$/i) {
+                return $1*1024*1024*1024;
+        }
+        elsif ($Value =~ /^(\d+)T$/i) {
+                return $1*1024*1024*1024*1024;
+        }
+        else {
+                return undef;
+        }
+}
+
 
 
 #
