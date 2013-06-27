@@ -279,36 +279,61 @@ sub opt_r {
 
 
 #
-# opt_s: validate size value
+# opt_s - minimum size threshold
 #
 sub opt_s {
-	my($Value) = @_;
-	if ($Value =~ /^[1-9]\d*$/) {
-		$opt_s = $Value;
-	}
-	else {
-		warn "Invalid minimum size (-s) value: $Value\n";
+        my $Value = shift;
+	$opt_s = ExpandSize($Value);
+        if (!defined($opt_s)) {
+                warn qq<Invalid minimum size (-s) value: "$Value"\n>;
 		$ErrorFlag = 8;
 		$opt_s = 0;
-	}
+        }
 }
 
 
 
 #
-# opt_S: validate size value
+# opt_S - size threshold
 #
 sub opt_S {
-	my($Value) = @_;
-	if ($Value =~ /^[1-9]\d*$/) {
-		$opt_S = $Value;
-	}
-	else {
-		warn "Invalid maximum size (-S) value: $Value\n";
+        my $Value = shift;
+	$opt_S = ExpandSize($Value);
+        if (!defined($opt_S)) {
+                warn qq<Invalid maximum size (-S) value: "$Value"\n>;
 		$ErrorFlag = 8;
 		$opt_S = 0;
-	}
+        }
 }
+
+
+
+#
+# ExpandSize - convert various number formats to an integer.
+#
+sub ExpandSize {
+        my $Value = shift;
+        $Value =~ s/,//g;               # Ignore commas.
+        if ($Value =~ /^(\d+)$/i) {
+                return $1;
+        }
+        elsif ($Value =~ /^(\d+)K$/i) {
+                return $1*1024;
+        }
+        elsif ($Value =~ /^(\d+)M$/i) {
+                return $1*1024*1024;
+        }
+        elsif ($Value =~ /^(\d+)G$/i) {
+                return $1*1024*1024*1024;
+        }
+        elsif ($Value =~ /^(\d+)T$/i) {
+                return $1*1024*1024*1024*1024;
+        }
+        else {
+                return undef;
+        }
+}
+
 
 #
 # opt_x: handle exclude list.
