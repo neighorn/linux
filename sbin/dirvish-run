@@ -422,10 +422,10 @@ sub Summarize {
 	find(\&FoundItem,"$Directory/tree");
 	my $WarnText='';
 	if ($Options{minsize} and $NewSize < $Options{minsize}) {
-		$WarnText = "New item size of " . FormatSize($NewSize) . " falls below the alert threshold of " . FormatSize($Options{minsize}) . ".\n";
+		$WarnText .= "New item size of " . FormatSize($NewSize) . " falls below the alert threshold of " . FormatSize($Options{minsize}) . ".\n";
 	}
 	if ($Options{maxsize} and $NewSize > $Options{maxsize}) {
-		$WarnText = "New item size of " . FormatSize($NewSize) . " exceeds the alert threshold of " . FormatSize($Options{maxsize}) . ".\n";
+		$WarnText .= "New item size of " . FormatSize($NewSize) . " exceeds the alert threshold of " . FormatSize($Options{maxsize}) . ".\n";
 	}
 	$TotalSize=FormatSize($TotalSize);
 	$NewSize=FormatSize($NewSize);
