@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.13;
+our $Version	= 3.14;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -507,8 +507,10 @@ sub _OpenMailFile {
 	}
 	
 	# We got the lock.  Set the permissions and empty it out.
-	warn qq<Unable to set file permissions on "$FileName": $!> 
-		unless chmod($Options{MAIL_FILE_PERMS},$WRITEMAILFILE_FH);
+	if ($^O ne 'MSWin32') {
+		warn qq<Unable to set file permissions on "$FileName": $!> 
+			unless chmod($Options{MAIL_FILE_PERMS},$WRITEMAILFILE_FH);
+	}
 	seek($WRITEMAILFILE_FH,0,0);		# Rewind to the beginning.
 	truncate($WRITEMAILFILE_FH,0);		# Clean it out.
 
