@@ -16,17 +16,17 @@ use lib '/usr/local/lib/perl5/site_perl';
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
-use FindBin qw($RealBin $RealScript);
+use FindBin qw($Bin $Script);
 use Sys::Hostname;
 use POSIX qw(strftime);
 
 # Initialize variables.
-our $Prog=$RealScript;              	# Get our name, for messages.
+our $Prog=$Script;              	# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 our $Errors=0;				# No errors so far.
 our $Syslog='USER';			# Name of Syslog facility.  '' for none.
-our $BaseDir=$RealBin;			# Set our base directory.
+our $BaseDir=$Bin;			# Set our base directory.
 our $LogFile="";			# Name of the log file.
 our $ConfigFile="$BaseDir";		# Deterimine the name of our config file.
 $ConfigFile =~ s"/.[^/]*$"/etc/${Prog}.cfg";# 	Ditto.
@@ -189,7 +189,7 @@ sub opt_h {
 
 	my $Pagenater=$ENV{PAGENATER};
 	$Pagenater="more" unless ($Pagenater);
-	system("pod2text $RealBin/$RealScript | $Pagenater");
+	system("pod2text $Bin/$Script | $Pagenater");
 	exit(1);
 }
 

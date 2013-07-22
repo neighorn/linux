@@ -2,13 +2,13 @@
 use Getopt::Std;
 use IO::Socket;
 use Net::Ping;
-use FindBin qw($RealBin $RealScript);
+use FindBin qw($Bin $Script);
 use POSIX qw(strftime);
 
 my $LastPoll;
 
 if ( (getlogin || getpwuid($<)) !~ 'root') {
-	exec "sudo $RealBin/$RealScript " . join(' ',@ARGV);
+	exec "sudo $Bin/$Script " . join(' ',@ARGV);
 	die "Unable to execute sudo: $!\n";
 }
 

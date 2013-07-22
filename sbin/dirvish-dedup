@@ -16,7 +16,7 @@ use File::Basename;
 use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use POSIX qw(strftime);
 use Fcntl;
-use FindBin qw($RealBin $RealScript $Script);
+use FindBin qw($Bin $Script $Script);
 use String::ShellQuote;		# For shell_quote.
 use Data::Dumper::Simple;
 use Text::ParseWords;
@@ -344,7 +344,7 @@ sub Opt_dry_run {
 # Opt_help - display the help map
 #
 sub Opt_help {
-	system("pod2text $RealBin/$RealScript");
+	system("pod2text $Bin/$Script");
 }
     
 

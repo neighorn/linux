@@ -15,7 +15,7 @@ use warnings;
 use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
-use FindBin qw($RealBin $RealScript);
+use FindBin qw($Bin $Script);
 use feature 'switch';
 use RRD::Simple;
 use Time::Local;
@@ -23,12 +23,12 @@ use POSIX qw(strftime);
 use List::Util qw(max);
 
 # Initialize variables.
-our $Prog=$RealScript;              	# Get our name, for messages.
+our $Prog=$Script;              	# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 my $Errors=0;				# No errors so far.
 my $Syslog='';				# Name of Syslog facility.  '' for none.
-my $BaseDir=$RealBin;			# Set our base directory.
+my $BaseDir=$Bin;			# Set our base directory.
 my $LogFile="";			# Name of the log file.
 my $ConfigFile;			# Name of config files.
 ($ConfigFile=$BaseDir) =~ s|/[^/]+?$|/etc/$Prog.cfg|;
@@ -413,7 +413,7 @@ sub opt_h {
 
 	my $Pagenater=$ENV{PAGENATER};
 	$Pagenater="more" unless ($Pagenater);
-	system("pod2text $RealScript | $Pagenater");
+	system("pod2text $Script | $Pagenater");
 	exit(1);
 }
 
