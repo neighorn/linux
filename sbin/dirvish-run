@@ -38,6 +38,7 @@ our $NewItems;				# Global for Find/Found
 
 our $STATFH;
 our $StatErrors = 0;			# Remember if we had stat errors.
+my $JOBLOCK;				# File handle for a job lock file, if used.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -45,23 +46,24 @@ our $StatErrors = 0;			# Remember if we had stat errors.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
 our %OptionSpecifications=(
 		'<>'			=>	sub {push @Parms,shift;},
+		'always-page|p=s'	=>	\&opt_Array,
+		'always-mail|m=s'	=>	\&opt_Array,
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'dirvish|D=s'		=>	\&opt_Array,
-		'jobinit|B=s'		=>	\&opt_Array,
-		'help|h|?!'		=>	\&opt_h,
-		'always-mail|m=s'	=>	\&opt_Array,
 		'error-mail|M=s'	=>	\&opt_Array,
-		'subject|N=s'		=>	\&opt_Value,
-		'option-set|O=s'	=>	\&opt_O,
-		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
-		'rerun|R:1'		=>	\&opt_Value,
+		'help|h|?!'		=>	\&opt_h,
+		'ifup'			=>	\&opt_Value,
+		'jobinit|B=s'		=>	\&opt_Array,
+		'joblockfile=s'		=>	\&opt_Value,
+		'logfile|L=s'		=>	\&opt_Value,
 		'min-size|s=s'		=>	\&opt_s,
 		'max-size|S=s'		=>	\&opt_S,
+		'option-set|O=s'	=>	\&opt_O,
+		'rerun|R:1'		=>	\&opt_Value,
+		'subject|N=s'		=>	\&opt_Value,
 		'statfile=s'		=>	\&opt_Value,
 		'test|t!'		=>	\&opt_Value,
-		'logfile|L=s'		=>	\&opt_Value,
-		'ifup'			=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -142,6 +144,20 @@ die "No BANKS defined in configuration file(s)"
 my @Banks = shellwords(($Config{BANKS}));
 
 PrintStatsFile(strftime("%D %T $Prog started<br>",localtime()));
+if ($Options{joblockfile}) {
+	if ($Options{joblockfile} !~ /^[a-zA-Z\d._~+\/-]+$/) {
+		print "Invalid character in job lock filename: $Options{joblockfile}\n";
+		exit 3;
+	}
+	if (!open($JOBLOCK,'>>',$Options{joblockfile})) {
+		print "Unable to create/open $Options{joblockfile}: $!\n";
+		exit 11;
+	}
+	if (!flock($JOBLOCK, LOCK_EX | LOCK_NB)) {
+		print qq<Skipping this job due to a conflicting job in progress per "$Options{joblockfile}"\n>;
+		exit 11;
+	}
+}
 
 foreach (@{$Options{jobinit}}) {
 	# Run any initialization scripts.
@@ -179,6 +195,11 @@ if ($Errors) {
 }
 
 close $STATFH if ($STATFH);
+if ($JOBLOCK) {
+	close $JOBLOCK;
+	unlink $Options{joblockfile};
+}
+
 exit( ($Errors?10:0) );
 
 
@@ -277,7 +298,7 @@ sub ProcessBackup {
 		return;
 	}
 	if (!flock($LOCK, LOCK_EX | LOCK_NB)) {
-		warn qq<Unable to lock lock file "$LockFile": $!\n>;
+		warn qq<Skipping $Target due to a conflicting backup in progress per "$LockFile"\n>;
 		$Errors++;
 		return;
 	}
@@ -637,6 +658,9 @@ Universal Options:
 	-B|--jobinit=script:		Begin: Execute "script" before running
 					the first vault backups.
 
+	--joblockfile=filename		Prevent multiple runs of conflicting
+					jobs by acquiring a lock on the
+					specified file.
 	-L|--logfile=filename
 	-m|--always-mail=mailid:	Mail: Send an execution report to this
 					e-mail address.
@@ -725,6 +749,7 @@ Return codes:
 	4       :       Incorrect command line parameters.
 	5       :       Unexpected message found in output.
 	10      :       Some delete's failed.
+	11      :       Job file locked.
 ENDUSAGE
 close PAGENATER;
 exit 1;
