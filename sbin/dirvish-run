@@ -53,7 +53,7 @@ our %OptionSpecifications=(
 		'error-mail|M=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'help|h|?!'		=>	\&opt_h,
-		'ifup'			=>	\&opt_Value,
+		'ifup!'			=>	\&opt_Value,
 		'jobinit|B=s'		=>	\&opt_Array,
 		'joblockfile=s'		=>	\&opt_Value,
 		'logfile|L=s'		=>	\&opt_Value,
@@ -695,10 +695,11 @@ Vault Options:
 					and options directly to dirvish. 
 					Spaces need to be escaped or quoted.
 
-	--ifup				Only run this backup if the host is
+	--ifup/--noifup			Only run this backup if the host is
 					reachable.  Otherwise, note that the
 					host was unreachable but don't generate
-					an error.
+					an error.  --noifup cancels a prior
+					--ifup.
 	-O|--option-set=config:		Insert the "config" configuration
 					options from $ConfigFile.
 
