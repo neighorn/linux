@@ -98,6 +98,11 @@ while (<$FDISK>) {
 	RunDangerousCmd("parted $InputName p > $OutputName");
 	$OutputName =~ s/.parted$/.gdisk/;
 	RunDangerousCmd("parted $InputName p > $OutputName");
+	my @partitions = glob("$InputName*");
+	foreach my $partition (@partitions) {
+		($OutputName = "${partition}.mdadm") =~ s"^/dev/"$opt_o/";
+		RunDangerousCmd("mdadm --examine $partition > $OutputName");
+	}
 }
 close $FDISK;
 
@@ -302,6 +307,7 @@ SHOW	"^\S+ started on \S+ on \d\d/\d\d/\d\d\d\d at \d\d:\d\d:\d\d$"
 SHOW	"^512 bytes \(512 B\) copied,"
 SHOW	/^Job ended normally with status 0 and signal 0$/
 SHOW	/^Test:/
+SHOW	/^debug:/i
 SHOW	/^Executing:/
 SHOW	/^Not found:/
 #
