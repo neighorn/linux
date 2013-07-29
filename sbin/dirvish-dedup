@@ -319,6 +319,7 @@ sub ProcessOptions (@) {
     else {
          $AlarmInterval=$Opt{cpinterval};
     }
+    $Opt{statformat} = 'text' unless $Opt{statformat};
     $AlarmInterval = 10 if ($AlarmInterval < 10);
     alarm($AlarmInterval - (time() % $AlarmInterval));	# Schedule the first alarm.
     return 1;
