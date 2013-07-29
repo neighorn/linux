@@ -1,0 +1,16 @@
+
+                <!DOCTYPE html>
+                <html>
+                    <head>
+                        <title>dirvish-dedup status</title>
+			<meta HTTP-EQUIV="refresh" CONTENT="60">
+                    </head>
+                    <body>
+			<font face="COURIER NEW" size=2>
+			Filesystem            Size  Used Avail Use% Mounted on
+
+Done @ 21:30:09 on 07/08/13.  Elapsed time = 6:29:46s.<br>elapsed=6:29:42s, arg=1/8, tlds=1/1, 330,998 files, 278,411 unique, 14 files/s, speed=130M/s, used=2,986G, 0B saved, current=2013-06-06-Thu    
+			</font>
+                    </body>
+                </html>
+            
