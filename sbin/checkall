@@ -28,6 +28,7 @@ our $opt_q=0;			# Quiet option.
 our @opt_P;			# Who to page on errors.
 our $opt_R=120;			# Set number of minutes to re-report fail items.
 our $opt_s='';			# Alert subject
+our $opt_S=0;			# Single - only run one process at a time (for debugging).
 our $opt_w=20;			# Wait time in seconds (for checks that timeout)
 our $Prog = $Script;	# Get our program name.
 $Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
@@ -57,6 +58,7 @@ GetOptions (
 	'P|page=s'	=> \@opt_P,
 	'R|renotify=i'	=> \$opt_R,
 	's|subject=s'	=> \$opt_s,
+	'S|single!'		=> \$opt_S,
 	'w|waittime=i'	=> \$opt_w,
 );
 
@@ -84,8 +86,8 @@ my %NameMap;		# Maps status names to @ItemList.
 
 # Prepare the list of files to process.
 foreach (@ARGV) {
-	# Add a path and file name prefix to parameters (not -c).
-	s"^"/usr/local/etc/$Prog.";
+	# Add a path and file name prefix to unqualified names.
+	s"^"/usr/local/etc/$Prog." unless (m"/");
 }
 push @ARGV,$opt_c if ($opt_c);	# Use opt_c for files in other locations.
 push @ARGV,$ServiceList unless (@ARGV+0 > 0);	# Use default if nothing else.
@@ -117,6 +119,12 @@ foreach my $Item (@ItemList) {
 	elsif ($Type eq 'PIDList') {
 		# This one is running in the background.  Map the PID to the item.
 		$PIDs{$Value} = $Item;
+		if ($opt_S) {
+			# Single-service submission - primarily to make debugging easier.
+			my $pid = waitpid($Value,0);
+			$PIDs{$pid}->Status($?>>8) if ($pid > 0);
+			$Services--;
+		}
 	}
 	else	{
 		# Somebody sent back a response we don't understand.
@@ -128,6 +136,7 @@ foreach my $Item (@ItemList) {
 		my $Len = length($Item->{Desc});
 		$DescLen = $Len if ($DescLen < $Len);
 	}
+	
 }
 
 # All background processes submitted.  Wait for the results to come in.
@@ -157,15 +166,20 @@ foreach my $Item (@ItemList) {
 	my $Status = $Item->Report($DescLen,$opt_f);
 	my $DoDownActions = 0;
 	if ($Status == 0) {
-		#CHECK_STILL_OK -- can't get constants to export.
+		#
+		# CHECK_STILL_OK -- Item is still up.
+		#
 		# syslog('INFO','%s is still OK',$Desc)  - don't fill log with "still OK".
 	 	#	if (ref $Item ne 'heading' and $^O !~ /MSWin/);
 	}	
 	elsif ($Status == 1) {
+		#
+		# CHECK_STILL_DOWN -- Item is still down.
+		#
 		syslog('WARNING','%s',"$Desc is still failing")
 			if ($^O !~ /MSWin/);
-		push @StillFail, $Desc;
 		if ($Now > $Item->NextNotification) {
+			push @StillFail, $Desc;
 			$Renotify++;
 			$Item->NextNotification(
 				$Now +
@@ -179,6 +193,9 @@ foreach my $Item (@ItemList) {
 		}
 	}
 	elsif ($Status == 2) {
+		#
+		# CHECK_NOW_OK -- Item is back up.
+		#
 		syslog('INFO','%s', "$Desc is NOW OK")
 			if ($^O !~ /MSWin/);
 		next if ($Item->FirstNotification == 0);	# Recovered within DelayFirstNotification period.
@@ -198,22 +215,29 @@ foreach my $Item (@ItemList) {
 		}
 	}
 	elsif ($Status == 3) {
-		syslog('WARNING','%s', "$Desc is NOW FAILING")
-			if ($^O !~ /MSWin/);
+		#
+		# CHECK_NOW_DOWN -- Item has gone down.
+		#
 		$Item->FirstFail($StartTime);	# Remember when it failed.
 		
 		# Delay errors on first notification if DelayFirstNotification time specified.
 		if ($Item->Delayfirstnotification) {
+			#
+			# Delaying notifications.
+			syslog('WARNING','%s', "$Desc is NOW FAILING (notification delayed)")
+				if ($^O !~ /MSWin/);
 			$Item->FirstNotification(0);
 			$Item->NextNotification($Now + 60*$Item->Delayfirstnotification);
-			syslog('DEBUG','%s', "$Desc notification delayed per config file")
-				if ($^O !~ /MSWin/);
 			next;
 		}
-
-		# Not delaying first notification.
-		$DoDownActions = 1;
-		$Item->FirstNotification($Now);
+		else {
+			#
+			# Not delaying notifications.
+			syslog('WARNING','%s', "$Desc is NOW FAILING")
+				if ($^O !~ /MSWin/);
+			$DoDownActions = 1;
+			$Item->FirstNotification($Now);
+		}
 	}
 	else {
 		die "$Item->{FILE}:$Item->{LINE} Unexpected status $Status returned.";
@@ -254,7 +278,7 @@ if (@NowFail+@NowOK+$Renotify > 0 and @opt_P > 0 and ! $opt_t) {
 		$Status = 'All services restored';	# Was down, but all up now.
 	}
 	else {
-		$Status = 'All services up';		# Never was done (shouldn't happen).
+		$Status = 'All services up';		# Never was down (shouldn't happen).
 	}
 	$opt_s = '%C alert: %S' unless ($opt_s);
 	$opt_s =~ s/%C/$HostName/g;
@@ -577,6 +601,11 @@ are made:
 	"%C" is replaced with the host Computer name.
 	"%N" is replaced with the Number of services down.
 	"%S" is replaced with an English status phrase (e.g. "All services restored").
+
+=item -S, --single
+
+Single -- run tests one at a time rather than in parallel.  This is primarily
+used as a debugging aid.
 
 =item -v, --verbose
 
