@@ -176,8 +176,9 @@ foreach my $Item (@ItemList) {
 		#
 		# CHECK_STILL_DOWN -- Item is still down.
 		#
-		syslog('WARNING','%s',"$Desc is still failing")
-			if ($^O !~ /MSWin/);
+		$Errors++;
+		#syslog('WARNING','%s',"$Desc is still failing")
+		#	if ($^O !~ /MSWin/);
 		if ($Now > $Item->NextNotification) {
 			push @StillFail, $Desc;
 			$Renotify++;
@@ -196,8 +197,8 @@ foreach my $Item (@ItemList) {
 		#
 		# CHECK_NOW_OK -- Item is back up.
 		#
-		syslog('INFO','%s', "$Desc is NOW OK")
-			if ($^O !~ /MSWin/);
+		#syslog('INFO','%s', "$Desc is NOW OK")
+		#	if ($^O !~ /MSWin/);
 		next if ($Item->FirstNotification == 0);	# Recovered within DelayFirstNotification period.
 		push @NowOK, $Desc;
 		if (my $Action = $Item->Onok) {
@@ -219,12 +220,13 @@ foreach my $Item (@ItemList) {
 		# CHECK_NOW_DOWN -- Item has gone down.
 		#
 		$Item->FirstFail($StartTime);	# Remember when it failed.
+		$Errors++;
 		
 		# Delay errors on first notification if DelayFirstNotification time specified.
 		if ($Item->Delayfirstnotification) {
 			#
 			# Delaying notifications.
-			syslog('WARNING','%s', "$Desc is NOW FAILING (notification delayed)")
+			syslog('INFO','%s', "$Desc notification delayed per config")
 				if ($^O !~ /MSWin/);
 			$Item->FirstNotification(0);
 			$Item->NextNotification($Now + 60*$Item->Delayfirstnotification);
@@ -233,8 +235,8 @@ foreach my $Item (@ItemList) {
 		else {
 			#
 			# Not delaying notifications.
-			syslog('WARNING','%s', "$Desc is NOW FAILING")
-				if ($^O !~ /MSWin/);
+			#syslog('WARNING','%s', "$Desc is NOW FAILING")
+			#	if ($^O !~ /MSWin/);
 			$DoDownActions = 1;
 			$Item->FirstNotification($Now);
 		}
@@ -263,7 +265,6 @@ foreach my $Item (@ItemList) {
 			$Now +
 				60*(defined($Item->Renotifyinterval)?$Item->Renotifyinterval:$opt_R)
 		);
-		$Errors++;
 	}
 }
 
