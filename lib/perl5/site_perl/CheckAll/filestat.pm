@@ -90,6 +90,8 @@ sub Check {
 	my $Line = $Self->{'LINE'};
 	my $Target = $Self->{'Target'};
 
+	printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
+		if ($Self->{Verbose});
 	# First, make sure we have the necessary config info.
 	my $Errors = 0;
 	if (! $Self->{Desc}) {
@@ -117,16 +119,20 @@ sub Check {
 			. "stat -c %d,%i,%f,%h,%u,%g,%t,%s,%X,%Y,%Z,%o,%b $Self->{Target}"
 			;
 		my $Data;
-		eval('$Data = `$Cmd`;');
-		if ($@) {
-			warn "$Self->{FILE}:$Self->{LINE} Unable to connect to $Self->{Host}: $@\n";
-			$Self->{StatusDetail} = "Unable to connect to $Self->{Host}";
-			return "Status=" . $Self->CHECK_FAIL;
-		}
+		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
+		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
+			eval("\$Data = `$Cmd`;");
+			last unless ($@ or $? != 0);
+	    }
+	    if ($Data == 0) {
+		    warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: rc=$?, $@\n";
+		    $Self->{StatusDetail} = "Unable to gather data";
+		    return "Status=" . $Self->CHECK_FAIL;
+	    }
 		else {
 			@StatData=split(',',$Data);
 			if (!@StatData) {
-				warn "$Self->{FILE}:$Self->{LINE} Unable to gather data about $Self->{Target}: $@\n";
+				warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Target}: $@\n";
 			        $Self->{StatusDetail} = "Unable to find/read file system stat data";
 				return "Status=" . $Self->CHECK_FAIL;
 			}

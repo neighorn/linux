@@ -68,9 +68,8 @@ sub Check {
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
 
-	# If we don't have a timeout, or it's shorter than the main value,
-	# change it to the main value.
-	if (! $Self->{'Timeout'} or $Self->{'Timeout'} < $main::opt_w) {
+	# If we don't have a timeout change it to the main value.
+	if (! $Self->{'Timeout'} ) {
 		$Self->{'Timeout'} = $main::opt_w;
 	}
 
@@ -83,19 +82,26 @@ sub Check {
 	else {
 		# We're the child.  Go test this service.
 		my $Desc = $Self->{'Desc'};
-		print "\n$$ Checking $Desc\n" if ($Self->Verbose);
+		printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
+		  if ($Self->{Verbose});
+		
 		my $GroupOK=$Self->CHECK_FAIL;
 		my $socket;
 		foreach (@{$Self->_TargetArray}) {
 			my($host,$port)=split(/:/);
 			# try to connect.
-			printf "\r\%5d   Checking %s:%d (%s)\n", $$,$host,$port,$Desc if ($Self->Verbose);
-			if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>$Self->{'Timeout'})) {
-				# Connected OK.
-				printf "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
-				close($socket);
-				$GroupOK=$Self->CHECK_OK;	# One of this target group worked.
-				last;			# Don't need to do any further checking.
+			for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
+			    printf "\r\%5d   Checking %s:%d (%s) try %d\n", $$,$host,$port,$Desc,$Try if ($Self->Verbose);  
+    			if ($socket=IO::Socket::INET->new(PeerAddr=>"$host:$port",Timeout=>$Self->{'Timeout'})) {
+    				# Connected OK.
+    				printf "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
+    				close($socket);
+    				$GroupOK=$Self->CHECK_OK;	# One of this target group worked.
+    				last;			# Don't need to do any further checking.
+    			}
+			}
+			if ($GroupOK == $Self->CHECK_OK) {
+			    last;
 			}
 			else {
 				# Connection failing.

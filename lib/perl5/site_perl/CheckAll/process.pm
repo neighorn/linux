@@ -47,7 +47,9 @@ sub Check {
 	my $File = $Self->{'FILE'};
 	my $Line = $Self->{'LINE'};
 	my $Target = $Self->{'Target'};
-
+	printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
+		if ($Self->{Verbose});
+		
 	# First, make sure we have the necessary config info.
 	my $Errors = 0;
 	if (! $Self->{Desc}) {
@@ -66,9 +68,9 @@ sub Check {
 	$Self->{Host} = 'localhost' unless (defined($Self->{Host}));
 	if (!exists($ProcessHash{$Self->{Host}})) {
 		# No.  Go gather it.
-		my @ProcessData;
+		my @Data;
 		if ($Self->{Host} eq 'localhost') {
-			@ProcessData = `ps -e o cmd`;
+			@Data = `ps -e o cmd`;
 		}
 		else {
 			# On a remote host.
@@ -80,16 +82,24 @@ sub Check {
 				. $Self->{Host}
 				. ' ps -e -o cmd '
 				;
-			eval("\@ProcessData = `$Cmd`;");
-			warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: $@\n"
-				if ($@)
+			for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
+    		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
+    			eval("\@Data = `$Cmd`;");
+    			last unless ($@ or $? != 0);
+		    }
+		    if (@Data == 0)
+		    {
+			    warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: rc=$?, $@\n";
+			    $Self->{StatusDetail} = "Unable to gather data";
+			    return "Status=" . $Self->CHECK_FAIL;
+		    }
 		}
-		$ProcessHash{$Self->{Host}} = \@ProcessData;
+		$ProcessHash{$Self->{Host}} = \@Data;
 	}
 
 	foreach (@{$ProcessHash{$Self->{Host}}}) {
-		print __PACKAGE__ . "::Check: $File:$Line Checking $_\n"
-			if ($Self->{Verbose});
+	    chomp;
+		printf "\r%5d   Checking %s\n", $$, $_ if ($Self->{Verbose});
 		return "Status=" . $Self->CHECK_OK if ( $_ =~ $Target );
 	};
 	return "Status=" . $Self->CHECK_FAIL;

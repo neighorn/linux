@@ -66,6 +66,9 @@ sub Check {
 	my $Line = $Self->{'LINE'};
 	my $Target = $Self->{'Target'};
 
+	printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
+		if ($Self->{Verbose});
+		
 	# First, make sure we have the necessary config info.
 	my $Errors = 0;
 	if (! $Self->{Desc}) {
@@ -98,16 +101,25 @@ sub Check {
 		else {
 			# On a remote host.
 			my $Cmd = 
-				'ssh '
-				. '-o "NumberOfPasswordPrompts 0" '
-				. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
-				. ($Self->{User}?"$Self->{User}@":'')
-				. $Self->{Host}
-				. ' df -Pk '
-				;
-			eval("\@Data = `$Cmd`;");
-			warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: $@\n"
-				if ($@)
+    			'ssh '
+    			. '-o "NumberOfPasswordPrompts 0" '
+    			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
+    			. ($Self->{User}?"$Self->{User}@":'')
+    			. $Self->{Host}
+    			. ' df -Pk '
+    			;
+    		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
+    		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
+    			eval("\@Data = `$Cmd`;");
+    			last unless ($@ or $? != 0);
+		    }
+		    if (@Data == 0)
+		    {
+			    warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: rc=$?, $@\n";
+			    $Self->{StatusDetail} = "Unable to gather data";
+			    return "Status=" . $Self->CHECK_FAIL;
+		    }
+				
 		}
 		foreach (@Data) {
 			next if (/^\s*Filesystem/);
@@ -134,8 +146,6 @@ sub Check {
 	
 	my $Status = $Self->CHECK_OK;		# Assume no errors.
 	my $Detail = '';
-	printf "\r%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
-		if ($Self->{Verbose});
 	foreach my $Target (@TargetList) {
 		next if ($Self->{Exclude}{$Target});
 		($device,$total,$used,$free,$percent) = @{$Hash{$Target}};

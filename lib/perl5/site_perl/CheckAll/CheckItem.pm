@@ -42,24 +42,25 @@ my %IntegerFields = (
 # Define fields.  Note that Autoload normalizes all field names to "first-upper rest lowercase".
 # Names with multiple uppercase characters are not settable from the service files.
 use fields (
-	'FILE',				# File this definition came from
-	'LINE',				# Line in file this definition came from
-	'Name',				# Unique descriptor for status file - defaults to desc.
+	'FILE',				        # File this definition came from
+	'LINE',				        # Line in file this definition came from
+	'Name',				        # Unique descriptor for status file - defaults to desc.
 	'Delayfirstnotification',	# Delay the first notification this much time.
-	'Desc',				# Description of service, for messages.
-	'Host',				# Target host.
-	'Target',			# Target of check (host:port, process pattern, etc.).
-	'Status',			# Current status (set by Check).
-	'StatusDetail',			# Additional detail
-	'FirstFail',			# When this was first detected failing
+	'Desc',				        # Description of service, for messages.
+	'Host',				        # Target host.
+	'Target',			        # Target of check (host:port, process pattern, etc.).
+	'Status',			        # Current status (set by Check).
+	'StatusDetail',			    # Additional detail
+	'FirstFail',			    # When this was first detected failing
 	'FirstNotification',		# When we first reported it down (for DelayFirstNotification).
-	'PriorStatus',			# Its prior status.  Detects "Now failing" vs "Still failing".
-	'NextNotification',		# The last time we told someone it was failing.
-	'Onfail',			# Run this command when it first fails.
-	'Onok',				# Run this command when it becomes OK again.
-	'Renotifyinterval',		# How often to repeat failing notifications.
-	'Timeout',			# Timeout: time in seconds to wait for conn.
-	'Verbose',			# Verbose.
+	'PriorStatus',			    # Its prior status.  Detects "Now failing" vs "Still failing".
+	'NextNotification',		    # The last time we told someone it was failing.
+	'Onfail',			        # Run this command when it first fails.
+	'Onok',				        # Run this command when it becomes OK again.
+	'Renotifyinterval',		    # How often to repeat failing notifications.
+	'Timeout',			        # Timeout: time in seconds to wait for conn.
+	'Tries',                    # How many times we attempt a TCP or SSH connection.
+	'Verbose',			        # Verbose.
 );
 
 
@@ -80,6 +81,7 @@ sub new{
 	$Self->{NextNotification} = 0;			# Ditto.
 	$Self->{Renotifyinterval} = $main::opt_R;	# Default renotify minutes.
 	$Self->{Verbose} = $main::opt_v;		# Default verbose flag.
+	$Self->{Tries} = 1;                # Assume only one TCP/SSH attempt.
 
 	# Set options from the caller (from the file).
 	$Self->SetOptions(\@_,\%Operators,\%Attributes);				# Run through our initialization code.
@@ -390,6 +392,11 @@ a service was marked as "FAILING" for unusual reasons, such as a configuration e
 Timeout: The time in seconds to wait for this check to complete.  The effective value for this
 is the greater of the specified value (if specified), or the main program -w value.  This value
 is not meaningful for all types of checks and is primarily used to with network connections.
+
+=item *
+
+Tries: The number of times to try a TCP connection or SSH connection (for remote commands)
+before considering it a failure.  
 
 =back
 
