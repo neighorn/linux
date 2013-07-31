@@ -157,8 +157,9 @@ if ($Services) {
 
 # All results are in.  Run back through our report and list the results.
 my $Errors = 0;
-my $Renotify = 0;		# Set to 1 if no changes but someone due for renotification.
-$DescLen += 2;				# Add two blanks for padding.
+my $WorstError = 0;		# Set to 4 for delayed notification, 8 for full failure.
+my $Renotify = 0;		# Set to 1 if no changes but some service is due for renotification.
+$DescLen += 2;			# Add two blanks for padding.
 my $Now = time();		# Avoid repeated calls.
 foreach my $Item (@ItemList) {
 	# Call report to issue visible status, and count failures.
@@ -179,18 +180,32 @@ foreach my $Item (@ItemList) {
 		$Errors++;
 		#syslog('WARNING','%s',"$Desc is still failing")
 		#	if ($^O !~ /MSWin/);
-		if ($Now > $Item->NextNotification) {
-			push @StillFail, $Desc;
+		if ($Now >= $Item->NextNotification) {
 			$Renotify++;
+			$WorstError = 8;
 			$Item->NextNotification(
 				$Now +
 				60*(defined($Item->Renotifyinterval)?$Item->Renotifyinterval:$opt_R)
 			);
+			if ($Item->FirstNotification == 0) {
+				# This was a DelayFirstNotification target, that has remained down through the delay period.
+				# Essentially, it's a firstfail as far as notifications are concerned.
+				$DoDownActions = 1;
+				$Item->FirstNotification($Now);
+			}
+			else {
+				# We sent out notifications before, but it's time for another one.
+				push @StillFail, $Desc;
+			}
 		}
 		if ($Item->FirstNotification == 0) {
-			# This was a DelayFirstNotification target, that has remained down through the delay period.
-			$DoDownActions = 1;
-			$Item->FirstNotification($Now);
+			# We have a service down with a delay notification that hasn't notified yet.
+			$WorstError = 4 if ($WorstError < 4);
+			print "debug: " . $Item->FirstNotification . ", $Now < " . $Item->NextNotification . "\n";
+		}
+		else {
+			# A service is down.
+			$WorstError = 8;
 		}
 	}
 	elsif ($Status == 2) {
@@ -230,6 +245,7 @@ foreach my $Item (@ItemList) {
 				if ($^O !~ /MSWin/);
 			$Item->FirstNotification(0);
 			$Item->NextNotification($Now + 60*$Item->Delayfirstnotification);
+			$WorstError = 4 if ($WorstError == 0);
 			next;
 		}
 		else {
@@ -239,6 +255,7 @@ foreach my $Item (@ItemList) {
 			#	if ($^O !~ /MSWin/);
 			$DoDownActions = 1;
 			$Item->FirstNotification($Now);
+			$WorstError = 8;
 		}
 	}
 	else {
@@ -316,12 +333,11 @@ ENDHeaders
 # Write the status file, so we know "still failing" from "now failing".
 WriteStatusFile($StartTime,$StatusFile,\@ItemList,\@OtherItems) unless ($opt_t);
 
-$Errors = @NowFail + @StillFail;
 if ($Errors > 0) {
 	printf "%s==> %d " . ($Errors == 1?'service is':'services are') . " failing.%s\n",
 		$HIGHLIGHT, $Errors, $RESET
 		unless ($opt_q);
-	exit 8;
+	exit $WorstError;
 }
 else {
 	print "All services are OK.\n" unless ($opt_q);
@@ -425,7 +441,6 @@ sub ProcessServiceLine {
 		}
 		# Run command.
 		my $Status = (system($Command) ne 0);
-		print "debug: $Status, $Command\n";
 		if ($Status eq $Negate) {
 			return ProcessServiceLine($FileName, $StartLine, $ArrayRef, $MapRef, $Rest);
 		}
@@ -559,6 +574,25 @@ take action when a service fails or recovers, and/or send out notifications.
 =head2 Command format:
 
    checkall [options] [listname ...]
+   
+=head2 Return codes:
+
+=over 3
+
+=item 0
+
+All services are up.
+
+=item 4
+
+Some services are down, but none have reached their "DelayNotification" delay yet,
+so no alerts have gone out.
+
+=item 8
+
+One or more services are down.  Alerts have gone out if requested.
+
+=back
 
 =head2 Command options:
 
