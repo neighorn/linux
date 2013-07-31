@@ -326,7 +326,13 @@ ENDHeaders
 	# Send the e-mail.
 	printf $MAIL strftime("\nFrom $HostName at %T on %D\n",localtime());
 	close $MAIL;
-	system("sed 's/  */ /g' $MailFile | sendmail " . join(' ',@opt_P)) && warn "Unable to send mail: $!\n";
+	if (my $Status = system("sed 's/  */ /g' $MailFile | sendmail " . join(' ',@opt_P))) {
+		syslog('ERROR','%s','Unable to send notifications. RC=$Status, Error=$!')
+			if ($^O !~ /MSWin/);
+	}
+	else {
+		syslog('INFO','%s','Notifications sent.') if ($^O !~ /MSWin/);
+	}
 	unlink $MailFile;
 }
 
