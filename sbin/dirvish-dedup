@@ -195,7 +195,7 @@ foreach $Root ( @Parms_Copy ) {
     $DFHash{$key}=$df;
 
     if ($CancelConfirmed) {
-        printf "Writing final checkpoint file.  ";
+        printf "Writing final checkpoint to /tmp/$Prog.$$.checkpoint.  ";
         if ($CheckpointDuration) {
        	    print "Estimated time = $CheckpointDuration seconds.\n";
 	}
@@ -225,7 +225,7 @@ $Summary =
 	. $Summary
 	;
 SendMail($Summary) if ($Opt{mail});
-PrintStatFile("$Summary<br>$LastStats") if ($Opt{statfile});
+PrintStatFile("$Summary<br>$LastStats");
 exit 0;
 
 
@@ -601,7 +601,7 @@ sub PrintStatistics () {
     );
     print "$TimeStamp $LastStats";
     $LastPrint = "stats";
-    PrintStatFile("$TimeStamp Processing $Candidate<br>$LastStats") if ($Opt{statfile});
+    PrintStatFile("$TimeStamp Processing $Candidate<br>$LastStats");
     if ($PrintStats) {
 
         # This was a manual request.  Don't overwrite it.
@@ -616,10 +616,12 @@ sub PrintStatistics () {
 # PrintStatFile - print an html or text stat file.
 #
 sub PrintStatFile {
+    return unless ($Opt{statfile});
 
     my $Text = shift;
 
     my $STATFILE;
+
     if (open($STATFILE,'>',$Opt{statfile})) {
         if ($Opt{statformat} eq 'html') {
             print $STATFILE qq[
@@ -1013,7 +1015,9 @@ sub ManageStats {
 
         # We've received a request for a progress report.
 	print "\n" if ($LastPrint eq 'stats');
-        print strftime( "%m/%d %T Now processing $cand\n", localtime( time() ) );
+	my $TimeStamp = strftime("%m/%d %T",localtime(time()));
+        print "$TimeStamp Now processing $cand\n";
+        PrintStatFile("$TimeStamp Processing $Candidate<br>$LastStats");
 	$LastPrint = "progress";
         $PrintProgress = 0;    # Turn off flag.
 	$LastProgress = time();
