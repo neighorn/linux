@@ -96,16 +96,20 @@ my $From='';
 my $Subject='';
 foreach (@lines) {
 	last if (/^\s*$/);		# Blank line meands end of headers.
-	$From = $_ if (/^From /i and ! $From);
+	$From = $_ if (/^From\s/i and ! $From);
 	$Subject = $_ if (/^Subject: /i and ! $Subject);
 	last if ($From and $Subject);	# Found all we wanted.
 }
-$From =~ s/^From //i;		# Strip prefix.
-$From ='root@' . hostname() unless ($From !~ /^\s*$/);
+$From =~ s/^From\s+(\S+).*$/$1/i;	# Strip everything but host name.
 $Subject =~ s/^Subject: //;	# Strip prefix.
 $Subject =~ s/^(\S+)\.\S+\.(nwiglobal\.net|nwiservices\.com) /\U$1 /;
 $Subject =~ s/ output\s*$//;	# Strip unnecessary text.
-$Subject = "%* %m/%d %C %N %E %* %* %*" unless ($Subject);
+if ($From) {
+	$Subject =~ s/^freenas/$From/i;	# Replace boilerplate with host name.
+	$Subject =~ s/^(\S+)@\S+/$1/;	# Strip the domain name.
+}
+$Subject = "%* %m/%d %C %N %E %* %* %*" unless ($Subject);	# Use default subject if needed.
+$From ='root@' . hostname() unless ($From !~ /^\s*$/);		# Use default from if needed.
 	
 # Set up our logging and output filtering.
 LogOutput({
