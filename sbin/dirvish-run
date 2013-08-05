@@ -261,7 +261,7 @@ sub ProcessBackup {
 			my ($relative,$hours,$minutes) = ($1,$2,$3);
 			if (
 			       ($relative and time() > $StartTime+$hours*3600+$minutes*60)
-				or (!$relative and strftime("%H:%M") gt sprintf("%02d:%02d",$hours,$minutes))
+				or (!$relative and strftime("%H:%M",localtime()) gt sprintf("%02d:%02d",$hours,$minutes))
 			) {
 				print "Skipped $Target due to --ifbefore=$Options{ifbefore} specification.\n";
 				return;
