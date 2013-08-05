@@ -40,6 +40,8 @@ our $STATFH;
 our $StatErrors = 0;			# Remember if we had stat errors.
 my $JOBLOCK;				# File handle for a job lock file, if used.
 
+our $StartTime = time();	# Primarily for ifbefore.
+
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
@@ -54,6 +56,7 @@ our %OptionSpecifications=(
 		'error-page|P=s'	=>	\&opt_Array,
 		'help|h|?!'		=>	\&opt_h,
 		'ifup!'			=>	\&opt_Value,
+		'ifbefore=s'		=>	\&opt_Value,
 		'jobinit|B=s'		=>	\&opt_Array,
 		'joblockfile=s'		=>	\&opt_Value,
 		'logfile|L=s'		=>	\&opt_Value,
@@ -251,6 +254,25 @@ sub ProcessBackup {
 		$Errors++;
 		return;
 	}
+	
+	if ($Options{ifbefore}) {
+		# We're only supposed to back this target up if it's before a certain time.
+		if ($Options{ifbefore} =~ /^(\+)?(\d|[01]\d|2[0-3]):([0-5]\d)\s*$/) {
+			my ($relative,$hours,$minutes) = ($1,$2,$3);
+			if (
+			       ($relative and time() > $StartTime+$hours*3600+$minutes*60)
+				or (!$relative and strftime("%H:%M") gt sprintf("%02d:%02d",$hours,$minutes))
+			) {
+				print "Skipping $Target due to --ifbefore=$Options{ifbefore} specification.\n";
+				return;
+			}
+		}
+		else {
+			warn "Invalid --ifbefore specification (\"$Options{ifbefore}\") -- ignored.\n";
+			$Errors++;
+			$Options{ifbefore}='';
+		}
+	} 
 
 	if ($Options{ifup}) {
 		# We're only supposed to back this target up if it's reachable.
@@ -694,6 +716,12 @@ Vault Options:
 	-D|--dirvish=parms:		Dirvish: Pass the following parameters
 					and options directly to dirvish. 
 					Spaces need to be escaped or quoted.
+					
+	--ifbefore=[+]hh:mm:	Only run this backup if the 
+					current time is before hh:mm.  Prefix
+					the time with a + to restrict targets
+					to times relative to the start of 
+					dirvish-run.
 
 	--ifup/--noifup			Only run this backup if the host is
 					reachable.  Otherwise, note that the
