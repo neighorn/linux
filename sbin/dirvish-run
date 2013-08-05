@@ -263,7 +263,7 @@ sub ProcessBackup {
 			       ($relative and time() > $StartTime+$hours*3600+$minutes*60)
 				or (!$relative and strftime("%H:%M") gt sprintf("%02d:%02d",$hours,$minutes))
 			) {
-				print "Skipping $Target due to --ifbefore=$Options{ifbefore} specification.\n";
+				print "Skipped $Target due to --ifbefore=$Options{ifbefore} specification.\n";
 				return;
 			}
 		}
@@ -838,6 +838,7 @@ IGNORE	"^\s*(file|directory) has vanished: "
 IGNORE	"^\s*Status: warning \(24\) -- file vanished on sender$"
 IGNORE	"^\s*Status: success$"
 SHOW	"^\s*Skipped \S+ -- \S+ is unreachable.$"
+SHOW	"^\s*Skipped \S+ due to --ifbefore"
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
