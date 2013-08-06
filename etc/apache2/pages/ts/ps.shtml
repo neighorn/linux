@@ -10,7 +10,7 @@
 	process status as of <!--#echo var="DATE_LOCAL" -->
 </H2>
 <pre>
-<!--#exec cmd="ps -e -ouser,pid,ppid,stat,wchan,lstart,time,cmd | awk '$12 !~ /\[/'" -->
+<!--#exec cmd="ps -e -ouser,pid,ppid,stat,wchan,lstart,time,cmd | sort -k 2nr" -->
 </pre>
 </BODY>
 <HTML>
