@@ -27,6 +27,7 @@ my $BaseDir="/usr/local/etc";		# Set our base directory.
 my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
+our $OptionMode='';			# Are we preprocessing, or running for real?
 my $MachineDirectory;			# Base directory for this dirvish item.
 my %FileSystems;			# List of file systems we wrote to.
 our @Parms;				# List of non-option arguments.
@@ -39,6 +40,7 @@ our $NewItems;				# Global for Find/Found
 our $STATFH;
 our $StatErrors = 0;			# Remember if we had stat errors.
 my $JOBLOCK;				# File handle for a job lock file, if used.
+my $SECTIONLOCK;			# File handle for a section lock file, if used.
 
 our $StartTime = time();	# Primarily for ifbefore.
 
@@ -64,6 +66,7 @@ our %OptionSpecifications=(
 		'max-size|S=s'		=>	\&opt_S,
 		'option-set|O=s'	=>	\&opt_O,
 		'rerun|R:1'		=>	\&opt_Value,
+		'sectionlockfile=s'	=>	\&opt_SectionLockFile,
 		'subject|N=s'		=>	\&opt_Value,
 		'statfile=s'		=>	\&opt_Value,
 		'test|t!'		=>	\&opt_Value,
@@ -105,9 +108,11 @@ push @ARGV,(shellwords($Config{DEFAULTJOB}))
 
 # Pre-process our command line, to get the options we need for LogOutput.
 my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
+$OptionMode = 'preprocess';	# Some options need to know if we're running or not.
 %Options=(verbose => 0);	# Initialize Options.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+$OptionMode = 'normal';		# We're done preprocessing.
 	
 # Set up our logging and output filtering.
 my $RunDate=`date +%m/%d`;
@@ -202,6 +207,10 @@ if ($JOBLOCK) {
 	close $JOBLOCK;
 	unlink $Options{joblockfile};
 }
+if ($SECTIONLOCK) {
+	close $SECTIONLOCK;
+	unlink $Options{sectionlockfile};
+}
 
 exit( ($Errors?10:0) );
 
@@ -255,6 +264,7 @@ sub ProcessBackup {
 		return;
 	}
 	
+	# Check time-constraints.
 	if ($Options{ifbefore}) {
 		# We're only supposed to back this target up if it's before a certain time.
 		if ($Options{ifbefore} =~ /^(\+)?(\d|[01]\d|2[0-3]):([0-5]\d)\s*$/) {
@@ -274,6 +284,21 @@ sub ProcessBackup {
 		}
 	} 
 
+	# Check section locks if requested.
+        if ($Options{sectionlockfile} and ! $SECTIONLOCK) {
+		if (!open($SECTIONLOCK,'>>',$Options{sectionlockfile})) {
+ 	               print "Unable to create/open section lock file $Options{sectionlockfile}: $!\n";
+			$Errors++;
+                	return;
+		}
+        	if (!flock($SECTIONLOCK, LOCK_EX | LOCK_NB)) {
+                	print qq<Skipping $Target due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
+			$Errors++;
+                	return;
+		}
+        }
+
+	# Check host-up condition if requested.
 	if ($Options{ifup}) {
 		# We're only supposed to back this target up if it's reachable.
 		my $branch = ($Target=~/\S+:(\S+%)/?$1:'default');
@@ -601,6 +626,30 @@ sub opt_O {
 }
 
 
+#
+# opt_SectionLockFile - acquire a lock for subsequent vaults.
+#
+sub opt_SectionLockFile {
+	my(undef,$Value) = @_;
+
+	return if ($OptionMode eq 'preprocess');	# Not really running, yet.
+
+	if ($SECTIONLOCK) {
+		# Release any prior lock.
+		close $SECTIONLOCK;
+		unlink $Options{sectionlockfile};
+	}
+
+        if ($Value !~ /^[a-zA-Z\d._~+\/-]+$/) {
+                print "Invalid character in section lock filename: $Value - ignored\n";
+		$Options{sectionlockfile} = '';
+		$Errors++;
+        }
+	else {
+		$Options{sectionlockfile} = $Value;
+	}
+}
+
 
 #
 # opt_s - minimum size threshold
@@ -746,6 +795,14 @@ Vault Options:
 	-S|--max-size=size:		maximum Size: Issue a warning if the
 					size of the new items exceeds "size".
 					See "-s" above for unit specifications.
+
+        --sectionlockfile=file          Any subsequent vaults are skipped if 
+                                        the specified lock file can't be
+                                        locked.  The lockfile is released and
+                                        deleted when this option is used
+                                        again later in the command line (even
+                                        if the file name is empty), and at the
+                                        end of the job.
 
 Parameters:
 	vault...:	One or more vault names.  Vault names may be fully 
