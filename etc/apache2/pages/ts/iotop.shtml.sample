@@ -1,16 +1,16 @@
 <HTML>
 <HEAD>
-<TITLE >Top status</TITLE>
+<TITLE >iotop status</TITLE>
 <META HTTP-EQUIV="Refresh" CONTENT="15">
 </HEAD>
 <BODY>
 <H2>
 	<!--#config timefmt="%T" -->
         <!--#exec cmd="hostname" -->
-	top processes as of <!--#echo var="DATE_LOCAL" -->
+	top i/o processes as of <!--#echo var="DATE_LOCAL" -->
 </H2>
 <pre>
-<!--#exec cmd="top -n1 -b" -->
+<!--#exec cmd="/usr/bin/sudo -n iotop -n1 -b -o -P -d2" -->
 </pre>
 </BODY>
 <HTML>

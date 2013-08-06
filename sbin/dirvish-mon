@@ -12,14 +12,31 @@ function ReadLSOF {
 			filename="${rest# *}"
 			filename="${filename# *}"
 		fi
-		[[ $fh = [0-9]*r ]] && continue			# Filter out input file.
+		# [[ $fh = [0-9]*r ]] && continue			# Filter out input file.
 		filename="${filename% (*}"			# Clean up NFS mounts.
-		filename="${filename%/*}"			# Get to directory, not temp file.
 		percent=`df -h "$filename" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
+
+		# Get size in a compact unit.
+		size=`stat -c %s "$filename"`
+		if [[ $size -gt 1000000000 ]]
+		then
+			size=`printf "%dG" $(($size/1000000000))`
+		elif [[ size -gt 1000000 ]]
+		then
+			size=`printf "%dM" $(($size/1000000))`
+		elif [[ $size -gt 1000 ]]
+		then
+			size=`printf "%dK" $(($size/1000))`
+		else
+			size="$sizeB"
+		fi
+
 		filename=`echo "$filename" | sed 's/^.*\/\(.*\/.*\/tree\)/\1/'`		# Strip down to vault.
-		printf "%-s %5d %-6s % 3d%%: %s\n" $now $pid "rsync" $percent "$filename"
+		printf "%-s %5d %-6s % 3d%% %s: %s\n" $now $pid "rsync" $percent $size "$filename"
 	done 
 }
+
+Once=$1
 while ps -ef | grep dirvish | grep -qv grep
 do
 	now=`date +%T`
@@ -64,7 +81,7 @@ do
 		fi
 		prior=$current
 	done
-	[[ "$1" = "1" ]] && exit
+	[[ "$Once" = "1" ]] && exit
 	sleep 30
 done
 date '+No dirvish processes running at %T'
