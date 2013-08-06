@@ -1,5 +1,6 @@
 backup/
 dirvish/
 lib/perl5/site_perl/LogOutput_cfg.pm
+etc/apache2/pages/ts/dirvish-dedup.html
 *~
 .*.swp
