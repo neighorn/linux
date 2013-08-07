@@ -18,15 +18,15 @@ function ReadLSOF {
 
 		# Get size in a compact unit.
 		size=`stat -c %s "$filename"`
-		if [[ $size -gt 1000000000 ]]
+		if [[ $size -gt 1024**3 ]]
 		then
-			size=`printf "%dG" $(($size/1000000000))`
-		elif [[ size -gt 1000000 ]]
+			size=`printf "%dG" $(($size/1024**3))`
+		elif [[ size -gt 1024**2 ]]
 		then
-			size=`printf "%dM" $(($size/1000000))`
-		elif [[ $size -gt 1000 ]]
+			size=`printf "%dM" $(($size/1024**2))`
+		elif [[ $size -gt 1024 ]]
 		then
-			size=`printf "%dK" $(($size/1000))`
+			size=`printf "%dK" $(($size/1024))`
 		else
 			size="$sizeB"
 		fi
