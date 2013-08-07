@@ -162,7 +162,7 @@ if ($Options{joblockfile}) {
 		exit 11;
 	}
 	if (!flock($JOBLOCK, LOCK_EX | LOCK_NB)) {
-		print qq<Skipping this job due to a conflicting job in progress per "$Options{joblockfile}"\n>;
+		print qq<Skipped this job due to a conflicting job in progress per "$Options{joblockfile}"\n>;
 		exit 11;
 	}
 }
@@ -273,7 +273,7 @@ sub ProcessBackup {
 			       ($relative and time() > $StartTime+$hours*3600+$minutes*60)
 				or (!$relative and strftime("%H:%M",localtime()) gt sprintf("%02d:%02d",$hours,$minutes))
 			) {
-				print "Skipped $Target due to --ifbefore=$Options{ifbefore} specification.\n";
+				print qq<Skipped $Target due to "--ifbefore" time constraints.\n>;
 				return;
 			}
 		}
@@ -292,7 +292,7 @@ sub ProcessBackup {
                 	return;
 		}
         	if (!flock($SECTIONLOCK, LOCK_EX | LOCK_NB)) {
-                	print qq<Skipping $Target due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
+                	print qq<Skipped $Target due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
 			$Errors++;
                 	return;
 		}
@@ -345,7 +345,7 @@ sub ProcessBackup {
 		return;
 	}
 	if (!flock($LOCK, LOCK_EX | LOCK_NB)) {
-		warn qq<Skipping $Target due to a conflicting backup in progress per "$LockFile"\n>;
+		warn qq<Skipped $Target due to a conflicting backup in progress per "$LockFile"\n>;
 		$Errors++;
 		return;
 	}
@@ -895,7 +895,7 @@ IGNORE	"^\s*(file|directory) has vanished: "
 IGNORE	"^\s*Status: warning \(24\) -- file vanished on sender$"
 IGNORE	"^\s*Status: success$"
 SHOW	"^\s*Skipped \S+ -- \S+ is unreachable.$"
-SHOW	"^\s*Skipped \S+ due to --ifbefore"
+SHOW	"^\s*Skipped \S+ due to \"--ifbefore\" time constraints"
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
