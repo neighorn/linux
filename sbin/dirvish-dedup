@@ -134,12 +134,6 @@ PrintStatFile(strftime("Started $Prog at %Y-%m-%d %T\n",localtime()));
 # Begin processing arguments.
 #
 die "No directories specified.  Enter $Prog -h for usage.\n" unless (@Parms);
-# If we only have one argument, move into subdirectories.  This makes stats and
-# --reverse more useful.
-while (@Parms == 1 and -d $Parms[0]) {
-	# Only one argument.  Move down one leve.
-	@Parms = bsd_glob($Parms[0] . '/*');
-}
 if ($Opt{reverse}) {
 	@Parms_Copy = reverse(@Parms);
 }
@@ -152,10 +146,21 @@ foreach $Root ( @Parms_Copy ) {
     $tl_dirs_total = 0;
     $tl_dirs_doing = 0;
     $CurrentArg++;		# Increment count for stats.
+    
+    # Does this directory exist?
+    if (! -e $Root) {
+    	print "\n" if ($LastPrint eq 'stats');
+	print strftime("%m/%d %T $Root not found -- skipped\n",localtime());
+	next;
+    }
+
+    # Can we change directories to this root?
     if ( !cwd($Root) ) {
         warn "Unable to cd to $Root -- skipped: $!\n";
         next;
     }
+    
+    # Ignore symbolic links.
     my $FirstNode = $Root;
     $FirstNode =~ s"(/?[^/]+)/"$1";
     if (-l $FirstNode) {
@@ -168,15 +173,14 @@ foreach $Root ( @Parms_Copy ) {
 	print strftime("%m/%d %T $Root is a symbolic link -- skipped\n",localtime());
 	next;
     }
-    if (! -e $Root) {
-    	print "\n" if ($LastPrint eq 'stats');
-	print strftime("%m/%d %T $Root not found -- skipped\n",localtime());
-	next;
-    }
+
+	# Update stats and documenht that we're starting this one.    
     print "\n" if ($LastPrint eq 'stats');
     print strftime("%m/%d %T Starting $Root" . ' 'x30 . "\n",localtime())
         if (@Parms > 1);
     syslog('info',"Starting $Root");
+    
+    # Process this directory tree.
     find(
         {
             wanted     => \&ProcessFile,
@@ -194,6 +198,7 @@ foreach $Root ( @Parms_Copy ) {
     $key =~ s/^(\S+)\s.*$/$1/;
     $DFHash{$key}=$df;
 
+    # Did they request that we cancel?  If so, tell them how long it will take.
     if ($CancelConfirmed) {
         printf "Writing final checkpoint to /tmp/$Prog.$$.checkpoint.  ";
         if ($CheckpointDuration) {
@@ -203,7 +208,11 @@ foreach $Root ( @Parms_Copy ) {
             print "\n";
         }
     }
+    
+    # We finished a root.  Write a checkpoint file.
     WriteCheckpoint();
+    
+    # Bail out if they asked to cancel.
     last if $Cancel and $CancelConfirmed;
 }
 
@@ -429,6 +438,273 @@ sub Commify ($) {
     $_;
 }
 
+
+#
+# ProcessFile - process the next file (directory, ...) found.
+#
+sub ProcessFile {
+    # See if the user has cancelled the job.
+    if (CheckInterrupt()) {
+        # Cancelling.  Prune everything until we get out.
+        $File::Find::prune = 1;
+        return;
+    }
+
+    # Manage the checkpoint file.
+    WriteCheckpoint() if ($WriteCheckpoint);
+
+    # Skip this item if it has disappeared since we started.
+    $Candidate = $File::Find::name;	# Get the full path name of our candidate.
+    my (@candstat) = stat($_);
+
+    # Manage stats and generate progress reports.
+    ManageStats($Candidate);
+
+	# Filter out non-files, empty files.
+    return if -l;          # Skip relative links.  No pay off.
+    return unless -f _;    # Skip non-files.
+    return unless -s _;    # Skip empty files.  Risk & no pay off.
+
+    $files++;
+    print "debug: Checking $Candidate\n" if ($Opt{debug});
+
+    # If there's a limit on links, see if we've reached it.
+    if ( $Opt{maxlinks} ) {
+        my (@maxlstat) = stat($Candidate);
+        if ( $maxlstat[3] > $Opt{maxlinks} ) {
+
+            # We reached our maxlinks value.  We have to make a new file from a link.
+            print "debug:   Link limit reached on $Candidate\n" if ($Opt{debug});
+            my ( $fh, $tempfile ) =
+              tempfile( "$Prog-2-XXXXXXXX", DIR => "." );
+            unless ($tempfile) {
+                die "Could not create a temporary file: $!";
+            }
+            unless ( rename $Candidate, $tempfile ) {
+                die sprintf( "Could not rename %s to %s: %s",
+                    $DV->stringify($Candidate), $DV->stringify($tempfile), $! );
+            }
+            cp $tempfile, $Candidate
+              or die sprintf(
+                "Could not cp %s to %s: %s",
+                $DV->stringify($tempfile),
+                $DV->stringify($Candidate), $!,
+              );
+            unlink $tempfile;
+            $Savedspc -= $maxlstat[7];
+        }
+    }
+
+    # Now get down to really processing this item.
+    my $match;
+    my $md5;
+    my @firststat;
+
+    # Four choices:
+    #   1) We've seen this inode before, and it stayed as-is.  This one can too.
+    #   2) We've seen this inode before, and it was replaced.  Replace this one
+    #      the same way.
+    #   3) It's content matches a prior file.  Link it and remember the inode.
+    #   4) It doesn't match anything.  Remember it as a unique file and remember the inode.
+    my $first = KnownInodes(@candstat);
+    if (defined($first) and !$first ) {
+        # Case 1: we've seen this before and it stayed as-is.
+        print "debug:   $Candidate has same inode as $first -- leave as is\n"
+            if ($Opt{debug});
+        return;			# Leave it as-is.
+    }
+    elsif (defined($first) and $first) {
+        # Case 2: we've seen this before and it was replaced.
+        $match = 1;
+        print "debug:   $Candidate has same inode as prior item -- link to $first\n"
+            if ($Opt{debug});
+    }
+    elsif ($first = FindMatch($Candidate,\$md5,@candstat)) {
+        # Case 3: We looked for and found a match.
+        @firststat = stat($first);
+        $match = 1;
+        RegisterInode($first,@candstat);	# Remember how we handle this inode.
+        print "debug:   $Candidate contents match -- link to $first\n"
+            if ($Opt{debug});
+    }
+    else {
+        # Case 4: It didn't match anything.
+        $match = 0;
+        RegisterFile( $md5, $Candidate, @candstat );	# Remember for future matches.
+        RegisterInode('',@candstat);		# Remember this inode.
+    }
+    if ($match) {
+        # Don't replace if we've exceeded our maxlinks.
+        if ( $Opt{maxlinks} && $firststat[3] >= $Opt{maxlinks} ) {
+            # Exceeded our link limit.  Register this as the new target file.
+            RegisterFile( $md5, $Candidate, @candstat );
+        }
+        elsif ( ReplaceWithLink( $first, $Candidate ) ) {
+            if ( $candstat[3] == 1 ) {    # we don't save space otherwise
+                $Savedspc += -s $Candidate;
+            }
+        }
+        else {
+            # Tried but failed to hardlink.  Make candidate our new target.
+            RegisterFile( $md5, $Candidate, @candstat );
+            RegisterInode('',@candstat);
+        }
+    }
+
+    # Skip the stats report unless:
+    #    PrintStats = 1 (set by SIGUSR1)
+    #    --stats specified and $files % 1000 == 0.
+    PrintStatistics()
+        if ( $PrintStats or ( $Opt{'stats'} and $files % $Opt{statinterval} == 0 ) );
+    return;
+}
+
+
+#
+# KnownInodes - what do we know about this inode?  Three cases:
+#	1) we've seen it before, and decided it isn't a duplicate copy of 
+#      another file.  Return ''.
+#   2) we've seen it before, and decided it should be replaced by
+#      a hardlink to another file.  Return other file name.
+#	3) we've never seen it before.  Return undef.
+#
+sub KnownInodes(@) {
+	my $key = InodeKey(@_);
+    if (exists($Inodes{$key})) {
+    	# We've seen this inode before.  Did it duplicate some other file?
+    	return '' if ($Inodes{$key}->[0] eq '');	# No  This is case #1.
+    	
+    	# This is tentatively case #2, unless those files are gone now.
+    	# Clean-up routines like dirvish-expire may have deleted them since
+    	# we first saw them.
+    	while (@{$Inodes{$key}} && ! -e $Inodes{$key}->[0]) {
+    		shift @{$Inodes{$key}};	# file [0] went missing.
+    		print "debug:  Deleting " . $Inodes{$key}->[0] . " from Inodes - went missing.\n"
+    			if $Opt{debug};
+    	}
+    	delete $Inodes{$key} unless ( @{$Inodes{$key}});	# Nothing left.
+    }
+    
+    # Now that we've made sure $Inodes is up-to-date, let's try again.
+    if (exists($Inodes{$key})) {
+    	return $Inodes{$key}->[0];	# This is case #2.
+    }
+    else {
+    	return undef();		# This is case #3.
+    }
+}
+
+
+#
+# RegisterInode - Remember this inode by inode data.
+#
+
+sub RegisterInode ($@) {
+    my ( $candidate, @candstat ) = @_;
+    my $key = InodeKey(@candstat);
+    
+    # Keep an array of files that use each inode.  We keep more than one in case
+    # dirvish-expire deletes one of them.
+    push @{$Inodes{ $key }}, $candidate;	# Remember this file goes with this inode.  
+}
+
+
+#
+# InodeKey - build a key for this inode
+#
+sub InodeKey {
+
+    # Ideally two pointers to the same inode number on the same device should
+    # point to the same file.  Over time, however, an inode could get release
+    # and reassigned.  So we compare on the inode number, but also a number of
+    # other characteristics that would stay constant, including size and mtime.
+    # Not atime though, since we don't care of someone read the file.
+    #
+    # Our key is: dev#,inode#,mode,uid,gid,bytes,mtime.
+    #
+    # We ignore:  #links (changes), rdev (not relevant), atime (see above),
+    #             ctime (changes), blksize (tied to dev#+inode#), blocks (same)
+    #   
+    my (@stat) = @_;
+    return "$stat[0],$stat[1],$stat[2],$stat[4],$stat[5],$stat[7],$stat[9]";
+}
+
+
+#
+# FindMatch - Try to find a file that matches this one.
+#
+sub FindMatch ($@) {
+    my($cand,$md5ref,@candstat) = @_;
+
+    # Calculate the MD5 sum of the candidate.
+    my $fh;
+    unless ( open $fh, "<", $cand ) {
+        warn sprintf( "Cannot read %s (%s); Skipping.",
+            $DV->stringify($File::Find::name), $!, );
+        $Usedspc += -s $cand;
+        return '';
+    }
+
+    $$md5ref = file_md5_hex($cand);	# Get the MD5 signature.
+
+    # See if we recognize this MD5 sum and stat attributes.
+    if ( my $first = $UniqueFiles{ FileKey( $$md5ref, @candstat ) } ) {
+        # It matches something previous, according to the MD5 and stat data.
+	my @firststat;
+        @firststat = stat($first);
+        if (! $firststat[1]) {
+            # This inode disappeared.
+            print "debug:   Matching file disappeared: $first\n" if ($Opt{debug});
+            delete $UniqueFiles { FileKey( $$md5ref, @candstat )};
+            return;		# So then we have no match.
+        }
+        if ($firststat[0] == $candstat[0] and $firststat[1] == $candstat[1]) {
+	    # We found ourselves.  This can happen if we restart/reload prior maps.
+            # Treat it as a non-match and just fall through the parent's logic.
+            print "debug:   Found self on $cand\n" if ($Opt{debug});
+            return;
+        }
+        print "debug:   MD5 match: " . join(', ',@candstat) . ",$cand\n"
+            . "              with: " . join(', ',@firststat) . ",$first\n"
+                if ($Opt{debug});
+        my $different = ($Opt{compare}?compare $first, $cand:0);
+        if ( $different != 0 && $File::Compare::VERSION < 1.1005 ) {
+
+            # workaround bug # 37716 in File::Compare
+            $different = compare "$first\0", "$cand\0";
+        }
+        if ( $different < 0 ) {
+            # Compare failed to run.
+            warn sprintf(
+                "Cannot compare %s and %s (%s); Skipping.",
+                $DV->stringify($first),
+                $DV->stringify($cand), $!,
+            );
+	    return;
+        }
+        elsif ($different == 0) {
+            # We have a match!
+            print "debug:  $cand matches $first\n" if ($Opt{debug} > 1);
+            return $first;
+        }
+        else {
+            # MD5 matched but binary compare differed!!!
+            die sprintf(
+                "MD5 collision!  %s and %s are not equal with same MD5 ($$md5ref)",
+                $DV->stringify($first),
+                $DV->stringify($cand)
+                );
+        }
+    }
+    else {
+        print "debug:  $cand is unique\n" if ($Opt{debug} > 1);
+        return;
+    }
+}
+
+
+
+
 #
 # ReplaceWithLink - replace a file with a hard link to another.
 #
@@ -506,17 +782,28 @@ sub ReplaceWithLink ($$) {
 
 
 #
-# WriteLog - write a log entry.
+# RegisterFile - Remember this file by MD5 and inode data.
 #
-sub WriteLog {
-    my($cand,$first) = @_;
-    if (!printf $LOG_FH "\$1 \$2 %s %s\n", shell_quote($cand), shell_quote($first)) {
-        # Log write error.  Give up on logging.
-        warn "Unable to write to log file: $!";
-        close $LOG_FH;
-        $LOG_FH = undef();
+{
+    # This sub is in a closure so it can maintain a persistent
+    # private hash.
+    my %CountedInodes;
+
+    sub RegisterFile ($$@) {
+        my ( $md5, $cand, @candstat ) = @_;
+	$md5 = file_md5_hex($cand) unless $md5;  # We can get here without an MD5 due to maxlinks.
+        $UniqueFiles{ FileKey( $md5, @candstat ) } = $cand;
+        my $size = $candstat[7];
+        warn "size undefined"    unless defined $size;
+        warn "usedspc undefined" unless defined $Usedspc;
+        if ($Opt{debug}) {
+            print "debug:   Registered new file: " . FileKey($md5,@candstat) . " => $cand\n";
+        }
+        return if $CountedInodes{ $candstat[1] }++;    # don't count twice
+        $Usedspc += $size;
     }
 }
+
 
 #
 # FileKey - build a hash key for this file
@@ -541,19 +828,39 @@ sub FileKey {
 }
 
 #
-# InodeKey - build a key for this inode
+# WriteCheckpoint - write a checkpoint file.
 #
-sub InodeKey {
+sub WriteCheckpoint {
 
-    # Ideally two pointers to the same inode number on the same device should
-    # point to the same file.  Over time, however, an inode could get release
-    # and reassigned.  So we compare on the inode number, but also a number of
-    # other characteristics that would stay constant, including size and mtime.
-    # Not atime though, since we don't care of someone read the file.
-    my (@stat) = @_;
-    return "$stat[0],$stat[1],$stat[2],$stat[4],$stat[5],$stat[7],$stat[9]";
+    my $CheckpointFile = "/tmp/$Prog.$$.checkpoint";
+
+    $WriteCheckpoint = 0;	# Mark this as done.
+    $LastCheckpoint = time();	# If we fail, warn and retry on next cycle.
+
+    my $CH;
+    if (!open($CH,'>',"$CheckpointFile.tmp")) {
+        warn "Unable to write checkpoint file: $!";
+        return;
+    }
+    my $Start = time();
+    my $Status = print $CH Dumper(@OrigARGV,%Opt,$Root,%Inodes,%UniqueFiles);
+    close $CH;
+    if (!$Status) {
+        warn "Unable to write checkpoint file: $!";
+        return;
+    }
+    if (-e $CheckpointFile) {
+            if (!unlink($CheckpointFile)) {
+                warn "Unable to delete $CheckpointFile: $!";
+                return;
+            }
+    }
+    if (!rename("$CheckpointFile.tmp","$CheckpointFile")) {
+        warn "Unable to move $CheckpointFile.tmp: $!";
+        return;
+    }
+    $CheckpointDuration = time() - $Start;
 }
-
 
 
 #
@@ -653,309 +960,17 @@ sub PrintStatFile {
 
 
 #
-# RegisterFile - Remember this file by MD5 and inode data.
+# WriteLog - write a log entry.
 #
-{
-    # This sub is in a closure so it can maintain a persistent
-    # private hash.
-    my %CountedInodes;
-
-    sub RegisterFile ($$@) {
-        my ( $md5, $cand, @candstat ) = @_;
-	$md5 = file_md5_hex($cand) unless $md5;  # We can get here without an MD5 due to maxlinks.
-        $UniqueFiles{ FileKey( $md5, @candstat ) } = $cand;
-        my $size = $candstat[7];
-        warn "size undefined"    unless defined $size;
-        warn "usedspc undefined" unless defined $Usedspc;
-        if ($Opt{debug}) {
-            print "debug:   Registered new file: " . FileKey($md5,@candstat) . " => $cand\n";
-        }
-        return if $CountedInodes{ $candstat[1] }++;    # don't count twice
-        $Usedspc += $size;
+sub WriteLog {
+    my($cand,$first) = @_;
+    if (!printf $LOG_FH "\$1 \$2 %s %s\n", shell_quote($cand), shell_quote($first)) {
+        # Log write error.  Give up on logging.
+        warn "Unable to write to log file: $!";
+        close $LOG_FH;
+        $LOG_FH = undef();
     }
 }
-
-
-#
-# RegisterInode - Remember this inode by MD5 and inode data.
-#
-
-sub RegisterInode ($@) {
-    my ( $first, @candstat ) = @_;
-    my $key = InodeKey(@candstat);
-    if ($candstat[3] > 1 ) {
-        # There are other links to this inode.  Remember it.
-    	$Inodes{ $key } = $first;
-    	if ($Opt{debug}) {
-        	print "debug:   Registered new inode: " . InodeKey(@candstat) . " => $first\n";
-        }
-    }
-    elsif (exists($Inodes{ $key })) {
-       # There's only one of these now.  No point in keeping it.
-       delete $Inodes{ $key };
-    }
-    else {
-       # This is the first and last time we'll see this one.  Ignore it.
-    }
-}
-
-
-#
-# KnownInodes - if we've already seen this inode, pass back the file it links to
-#               or '' if it should stay as-is.  Else return undef.
-sub KnownInodes(@) {
-    if (exists($Inodes{InodeKey(@_)})) {
-        my $first = $Inodes{InodeKey(@_)};
-        return '' if ($first eq '');		# Leave as is.
-        # So we're going to map this to another file, but make sure that
-	# file hasn't disappeared since we last saw it.
-        return $first if (-f $first);
-    };
-    return undef();
-}
-
-
-
-#
-# WriteCheckpoint - write a checkpoint file.
-#
-sub WriteCheckpoint {
-
-    my $CheckpointFile = "/tmp/$Prog.$$.checkpoint";
-
-    $WriteCheckpoint = 0;	# Mark this as done.
-    $LastCheckpoint = time();	# If we fail, warn and retry on next cycle.
-
-    my $CH;
-    if (!open($CH,'>',"$CheckpointFile.tmp")) {
-        warn "Unable to write checkpoint file: $!";
-        return;
-    }
-    my $Start = time();
-    my $Status = print $CH Dumper(@OrigARGV,%Opt,$Root,%Inodes,%UniqueFiles);
-    close $CH;
-    if (!$Status) {
-        warn "Unable to write checkpoint file: $!";
-        return;
-    }
-    if (-e $CheckpointFile) {
-            if (!unlink($CheckpointFile)) {
-                warn "Unable to delete $CheckpointFile: $!";
-                return;
-            }
-    }
-    if (!rename("$CheckpointFile.tmp","$CheckpointFile")) {
-        warn "Unable to move $CheckpointFile.tmp: $!";
-        return;
-    }
-    $CheckpointDuration = time() - $Start;
-}
-
-       
-
-
-
-#
-# ProcessItem - process the next file (directory, ...) found.
-#
-sub ProcessFile {
-    # See if the user has cancelled the job.
-    if (CheckInterrupt()) {
-        # Cancelling.  Prune everything until we get out.
-        $File::Find::prune = 1;
-        return;
-    }
-
-    # Manage the checkpoint file.
-    WriteCheckpoint() if ($WriteCheckpoint);
-
-    # Skip this item if it has disappeared since we started.
-    $Candidate = $File::Find::name;	# Get the full path name of our candidate.
-    my (@candstat) = stat($_);
-
-    # Manage stats and generate progress reports.
-    ManageStats($Candidate);
-
-    return if -l;          # Skip relative links.  No pay off.
-    return unless -f _;    # Skip non-files.
-    return unless -s _;    # Skip empty files.  Risk & no pay off.
-
-    $files++;
-    print "debug: Checking $Candidate\n" if ($Opt{debug});
-
-    # If there's a limit on links, see if we've reached it.
-    if ( $Opt{maxlinks} ) {
-        my (@maxlstat) = stat($Candidate);
-        if ( $maxlstat[3] > $Opt{maxlinks} ) {
-
-            # the case that we have to make a new file from a link
-            print "debug:   Link limit reached on $Candidate\n" if ($Opt{debug});
-            my ( $fh, $tempfile ) =
-              tempfile( "$Prog-2-XXXXXXXX", DIR => "." );
-            unless ($tempfile) {
-                die "Could not create a temporary file: $!";
-            }
-            unless ( rename $Candidate, $tempfile ) {
-                die sprintf( "Could not rename %s to %s: %s",
-                    $DV->stringify($Candidate), $DV->stringify($tempfile), $! );
-            }
-            cp $tempfile, $Candidate
-              or die sprintf(
-                "Could not cp %s to %s: %s",
-                $DV->stringify($tempfile),
-                $DV->stringify($Candidate), $!,
-              );
-            unlink $tempfile;
-            $Savedspc -= $maxlstat[7];
-        }
-    }
-
-    # Now get down to really processing this item.
-    my $match;
-    my $md5;
-    my @firststat;
-
-    # Four choices:
-    #   1) We've seen this inode before, and it stayed as-is.  This one can too.
-    #   2) We've seen this inode before, and it was replaced.  Replace this one
-    #      the same way.
-    #   3) It's content matches a prior file.  Link it and remember the inode.
-    #   4) It doesn't match anything.  Remember it as a unique file and remember the inode.
-    my $first = KnownInodes(@candstat);
-    if ($first) {
-        @firststat = stat($first);
-        $first = '' unless ($firststat[1]);
-    }
-    if (defined($first) and !$first ) {
-        # Case 1: we've seen this before and it stayed as-is.
-        print "debug:   $Candidate has same inode as $first -- leave as is\n"
-            if ($Opt{debug});
-        return;			# Leave it as-is.
-    }
-    elsif (defined($first) and $first) {
-        # Case 2: we've seen this before and it was replaced.
-        $match = 1;
-
-        print "debug:   $Candidate has same inode as prior item -- link to $first\n"
-            if ($Opt{debug});
-    }
-    elsif ($first = FindMatch($Candidate,\$md5,@candstat)) {
-        # Case 3: We looked for and found a match.
-        @firststat = stat($first);
-        $match = 1;
-        RegisterInode($first,@candstat);	# Remember how we handle this inode.
-        print "debug:   $Candidate contents match -- link to $first\n"
-            if ($Opt{debug});
-    }
-    else {
-        # Case 4: It didn't match anything.
-        $match = 0;
-        RegisterFile( $md5, $Candidate, @candstat );	# Remember for future matches.
-        RegisterInode('',@candstat);		# Remember this inode.
-    }
-
-    if ($match) {
-        # Don't replace if we've exceeded our maxlinks.
-        if ( $Opt{maxlinks} && $firststat[3] >= $Opt{maxlinks} ) {
-            # Exceeded our link limit.  Register this as the new target file.
-            RegisterFile( $md5, $Candidate, @candstat );
-        }
-        elsif ( ReplaceWithLink( $first, $Candidate ) ) {
-            if ( $candstat[3] == 1 ) {    # we don't save space otherwise
-                $Savedspc += -s $Candidate;
-            }
-        }
-        else {
-            # Tried but failed to hardlink.  Make candidate our new target.
-            RegisterFile( $md5, $Candidate, @candstat );
-            RegisterInode('',@candstat);
-        }
-    }
-
-    # Skip the stats report unless:
-    #    PrintStats = 1 (set by SIGUSR1)
-    #    --stats specified and $files % 1000 == 0.
-    PrintStatistics()
-        if ( $PrintStats or ( $Opt{'stats'} and $files % $Opt{statinterval} == 0 ) );
-    return;
-}
-
-
-
-#
-# FindMatch - Try to find a file that matches this one.
-#
-sub FindMatch ($@) {
-    my($cand,$md5ref,@candstat) = @_;
-
-    # Calculate the MD5 sum of the candidate.
-    my $fh;
-    unless ( open $fh, "<", $cand ) {
-        warn sprintf( "Cannot read %s (%s); Skipping.",
-            $DV->stringify($File::Find::name), $!, );
-        $Usedspc += -s $cand;
-        return '';
-    }
-
-    $$md5ref = file_md5_hex($cand);	# Get the MD5 signature.
-
-    # See if we recognize this MD5 sum and stat attributes.
-    if ( my $first = $UniqueFiles{ FileKey( $$md5ref, @candstat ) } ) {
-        # It matches something previous, according to the MD5 and stat data.
-	my @firststat;
-        @firststat = stat($first);
-        if (! $firststat[1]) {
-            # This inode disappeared.
-            print "debug:   Matching file disappeared: $first\n" if ($Opt{debug});
-            delete $UniqueFiles { FileKey( $$md5ref, @candstat )};
-            return;		# So then we have no match.
-        }
-        if ($firststat[0] == $candstat[0] and $firststat[1] == $candstat[1]) {
-	    # We found ourselves.  This can happen if we restart/reload prior maps.
-            # Treat it as a non-match and just fall through the parent's logic.
-            print "debug:   Found self on $cand\n" if ($Opt{debug});
-            return;
-        }
-        print "debug:   MD5 match: " . join(', ',@candstat) . ",$cand\n"
-            . "              with: " . join(', ',@firststat) . ",$first\n"
-                if ($Opt{debug});
-        my $different = ($Opt{compare}?compare $first, $cand:0);
-        if ( $different != 0 && $File::Compare::VERSION < 1.1005 ) {
-
-            # workaround bug # 37716 in File::Compare
-            $different = compare "$first\0", "$cand\0";
-        }
-        if ( $different < 0 ) {
-            # Compare failed to run.
-            warn sprintf(
-                "Cannot compare %s and %s (%s); Skipping.",
-                $DV->stringify($first),
-                $DV->stringify($cand), $!,
-            );
-	    return;
-        }
-        elsif ($different == 0) {
-            # We have a match!
-            print "debug:  $cand matches $first\n" if ($Opt{debug} > 1);
-            return $first;
-        }
-        else {
-            # MD5 matched but binary compare differed!!!
-            die sprintf(
-                "MD5 collision!  %s and %s are not equal with same MD5 ($$md5ref)",
-                $DV->stringify($first),
-                $DV->stringify($cand)
-                );
-        }
-    }
-    else {
-        print "debug:  $cand is unique\n" if ($Opt{debug} > 1);
-        return;
-    }
-}
-
-
-
 #
 # CheckInterrupt
 #

@@ -1,0 +1,12 @@
+<html>
+<head>
+<title>dirvish-run log</title>
+<META HTTP-EQUIV="Refresh" CONTENT="60">
+</head>
+<body>
+<!-- need three backslashes in sudoers file for the following -->
+<pre>
+<!--#exec cmd="sudo /bin/grep 'dirvish-run\[' /var/log/syslog /var/log/messages 2> /dev/null | tail -25 | sed 's/^.*dirvish-run\[/[/'" -->
+<pre>
+</body>
+</html>

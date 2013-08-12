@@ -96,7 +96,7 @@ sub Check {
 		# No.  Go gather it.
 		my @Data;
 		if ($Self->{Host} eq 'localhost') {
-			@Data = `df -Pk`;
+			@Data = `df -k`;
 		}
 		else {
 			# On a remote host.
@@ -106,7 +106,7 @@ sub Check {
     			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
     			. ($Self->{User}?"$Self->{User}@":'')
     			. $Self->{Host}
-    			. ' df -Pk '
+    			. ' df -k '
     			;
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
     		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
