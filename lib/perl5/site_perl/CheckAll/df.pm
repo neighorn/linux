@@ -126,6 +126,9 @@ sub Check {
 			next if (/^\s*Filesystem/);
 			# Filesystem           1K-blocks      Used Available Use% Mounted on
 			my($device,$total,$used,$free,$percent,$mount) = split(/\s+/);
+    		        printf "\r\%5d       device=%s, total=%s, used=%s, free=%s, percent=%s, mount=%s\n",
+				$$,$Self->{Host},$device,$total,$used,$free,$percent,$mount
+					if ($Self->Verbose);
 			next if ($device eq 'none');
 			$percent=~s/%//;
 			@{$Hash{$mount}} = ($device,$total,$used,$free,$percent);
