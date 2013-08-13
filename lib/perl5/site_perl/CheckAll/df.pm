@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package df;
 use base 'CheckItem';
-use fields qw(Port User Maxpercent Exclude);
+use fields qw(Port User Maxpercent Exclude Posix);	
 
 my %HostHash;	# Hash of lists of df data.
 
@@ -95,8 +95,9 @@ sub Check {
 	if (!exists($HostHash{$Self->{Host}})) {
 		# No.  Go gather it.
 		my @Data;
+		my $POSIX = (defined($Self->{Posix}) and !$Self->{Posix}?'':'-P');
 		if ($Self->{Host} eq 'localhost') {
-			@Data = `df -k`;
+			@Data = "df -k $POSIX";
 		}
 		else {
 			# On a remote host.
@@ -106,7 +107,7 @@ sub Check {
     			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
     			. ($Self->{User}?"$Self->{User}@":'')
     			. $Self->{Host}
-    			. ' df -k '
+    			. " df -k "
     			;
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
     		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
@@ -220,6 +221,11 @@ typically results in using port 22.
 
 User = the name of the remote user account.  The default is to not specify a remote user name
 typically resulting in using the same name as the local user.
+
+=item *
+
+Posix - a true value adds the -P flag to the df command (default).  This option allows df to
+work on some embedded systems that don't support the -P option by specifying Posix=0.
 
 =back
 
