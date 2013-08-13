@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.14;
+our $Version	= 3.15;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -744,8 +744,8 @@ sub _FilterMessage {
 	# Log everything through Syslog if requested.
 	if ($Options{SYSLOG_FACILITY} && !/^\s*$/) {
 		if (!(syslog("INFO", "%s", $_))) {
-			$ErrorsDetected += _FilterMessage("LogOutput: Unable to write to syslog: $!");
 			$Options{SYSLOG_FACILITY}=0;
+			$ErrorsDetected += _FilterMessage("LogOutput: Unable to write to syslog: $!");
 		}
 	}
 
