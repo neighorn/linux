@@ -107,7 +107,7 @@ sub Check {
     			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
     			. ($Self->{User}?"$Self->{User}@":'')
     			. $Self->{Host}
-    			. " df -k "
+    			. " df -k $POSIX"
     			;
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
     		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
