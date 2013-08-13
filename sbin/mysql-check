@@ -208,6 +208,10 @@ __END__
 #
 IGNORE  /^\s*$/
 IGNORE	"\sOK$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-check\[\d+\]:\s+\S+\s+OK$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-check\[\d+\]:\s+status\s+: OK$"
+SHOW	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-check\[\d+\]:\s+\S+$"
+SHOW	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-check\[\d+\]:\s+warning\s+: \d+ (client is|clients are) using or (haven't|hasn't) closed the table properly$"
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
