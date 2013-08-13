@@ -95,7 +95,7 @@ sub Check {
 	if (!exists($HostHash{$Self->{Host}})) {
 		# No.  Go gather it.
 		my @Data;
-		my $POSIX = (defined($Self->{Posix}) and !$Self->{Posix}?'':'-P');
+		my $POSIX = (!defined($Self->{Posix}) or $Self->{Posix})?'-P':' ';
 		if ($Self->{Host} eq 'localhost') {
 			@Data = "df -k $POSIX";
 		}
