@@ -97,7 +97,7 @@ sub Check {
 		my @Data;
 		my $POSIX = (!defined($Self->{Posix}) or $Self->{Posix})?'-P':' ';
 		if ($Self->{Host} eq 'localhost') {
-			@Data = "df -k $POSIX";
+			@Data = `df -k $POSIX`;
 		}
 		else {
 			# On a remote host.
@@ -125,6 +125,7 @@ sub Check {
 		foreach (@Data) {
 			next if (/^\s*Filesystem/);
 			# Filesystem           1K-blocks      Used Available Use% Mounted on
+			next if (/^\s*Filesystem\s/i);
     		        printf "\r\%5d       Processing: %s\n", $$,$_
 				if ($Self->Verbose);
 			my($device,$total,$used,$free,$percent,$mount) = split(/\s+/);
