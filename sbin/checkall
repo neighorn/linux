@@ -164,6 +164,13 @@ my $Now = time();		# Avoid repeated calls.
 foreach my $Item (@ItemList) {
 	# Call report to issue visible status, and count failures.
 	my $Desc = $Item->Desc;
+	my $LongDesc;
+	if ($Item->{StatusDetail}) {
+		$LongDesc = "$Desc(" . $Item->{StatusDetail} . ")";
+	}
+	else {
+		$LongDesc = $Desc;
+	}
 	my $Status = $Item->Report($DescLen,$opt_f);
 	my $DoDownActions = 0;
 	if ($Status == 0) {
@@ -195,13 +202,12 @@ foreach my $Item (@ItemList) {
 			}
 			else {
 				# We sent out notifications before, but it's time for another one.
-				push @StillFail, $Desc;
+				push @StillFail, $LongDesc;
 			}
 		}
 		if ($Item->FirstNotification == 0) {
 			# We have a service down with a delay notification that hasn't notified yet.
 			$WorstError = 4 if ($WorstError < 4);
-			print "debug: " . $Item->FirstNotification . ", $Now < " . $Item->NextNotification . "\n";
 		}
 		else {
 			# A service is down.
@@ -264,7 +270,7 @@ foreach my $Item (@ItemList) {
 
 	# Common code for "Now Down and no delay notification" or "Still down and delay time expired"
 	if ($DoDownActions) {
-		push @NowFail, $Desc;
+		push @NowFail, $LongDesc;
 		if (my $Action = $Item->Onfail) {
 			if ($opt_t) {
 				print "\t\tTesting: OnFail action for $Desc suppressed.\n";
