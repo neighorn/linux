@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.15;
+our $Version	= 3.16;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -397,6 +397,8 @@ sub _SetOptions {
 			}
 		}
 	}
+	# Check for environmental overrides
+	$Options{VERBOSE} = $ENV{LOGOUTPUT_VERBOSE} if ($ENV{LogOutput_Verbose});
 	$Options{VERBOSE} = 0 unless defined($Options{VERBOSE});	# In case supplied $opt_v is undef.
 }
 
@@ -927,6 +929,9 @@ Options and defaults are shown in the table below:
    SYSLOG_FACILITY	| -none-	| SYSLOG facility code to use
    SYSLOG_OPTIONS	| pid		| SYSLOG options
    VERBOSE		| 0		| Diagnostic/verbosity level (0-9).
+   			| 		| May be overridden by setting the
+   			| 		| $LOGOUTPUT_VERBOSE environmental
+   			| 		| variable.
 
 The option names (i.e. "ALWAYS_MAIL_LIST") are case-insensitive.
 
