@@ -398,7 +398,7 @@ sub _SetOptions {
 		}
 	}
 	# Check for environmental overrides
-	$Options{VERBOSE} = $ENV{LOGOUTPUT_VERBOSE} if ($ENV{LogOutput_Verbose});
+	$Options{VERBOSE} = $ENV{LOGOUTPUT_VERBOSE} if (exists($ENV{LOGOUTPUT_VERBOSE}));
 	$Options{VERBOSE} = 0 unless defined($Options{VERBOSE});	# In case supplied $opt_v is undef.
 }
 
