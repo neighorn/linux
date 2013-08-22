@@ -454,7 +454,7 @@ sub PrintStatsFile {
 ];
 	foreach (@_) {
 		s/^\s*//;
-		syswrite $STATFH,"$_<br>\n";
+		syswrite $STATFH,"$_<br><br>\n";
 	}
 	syswrite $STATFH,"\t\t\t\t</font>\n\t\t\t</body>\n\t\t</html>\n";
 }
