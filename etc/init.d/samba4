@@ -1,0 +1,110 @@
+#!/bin/bash
+#
+# samba4        This shell script takes care of starting and stopping
+#               samba4 daemons.
+#
+# chkconfig: - 58 74
+# description: Samba 4.0 will be the next version of the Samba suite
+# and incorporates all the technology found in both the Samba4 alpha
+# series and the stable 3.x series. The primary additional features
+# over Samba 3.6 are support for the Active Directory logon protocols
+# used by Windows 2000 and above.
+
+### BEGIN INIT INFO
+# Provides: samba4
+# Required-Start: $network $local_fs $remote_fs
+# Required-Stop: $network $local_fs $remote_fs
+# Should-Start: $syslog $named
+# Should-Stop: $syslog $named
+# Short-Description: start and stop samba4
+# Description: Samba 4.0 will be the next version of the Samba suite
+# and incorporates all the technology found in both the Samba4 alpha
+# series and the stable 3.x series. The primary additional features
+# over Samba 3.6 are support for the Active Directory logon protocols
+# used by Windows 2000 and above.
+### END INIT INFO
+
+# Source function library.
+. /etc/init.d/functions
+
+
+# Source networking configuration.
+. /etc/sysconfig/network
+
+prog_dir=/usr/local/samba/sbin/
+lockfile=/var/lock/subsys/$prog
+
+if grep -q 'active directory domain controller' $prog_dir/../etc/smb.conf
+then
+	prog_list="samba"
+else
+	prog_list="smbd nmbd"
+fi
+
+start_item() {
+	daemon $prog_dir/$1 -D
+	RETVAL=$?
+	return $RETVAL
+}
+
+start() {
+        [ "$NETWORKING" = "no" ] && exit 1
+#       [ -x /usr/sbin/ntpd ] || exit 5
+
+        echo -n $"Starting $prog_list: "
+	for prog in $prog_list
+	do
+		start_item $prog
+		[ $? -eq 0 ] || break
+	done
+        echo
+        [ $RETVAL -eq 0 ] && touch $lockfile
+        return $RETVAL
+}
+
+
+stop() {
+        [ "$EUID" != "0" ] && exit 4
+        echo -n $"Shutting down $prog_list: "
+	for prog in $prog_list
+	do
+        	killproc $prog_dir/$prog 
+	done
+	prog_list=`echo $prog_list | tr ' ' '|'`
+	ps -fu root | grep -Eq "$prog_list"
+	
+        if [ $? -eq 1 ]
+	then
+        	rm -f $lockfile
+		RETVAL=0
+	else
+		RETVAL=1
+	fi
+	echo
+	return $RETVAL
+}
+
+
+# See how we were called.
+case "$1" in
+start)
+        start
+        ;;
+stop)
+        stop
+        ;;
+status)
+        status $prog
+        ;;
+restart)
+        stop
+        start
+        ;;
+reload)
+        echo "Not implemented yet."
+        exit 3
+        ;;
+*)
+        echo $"Usage: $0 {start|stop|status|restart|reload}"
+        exit 2
+esac
