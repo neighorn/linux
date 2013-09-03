@@ -38,7 +38,7 @@ sub Check {
 			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
 			. ($Self->{User}?"$Self->{User}@":'')
 			. $Self->{Host}
-			. ' net ads testjoin '
+			. ' net ads testjoin 2>&1'
 			;
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
     		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
@@ -53,7 +53,7 @@ sub Check {
 		  	}
 	}
 	else {
-		@Data = `net ads testjoin`;
+		@Data = `net ads testjoin 2>&1`;
 	}
 
 	my $Detail;
