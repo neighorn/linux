@@ -6,6 +6,7 @@
 use strict;
 use warnings;
 use Cwd;
+use Data::Dumper::Simple;
 use Digest::MD5::File qw(file_md5_hex);
 use Dumpvalue;
 use File::Compare qw(compare);
@@ -13,16 +14,16 @@ use File::Copy qw(cp);
 use File::Find;
 use File::Temp qw(tempfile);
 use File::Basename;
-use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
-use POSIX qw(strftime);
+use File::ExtAttr ':all';
+use File::Glob 'bsd_glob';
 use Fcntl;
 use FindBin qw($Bin $Script $Script);
-use String::ShellQuote;		# For shell_quote.
-use Data::Dumper::Simple;
-use Text::ParseWords;
-use Sys::Syslog;
-use File::Glob 'bsd_glob';
+use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use Mail::Sendmail;
+use POSIX qw(strftime);
+use String::ShellQuote;		# For shell_quote.
+use Sys::Syslog;
+use Text::ParseWords;
 
 # 
 # Prototype declarations.
@@ -504,9 +505,10 @@ sub ProcessFile {
     #   1) We've seen this inode before, and it stayed as-is.  This one can too.
     #   2) We've seen this inode before, and it was replaced.  Replace this one
     #      the same way.
-    #   3) It's content matches a prior file.  Link it and remember the inode.
+    #   3) It's stat data and content matches a prior file.  Link it and 
+    #      remember the inode.
     #   4) It doesn't match anything.  Remember it as a unique file and remember the inode.
-    my $first = KnownInodes(@candstat);
+    my $first = KnownInodes(@candstat);		# Have we seen this inode before?
     if (defined($first) and !$first ) {
         # Case 1: we've seen this before and it stayed as-is.
         print "debug:   $Candidate has same inode as $first -- leave as is\n"
@@ -531,8 +533,10 @@ sub ProcessFile {
         # Case 4: It didn't match anything.
         $match = 0;
         RegisterFile( $md5, $Candidate, @candstat );	# Remember for future matches.
-        RegisterInode('',@candstat);		# Remember this inode.
+        RegisterInode('',@candstat);					# Remember this inode.
     }
+    
+    # Common code for either of the cases where we have a match.
     if ($match) {
         # Don't replace if we've exceeded our maxlinks.
         if ( $Opt{maxlinks} && $firststat[3] >= $Opt{maxlinks} ) {
@@ -553,7 +557,7 @@ sub ProcessFile {
 
     # Skip the stats report unless:
     #    PrintStats = 1 (set by SIGUSR1)
-    #    --stats specified and $files % 1000 == 0.
+    #    --stats specified and $files % --statinterval == 0.
     PrintStatistics()
         if ( $PrintStats or ( $Opt{'stats'} and $files % $Opt{statinterval} == 0 ) );
     return;
@@ -596,41 +600,6 @@ sub KnownInodes(@) {
 
 
 #
-# RegisterInode - Remember this inode by inode data.
-#
-
-sub RegisterInode ($@) {
-    my ( $candidate, @candstat ) = @_;
-    my $key = InodeKey(@candstat);
-    
-    # Keep an array of files that use each inode.  We keep more than one in case
-    # dirvish-expire deletes one of them.
-    push @{$Inodes{ $key }}, $candidate;	# Remember this file goes with this inode.  
-}
-
-
-#
-# InodeKey - build a key for this inode
-#
-sub InodeKey {
-
-    # Ideally two pointers to the same inode number on the same device should
-    # point to the same file.  Over time, however, an inode could get release
-    # and reassigned.  So we compare on the inode number, but also a number of
-    # other characteristics that would stay constant, including size and mtime.
-    # Not atime though, since we don't care of someone read the file.
-    #
-    # Our key is: dev#,inode#,mode,uid,gid,bytes,mtime.
-    #
-    # We ignore:  #links (changes), rdev (not relevant), atime (see above),
-    #             ctime (changes), blksize (tied to dev#+inode#), blocks (same)
-    #   
-    my (@stat) = @_;
-    return "$stat[0],$stat[1],$stat[2],$stat[4],$stat[5],$stat[7],$stat[9]";
-}
-
-
-#
 # FindMatch - Try to find a file that matches this one.
 #
 sub FindMatch ($@) {
@@ -645,12 +614,24 @@ sub FindMatch ($@) {
         return '';
     }
 
-    $$md5ref = file_md5_hex($cand);	# Get the MD5 signature.
+    my $PriorMD5 = getfattr($cand,'user.dirvish-dedup-md5');
+    my $PriorMD5stat = getfattr($cand,'user.dirvish-dedup-stat');
+    # Use the existing MD5 if present, and if the file hasn't changed (mtime, size).
+    if (    $PriorMD5
+		and $PriorMD5stat
+		and join(',',@candstat[7,9]) eq join(',',(split(',',$PriorMD5stat))[7,9]) )
+    {
+    	# We already have an MD5.
+    	$$md5ref = $PriorMD5;
+    }
+    else {
+    	$$md5ref = file_md5_hex($cand);	# Get the MD5 signature.
+    }
 
     # See if we recognize this MD5 sum and stat attributes.
     if ( my $first = $UniqueFiles{ FileKey( $$md5ref, @candstat ) } ) {
         # It matches something previous, according to the MD5 and stat data.
-	my @firststat;
+		my @firststat;
         @firststat = stat($first);
         if (! $firststat[1]) {
             # This inode disappeared.
@@ -659,7 +640,7 @@ sub FindMatch ($@) {
             return;		# So then we have no match.
         }
         if ($firststat[0] == $candstat[0] and $firststat[1] == $candstat[1]) {
-	    # We found ourselves.  This can happen if we restart/reload prior maps.
+	    	# We found ourselves.  This can happen if we restart/reload prior maps.
             # Treat it as a non-match and just fall through the parent's logic.
             print "debug:   Found self on $cand\n" if ($Opt{debug});
             return;
@@ -698,11 +679,99 @@ sub FindMatch ($@) {
     }
     else {
         print "debug:  $cand is unique\n" if ($Opt{debug} > 1);
+        if (! $PriorMD5 ) {
+        	# Remember the MD5 we calculated, so we don't have to do it next time'
+        	setfattr($cand,'user.dirvish-dedup-md5',$$md5ref);
+        	setfattr($cand,'user.dirvish-dedup-stat',join(',',@candstat));
+        }
         return;
     }
 }
 
 
+#
+# RegisterInode - Remember this inode by inode data.
+#
+
+sub RegisterInode ($@) {
+    my ( $candidate, @candstat ) = @_;
+    my $key = InodeKey(@candstat);
+    
+    # Keep an array of files that use each inode.  We keep more than one in case
+    # dirvish-expire deletes one of them.
+    push @{$Inodes{ $key }}, $candidate;	# Remember this file goes with this inode.  
+}
+
+
+
+#
+# InodeKey - build a key for this inode
+#
+sub InodeKey {
+
+    # Ideally two pointers to the same inode number on the same device should
+    # point to the same file.  Over time, however, an inode could get release
+    # and reassigned.  So we compare on the inode number, but also a number of
+    # other characteristics that would stay constant, including size and mtime.
+    # Not atime though, since we don't care of someone read the file.
+    #
+    # Our key is: dev#,inode#,mode,uid,gid,bytes,mtime.
+    #
+    # We ignore:  #links (changes), rdev (not relevant), atime (see above),
+    #             ctime (changes), blksize (tied to dev#+inode#), blocks (same)
+    #   
+    my (@stat) = @_;
+    return "$stat[0],$stat[1],$stat[2],$stat[4],$stat[5],$stat[7],$stat[9]";
+}
+
+
+
+#
+# RegisterFile - Remember this file by MD5 and inode data.
+#
+{
+    # This sub is in a closure so it can maintain a persistent
+    # private hash.
+    my %CountedInodes;
+
+    sub RegisterFile ($$@) {
+        my ( $md5, $cand, @candstat ) = @_;
+		$md5 = file_md5_hex($cand) unless $md5;  # We can get here without an MD5 due to maxlinks.
+        $UniqueFiles{ FileKey( $md5, @candstat ) } = $cand;
+        my $size = $candstat[7];
+        warn "size undefined"    unless defined $size;
+        warn "usedspc undefined" unless defined $Usedspc;
+        if ($Opt{debug}) {
+            print "debug:   Registered new file: " . FileKey($md5,@candstat) . " => $cand\n";
+        }
+        return if $CountedInodes{ $candstat[1] }++;    # don't count twice
+        $Usedspc += $size;
+    }
+}
+
+
+
+#
+# FileKey - build a hash key for this file
+#
+sub FileKey {
+    my ( $md5, @stat ) = @_;
+    # stat 0 - dev #
+    # stat 1 - inode #
+    # stat 2 - mode
+    # stat 3 - number of hard links
+    # stat 4 - uid
+    # stat 5 - gid
+    # stat 6 - device identifier (special files only)
+    # stat 7 - size
+    # stat 8 - atime
+    # stat 9 - mtime
+    # stat 10 - ctime
+    # stat 11 - preferred block size for file system I/O
+    # stat 12 - blocks allocated
+    
+    return "$md5,$stat[0],$stat[2],$stat[4],$stat[5],$stat[7]";
+}
 
 
 #
@@ -780,52 +849,6 @@ sub ReplaceWithLink ($$) {
     return 1;
 }
 
-
-#
-# RegisterFile - Remember this file by MD5 and inode data.
-#
-{
-    # This sub is in a closure so it can maintain a persistent
-    # private hash.
-    my %CountedInodes;
-
-    sub RegisterFile ($$@) {
-        my ( $md5, $cand, @candstat ) = @_;
-	$md5 = file_md5_hex($cand) unless $md5;  # We can get here without an MD5 due to maxlinks.
-        $UniqueFiles{ FileKey( $md5, @candstat ) } = $cand;
-        my $size = $candstat[7];
-        warn "size undefined"    unless defined $size;
-        warn "usedspc undefined" unless defined $Usedspc;
-        if ($Opt{debug}) {
-            print "debug:   Registered new file: " . FileKey($md5,@candstat) . " => $cand\n";
-        }
-        return if $CountedInodes{ $candstat[1] }++;    # don't count twice
-        $Usedspc += $size;
-    }
-}
-
-
-#
-# FileKey - build a hash key for this file
-#
-sub FileKey {
-    my ( $md5, @stat ) = @_;
-    # stat 0 - dev #
-    # stat 1 - inode #
-    # stat 2 - mode
-    # stat 3 - number of hard links
-    # stat 4 - uid
-    # stat 5 - gid
-    # stat 6 - device identifier (special files only)
-    # stat 7 - size
-    # stat 8 - atime
-    # stat 9 - mtime
-    # stat 10 - ctime
-    # stat 11 - preferred block size for file system I/O
-    # stat 12 - blocks allocated
-    
-    return "$md5,$stat[0],$stat[2],$stat[4],$stat[5],$stat[7]";
-}
 
 #
 # WriteCheckpoint - write a checkpoint file.
