@@ -492,7 +492,7 @@ sub ProcessServiceLine {
 	}
 	else {
 		# Set the unique name if it isn't already set.
-		$Item->Name(ref($Item) . "=" . $Item->Host . "=" . $Item->Target) unless ($Item->Name);
+		$Item->Name(ref($Item) . "=" . ($Item->Host?$Item->Host:'localhost') . "=" . ($Item->Target?$Item->Target:'no-target')) unless (defined($Item->Name) and $Item->Name);
 
 		# Map the name to this item.
 		$MapRef->{$Item->Name} = $Item;
