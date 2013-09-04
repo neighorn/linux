@@ -38,8 +38,8 @@ function LinkDups {
 					((AlreadyLinked=$AlreadyLinked+1))
 				else
 					# Not already linked.  Are they the same?
-					filestat=`stat -c %u-%g-%a-%s-%m "$filename"`
-					candstat=`stat -c %u-%g-%a-%s-%m "$candidate"`
+					filestat=`stat -c %d-%u-%g-%a-%s-%m "$filename"`
+					candstat=`stat -c %d-%u-%g-%a-%s-%m "$candidate"`
 					if [[ "$filestat" = "$candstat" ]]
 					then
 						# uid, gid, perms, size, mountpoint match.  Check content.
@@ -58,6 +58,7 @@ function LinkDups {
 								(( SavedM=$SavedM + 1 ))
 								(( Saved = $Saved - (1024*1024) ))
 							fi
+							[[ $Verbose -eq 1 ]] && echo "Linking \"$candidate\" to \"$filename\""
 							ln -f "$candidate" "$filename"
 							((MatchCount=MatchCount+1))
 						fi
