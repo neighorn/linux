@@ -192,16 +192,27 @@ $Errors++ unless GetOptions(%OptionSpecifications);
 if (%FileSystems) {
 	print "_"x60 . "\nDisk space report:\n";
 	my $units = ($^O eq 'aix'?'g':'h');
-	my @df=`df -$units -P| grep -E '^(" . join('|',keys(%FileSystems)) . ")`;
+	my $dfcmd="df -$units -P| grep -E '^(" . join('|',keys(%FileSystems)) . ")'";
+	my @df = `$dfcmd`;
 	foreach my $Line (@df) {
-		if (
-			$Line =~ /^\s*\S+:\S+\s+\d+[TGMK]\s+\d+[TGMK]\s+\d+[TGMK]\s+(\d+)%/	# file system line
-			and $1 >= $Options{"max-fs-percent"})
-		{
-			chomp $Line;
-			$Line = "$Line <-- over " . $Options{"max-fs-percent"} . "%\n";
+		if ( $Line =~ /^\s*Filesystem\s/) {
+			# Header
+			print $Line;
 		}
-		print $Line;
+		elsif ( $Line =~ /^\s*\S+\s+[\d+.]+[TGMK]\s+[\d.]+[TGMK]\s+[\d.]+[TGMK]\s+(\d+)%/ ) {
+			# File system line:  /dev/mapper/system-dirvish  1.3T  1.1T  148G  89% /usr/local/dirvish
+			if ($1 > $Options{"max-fs-percent"}) {
+				# Over limit.  Add flag to end.
+				chomp $Line;
+				$Line = "$Line <- over " . $Options{"max-fs-percent"} . "%\n";
+			}
+			print $Line;
+		}
+		else {
+			# This section alerts us to future bugs where the df output format has changed and
+			# no longer triggers the file system percent tests.
+			print "Unrecognized df line: $Line";
+		}
 	}	
 	print "\n";
 }
@@ -898,7 +909,8 @@ SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
 SHOW	"^\s*Disk space report:$"
 SHOW	"^\s*Filesystem\s+Size\s+Used\s+Avail\s+Use%\s+Mounted on\s*$"
-SHOW	"^\s*\S+:\S+\s+\d+[TGMK]\s+\d+[TGMK]\s+\d+[TGMK]\s+\d+%"
+#/dev/mapper/system-dirvish  1.3T  1.1T  148G  89% /usr/local/dirvish
+SHOW	"^\s*\S+\s+[\d.]+[TGMK]\s+[\d.]+[TGMK]\s+[\d.]+[TGMK]\s+\d+%\s+\S+$"
 IGNORE	"^\s*\*\*\* Execution cycle \d \*\*\*\s*$"
 IGNORE	"^\s*Copyright \(c\) \d\d\d\d Water Technologies Inc.\s*$"
 IGNORE	"^\s*All access is prohibited unless expressly authorized.$"
