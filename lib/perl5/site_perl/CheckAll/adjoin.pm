@@ -65,7 +65,7 @@ sub Check {
 	}
 	else {
 		$Status = $Self->CHECK_FAIL;
-		$Detail = $Actual;
+		$Detail = chomp($Actual);
 	}
 			
 	$Self->{StatusDetail}=$Detail;
