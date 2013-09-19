@@ -5,13 +5,11 @@ no strict 'refs';
 use warnings;
 use Getopt::Long qw(:config bundling no_auto_abbrev gnu_compat no_ignore_case);
 use Sys::Syslog;
-use Getopt::Std;
 use IO::Socket;
 use File::Temp qw(tempfile);
 use POSIX qw(strftime);
 use Fcntl;
 use FindBin qw($Bin $Script);
-require CheckAll::CheckItem;
 
 my $HIGHLIGHT = "\e[33;40;1m";	# Yellow FG, Black BG, Bright.
 my $RESET = "\e[0m";
@@ -53,14 +51,17 @@ GetOptions (
 	'c|config=s'	=> \$opt_c,
 	'fail|failed'	=> \$opt_f,
 	'h|help'	=> \$opt_h,
+	'L|libdir=s'	=> sub{ push @INC, $_[1]; },
 	't|test'	=> \$opt_t,
 	'q|quiet'	=> \$opt_q,
 	'P|page=s'	=> \@opt_P,
 	'R|renotify=i'	=> \$opt_R,
 	's|subject=s'	=> \$opt_s,
-	'S|single!'		=> \$opt_S,
+	'S|single!'	=> \$opt_S,
 	'w|waittime=i'	=> \$opt_w,
 );
+
+use CheckAll::CheckItem; # Do this late, to benefit from -L.
 
 # Check options.
 if ($opt_h) {
@@ -625,6 +626,10 @@ Fail -- only list failing items.
 =item -h, --help
 
 Help -- print this documentation
+
+=item -L path, --libdir=path
+
+Lib -- add this path when looking for Perl modules to include.
 
 =item -P address, --page=address
 
