@@ -10,6 +10,7 @@ use File::Temp qw(tempfile);
 use POSIX qw(strftime);
 use Fcntl;
 use FindBin qw($Bin $Script);
+use Text::ParseWords;
 
 my $HIGHLIGHT = "\e[33;40;1m";	# Yellow FG, Black BG, Bright.
 my $RESET = "\e[0m";
@@ -26,7 +27,7 @@ our $opt_q=0;			# Quiet option.
 our @opt_P;			# Who to page on errors.
 our $opt_R=120;			# Set number of minutes to re-report fail items.
 our $opt_s='';			# Alert subject
-our $opt_S=0;			# Single - only run one process at a time (for debugging).
+our $opt_S=0;			# Single - only run one process at a time (for diagnostics).
 our $opt_w=20;			# Wait time in seconds (for checks that timeout)
 our $Prog = $Script;	# Get our program name.
 $Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
@@ -37,6 +38,11 @@ my @NowOK;			# Newly OK items.
 my @StillFail;			# On-going fail items.
 my %FailItems;			# List of items previously failing.
 my @OtherItems;			# Stuff in the status file from other check lists.
+my @ConfigFiles;		# List of configuration files.
+my $ConfigFile;			# Base config file comes from etc next to our bin.
+($ConfigFile = $Bin) =~ s"/[^/]*$"/etc/$Prog.cfg";
+push @ConfigFiles, $ConfigFile;
+
 $| = 1;				# Unbuffer output.
 my $StartTime = time();
 
@@ -45,6 +51,23 @@ my $ServiceList="/usr/local/etc/$Prog.list";
 
 our $HostName = `hostname`;
 chomp $HostName;
+
+# Load the config file.
+my %Config;
+foreach my $FileName (@ConfigFiles) {
+#	my @Data = ReadFile($FileName);
+	foreach (ReadFile($FileName)) {
+		next unless ($_);	# Sparse array has blank entries.
+                my ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
+                $name=~tr/[a-z]/[A-Z]/;
+                $Config{$name}=$settings;
+        }
+}
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+        if (defined($Config{'ALLJOBS'}));
+
 
 GetOptions (
 	'v|verbose+'	=> \$opt_v,
@@ -121,7 +144,7 @@ foreach my $Item (@ItemList) {
 		# This one is running in the background.  Map the PID to the item.
 		$PIDs{$Value} = $Item;
 		if ($opt_S) {
-			# Single-service submission - primarily to make debugging easier.
+			# Single-service submission - primarily to make diagnostics easier.
 			my $pid = waitpid($Value,0);
 			$PIDs{$pid}->Status($?>>8) if ($pid > 0);
 			$Services--;
@@ -366,38 +389,10 @@ else {
 # LoadServiceList - load a list of services.
 #
 sub LoadServiceList {
-	my($ServiceList,$ArrayRef,$MapRef) = @_;
-	return unless (-f $ServiceList);
-	my $FH;
-	if (sysopen($FH,$ServiceList,O_RDONLY)) {
-		# Load the service file.
-		my $LineInProgress = '';
-		my $CompleteLine = '';
-		my $StartLine;
-		my $LineNum = 0;
-		while (<$FH>) {
-			$LineNum++;
-			next if (/^\s*#/);			# Skip comments.
-			next if (/^\s*$/);			# Skip blank lines.
-			chomp;
-			s/\s+$//;				# Strip trailing blanks.
-
-			# Is this a continuation line (starts with white space)?
-			if (/^\s+/) {
-				# Yes.  Append it to any prior data.
-				s/^\s+//;
-				$LineInProgress .= " $_";	# Append to prior data.
-			}
-			else {
-				# This is (the beginning of?) a new line.  Process the old line if we have one.
-				ProcessServiceLine($ServiceList, $StartLine, $ArrayRef, $MapRef, $LineInProgress);
-				$LineInProgress = $_;
-				$StartLine = $LineNum;
-			}
-		}
-		# Process the last line if we have one.
-		ProcessServiceLine($ServiceList, $StartLine, $ArrayRef, $MapRef, $LineInProgress);	
-		close $FH;
+	my($FileName,$ArrayRef,$MapRef) = @_;
+	my @Data = ReadFile($FileName);
+	foreach my $Index (0..$#Data) {
+		ProcessServiceLine($FileName, $Index, $ArrayRef, $MapRef, $Data[$Index]);	
 	}
 }
 
@@ -575,6 +570,53 @@ sub WriteStatusFile {
 		warn("Unable to update $StatusFile: $!\n");
 	}
 }
+
+
+sub ReadFile {
+
+	my $FileName = shift;
+	my @Data;
+	my $FH;
+	
+	return @Data unless (-f $FileName);	# File doesn't exist.  Return empty array.
+
+	# Go process the file.
+	if (sysopen($FH,$FileName,O_RDONLY)) {
+		# Read the file, joining multi-line entries into one.
+		my $LineInProgress = '';
+		my $CompleteLine = '';
+		my $StartLine;
+		my $LineNum = 0;
+		while (<$FH>) {
+			$LineNum++;
+			next if (/^\s*#/);			# Skip comments.
+			next if (/^\s*$/);			# Skip blank lines.
+			chomp;
+			s/\s+$//;				# Strip trailing blanks.
+
+			# Is this a continuation line (starts with white space)?
+			if (/^\s+/) {
+				# Yes.  Append it to any prior data.
+				s/^\s+//;
+				$LineInProgress .= " $_";	# Append to prior data.
+			}
+			else {
+				# This is the beginning of a new line.  Store the old line if we have one.
+				$Data[$StartLine] = $LineInProgress if ($LineInProgress);
+				$LineInProgress = $_;
+				$StartLine = $LineNum;
+			}
+		}
+		# Process the last line if we have one.
+		$Data[$StartLine] = $LineInProgress if ($LineInProgress);
+		close $FH;
+	}
+	else {
+		warn "Unable to open $FileName: $!";
+	}
+	
+	return @Data;
+}
 =pod
 
 =head1 checkall -- check on services
@@ -657,7 +699,7 @@ are made:
 =item -S, --single
 
 Single -- run tests one at a time rather than in parallel.  This is primarily
-used as a debugging aid.
+used as a diagnostic aid.
 
 =item -v, --verbose
 
