@@ -81,7 +81,7 @@ GetOptions (
 	'w|waittime=i'	=> \$opt_w,
 );
 
-use CheckAll::CheckItem; # Do this late, to benefit from -L.
+eval "use CheckAll::CheckItem;"; # Do this late, to benefit from -L.
 
 # Check options.
 if ($opt_h) {
