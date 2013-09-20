@@ -18,8 +18,8 @@ my $RESET = "\e[0m";
 # Set a path, particularly for OnOK/OnFail actions.
 $ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$ENV{PATH}";
 
-our $opt_c='';			# Configuration file (service list).
-our $opt_f='';			# Configuration file (service list).
+our $opt_c='';			# Service file (service list).
+our $opt_f='';			# Service file (service list).
 our $opt_h=0;			# Help
 our $opt_v=0;			# Verbose option.
 our $opt_t=0;			# Test option.
@@ -38,10 +38,7 @@ my @NowOK;			# Newly OK items.
 my @StillFail;			# On-going fail items.
 my %FailItems;			# List of items previously failing.
 my @OtherItems;			# Stuff in the status file from other check lists.
-my @ConfigFiles;		# List of configuration files.
-my $ConfigFile;			# Base config file comes from etc next to our bin.
-($ConfigFile = $Bin) =~ s"/[^/]*$"/etc/$Prog.cfg";
-push @ConfigFiles, $ConfigFile;
+my @ConfigFiles = ('/usr/local/etc/checkall.cfg');		# List of configuration files.
 
 $| = 1;				# Unbuffer output.
 my $StartTime = time();
@@ -713,6 +710,22 @@ Wait Time -- Wait up to "seconds" seconds for individual checks to complete.  So
 The effective value for any given check is the larger of this value or a waittime value specified in the check definition.  The default value is 20 seconds.
 
 =back
+
+=head2 Configuration File
+
+Options may also be specified in an optional configuration file named /usr/local/etc/checkall.cfg.
+The file format is "Alljobs:" starting in column 1, followed optionally by white space,
+followed by a list of command line options.  For example:
+
+  Alljobs: -L /usr/mcsi-linux/lib/perl5/site-perl --waittime=30 --failed
+
+Lines beginning with white space are continuation lines.  For example:
+
+  Alljobs: -L /usr/mcsi-linux/lib/perl5/site-perl
+           --waittime=30
+           --failed
+
+Blank lines and lines beginning with # are ignored.
 
 =head2 Service List Files
 
