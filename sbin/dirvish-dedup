@@ -14,7 +14,6 @@ use File::Copy qw(cp);
 use File::Find;
 use File::Temp qw(tempfile);
 use File::Basename;
-use File::ExtAttr ':all';
 use File::Glob 'bsd_glob';
 use Fcntl;
 use FindBin qw($Bin $Script $Script);
@@ -70,6 +69,7 @@ our $LastPrint='';	   # What we last printed (stats, progress);
 our $LastStats='';         # Our most recent statistics report.
 our $LastProgress = 0;	   # The last time we generated a progress report.
 our $CheckpointDuration;   # The time it takes to write a checkpoint file.
+our $FileAttrMode;	   # Do we have FileAttr (0=no,1=cmd,2=File::ExtAttr);
 
 my %DFHash;		   # List of file systems we were trying to clean up.
 
@@ -95,7 +95,8 @@ $SIG{ALRM} = sub {
     $PrintProgress = 1 if ( 
            ( $Opt{progress} or $Opt{statfile} )
        and time() - $LastProgress >= $Opt{proginterval});	# If they want progress reports, queue it up.
-    $WriteCheckpoint = 1 if (time() - $LastCheckpoint >= $Opt{cpinterval}); 
+    my $CPInt = ($Opt{cpinterval} > $CheckpointDuration*10?$Opt{cpinterval}:$CheckpointDuration*10);	# Make sure checkpoints take max 10% of time.
+    $WriteCheckpoint = 1 if (time() - $LastCheckpoint >= $CPInt); 
     alarm($AlarmInterval - (time() % $AlarmInterval));	# Schedule the next alarm.
 };
 
@@ -127,6 +128,23 @@ select(STDERR);
 $| = 1;
 select(STDOUT);
 $| = 1;
+
+# Figure out what we've got for file attributes.
+eval "require File::ExtAttr";		# Do we know this module?
+if ($@ eq '') {
+	require File::ExtAttr;
+	File::ExtAttr->import(':all');
+	$FileAttrMode = 2;
+	print "File Attributes: found File::ExtAttr.\n" if ($Opt{debug});
+}
+elsif (system("which getfattr > /dev/null 2>&1") == 0) {
+	$FileAttrMode = 1;
+	print "File Attributes: no File::ExtAttr, but found getfattr.\n" if ($Opt{debug});
+}
+else {
+	$FileAttrMode = 0;
+	warn "Unable to locate File::ExtAttr or getfattr.  No MD5 sums will be stored.\n";
+}
 
 # Initialize the statistics file if requested.
 PrintStatFile(strftime("Started $Prog at %Y-%m-%d %T\n",localtime()));
@@ -614,8 +632,17 @@ sub FindMatch ($@) {
         return '';
     }
 
-    my $PriorMD5 = getfattr($cand,'dirvish-dedup-md5',{ namespace => 'user'});
-    my $PriorMD5stat = getfattr($cand,'dirvish-dedup-stat',{ namespace => 'user'});
+    my $PriorMD5;
+    my $PriorMD5stat;
+    if ($FileAttrMode == 2) {
+		$PriorMD5 = getfattr($cand,'dirvish-dedup-md5',{ namespace => 'user'});
+		$PriorMD5stat = getfattr($cand,'dirvish-dedup-stat',{ namespace => 'user'});
+    }
+    elsif ($FileAttrMode == 1) {
+		$PriorMD5 = `getfattr -n user.dirvish-dedup-md5 --only-values "$cand" 2> /dev/null`;
+		$PriorMD5stat = `getfattr -n user.dirvish-dedup-stat --only-values "$cand" 2> /dev/null`;
+    }
+
     # Use the existing MD5 if present, and if the file hasn't changed (mtime, size).
     if (    $PriorMD5
 		and $PriorMD5stat
@@ -681,8 +708,20 @@ sub FindMatch ($@) {
         print "debug:  $cand is unique\n" if ($Opt{debug} > 1);
         if (! $PriorMD5 ) {
         	# Remember the MD5 we calculated, so we don't have to do it next time'
-        	setfattr($cand,'dirvish-dedup-md5',$$md5ref,{ namespace => 'user'});
-        	setfattr($cand,'dirvish-dedup-stat',join(',',@candstat),{ namespace => 'user'});
+		if ($FileAttrMode == 2) {
+        		setfattr($cand,'dirvish-dedup-md5',$$md5ref,{ namespace => 'user'});
+        		setfattr($cand,'dirvish-dedup-stat',join(',',@candstat),{ namespace => 'user'});
+		}
+		elsif ($FileAttrMode == 1) {
+			if (system(qq<setfattr -n dirvish-dedup-md5 -v $$md5ref "$cand">) != 0) {
+				warn "setfattr for $cand failed - disabling file attributes\n";
+				$FileAttrMode = 0;
+			}
+			if (system('setfattr -n dirvish-dedup-stat -v ' . join(',',@candstat) . qq<"$cand">) != 0) {
+				warn "setfattr for $cand failed - disabling file attributes\n";
+				$FileAttrMode = 0;
+			}
+		}
         }
         return;
     }
@@ -855,6 +894,7 @@ sub ReplaceWithLink ($$) {
 #
 sub WriteCheckpoint {
 
+    print "Writing checkpoint file\n" if ($Opt{debug});
     my $CheckpointFile = "/tmp/$Prog.$$.checkpoint";
 
     $WriteCheckpoint = 0;	# Mark this as done.
@@ -1174,7 +1214,10 @@ dirvish-dedup - traverse directories, find identical files, replace with hard li
   --(no)compare           physically compare files if the MD5 sum and file
                           attributes match.  Slow.  --nocompare is the default.
   --cpinterval=n          Write a checkpoint files every "n" seconds
-                          (default=600).
+                          (default=600).  In some circumstances this write can
+			  take a long time, in which case the cpinterval is 
+                          dynamically increased so that no more than 10% of 
+                          the run time is taken writing checkpoint files.
   --mail=address	  Send a brief e-mail to "address" on completion.
 			  May be repeated.
   --reverse		  Process the command-line parameters in reverse order.
