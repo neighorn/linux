@@ -68,7 +68,7 @@ our $td_slashes;	   # Number of slashes to our current top domain.
 our $LastPrint='';	   # What we last printed (stats, progress);
 our $LastStats='';         # Our most recent statistics report.
 our $LastProgress = 0;	   # The last time we generated a progress report.
-our $CheckpointDuration;   # The time it takes to write a checkpoint file.
+our $CheckpointDuration=1; # The time it takes to write a checkpoint file.
 our $FileAttrMode;	   # Do we have FileAttr (0=no,1=cmd,2=File::ExtAttr);
 
 my %DFHash;		   # List of file systems we were trying to clean up.
