@@ -296,6 +296,13 @@ IGNORE	/^\s*Volume group "\S+" successfully backed up.$/
 IGNORE	"^\s*No volume groups found$"
 IGNORE	/^\s*File descriptor \d+ left open$/
 #
+# Ignore some yum lock errors - believe this just delays execution until the lock is released.
+IGNORE	"^\s*Another app is currently holding the yum lock; waiting for it to exit...$"
+IGNORE	"^\s*The other application is: "
+IGNORE	"^\s*Memory :  \d+ M RSS \( \d+ MB VSZ\)$"
+IGNORE	"^\s*Started: ... ... .. ..:..:.. .... - \S+ ago$"
+IGNORE	"^\s*State  : Running, pid: \d+$"
+#
 # These are normal messages that we want to see in the e-mail log only.
 #
 LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
