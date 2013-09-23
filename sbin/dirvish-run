@@ -199,7 +199,7 @@ if (%FileSystems) {
 			# Header
 			print $Line;
 		}
-		elsif ( $Line =~ /^\s*\S+\s+[\d+.]+[TGMK]\s+[\d.]+[TGMK]\s+[\d.]+[TGMK]\s+(\d+)%/ ) {
+		elsif ( $Line =~ /^\s*\S+\s+[\d.]+[TGMK]?\s+[\d.]+[TGMK]?\s+[\d.]+[TGMK]?\s+(\d+)%/ ) {
 			# File system line:  /dev/mapper/system-dirvish  1.3T  1.1T  148G  89% /usr/local/dirvish
 			if ($1 > $Options{"max-fs-percent"}) {
 				# Over limit.  Add flag to end.
