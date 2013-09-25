@@ -3,16 +3,9 @@
 use strict;
 use warnings;
 use LogOutput;
-#use ProcessOptions;
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
-use File::Find;
-use Fcntl qw(:flock :mode :DEFAULT);
-use File::Temp qw(mktemp);
 use POSIX qw(strftime);
-use IO::Socket;
-use Data::Dumper;
-$Data::Dumper::Pad = "Verbose:\t\t";
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -21,7 +14,7 @@ our $Prog=$0;                           # Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 my $Errors=0;   	                # No errors so far.
-#my $Syslog='user';                      # Name of Syslog facility.  '' for none.
+my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
 my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
 our %Config;				# Data from the config file.
@@ -120,13 +113,10 @@ LogOutput({
 
 if ($Errors) {
 	warn "$Prog failed.\n";
-	PrintStatsFile(strftime("%D %T $Prog ended with errors.<br>",localtime()));
 } else {
 	#print "$Prog ended normally.\n";
-	PrintStatsFile(strftime("%D %T $Prog ended normally.<br>",localtime()));
 }
 
-close $STATFH if ($STATFH);
 exit( ($Errors?10:0) );
 
 
