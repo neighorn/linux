@@ -69,7 +69,8 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 GetOptions (
 	'v|verbose+'	=> \$opt_v,
 	'c|config=s'	=> \$opt_c,
-	'fail|failed'	=> \$opt_f,
+	'a|all'		=> sub {$opt_f = 0;},	# Synonym for --nofail
+	'fail|failed!'	=> \$opt_f,
 	'h|help'	=> \$opt_h,
 	'L|libdir=s'	=> sub{ push @INC, $_[1]; },
 	't|test'	=> \$opt_t,
@@ -661,6 +662,11 @@ to the "listname" standard (i.e. isn't located in /usr/local/etc).
 =item --fail, --failed
 
 Fail -- only list failing items.
+
+=item --all, --nofail, --nofailed
+
+All -- override prior --fail/--failed.  This is used primarily on the command
+line to override a --fail or --failed in the .cfg file.
 
 =item -h, --help
 
