@@ -72,17 +72,14 @@ sub Check {
 	# First, make sure we have the necessary config info.
 	my $Errors = 0;
 	if (! $Self->{Desc}) {
-		warn "$File:$Line: Desc not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Desc not specified";
 		$Errors++;
 	}
 	if (! $Self->{Target}) {
-		warn "$File:$Line: Target not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Target not specified";
 		$Errors++;
 	}
 	if (! $Self->{Maxpercent}) {
-		warn "$File:$Line: MaxPercent not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: MaxPercent not specified";
 		$Errors++;
 	}
@@ -92,12 +89,14 @@ sub Check {
 	$Self->{Host} = 'localhost' unless (defined($Self->{Host}));
 	my %Hash;
 	my($device,$total,$used,$free,$percent,$mount);
+	my $CmdStatus;
 	if (!exists($HostHash{$Self->{Host}})) {
 		# No.  Go gather it.
 		my @Data;
 		my $POSIX = (!defined($Self->{Posix}) or $Self->{Posix})?'-P':' ';
 		if ($Self->{Host} eq 'localhost') {
 			@Data = `df -k $POSIX`;
+			$CmdStatus = "rc=$?";
 		}
 		else {
 			# On a remote host.
@@ -113,11 +112,11 @@ sub Check {
     		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
     			eval("\@Data = `$Cmd`;");
     			last unless ($@ or $? != 0);
+			$CmdStatus = ($??"rc=$?":$@);
 		    }
 		    if (@Data == 0)
 		    {
-			    warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: rc=$?, $@\n";
-			    $Self->{StatusDetail} = "Unable to gather data";
+			    $Self->{StatusDetail} = "Unable to gather data: $CmdStatus";
 			    return "Status=" . $Self->CHECK_FAIL;
 		    }
 				
