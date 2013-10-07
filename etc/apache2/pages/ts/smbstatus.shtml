@@ -1,0 +1,16 @@
+<HTML>
+<HEAD>
+<TITLE >iotop status</TITLE>
+<META HTTP-EQUIV="Refresh" CONTENT="15">
+</HEAD>
+<BODY>
+<H2>
+	<!--#config timefmt="%T" -->
+        <!--#exec cmd="hostname" -->
+	samba status as of <!--#echo var="DATE_LOCAL" -->
+</H2>
+<pre>
+<!--#exec cmd="/usr/bin/sudo -n /usr/local/samba/bin/smbstatus" -->
+</pre>
+</BODY>
+<HTML>
