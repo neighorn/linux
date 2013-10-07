@@ -302,6 +302,7 @@ SHOW    /^Test:/
 SHOW    /^Executing:/
 SHOW    /^Verbose:/
 SHOW	/^\s*debug:/
+SHOW	/^\s*\++\s/
 SHOW  /^\s*$/
 # 
 # Anything that doesn't match one of these three sets of patterns is considered
