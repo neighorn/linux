@@ -91,6 +91,12 @@ if ($Config{DISABLEUNTIL} and not $opt_f) {
 	}
 }
 
+if (! $opt_m and ! $opt_e ) {
+	# No mail addresses.  That's an error unless we have a tty.
+	`tty -s` && warn "No e-mail addresses supplied.  $Prog has no way to notify of raid failures.\n";
+}
+
+
 # Typical /proc/mdstat records...
 # md1 : active raid1 sda1[0] sdb1[1] sdc[2](S)
 #      261952 blocks [2/2] [UU]
