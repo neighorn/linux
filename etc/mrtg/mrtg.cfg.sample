@@ -5,7 +5,7 @@
 
 ### Global Config Options
 LoadMIBs: /usr/share/snmp/mibs/UCD-SNMP-MIB.txt
-LoadMIBs: /usr/share/snmp/mibs/HOST-RESOURCES-MIB.txt
+#LoadMIBs: /usr/share/snmp/mibs/HOST-RESOURCES-MIB.txt
 
 #  for UNIX
 WorkDir: /usr/local/etc/apache2/pages/mrtg
@@ -89,12 +89,17 @@ ShortLegend[_]: %
 Unscaled[_]: ymwd
 #
 # Load Average
-Target[load]: `uptime | sed 's/^.*load average://' | awk -F, '{print $1*100 "\n" $2*100 "\n1\n1\n"}'`
+#  Need to install libnet-snmp-perl libcrypt-hcesha-perl libcrypt-des-perl libdigest-hmac-perl
+#  for snmpd to support this.
+Target[load]: laLoadInt.2&laLoadInt.3:xxx@127.0.0.1
+Options[load]: gauge,growright,unknaszero
 Title[load]: Load Average
-YLegend[load]: Load Average
-Legend1[load]: 1 minute average
-Legend2[load]: 5 minute average
-ShortLegend[load]: &nbsp;
+MaxBytes[load]: 800
+YLegend[load]: centiProcs
+ShortLegend[load]: Procs
+LegendI[load]: 5m average
+LegendO[load]: 15m average
+Factor[load]: 0.01
 PageTop[load]: <H1>Load Average</H1><a href="index.shtml">(Return to main page)</a><br>
 
 #
