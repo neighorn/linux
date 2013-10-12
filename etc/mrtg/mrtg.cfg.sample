@@ -1,8 +1,6 @@
 # Created by 
 # /usr/bin/cfgmaker password@127.0.0.1
 
-
-
 ### Global Config Options
 LoadMIBs: /usr/share/snmp/mibs/UCD-SNMP-MIB.txt
 #LoadMIBs: /usr/share/snmp/mibs/HOST-RESOURCES-MIB.txt
@@ -91,14 +89,16 @@ Unscaled[_]: ymwd
 # Load Average
 #  Need to install libnet-snmp-perl libcrypt-hcesha-perl libcrypt-des-perl libdigest-hmac-perl
 #  for snmpd to support this.
-Target[load]: laLoadInt.2&laLoadInt.3:xxx@127.0.0.1
+Target[load]: laLoadInt.1&laLoadInt.2:xxx@127.0.0.1
 Options[load]: gauge,growright,unknaszero
 Title[load]: Load Average
-MaxBytes[load]: 800
-YLegend[load]: centiProcs
+MaxBytes[load]: x00
+AbsMax[load]: 9900
+Ytics[load]: x
+YLegend[load]: Procs*100
 ShortLegend[load]: Procs
-LegendI[load]: 5m average
-LegendO[load]: 15m average
+LegendI[load]: 1m average
+LegendO[load]: 5m average
 Factor[load]: 0.01
 PageTop[load]: <H1>Load Average</H1><a href="index.shtml">(Return to main page)</a><br>
 
