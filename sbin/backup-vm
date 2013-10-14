@@ -86,6 +86,15 @@ if ($Errors) {
 	print STDERR "Invalid command line options -- aborting.\n";
 	exit 15;
 }
+
+# If there aren't any parameters here, back up everything.
+if (@ARGV == 0) {
+	foreach (`virsh list --all`) {
+		next unless (/^\s*[\d-]+\s+(\S+)\s+\S/);
+		push @ARGVSave,$1;
+	}
+}
+
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 	
 # Set up our logging and output filtering.
@@ -155,7 +164,7 @@ sub ProcessBackup {
 
 	# Can we find the directory?
 	if ( ! -d "$TargetDir" ) {
-		print "    Unable to locate /$TargetDir -- backup skipped\n";
+		print "    Unable to locate $TargetDir -- backup skipped\n";
 		return 16;
 	}
 
@@ -167,6 +176,7 @@ sub ProcessBackup {
 
 	# Is it a known VM?
 	RunDangerousCmd("virsh list --all | grep -q ' $Target '");
+	print "debug: $?\n";
 	if ( $? != 0 ) {
 		print "    Unable to locate a virtual machine named $Target -- backup skipped\n";
 		return 17;
@@ -343,13 +353,20 @@ sub opt_h {
 	print PAGENATER <<"ENDUSAGE";
 $Prog - desc
 
-Usage:  $Prog [options] vault... [options] vault... ...
+Usage:  $Prog [options] [virtname...] [options] [virtname...] ...
 	$Prog -h
+
+Options:
 
 	--cd=path:			Change directories: virtual machine folders
 					will be stored in this path.  Defaults to
 					/var/lib/libvirt/images.
 	--cycles|-C=n:			Cycles: keep n backups.
+	--exclude=name			Exclude: exclude image files named
+					"name" from backups.  Example:
+						--exclude=swap.img
+					Note that the directory is not 
+					specified.  May be repeated.
 	-m|--always-mail=mailid:	Mail: Send an execution report to this
 					e-mail address.
 
@@ -378,6 +395,10 @@ Usage:  $Prog [options] vault... [options] vault... ...
 					See "-s" above for unit specifications.
 
 Parameters:
+	virtname			One or more virtual machines names
+					to backup.  If no virtual machines are
+					listed, all virtual machines are
+					backed up.
 
 Example:
 
