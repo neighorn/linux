@@ -438,6 +438,7 @@ SHOW	"^\s*Restarting \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
 SHOW	"^\s*\S+ started at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
 SHOW	"^\s*Backup of \S+ ended normally at \d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$"
 SHOW	"^\s*backup-vm ended normally.$"
+IGNORE	"^\s*tar: \.: file changed as we read it$"
 # 
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
