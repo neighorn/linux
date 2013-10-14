@@ -43,7 +43,7 @@ our %OptionSpecifications=(
 		'option-set|O=s'	=>	\&opt_O,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
-		'test|t'		=>	\&opt_Value,
+		'test|t!'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'exclude|x=s'		=>	\&opt_Array,
 );
@@ -124,7 +124,11 @@ LogOutput({
 # run backups when we come across parms.  Doing it this way lets
 # the user turn options on and off for each kind of backup (e.g.
 # change the exclude list per backup.
-%Options = ( cd => '/var/lib/libvirt/images');			# Reset Options to defaults for reprocessing.
+%Options = (
+		cd => '/var/lib/libvirt/images',
+		test => $Options{test},
+		verbose => $Options{verbose}
+);			# Reset Options to defaults for reprocessing.
 $OptionSpecifications{'<>'} = \&ProcessBackup;
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 
@@ -175,7 +179,6 @@ sub ProcessBackup {
 	        	while (<$FHLS>) {
 				chomp;
 	                	$Count++;
-				print "debug: $Count $Options{cycles} $_\n";
 	                	RunDangerousCmd("rm -rf $_") if ($Count >= $Options{cycles});
 	        	}
 	        	close $FHLS;
