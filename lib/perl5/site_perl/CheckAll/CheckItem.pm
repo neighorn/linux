@@ -222,7 +222,7 @@ sub AUTOLOAD {
 	if ( !$^V or $^V lt v5.9.0 ) {
 		# Can validate using the pseudo-hash on older Perls.
 		die qq[$Self->{FILE}:$Self->{LINE}: "$Attribute" is an invalid attribute.\n]
-			unless (exists($Self->{$Attribute}));
+			unless (exists($Self->[0]{$Attribute}));
 	}
 		
 
