@@ -219,7 +219,7 @@ sub AUTOLOAD {
 	my $Self = shift;
 	my $Name='AUTOLOAD';
 	my($Package,$Attribute) = ($AUTOLOAD =~ /^(\S+)::(\S+)$/);
-	if ( $ lt 5.9.0 ) {
+	if ( !$^V or $^V lt v5.9.0 ) {
 		# Can validate using the pseudo-hash on older Perls.
 		die qq[$Self->{FILE}:$Self->{LINE}: "$Attribute" is an invalid attribute.\n]
 			unless (exists($Self->{$Attribute}));
