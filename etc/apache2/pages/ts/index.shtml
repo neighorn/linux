@@ -3,8 +3,8 @@
 <head>
 <title><!--#exec cmd="hostname" --> Tech Support</title>
 <frameset cols="120,*">
-	<frame name="index" src="indextoc.shtml">
-	<frame name="dynamic" id="dynamic">
+	<frame name="index" src="leftpanel.shtml">
+	<frame name="dynamic" id="dynamic" src="/mrtg">
 </frameset>
 </head>
 <body>
