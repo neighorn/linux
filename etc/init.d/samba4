@@ -31,18 +31,25 @@
 # Source networking configuration.
 . /etc/sysconfig/network
 
-prog_dir=/usr/local/samba/sbin/
+prog_dir=/usr/local/samba
 lockfile=/var/lock/subsys/$prog
+PATH="$prog_dir/sbin:$prog_dir/bin:$PATH"
+export PATH
 
-if grep -q 'active directory domain controller' $prog_dir/../etc/smb.conf
+if grep -qi 'active directory domain controller' $prog_dir/etc/smb.conf
 then
 	prog_list="samba"
 else
-	prog_list="smbd nmbd"
+	if grep -qi -E '^[ 	]*wins *server[ 	]*= *yes' $prog_dir/etc/smb.conf
+	then
+		prog_list="smbd nmbd winbindd"
+	else
+		prog_list="smbd nmbd"
+	fi
 fi
 
 start_item() {
-	daemon $prog_dir/$1 -D
+	daemon $prog_dir/sbin/$1 -D
 	RETVAL=$?
 	return $RETVAL
 }
@@ -68,7 +75,7 @@ stop() {
         echo -n $"Shutting down $prog_list: "
 	for prog in $prog_list
 	do
-        	killproc $prog_dir/$prog 
+        	killproc $prog_dir/sbin/$prog 
 	done
 	prog_list=`echo $prog_list | tr ' ' '|'`
 	ps -fu root | grep -Eq "$prog_list"
