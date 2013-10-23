@@ -7,11 +7,13 @@ use LogOutput;
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use File::Find;
-use Fcntl qw(:flock :mode :DEFAULT);
+use File::FnMatch qw(:fnmatch);
+use File::Path;
 use File::Temp qw(mktemp);
+use Fcntl qw(:flock :mode :DEFAULT);
 use POSIX qw(strftime);
 use IO::Socket;
-use Data::Dumper;
+use Data::Dumper::Simple;
 $Data::Dumper::Pad = "Verbose:\t\t";
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
@@ -40,7 +42,9 @@ our %OptionSpecifications=(
 		'help|h|?!'		=>	\&opt_h,
 		'always-mail|m=s'	=>	\&opt_Array,
 		'error-mail|M=s'	=>	\&opt_Array,
+		'after-state=s'		=>	\&opt_Value,
 		'option-set|O=s'	=>	\&opt_O,
+		'output|o=s'		=>	\&opt_Value,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'test|t!'		=>	\&opt_Value,
@@ -86,6 +90,14 @@ if ($Errors) {
 	print STDERR "Invalid command line options -- aborting.\n";
 	exit 15;
 }
+if ($Options{output} and $Options{output} !~ m<^[a-zA-Z0-9_:.,%=, *?/-]+$>) {
+	print STDERR "Invalid value \"$Options{output}\" for --output\n";
+	exit 16;
+}
+if ($Options{cycles} and $Options{cycles} !~ /^[1-9]\d*$/) {
+	print STDERR "Invalid value for --cycles\n";
+	exit 17;
+}
 
 # If there aren't any parameters here, back up everything.
 if (@ARGV == 0) {
@@ -94,6 +106,8 @@ if (@ARGV == 0) {
 		push @ARGVSave,$1;
 	}
 }
+
+print Dumper(\%Config) if ($Options{verbose} >=3);
 
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 	
@@ -104,7 +118,11 @@ my $Subject;
 if ($Options{subject}) {
 	$Subject="$Options{subject}" ;
 } elsif (@Parms >= 1) {
-	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
+	$Subject=
+		  "%* %m/%d %C %N "
+		. ($Options{test}?' - test -':'')
+		. join(', ',@Parms)
+		. " %E %*%*%*" ;
 } else {
 	$Subject="%* %m/%d %C %N %E %*%*%*" ;
 };
@@ -129,17 +147,17 @@ LogOutput({
 	VERBOSE			=> $LogOutputVerbose,
 });
 
-# Make another passh through the parm list.  This time, actually
-# run backups when we come across parms.  Doing it this way lets
+# Make another pass through the parm list.  This time, actually
+# run backups when we come across parms via <>.  Doing it this way lets
 # the user turn options on and off for each kind of backup (e.g.
-# change the exclude list per backup.
+# change the exclude list per backup).
 %Options = (
+		"after-state" => 'same',
 		cd => '/var/lib/libvirt/images',
 		test => $Options{test},
 		verbose => $Options{verbose}
 );			# Reset Options to defaults for reprocessing.
-$OptionSpecifications{'<>'} = \&ProcessBackup;
-$Errors ++ unless (GetOptions(%OptionSpecifications));
+$Errors ++ unless (GetOptions(%OptionSpecifications,'<>'=>\&ProcessBackup));
 
 #
 # Wrap up.
@@ -158,36 +176,63 @@ exit( ($Errors?10:0) );
 #
 sub ProcessBackup {
 
-	my $Target = shift;
-	my $TargetDir = "$Options{cd}/$Target";
-	print strftime("Starting $Target at %Y-%m-%d %T\n",localtime());
+	my $Machine = shift;
+	print strftime("Backing up $Machine at %Y-%m-%d %T\n",localtime());
 
-	# Can we find the directory?
-	if ( ! -d "$TargetDir" ) {
-		print "    Unable to locate $TargetDir -- backup skipped\n";
-		return 16;
+	# Capture the XML for later, and to determine if the machine exists.
+	my @XML;
+	eval "\@XML = `virsh dumpxml $Machine`;";
+	if ($@) {
+		print STDERR "    Unable to dump XML for $Machine: $@\n";
+		$Errors++;
+		return 8;
 	}
 
-	if (!chdir $TargetDir) {
-		print STDERR "    Unable to cd to $TargetDir: $! -- backup skipped\n";
-		return 15;
+	# Load and machine-specific configuration data.
+	local %Options = %::Options;
+	if (my $MachineConfig = $Config{uc("NAME=$Machine")}) {
+		$Errors ++ unless (
+			GetOptionsFromString($MachineConfig,%OptionSpecifications)
+		);
 	}
+	print Dumper(\%Options) if ($Options{verbose} >=3);
 
-
-	# Is it a known VM?
-	RunDangerousCmd("virsh list --all | grep -q ' $Target '");
-	print "debug: $?\n";
-	if ( $? != 0 ) {
-		print "    Unable to locate a virtual machine named $Target -- backup skipped\n";
-		return 17;
+	# Figure out our output file name.
+	$Options{output} = "$Options{cd}/%C-%Y%m%d.tar"
+		unless $Options{output};
+	my $Output = $Options{output};
+	$Output =~ s/%C/$Machine/g;
+	$Output = strftime($Output,localtime())
+		if ($Output =~ /%[^p]/);
+	$Output =~ s"/+$"";			# Remove trailing slashes.
+	$Output =~ m"^(.*)/([^/]*)$";		# Split path from file name.
+	my ($OutputDir,$OutputFile) = ($1, $2);
+	if ($OutputDir =~ /[?*]/) {
+		# Contains wild cards.
+		my $OutputDirTest = glob $OutputDir;
+		$OutputDir = $OutputDirTest if ($OutputDirTest and -d $OutputDirTest);
+		$Output = "$OutputDir/$OutputFile";
+	}
+	if ( ! -d $OutputDir and ! $Options{test}) {
+		# OutputDir doesn't exist.
+		if (! mkpath($OutputDir,,0600)) {
+			print STDERR "Unable to create $OutputDir: $@\n";
+			$Errors++;
+			return 9;
+		}
 	}
 
 	# Clean up old backups if requested.
 	if ($Options{cycles}) {
-		if (open(my $FHLS,"ls -dt backup-[12][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9].tgz 2>/dev/null |")) {
+		my $BackupPattern = $Output;
+		$BackupPattern =~ s/%C/$Machine/g;
+		$BackupPattern =~ s/%[ymdHMSgGI]/../g;	# Two digit patterns.
+		$BackupPattern =~ s/%[Y]/..../g;	# Four digit patterns.
+		if (open(my $FHLS,"ls -dt $OutputDir 2>/dev/null |")) {
 	        	my $Count=0;
 	        	while (<$FHLS>) {
 				chomp;
+				next unless (m<$BackupPattern>o);
 	                	$Count++;
 	                	RunDangerousCmd("rm -rf $_") if ($Count >= $Options{cycles});
 	        	}
@@ -198,71 +243,106 @@ sub ProcessBackup {
 		}
 	}
 
-
 	# Remember if it's running.
-	my $WasRunning=IsRunning($Target);
+	my $WasRunning=IsRunning($Machine);
 
 	# If it's running, shut it down.
 	if ( $WasRunning ) {
 		# It's running.
-		print "    Shutting down $Target" . ($Options{test}?" (test)\n":"\n");
+		print "    Shutting down $Machine" . ($Options{test}?" (test)\n":"\n");
 		my $Count = 0;
-		while (! $Options{test} and IsRunning($Target)) {
+		while (! $Options{test} and IsRunning($Machine)) {
 			last if ($Count++ > 24);
-			RunDangerousCmd("virsh shutdown $Target")
+			RunDangerousCmd("virsh shutdown $Machine")
 				if ($Count % 12 == 1);
 			sleep 5
 		}
 	}
 	else {
-		print "    $Target is already down.\n";
+		print "    $Machine is already down.\n";
 	}
-	if (! $Options{test} and IsRunning($Target)) {
-		print STDERR "    $Target failed to shutdown -- backup skipped\n";
+	if (! $Options{test} and IsRunning($Machine)) {
+		print STDERR "    $Machine failed to shutdown -- backup skipped\n";
 		return 18;
 	}
 
-	# Run the backup.
-	my $Cmd =
-		  "tar -czf"
-		. strftime(" backup-%Y-%m-%d.tgz",localtime())
-		. " --exclude=*.tgz"
-		. " --exclude=*.bak"
-		. " --exclude=backup.*"
-		;
-	foreach (@{$Options{exclude}}) {
-		$Cmd .= qq< --exclude "$_">;
-	}
-	$Cmd.=" .";
-	RunDangerousCmd($Cmd);
-	my $Status=$?;
-	if ( $Status == 0 ) {
-		print strftime("    Backup of $Target ended normally at %Y-%m-%d %T\n",localtime());
+	# Write the XML to the tar file.
+	my $XMLFile = "$OutputDir/$Machine.xml";
+	my $TarCmd = "tar -cf $Output -C $OutputDir $Machine.xml";
+	if ($Options{test}) {
+		print "Test: $TarCmd\n";
 	}
 	else {
-		print STDERR "  Backup of $Target failed with status $Status\n";
+		my $FH;
+		if (!open ($FH,'>',"$XMLFile") ) {
+			print STDERR "Unable to create $XMLFile\n";
+			$Errors++;
+			return 10;
+		}
+		print $FH @XML;
+		close $FH;
+		RunDangerousCmd($TarCmd);
+		if ($? != 0) {
+			$Errors++;
+			return 11;
+		}
+		unlink $XMLFile;
 	}
 
-	# Start the VM back up if it was running.
-	if ( $WasRunning ) {
+	# Run the backup.
+	my $BackupErrors = 0;
+	LINE: foreach my $Line (@XML) {
+		chomp $Line;
+		next unless ($Line =~ /source file\s*=\s*'(.*?)'/i);
+		my $SourcePath = $1;
+		# Found a file.  Is it excluded?
+		foreach my $Exclude (@{$Options{exclude}}) {
+			next LINE if (fnmatch("$Exclude",$SourcePath));
+		}
+		$SourcePath =~ m"^(.*)/(.*?)$";
+		my($SourceDir,$SourceFile) = ($1,$2);
+
+		# Back it up.
+		my $Status = RunDangerousCmd("tar -uf $Output -C $SourceDir $SourceFile");
+		if ( $Status != 0 ) {
+			print STDERR "    Backup of $SourceFile failed with status $Status\n";
+			$BackupErrors++;
+		}
+	}
+	if ($BackupErrors) {
+		$Errors++;
+	}
+	else {
+		print strftime("    Backup of $Machine completed normally at %Y-%m-%d %H:%M:%S\n",localtime());
+	}
+
+	# Set the machine in the desired after-state.
+	$Options{"after-state"} = lc($Options{"after-state"});
+	$Options{"after-state"} = 'same'
+		unless ($Options{"after-state"} =~ /^(up|down|same)$/);
+	if ( $Options{"after-state"} eq 'up' 
+		or ($Options{"after-state"} eq 'same' and $WasRunning)
+	) {
 		print strftime(
-			  "    Restarting $Target at %Y-%m-%d %T"
+			  "    Restarting $Machine at %Y-%m-%d %T"
 				. ($Options{test}?" (test)\n":"\n")
 				,localtime());
-		RunDangerousCmd("virsh start $Target");
-		sleep 10 unless ($Options{test});
-		if (IsRunning($Target) or $Options{test}) {
+		foreach ((1,2,3)) {
+			RunDangerousCmd("virsh start $Machine");
+			sleep 10 unless ($Options{test});
+			last if (IsRunning($Machine) or $Options{test});
+		}
+		if (IsRunning($Machine) or $Options{test}) {
 			print strftime(
-				  "    $Target started at %Y-%m-%d %T"
+				  "    $Machine started at %Y-%m-%d %T"
 				. ($Options{test}?" (test)\n":"\n")
 				,localtime());
 		}
 		else {
-			print STDERR "    $Target failed to restart";
+			print STDERR "    $Machine failed to restart\n";
 		}
 	}
 }
-
 
 
 #
@@ -362,6 +442,11 @@ Options:
 					will be stored in this path.  Defaults to
 					/var/lib/libvirt/images.
 	--cycles|-C=n:			Cycles: keep n backups.
+	--output="name":		Output: Where to write the output tar file.
+					This may include % variables, which are 
+					substituted as follows:
+						%C - name of the virtual machine
+						All others - as per strftime.
 	--exclude=name			Exclude: exclude image files named
 					"name" from backups.  Example:
 						--exclude=swap.img
@@ -374,6 +459,10 @@ Options:
 					to this e-mail address only if errors
 					are detected.
 
+	--after-state=(up|down|same):	Once the backup is complete, bring
+					the machine up, leave it down, or
+					return it to the same state it was
+					in before the backup started (default).
 	-p|--always-page=mailid: 	Page: Send a very brief message
 					(suitable for a pager or text message)
 					to this e-mail address when this job
@@ -405,6 +494,28 @@ Example:
 	$Prog 
 
 Notes:
+Bugs:
+
+    1) The "--cycles" option creates a file name pattern to find prior backups.  
+       This pattern has three limitations:
+
+       a) When using % variables used by strftime to insert date/time information
+          $Prog only knows how to make patterns for Y,y,m,d,H,M,S,G,g,I.  Backup files
+          using other % specifications will not be deleted when they should.
+       b) It's possible that non-backup files might match this pattern and be
+          deleted.  For example, if your output specification is "--output=%H-%M.tar"
+          (hour, dash, minute), the pattern will be ??-??.tar.  If you have
+          a file called "xx-yy.tar" in the output directory, it will match the
+          pattern and be deleted when it is the oldest backup and too many cycles
+          are present.  This can be avoided by using a dedicated output directory
+          to hold backups.
+       c) Cycles don't work when the path includes a wildcard (e.g.
+	  "--output=/media/main?/%H-%M.tar".
+
+    2) The full path names of the files are removed in the tar file.  This can lead
+       to a conflict if a virtual machine uses two different image file in different
+       directory tries, but with the same file name (e.g. /var/lib/libvirt/data.img
+       and /usr/local/vm/data.img).
 
 Return codes:
 	0       :       Normal termination
@@ -453,7 +564,7 @@ SHOW    /^Executing:/
 SHOW    /^Verbose:/
 SHOW	/^\s*debug:/
 SHOW	/^\s*$/
-SHOW	"^\s*Starting \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d$"
+SHOW	"^\s*Backing up \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d$"
 SHOW	"^\s*Shutting down \S+"
 IGNORE	"^\s*Domain \S+ is being shutdown$"
 IGNORE	"^\s*Domain \S+ started$"
@@ -463,6 +574,10 @@ SHOW	"^\s*\S+ started at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
 SHOW	"^\s*Backup of \S+ ended normally at \d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$"
 SHOW	"^\s*backup-vm ended normally.$"
 IGNORE	"^\s*tar: \.: file changed as we read it$"
+IGNORE	"^\s*WARNING: gnome-keyring:: couldn't connect to:"
+SHOW	"^\s*error: Requested operation is not valid: USB device \S* is in use"
+SHOW	"^\s*error: failed to start domain \S+$"
+SHOW	"^\s*Backup of \S+ completed normally at ....-..-.. ..:..:..$"
 # 
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
