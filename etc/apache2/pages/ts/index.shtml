@@ -1,8 +1,8 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN" "http://www.w3.org/TR/html4/frameset.dtd">
 <html>
 <head>
-<title><!--#exec cmd="hostname" --> Tech Support</title>
-<frameset cols="120,*">
+<title><!--#exec cmd="hostname -s" --> Tech Support</title>
+<frameset cols="140,*">
 	<frame name="index" src="leftpanel.shtml">
 	<frame name="dynamic" id="dynamic" src="/mrtg">
 </frameset>

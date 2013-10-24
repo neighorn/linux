@@ -6,7 +6,7 @@
 <BODY>
 <H2>
 	<!--#config timefmt="%T" -->
-        <!--#exec cmd="hostname" -->
+        <!--#exec cmd="hostname -s" -->
 	disk space as of <!--#echo var="DATE_LOCAL" -->
 </H2>
 <pre>
