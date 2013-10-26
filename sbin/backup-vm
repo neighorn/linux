@@ -290,6 +290,7 @@ sub ProcessBackup {
 	}
 
 	# Run the backup.
+	print "    Backing up $Machine" . ($Options{test}?" (test)\n":"\n");
 	my $BackupErrors = 0;
 	LINE: foreach my $Line (@XML) {
 		chomp $Line;
