@@ -290,7 +290,7 @@ sub ProcessBackup {
 	}
 
 	# Run the backup.
-	print "    Backing up $Machine" . ($Options{test}?" (test)\n":"\n");
+	print "    Starting backup" . ($Options{test}?" (test)\n":"\n");
 	my $BackupErrors = 0;
 	LINE: foreach my $Line (@XML) {
 		chomp $Line;
@@ -558,6 +558,7 @@ LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
+IGNORE	"^\s*$"
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
 SHOW    /^Test:/
@@ -566,8 +567,9 @@ SHOW    /^Verbose:/
 SHOW	/^\s*debug:/
 SHOW	/^\s*$/
 SHOW	"^\s*Backing up \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d$"
+SHOW	"^\s*Starting backup"
 SHOW	"^\s*Shutting down \S+"
-IGNORE	"^\s*Domain \S+ is being shutdown$"
+IGNORE	"^\s*Domain \S+ is being shutdown"
 IGNORE	"^\s*Domain \S+ started$"
 SHOW	"^\s*\S+ is already down.$"
 SHOW	"^\s*Restarting \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
