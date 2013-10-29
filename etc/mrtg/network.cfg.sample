@@ -14,13 +14,3 @@ PageTop[eth0]: <H1>Traffic Analysis for eth0</H1><a href="index.shtml">(Return t
    <TR><TD>Description:</TD><TD>eth0  </TD></TR>
  </TABLE>
 
-Target[br1]: \br1:PASSWORD@127.0.0.1:
-SetEnv[br1]: MRTG_INT_IP="192.168.12.216" MRTG_INT_DESCR="br1"
-# 125000000 = 1GB max.
-MaxBytes[br1]: 125000000
-Title[br1]: br1 Traffic Analysis
-PageTop[br1]: <H1>Traffic Analysis for br1</H1><a href="index.shtml">(Return to main page)</a><br>
- <TABLE>
-   <TR><TD>Description:</TD><TD>br1  </TD></TR>
- </TABLE>
-
