@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+    <TITLE><!--#exec cmd="hostname" --> statistics</TITLE>
+    <!-- Command line is easier to read using "View Page Properties" of your browser -->
+    <!-- But not all browsers show that information. :-(                             -->
+    <meta http-equiv="content-type" content="text/html; charset=iso-8859-15" >
+    <META NAME="Command-Line" CONTENT="/usr/bin/indexmaker &quot;--title=statistics&quot; &quot;--subtitle=&lt;!--#include file=&quot;updated.html&quot; --&gt;&quot; /usr/local/etc/mrtg/mrtg.cfg" >
+    <META HTTP-EQUIV="Refresh" CONTENT="300" >
+    <META HTTP-EQUIV="Cache-Control" content="no-cache" >
+    <META HTTP-EQUIV="Pragma" CONTENT="no-cache" >
+    <META HTTP-EQUIV="Expires" CONTENT="Tue, 30 Apr 2013 15:40:30 GMT" >
+    <LINK HREF="favicon.ico" rel="shortcut icon" >
+    
+<style type="text/css">
+/* commandline was: /usr/bin/indexmaker "--title=xxx statistics" "--subtitle=<!--#include file="updated.html" -->" /usr/local/etc/mrtg/mrtg.cfg */
+/* sorry, no style, just abusing this to place the commandline and pass validation */
+</style>
+</HEAD>
+
+<BODY bgcolor="#ffffff" text="#000000" link="#000000" vlink="#000000" alink="#000000">
+
+
+<H1><!--#exec cmd="hostname" --> statistics</H1>
+
+<TABLE BORDER=0 CELLPADDING=0 CELLSPACING=10>
+<tr>
+<td><DIV><B>Traffic Analysis for eth0</B></DIV>
+<DIV><A HREF="eth0.html"><IMG BORDER=1 ALT="eth0 Traffic Graph" SRC="eth0-day.png"></A><BR>
+<SMALL><!--#flastmod file="eth0.html" --></SMALL></DIV>
+</td>
+<td><DIV><B>Load Average</B></DIV>
+<DIV><A HREF="load.html"><IMG BORDER=1 ALT="load Traffic Graph" SRC="load-day.png"></A><BR>
+<SMALL><!--#flastmod file="load.html" --></SMALL></DIV>
+</td>
+</tr>
+<tr>
+<td><DIV><B>CPU Idle</B></DIV>
+<DIV><A HREF="cpuidle.html"><IMG BORDER=1 ALT="cpuidle Traffic Graph" SRC="cpuidle-day.png"></A><BR>
+<SMALL><!--#flastmod file="cpuidle.html" --></SMALL></DIV>
+</td><td><DIV><B>System CPU</B></DIV>
+<DIV><A HREF="cpukernel.html"><IMG BORDER=1 ALT="cpukernel Traffic Graph" SRC="cpukernel-day.png"></A><BR>
+<SMALL><!--#flastmod file="cpukernel.html" --></SMALL></DIV>
+</td>
+</tr>
+<tr>
+<td><DIV><B>User CPU</B></DIV>
+<DIV><A HREF="cpuuser.html"><IMG BORDER=1 ALT="cpuuser Traffic Graph" SRC="cpuuser-day.png"></A><BR>
+<SMALL><!--#flastmod file="cpuuser.html" --></SMALL></DIV>
+</td><td><DIV><B>I/O Wait</B></DIV>
+<DIV><A HREF="cpuwait.html"><IMG BORDER=1 ALT="cpuwait Traffic Graph" SRC="cpuwait-day.png"></A><BR>
+<SMALL><!--#flastmod file="cpuwait.html" --></SMALL></DIV>
+</td>
+</tr>
+<tr>
+<td><DIV><B>CPU Nice</B></DIV>
+<DIV><A HREF="cpunice.html"><IMG BORDER=1 ALT="cpunice Traffic Graph" SRC="cpunice-day.png"></A><BR>
+<SMALL><!--#flastmod file="cpunice.html" --></SMALL></DIV>
+</td><td><DIV><B>Swap Activity</B></DIV>
+<DIV><A HREF="swap.html"><IMG BORDER=1 ALT="swap Traffic Graph" SRC="swap-day.png"></A><BR>
+<SMALL><!--#flastmod file="swap.html" --></SMALL></DIV>
+</td>
+</tr>
+</TABLE>
+
+<BR>
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+  <TR>
+    <TD WIDTH=63><A
+    HREF="http://oss.oetiker.ch/mrtg/"><IMG
+    BORDER=0 SRC="mrtg-l.png" WIDTH=63 HEIGHT=25 ALT="MRTG"></A></TD>
+    <TD WIDTH=25><A
+    HREF="http://oss.oetiker.ch/mrtg/"><IMG
+    BORDER=0 SRC="mrtg-m.png" WIDTH=25 HEIGHT=25 ALT=""></A></TD>
+    <TD WIDTH=388><A
+    HREF="http://oss.oetiker.ch/mrtg/"><IMG
+    BORDER=0 SRC="mrtg-r.png" WIDTH=388 HEIGHT=25
+    ALT="Multi Router Traffic Grapher"></A></TD>
+  </TR>
+</TABLE>
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+  <TR VALIGN=top>
+  <TD WIDTH=88 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2>
+  version 2.17.3</FONT></TD>
+  <TD WIDTH=388 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2>
+  <A HREF="http://tobi.oetiker.ch/">Tobias Oetiker</A>
+  <A HREF="mailto:tobi+mrtglink@oetiker.ch">&lt;tobi@oetiker.ch&gt;</A>
+  and&nbsp;<A HREF="http://www.bungi.com/">Dave&nbsp;Rand</A>&nbsp;<A HREF="mailto:dlr@bungi.com">&lt;dlr@bungi.com&gt;</A></FONT>
+  </TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>

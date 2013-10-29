@@ -1,2 +1,0 @@
-Dummy file to force git to maintain this folder.
-This file may be deleted. 
