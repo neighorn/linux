@@ -9,7 +9,7 @@ use Text::ParseWords;
 use File::Find;
 use File::FnMatch qw(:fnmatch);
 use File::Path;
-use File::Temp qw(mktemp);
+use File::Temp qw(tempdir);
 use Fcntl qw(:flock :mode :DEFAULT);
 use POSIX qw(strftime);
 use IO::Socket;
@@ -47,9 +47,11 @@ our %OptionSpecifications=(
 		'output|o=s'		=>	\&opt_Value,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
+		'gzip|z!'		=>	\&opt_Value,
 		'test|t!'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'exclude-file=s'	=>	\&opt_Array,
+		'exclude-vm=s'		=>	\&opt_Hash,
 );
 #
 
@@ -177,6 +179,8 @@ exit( ($Errors?10:0) );
 sub ProcessBackup {
 
 	my $Machine = shift;
+	return if ($Options{"exclude-vm"}{$Machine});
+
 	print strftime("Backing up $Machine at %Y-%m-%d %T\n",localtime());
 
 	# Capture the XML for later, and to determine if the machine exists.
@@ -199,14 +203,16 @@ sub ProcessBackup {
 	print Dumper(\%Options) if ($Options{verbose} >=3);
 
 	# Figure out our output file name.
-	$Options{output} = "$Options{cd}/%C-%Y%m%d.tar"
+	$Options{output} = "$Options{cd}/%C-%Y%m%d"
 		unless $Options{output};
 	my $Output = $Options{output};
 	$Output =~ s/%C/$Machine/g;
+	my $BackupPattern = $Output;
 	$Output = strftime($Output,localtime())
 		if ($Output =~ /%[^p]/);
-	$Output =~ s"/+$"";			# Remove trailing slashes.
-	$Output =~ m"^(.*)/([^/]*)$";		# Split path from file name.
+	$Output =~ s"/+$"";				# Remove trailing slashes.
+	$Output .= ($Options{gzip}?'.tgz':'.tar');	# Add .tar/.tgz suffix.
+	$Output =~ m"^(.*)/([^/]*)$";			# Split path from file name.
 	my ($OutputDir,$OutputFile) = ($1, $2);
 	if ($OutputDir =~ /[?*]/) {
 		# Contains wild cards.
@@ -223,25 +229,30 @@ sub ProcessBackup {
 		}
 	}
 
-	# Clean up old backups if requested.
-	if ($Options{cycles}) {
-		my $BackupPattern = $Output;
-		$BackupPattern =~ s/%C/$Machine/g;
-		$BackupPattern =~ s/%[ymdHMSgGI]/../g;	# Two digit patterns.
-		$BackupPattern =~ s/%[Y]/..../g;	# Four digit patterns.
-		if (open(my $FHLS,"ls -dt $OutputDir 2>/dev/null |")) {
-	        	my $Count=0;
-	        	while (<$FHLS>) {
-				chomp;
-				next unless (m<$BackupPattern>o);
-	                	$Count++;
-	                	RunDangerousCmd("rm -rf $_") if ($Count >= $Options{cycles});
-	        	}
-	        	close $FHLS;
-	        }
-		else {
-			warn "Unable to open ls command: $! -- obsolete backups may not be deleted.\n";
-		}
+	# Clean up old tmp files.  Clean up old backups if cycles=x specified.
+	$BackupPattern =~ s"^.*/"";		# Remove leading path.
+	$BackupPattern =~ s/%[ymdHMSgGI]/../g;	# Two digit patterns.
+	$BackupPattern =~ s/%[Y]/..../g;	# Four digit patterns.
+	$BackupPattern = "^$BackupPattern.(tar|tgz)(.tmp|.bad)?\$";
+	if (open(my $FHLS,"ls -t $OutputDir 2>/dev/null |")) {
+        	my $Count=0;
+        	while (<$FHLS>) {
+			chomp;
+			next unless (m<$BackupPattern>o);
+			if (/(.tmp|.bad)$/) {
+				# Temporary or failed backup.  Just delete it.
+				RunDangerousCmd(qq<rm "$OutputDir/$_">);
+			}
+			elsif ($Options{cycles} and m<$BackupPattern>o) {
+				# Valid backup and we're deleting old cycles.
+                		$Count++;
+                		RunDangerousCmd(qq<rm "$OutputDir/$_">) if ($Count >= $Options{cycles});
+			}
+        	}
+        	close $FHLS;
+        }
+	else {
+		warn "Unable to open ls command: $! -- old or temporary backups may not be deleted.\n";
 	}
 
 	# Remember if it's running.
@@ -267,34 +278,25 @@ sub ProcessBackup {
 		return 18;
 	}
 
-	# Write the XML to the tar file.
-	my $XMLFile = "$OutputDir/$Machine.xml";
-	my $OutputTmp = "$Output.tmp";		# Create work file name.
-	my $TarCmd = qq<tar -cf "$OutputTmp" -C "$OutputDir" "$Machine.xml">;
-	if ($Options{test}) {
-		print "Test: $TarCmd\n";
+	# Disk image files may be scattered in multiple places around the system.
+	# Try to back them up without their paths by using symbolic links.
+	my $TmpDir = tempdir(CLEANUP => 1);
+
+	# Write the XML to the temporary directory.
+	my $BackupErrors = 0;
+	my $XMLFile = "$TmpDir/$Machine.xml";
+	my $XMLFH;
+	if (open($XMLFH,'>',$XMLFile)) {
+		print $XMLFH @XML;
+		close $XMLFH;
 	}
 	else {
-		my $FH;
-		if (!open ($FH,'>',"$XMLFile") ) {
-			print STDERR "Unable to create $XMLFile\n";
-			$Errors++;
-			return 10;
-		}
-		print $FH @XML;
-		close $FH;
-		RunDangerousCmd($TarCmd);
-		if ($? != 0) {
-			$Errors++;
-			RunDangerousCmd(qq<rm "$OutputTmp">);
-			return 11;
-		}
-		unlink $XMLFile;
+		warn "Unable to write to $XMLFH: $@\n";
+		close $XMLFH;
+		$BackupErrors++;
 	}
 
-	# Run the backup.
-	print "    Starting backup" . ($Options{test}?" (test)\n":"\n");
-	my $BackupErrors = 0;
+	# Populate the temporary directory with symbolic links to the source files.
 	LINE: foreach my $Line (@XML) {
 		chomp $Line;
 		next unless ($Line =~ /source file\s*=\s*'(.*?)'/i);
@@ -306,14 +308,17 @@ sub ProcessBackup {
 		$SourcePath =~ m"^(.*)/(.*?)$";
 		my($SourceDir,$SourceFile) = ($1,$2);
 
-		# Back it up.
-		my $Status = RunDangerousCmd(qq<tar -uf "$OutputTmp" -C "$SourceDir" "$SourceFile">);
-		if ( $Status != 0 ) {
-			print STDERR "    Backup of $SourceFile failed with status $Status\n";
-			$BackupErrors++;
-		}
-	}
-	if ($BackupErrors) {
+		# Place a symbolic link to it in our tmp directory.
+		RunDangerousCmd(qq<ln -s "$SourcePath" "$TmpDir/$SourceFile">);
+	}  
+
+	# Run the backup.
+	my $OutputTmp = "$Output.tmp";		# Create work file name.
+	print "    Starting backup" . ($Options{test}?" (test)\n":"\n");
+	my $GzipOpt = ($Options{gzip}?'-z':'');
+	my $Status = RunDangerousCmd(qq<tar -chf "$OutputTmp" -C "$TmpDir" $GzipOpt .>);
+	if ( $Status != 0 ) {
+		print STDERR "    Tar failed with status $Status\n";
 		$Errors++;
 		RunDangerousCmd(qq<rm "$OutputTmp">);
 	}
@@ -351,6 +356,7 @@ sub ProcessBackup {
 			print STDERR "    $Machine failed to restart\n";
 		}
 	}
+		return $BackupErrors;
 }
 
 
@@ -371,10 +377,10 @@ sub RunDangerousCmd {
 	my ($Cmd,$FH,$Line);
 	$Cmd=join(' ',@_);
 	if ($Options{test}) {
-		print "Test: $Cmd\n";
+		print "    Test: $Cmd\n";
 		return 0;
 	} else {
-		print "Executing: $Cmd\n" if ($Options{verbose});
+		print "    Executing: $Cmd\n" if ($Options{verbose});
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
 				$Line=~s/[
@@ -402,7 +408,7 @@ sub opt_Value {
 
 
 #
-# opt_Array - generic multi-value optoin  processing
+# opt_Array - generic multi-value option processing
 #
 sub opt_Array {
 
@@ -414,6 +420,23 @@ sub opt_Array {
 	else {
 		# Received "--opt=".  Empty this array.
 		@{$Options{$Name}}=();
+	}
+}
+
+
+#
+# opt_Hash - generic multi-value option processing
+#
+sub opt_Hash {
+
+	my($Name,$Value,undef) = @_;
+	if (defined($Value) and length($Value)) {
+		# Add this value to the hash.
+		$Options{$Name}{$Value}=1;
+	}
+	else {
+		# Received "--opt=".  Empty this array.
+		%{$Options{$Name}}=();
 	}
 }
 
@@ -456,7 +479,9 @@ Options:
 					substituted as follows:
 						%C - name of the virtual machine
 						All others - as per strftime.
-	--exclude-file=name		Exclude: exclude image files named
+					Note that ".tar" or ".tgz" is always appended to
+					the output file name.
+	--exclude-file=name:		Exclude: exclude image files named
 					"name" from backups.  "name" is a fully
 					qualified file name, possibly including
 					conventional shell wildcards (escaped).
@@ -465,10 +490,12 @@ Options:
 						--exclude-file=\*-swap.img
 					Note that the directory is not 
 					specified.  May be repeated.
-	-m|--always-mail=mailid:	Mail: Send an execution report to this
+	--exclude-vm=name:		Do not back up this virtual machine.
+	--(no)gzip|-z:			Gzip the tar file.  Default is --nogzip.
+	--always-mail|-m=mailid:	Mail: Send an execution report to this
 					e-mail address.
 
-	-M|--error-mail=mailid: 	Mail on error: Send an execution report
+	--error-mail|-M=mailid: 	Mail on error: Send an execution report
 					to this e-mail address only if errors
 					are detected.
 
@@ -476,21 +503,21 @@ Options:
 					the machine up, leave it down, or
 					return it to the same state it was
 					in before the backup started (default).
-	-p|--always-page=mailid: 	Page: Send a very brief message
+	--always-page|-p=mailid: 	Page: Send a very brief message
 					(suitable for a pager or text message)
 					to this e-mail address when this job
 					completes.
 
-	-P|--error-page=mailid:		Page on error: Send a very brief message
+	--error-page|-P=mailid:		Page on error: Send a very brief message
 					to this e-mail address if errors are
 					detected in this job.
 
-	-h|?|--help:			Help: display this panel
+	--help|-h|-?:			Help: display this panel
 
-	-t|--test:			Test: echo commands instead of running
+	--(no)test|-t:			Test: echo commands instead of running
 					them.
 
-	-v|--verbose:			Verbose: echo commands before running
+	--verbose|-v:			Verbose: echo commands before running
 					them.  May be repeated to increase
 					verbosity.  --test overrides --verbose.
 
@@ -504,9 +531,32 @@ Parameters:
 
 Example:
 
-	$Prog 
+	$Prog --output=/backup/%C-%Y-%m-%d win7 ubuntu devsystem
 
 Notes:
+    1) CONFIGURATION FILE
+       $Prog reads /usr/local/etc/$Prog.cfg if present for additional options.  
+       Additional options may be specified in this file in three ways:
+       a) A line beginning with "ALLJOBS: " (case-insensitive) is prepended
+          to the comamnd line for all jobs.  For example:
+		Alljobs: -m sysadmin\@example.com --gzip
+       b) A line beginning with NAME=vmname: (case insensitive) will apply
+          the following options to backups of the machine named "vmname".
+          For example:
+             Alljobs: --cycles=6
+             name=devsys: --cycles=4
+          would cause all backups to keep 6 cycles, except that backups of
+          "devsys" would only keep 4 cycles.
+       c) Additional option sets can be included by adding a line of the format
+             OPTIONSET: options
+          to the file, and then specifying to load that option set using -O on the
+          command line.  For example:
+             Alljobs: -m sysadmin\@example.com --cycles=6
+             Offsites: --cycles=3
+          In this example, most backups would keep 6 cycles, except those that
+          include "-O offsites" on the command line.  Option set names are case
+          insensitive.
+
 Bugs:
 
     1) The "--cycles" option creates a file name pattern to find prior backups.  
@@ -516,19 +566,20 @@ Bugs:
           $Prog only knows how to make patterns for Y,y,m,d,H,M,S,G,g,I.  Backup files
           using other % specifications will not be deleted when they should.
        b) It's possible that non-backup files might match this pattern and be
-          deleted.  For example, if your output specification is "--output=%H-%M.tar"
+          deleted.  For example, if your output specification is "--output=%H-%M"
           (hour, dash, minute), the pattern will be ??-??.tar.  If you have
-          a file called "xx-yy.tar" in the output directory, it will match the
+          a file called "x9-y2.tar" in the output directory, it will match the
           pattern and be deleted when it is the oldest backup and too many cycles
           are present.  This can be avoided by using a dedicated output directory
           to hold backups.
-       c) Cycles don't work when the path includes a wildcard (e.g.
-	  "--output=/media/main?/%H-%M.tar".
 
     2) The full path names of the files are removed in the tar file.  This can lead
        to a conflict if a virtual machine uses two different image file in different
-       directory tries, but with the same file name (e.g. /var/lib/libvirt/data.img
+       directories, but with the same file name (e.g. /var/lib/libvirt/data.img
        and /usr/local/vm/data.img).
+
+    3) name=host option specifications in the config file override conflicting command
+       line options.
 
 Return codes:
 	0       :       Normal termination
@@ -572,10 +623,10 @@ LOGONLY /^Command: /
 #
 IGNORE	"^\s*$"
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
-SHOW    /^Test:/
-SHOW    /^Executing:/
-SHOW    /^Verbose:/
+SHOW    /^\s*Job ended normally with status 0 and signal 0 - run time:/
+SHOW    /^\s*Test:/
+SHOW    /^\s*Executing:/
+SHOW    /^\s*Verbose:/
 SHOW	/^\s*debug:/
 SHOW	/^\s*$/
 SHOW	"^\s*Backing up \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d$"
