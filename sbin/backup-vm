@@ -49,7 +49,7 @@ our %OptionSpecifications=(
 		'error-page|P=s'	=>	\&opt_Array,
 		'test|t!'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
-		'exclude|x=s'		=>	\&opt_Array,
+		'exclude-file=s'	=>	\&opt_Array,
 );
 #
 
@@ -297,7 +297,7 @@ sub ProcessBackup {
 		next unless ($Line =~ /source file\s*=\s*'(.*?)'/i);
 		my $SourcePath = $1;
 		# Found a file.  Is it excluded?
-		foreach my $Exclude (@{$Options{exclude}}) {
+		foreach my $Exclude (@{$Options{"exclude-file"}}) {
 			next LINE if (fnmatch("$Exclude",$SourcePath));
 		}
 		$SourcePath =~ m"^(.*)/(.*?)$";
@@ -448,9 +448,13 @@ Options:
 					substituted as follows:
 						%C - name of the virtual machine
 						All others - as per strftime.
-	--exclude=name			Exclude: exclude image files named
-					"name" from backups.  Example:
-						--exclude=swap.img
+	--exclude-file=name		Exclude: exclude image files named
+					"name" from backups.  "name" is a fully
+					qualified file name, possibly including
+					conventional shell wildcards (escaped).
+					Example:
+						--exclude-file=/var/lib/libvirt/images/test.img
+						--exclude-file=\*-swap.img
 					Note that the directory is not 
 					specified.  May be repeated.
 	-m|--always-mail=mailid:	Mail: Send an execution report to this
