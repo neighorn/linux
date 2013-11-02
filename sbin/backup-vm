@@ -87,15 +87,15 @@ my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
 %Options=(verbose => 0);	# Initialize Options.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 if ($Errors) {
-	print STDERR "Invalid command line options -- aborting.\n";
+	print STDERR "Invalid command line options. Aborting\n";
 	exit 15;
 }
 if ($Options{output} and $Options{output} !~ m<^[a-zA-Z0-9_:.,%=, *?/-]+$>) {
-	print STDERR "Invalid value \"$Options{output}\" for --output\n";
+	print STDERR "Invalid value \"$Options{output}\" for --output. Aborting\n";
 	exit 16;
 }
 if ($Options{cycles} and $Options{cycles} !~ /^[1-9]\d*$/) {
-	print STDERR "Invalid value for --cycles\n";
+	print STDERR "Invalid value for --cycles. Aborting.\n";
 	exit 17;
 }
 
@@ -190,7 +190,8 @@ sub ProcessBackup {
 
 	# Load and machine-specific configuration data.
 	local %Options = %::Options;
-	if (my $MachineConfig = $Config{uc("NAME=$Machine")}) {
+	my $ConfigKey = uc("name=$Machine");
+	if (my $MachineConfig = $Config{$ConfigKey}) {
 		$Errors ++ unless (
 			GetOptionsFromString($MachineConfig,%OptionSpecifications)
 		);
@@ -259,7 +260,7 @@ sub ProcessBackup {
 		}
 	}
 	else {
-		print "    $Machine is already down.\n";
+		print "    $Machine is already down\n";
 	}
 	if (! $Options{test} and IsRunning($Machine)) {
 		print STDERR "    $Machine failed to shutdown -- backup skipped\n";
@@ -268,7 +269,8 @@ sub ProcessBackup {
 
 	# Write the XML to the tar file.
 	my $XMLFile = "$OutputDir/$Machine.xml";
-	my $TarCmd = "tar -cf $Output -C $OutputDir $Machine.xml";
+	my $OutputTmp = "$Output.tmp";		# Create work file name.
+	my $TarCmd = qq<tar -cf "$OutputTmp" -C "$OutputDir" "$Machine.xml">;
 	if ($Options{test}) {
 		print "Test: $TarCmd\n";
 	}
@@ -284,6 +286,7 @@ sub ProcessBackup {
 		RunDangerousCmd($TarCmd);
 		if ($? != 0) {
 			$Errors++;
+			RunDangerousCmd(qq<rm "$OutputTmp">);
 			return 11;
 		}
 		unlink $XMLFile;
@@ -304,7 +307,7 @@ sub ProcessBackup {
 		my($SourceDir,$SourceFile) = ($1,$2);
 
 		# Back it up.
-		my $Status = RunDangerousCmd("tar -uf $Output -C $SourceDir $SourceFile");
+		my $Status = RunDangerousCmd(qq<tar -uf "$OutputTmp" -C "$SourceDir" "$SourceFile">);
 		if ( $Status != 0 ) {
 			print STDERR "    Backup of $SourceFile failed with status $Status\n";
 			$BackupErrors++;
@@ -312,9 +315,14 @@ sub ProcessBackup {
 	}
 	if ($BackupErrors) {
 		$Errors++;
+		RunDangerousCmd(qq<rm "$OutputTmp">);
+	}
+	elsif ( RunDangerousCmd(qq<mv "$OutputTmp" "$Output">) == 0) {
+		print strftime("    Backup of $Machine completed normally at %Y-%m-%d %H:%M:%S\n",localtime());
 	}
 	else {
-		print strftime("    Backup of $Machine completed normally at %Y-%m-%d %H:%M:%S\n",localtime());
+		print STDERR "    Unable to rename $OutputTmp to $Output.\n";
+		$BackupErrors++;
 	}
 
 	# Set the machine in the desired after-state.
@@ -575,7 +583,7 @@ SHOW	"^\s*Starting backup"
 SHOW	"^\s*Shutting down \S+"
 IGNORE	"^\s*Domain \S+ is being shutdown"
 IGNORE	"^\s*Domain \S+ started$"
-SHOW	"^\s*\S+ is already down.$"
+SHOW	"^\s*\S+ is already down$"
 SHOW	"^\s*Restarting \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
 SHOW	"^\s*\S+ started at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
 SHOW	"^\s*Backup of \S+ ended normally at \d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$"
