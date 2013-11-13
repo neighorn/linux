@@ -73,10 +73,9 @@ our %OptionSpecifications=(
 		'test|t!'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
-#
 
-# Note: general purpose script - don't change current directory.
-#chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+# Don't kill the job if the user disconnects.
+$SIG{HUP} = "IGNORE";
 
 # Load the config file.
 if (-e $ConfigFile) {
