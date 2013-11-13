@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.16;
+our $Version	= 3.17;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -656,7 +656,7 @@ sub _CompilePatterns {
 	print "LogOutput: $PatternName Patterns=\n\t$Pattern\n\n" if $Options{VERBOSE};
 	my $CompiledTest=eval "sub {$Pattern}";
 	if ($@) {
-		die("Invalid pattern in \"PatternName\" message filters: $@\n");
+		die("Invalid pattern in \"$PatternName\" message filters: $@\n");
 	}
 	else {
 		return $CompiledTest;
