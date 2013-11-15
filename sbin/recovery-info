@@ -131,7 +131,7 @@ RunDangerousCmd("facter > $opt_o/facter.out");
 
 # Capture LVM configuration information.
 RunDangerousCmd("lvm vgcfgbackup -f $opt_o/vg-%s.out");
-RunDangerousCmd("pvdisplay > $opt_o/pvdisplay.out");
+RunDangerousCmd("pvdisplay -m > $opt_o/pvdisplay.out");
 RunDangerousCmd("vgdisplay > $opt_o/vgdisplay.out");
 RunDangerousCmd("lvdisplay > $opt_o/lvdisplay.out");
 
