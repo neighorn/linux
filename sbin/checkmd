@@ -158,7 +158,7 @@ if ($ErrorFlag) {
 		my $serial = `smartctl -i /dev/$_ | grep 'Serial Number'`;
 		chomp $serial;
 		$serial =~ s/^.*:\s+//;
-		print "Device /dev/$_: S#$serial\n";
+		print "Device /dev/$_: S#$serial\n" if ($serial);
 	}
 }
 
