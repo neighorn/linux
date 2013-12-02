@@ -182,6 +182,7 @@ sub ProcessBackup {
 	return if ($Options{"exclude-vm"}{$Machine});
 
 	print strftime("Backing up $Machine at %Y-%m-%d %T\n",localtime());
+	my $BackupErrors = 0;
 
 	# Capture the XML for later, and to determine if the machine exists.
 	my @XML;
@@ -227,6 +228,15 @@ sub ProcessBackup {
 			$Errors++;
 			return 9;
 		}
+	}
+
+	# Delete a prior version of our output file if present.  This would happen 
+	# in case of a rerun on the same day.
+	if (	    -f ($Output) 
+		and (RunDangerousCmd(qq<rm -rf "$Output">) != 0)
+	) {
+		warn qq<Unable to delete prior "$Output": $@\n>;
+		$BackupErrors++;
 	}
 
 	# Clean up old tmp files.  Clean up old backups if cycles=x specified.
@@ -283,7 +293,6 @@ sub ProcessBackup {
 	my $TmpDir = tempdir(CLEANUP => 1);
 
 	# Write the XML to the temporary directory.
-	my $BackupErrors = 0;
 	my $XMLFile = "$TmpDir/0-$Machine.xml"; # 0- sorts small file before big ones.
 	my $XMLFH;
 	if (open($XMLFH,'>',$XMLFile)) {
@@ -313,8 +322,9 @@ sub ProcessBackup {
 	}  
 
 	# Run the backup.
-	my $OutputTmp = "$Output.tmp";		# Create work file name.
+	
 	print "    Starting backup" . ($Options{test}?" (test)\n":"\n");
+	my $OutputTmp = "$Output.tmp";		# Create work file name.
 	my $GzipOpt = ($Options{gzip}?'-z':'');
 	my $Status = RunDangerousCmd(qq<tar -chf "$OutputTmp" -C "$TmpDir" $GzipOpt .>);
 	if ( $Status != 0 ) {
