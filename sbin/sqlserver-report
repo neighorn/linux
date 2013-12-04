@@ -91,20 +91,31 @@ if (@ARGV) {
 if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 
 # Get the e-mail, so we can retrieve the From and Subject line
-print "Reading from STDIN...\n";
-my @lines = <STDIN>;
+my @lines;
+if (@Parms) {
+	my $FH;
+	open($FH,'<',$Parms[0]) || die "Unable to open " . $Parms[0] . ": $!\n";
+	@lines = <$FH>;
+	close $FH;
+}
+else {
+	print "Reading from STDIN...\n";
+	@lines = <STDIN>;
+}
+
 my $SendingHost='';
 my $From='';
 my $Subject='';
 foreach (@lines) {
 	last if (/^\s*$/);		# Blank line means end of headers.
 	$SendingHost = $1 if (/^Received: from (\S+)/i and ! $SendingHost);
-	$From = $_ if (/^From /i and ! $From);
+	#$From = $_ if (/^From /i and ! $From);
 	$Subject = $_ if (/^Subject: /i and ! $Subject);
 	last if ($From and $Subject);	# Found all we wanted.
 }
-$From =~ s/^From //i;		# Strip prefix.
-$From ='root@' . hostname() unless ($From !~ /^\s*$/);
+$From =~ s/^From\s+//i;		# Strip prefix.
+$From =~ s/\s.*$//;		# Strip any trailing data.
+$From = getlogin() unless ($From !~ /^\s*$/);
 # Subject: SQL Server Job System: 'Test Job' completed on \\ZEUS
 my($JobName) = $Subject =~ /.*'(.*?)' completed /;
 my($Host) = $Subject =~ /.*' completed on \\\\(\S+)/;
@@ -134,14 +145,15 @@ LogOutput({
 	ERROR_PAGE_LIST =>	$opt_P,
 	SYSLOG_FACILITY =>	$Syslog,
 	MAIL_SUBJECT	=>	"%* %m/%d $Host SQL job $JobName %E %* %* %*",
-	MAIL_FROM	=>	$From,
+#	MAIL_FROM	=>	$From,
 	CLEAN_UP	=>	\&Cleanup,
 	FILTER_FILE	=>	$FilterFile,
+	VERBOSE		=>	$opt_v,
 });
 
 # Verify the command line.
 die("Excess parameters specified on the command line.  See \"$Prog -h\" for usage.")
-	unless (@Parms == 0);
+	if (@Parms > 1);
 
 # Open the copy file if requested.
 my $COPYFILE;
