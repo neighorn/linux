@@ -145,9 +145,9 @@ die("Excess parameters specified on the command line.  See \"$Prog -h\" for usag
 
 # Open the copy file if requested.
 my $COPYFILE;
-$opt_f =~ s/%U/$ENV{LOGNAME}/g;
-$opt_f = strftime($opt_f,localtime());
 if ($opt_f) {
+	$opt_f =~ s/%U/$ENV{LOGNAME}/g;
+	$opt_f = strftime($opt_f,localtime());
 	warn "Unable to open $opt_f: $!" 
 		unless open($COPYFILE,'>',$opt_f);
 }
