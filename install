@@ -1,0 +1,5 @@
+#! /bin/bash -xv
+for name in $@
+do
+	ln -s $PWD/$name /usr/local/$name
+done
