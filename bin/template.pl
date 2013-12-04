@@ -207,7 +207,7 @@ sub opt_h {
 	print PAGENATER <<"ENDUSAGE";
 $Prog - desc
 
-Usage:  $Prog [options] vault... [options] vault... ...
+Usage:  $Prog [options] parm1...
 	$Prog -h
 
 	-m|--always-mail=mailid:	Mail: Send an execution report to this
@@ -267,31 +267,21 @@ __END__
 #               Show - Display this message, but it's not an error condition.
 #               # - This is a comment, ignore it.
 #
-#  Pattern:     an ordinary perl pattern.  All patterns for a given score
+#               Everything else is flagged as an error.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given type
 #               are joined by logical OR conditions.
 #
 #  Notes:
 #       1) The "Type" parameter may be specified in upper, lower, or mixed case.
 #       2) All messages go to the syslog, regardless of this filter.
 #
-#
-# The following are normal messages we don't need to see.
-#
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
-LOGONLY /^Command: /
-#
-# These are normal messages that we want to see.
-#
-SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
-SHOW    /^Test:/
-SHOW    /^Executing:/
-SHOW    /^Verbose:/
-SHOW	/^\s*debug:/
-SHOW  /^\s*$/
-# 
-# Anything that doesn't match one of these three sets of patterns is considered
-# an error.
+LOGONLY "^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*Command: "
+SHOW    "^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW    "^\s*Job ended normally with status 0 and signal 0 - run time:"
+SHOW    "^\s*Test:"
+SHOW    "^\s*Executing:"
+SHOW    "^\s*Verbose:"
+SHOW    "^\s*debug:"
+SHOW    "^\s*$"
