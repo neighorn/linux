@@ -162,10 +162,13 @@ if ($Options{joblockfile}) {
 		exit 11;
 	}
 	if (!flock($JOBLOCK, LOCK_EX | LOCK_NB)) {
+		my @stat = stat($Options{joblockfile});
+		my $mdate = strftime("%Y-%m-%d",$stat[8]);
+		$mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",time()));
 		print "Skipped this job due to a conflicting job in progress per "
-			. qq<"$Options{joblockfile}" dated >
+			. qq<"$Options{joblockfile}" dated $mdate at >
 			. strftime(
-				"%Y-%m-%d %H:%M:%S",
+				"%H:%M:%S",
 				localtime((stat($Options{joblockfile}))[8]))
 			. "\n"
 			;
