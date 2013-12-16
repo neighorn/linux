@@ -162,7 +162,13 @@ if ($Options{joblockfile}) {
 		exit 11;
 	}
 	if (!flock($JOBLOCK, LOCK_EX | LOCK_NB)) {
-		print qq<Skipped this job due to a conflicting job in progress per "$Options{joblockfile}"\n>;
+		print "Skipped this job due to a conflicting job in progress per "
+			. qq<"$Options{joblockfile}" dated >
+			. strftime(
+				"%Y-%m-%d %H:%M:%S",
+				localtime((stat($Options{joblockfile}))[8]))
+			. "\n"
+			;
 		exit 11;
 	}
 }
