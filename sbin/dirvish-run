@@ -117,10 +117,12 @@ $OptionMode = 'normal';		# We're done preprocessing.
 
 # Set our ionice value, if specified, so it applies to LogOutput's child too.
 if ($Options{ionice}) {
-	if ($Options{ionice} = /^\d+(\/\d+)?$/) {
+	if ($Options{ionice} =~ /^(\d+)(\/\d+)?$/) {
+		my ($Class,$ClassData) = ($1,$2);
+		$ClassData =~ s/^\/// if (defined($ClassData) and $ClassData);
 		RunDangerousCmd(
-			"ionice -p $$ -c $1" .
-			($2?" -n $2":'')
+			"ionice -p $$ -c $Class" .
+			($ClassData?" -n $ClassData":'')
 		);
 	}
 	else {
