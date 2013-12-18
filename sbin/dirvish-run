@@ -59,6 +59,7 @@ our %OptionSpecifications=(
 		'help|h|?!'		=>	\&opt_h,
 		'ifup!'			=>	\&opt_Value,
 		'ifbefore=s'		=>	\&opt_Value,
+		'ionice=s'		=>	\&opt_Value,
 		'jobinit|B=s'		=>	\&opt_Array,
 		'joblockfile=s'		=>	\&opt_Value,
 		'logfile|L=s'		=>	\&opt_Value,
@@ -113,6 +114,20 @@ $OptionMode = 'preprocess';	# Some options need to know if we're running or not.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 $OptionMode = 'normal';		# We're done preprocessing.
+
+# Set our ionice value, if specified, so it applies to LogOutput's child too.
+if ($Options{ionice}) {
+	if ($Options{ionice} = /^\d+(\/\d+)?$/) {
+		RunDangerousCmd(
+			"ionice -p $$ -c $1" .
+			($2?" -n $2":'')
+		);
+	}
+	else {
+		warn qq<Invalid value "$Options{ionice}" for --ionice -- ignored.\n>;
+		$Errors++;
+	}
+}
 	
 # Set up our logging and output filtering.
 my $RunDate=`date +%m/%d`;
@@ -120,9 +135,11 @@ chomp $RunDate;
 my $Subject;
 if ($Options{subject}) {
 	$Subject="$Options{subject}" ;
-} elsif (@Parms >= 1) {
+}
+elsif (@Parms >= 1) {
 	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
-} else {
+}
+else {
 	$Subject="%* %m/%d %C %N %E %*%*%*" ;
 };
 
@@ -812,6 +829,10 @@ Vault Options:
 					host was unreachable but don't generate
 					an error.  --noifup cancels a prior
 					--ifup.
+	--ionice=class(/classdata):	Run the backup with in ionice class
+					"class", optionally specifying a
+					class data value of "classdata".
+					Ex: --ionice=2/4
 	-O|--option-set=config:		Insert the "config" configuration
 					options from $ConfigFile.
 
