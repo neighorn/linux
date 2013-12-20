@@ -14,7 +14,7 @@ function ReadLSOF {
 		fi
 		# [[ $fh = [0-9]*r ]] && continue			# Filter out input file.
 		filename="${filename% (*}"			# Clean up NFS mounts.
-		percent=`df -h "$filename" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
+		percent=`df -h "${filename%/*" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
 
 		# Get size in a compact unit.
 		size=`stat -c %s "$filename"`
