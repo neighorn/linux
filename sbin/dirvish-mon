@@ -21,12 +21,9 @@ function ReadLSOF {
 		if [[ -z "$size" ]]
 		then
 			size='  ?'
-		elif [[ $size -gt 1024**3 ]]
-		then
-			size=`printf "%dG" $(($size/1024**3))`
 		elif [[ size -gt 1024**2 ]]
 		then
-			size=`printf "%dM" $(($size/1024**2))`
+			size=`printf "%'dM" $(($size/1024**2))`
 		elif [[ $size -gt 1024 ]]
 		then
 			size=`printf "%dK" $(($size/1024))`
