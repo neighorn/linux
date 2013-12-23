@@ -137,7 +137,8 @@ RunDangerousCmd("lvdisplay > $opt_o/lvdisplay.out");
 
 # Capture network configuration.
 RunDangerousCmd("ifconfig -a > $opt_o/ifconfig.out");
-RunDangerousCmd("netstat -nr > $opt_o/netstat.out");
+RunDangerousCmd("netstat -nr > $opt_o/netstat-nr.out");
+RunDangerousCmd("netstat -pln > $opt_o/netstat-pln.out");
 
 # Capture MD and DRBD configuration.
 RunDangerousCmd("cp /proc/mdstat $opt_o/mdstat.out") if (-e "/proc/mdstat");
