@@ -125,19 +125,23 @@ foreach my $device (@Parms) {
 				die "Aborting $Prog - another RAID is rebuilding\n";
 			}
 			print strftime(
-				"Beginning check of /dev/$device at %T on %D\n",
+				"Beginning check of /dev/$device at %T on %D"
+				. ($opt_t?' (test)':'')
+				. "\n",
 				localtime());
 			;
-			my $FH;
-			if (open($FH,'>',$SyncFile)) {
-				print $FH "check\n";
+			if (!$opt_t) {
+				my $FH;
+				if (open($FH,'>',$SyncFile)) {
+					print $FH "check\n";
+					close $FH;
+				}
+				else {
+					warn "Unable to write to $SyncFile: $!\n";
+					next;
+				}
 				close $FH;
 			}
-			else {
-				warn "Unable to write to $SyncFile: $!\n";
-				next;
-			}
-			close $FH;
 		}
 		else {
 			print "/dev/$device is already being verified.  Waiting for completion...\n";
