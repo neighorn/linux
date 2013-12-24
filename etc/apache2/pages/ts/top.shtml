@@ -10,7 +10,7 @@
 	top processes as of <!--#echo var="DATE_LOCAL" -->
 </H2>
 <pre>
-<!--#exec cmd="top -n1 -b -c" -->
+<!--#exec cmd="COLUMNS=132 top -n1 -b -c" -->
 </pre>
 </BODY>
 <HTML>
