@@ -34,6 +34,7 @@ our %OptionSpecifications=(
 		'option-set|O=s'	=>	\&opt_O,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
+		'filter-file|F=s'	=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
@@ -101,11 +102,12 @@ LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
 	MAIL_FILE		=> $Options{logfile},
 	MAIL_FILE_PERMS		=> 0644,
-	ALWAYS_MAIL_LIST	=> \@{$Options{"always-mail"}},
-	ERROR_MAIL_LIST		=> \@{$Options{"error-mail"}},
-	ALWAYS_PAGE_LIST	=> \@{$Options{"always-page"}},
-	ERROR_PAGE_LIST		=> \@{$Options{"error-page"}},
+	ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
+	ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
+	ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
 	MAIL_SUBJECT		=> $Subject,
+	FILTER_FILE		=> $Options{'filter-file'},
 	VERBOSE			=> $LogOutputVerbose,
 });
 
@@ -203,60 +205,56 @@ sub opt_O {
 #
 sub opt_h {
 
-	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
-	print PAGENATER <<"ENDUSAGE";
-$Prog - desc
-
-Usage:  $Prog [options] parm1...
-	$Prog -h
-
-	-m|--always-mail=mailid:	Mail: Send an execution report to this
-					e-mail address.
-
-	-M|--error-mail=mailid: 	Mail on error: Send an execution report
-					to this e-mail address only if errors
-					are detected.
-
-	-p|--always-page=mailid: 	Page: Send a very brief message
-					(suitable for a pager or text message)
-					to this e-mail address when this job
-					completes.
-
-	-P|--error-page=mailid:		Page on error: Send a very brief message
-					to this e-mail address if errors are
-					detected in this job.
-
-	-h|?|--help:			Help: display this panel
-
-	-t|--test:			Test: echo commands instead of running
-					them.
-
-	-v|--verbose:			Verbose: echo commands before running
-					them.  May be repeated to increase
-					verbosity.  --test overrides --verbose.
-
-					See "-s" above for unit specifications.
-
-Parameters:
-
-Example:
-
-	$Prog 
-
-Notes:
-
-Return codes:
-	0       :       Normal termination
-	1       :       Help panel displayed.
-	2       :       Invalid or unrecognized command line options.
-	3       :       Invalid or unrecognized command line option value.
-	4       :       Incorrect command line parameters.
-	5       :       Unexpected message found in output.
-	10      :       Some delete's failed.
-ENDUSAGE
-close PAGENATER;
-exit 1;
+        my $Pagenater=$ENV{PAGENATER};
+        $Pagenater="more" unless ($Pagenater);
+        system("pod2text $Bin/$Script | $Pagenater");
+        exit(1);
 }
+=pod
+
+=head1 $Prog - 
+
+<<description>>
+
+=head3 Usage:  
+        $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
+
+        $Prog -h
+
+=head3 Flags:
+        --error-mail|-e mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
+        --option-set|-O config: Insert the "config" configuration options
+                                from $ConfigFile
+                                into the command line at this point.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+        --help|-h:              Help: display this panel
+
+=head3 Parameters:
+        (none)
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
+
+=cut
+
 __END__
 #
 # Output filters.  The syntax is: type pattern

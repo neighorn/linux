@@ -1,55 +1,48 @@
-#! /usr/bin/perl
-#
-# Copyright (c) 2005,2009,2011 Martin Consulting Services, Inc.
-# Licensed under the Lesser Gnu Public License (LGPL).
-# 
-# ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
-# CODE IS STRICTLY AT YOUR OWN RISK.
-#
+#!/usr/bin/perl
 
-#
-# Check MySQL databases
-#
 use strict;
 use warnings;
 use LogOutput;
-use ProcessOptions;
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
-use FindBin qw($Bin $Script);
+use POSIX qw(strftime);
+use FindBin qw($Bin $Script $Script);
+
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
 # Initialize variables.
-our $Prog=$Script;              	# Get our name, for messages.
+our $Prog=$0;                           # Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
-our $Errors=0;				# No errors so far.
-our $Syslog='user';			# Name of Syslog facility.  '' for none.
-our $BaseDir=$Bin;			# Set our base directory.
-our $LogFile="";			# Name of the log file.
-our $ConfigFile="$BaseDir";		# Deterimine the name of our config file.
-$ConfigFile =~ s%/.[^/]*$%/etc/${Prog}.cfg%;# 	Ditto.
-our @Parms;				# Array of remaining cmdline parms.
-our %Config;				# Our configuration options.
-my $ExitCode;				# Code we'll exit with.
-#
-our $opt_h;				# -h (help) option.
-our $opt_e;				# -e (error mail) option.
-our $opt_m;				# -m (mail) option.
-our $opt_p;				# -p (pager mail) option.
-our $opt_P;				# -P (pager error mail) option.
-our $opt_t;				# -t (test) option.
-our $opt_v;				# -v (verbose) option.
+my $Errors=0;   	                # No errors so far.
+my $Syslog='user';                      # Name of Syslog facility.  '' for none.
+my $BaseDir="/usr/local/etc";		# Set our base directory.
+my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+our %Config;				# Data from the config file.
+our %Options;				# Options settings.
+our @Parms;				# List of non-option arguments.
+
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+our %OptionSpecifications=(
+		'<>'			=>	sub {push @Parms,shift;},
+		'debug|d'		=>	sub {$DB::AutoTrace=1;},
+		'filter|F=s'		=>	\&opt_Value,
+		'help|h|?!'		=>	\&opt_h,
+		'always-mail|m=s'	=>	\&opt_Array,
+		'error-mail|M=s'	=>	\&opt_Array,
+		'option-set|O=s'	=>	\&opt_O,
+		'always-page|p=s'	=>	\&opt_Array,
+		'error-page|P=s'	=>	\&opt_Array,
+		'test|t'		=>	\&opt_Value,
+		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+);
 #
 
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
-
-# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
-#       1) We define a new type l (lowercase L), which is a list (i.e. if
-#          specified multiple times, values are concatenated & blank separated.o
-#          Normal =s and =i would replace values instead of concatenate.
-#       2) We don't support long option names, except as aliases.
-# These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l t v';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -60,7 +53,8 @@ if (-e $ConfigFile) {
 		next if (/^\s*$/);      # Blank line.
 		chomp;
 		my ($name,$settings)=split(/:?\s+/,$_,2);
-		$name=~tr/[a-z]/[A-Z]/;
+		$name=uc($name);	# Name is not case sensitive.
+		$settings=~s/\s+$//;	# Trim trailing spaces.
 		$Config{$name}.=$settings . ',' ;
 	}
 	close CONFIG;
@@ -74,40 +68,79 @@ foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 	if (defined($Config{'ALLJOBS'}));
 
-# Process the command line options, if any.
-if (@ARGV) {
-	# Process the command line arguments.
-	ProcessOptions($OptSpec);
-} else {
-	# No command line options.  Run the default job.
-	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
-		if (defined($Config{'DEFAULTJOB'}));
-}
-if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+	if (!@ARGV && defined($Config{DEFAULTJOB}));
+
+# Pre-process our command line, to get the options we need for LogOutput.
+my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
+%Options=(verbose => 0);	# Initialize Options.
+$Errors ++ unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 	
 # Set up our logging and output filtering.
+my $RunDate=`date +%m/%d`;
+chomp $RunDate;
+my $Subject;
+if ($Options{subject}) {
+	$Subject="$Options{subject}" ;
+} elsif (@Parms >= 1) {
+	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
+} else {
+	$Subject="%* %m/%d %C %N %E %*%*%*" ;
+};
+
+# Make sure some key items exist;
+foreach (qw(always-mail error-mail always-page error-page)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
+$Options{verbose} = 0 unless (exists($Options{verbose}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
+my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
+
 LogOutput({
-      ALWAYS_MAIL_LIST =>     $opt_m,
-      ALWAYS_PAGE_LIST =>     $opt_p,
-      ERROR_MAIL_LIST =>      $opt_e,
-      ERROR_PAGE_LIST =>      $opt_P,
-      SYSLOG_FACILITY =>      $Syslog,
+	SYSLOG_FACILITY		=> $Syslog,
+	MAIL_FILE		=> $Options{logfile},
+	MAIL_FILE_PERMS		=> 0644,
+	ALWAYS_MAIL_LIST	=> \@{$Options{"always-mail"}},
+	ERROR_MAIL_LIST		=> \@{$Options{"error-mail"}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{"always-page"}},
+	ERROR_PAGE_LIST		=> \@{$Options{"error-page"}},
+	MAIL_SUBJECT		=> $Subject,
+	VERBOSE			=> $LogOutputVerbose,
+	FILTER_FILE		=> $Options{"filter"},
 });
+
 
 
 # Verify the command line.
 die("Unexpected parameters specified on the command line.  See \"$Prog -h\" for usage.")
 	unless (@Parms == 0);
 
-$ExitCode = RunDangerousCmd('/usr/bin/mysqlcheck --all-databases');
+my $ExitCode = RunDangerousCmd('/usr/bin/mysqlcheck --all-databases');
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {
 	#print "$Prog ended normally.\n";
 }
 
-$ExitCode=$Errors?10:0;
-exit($ExitCode);
+if ($Errors) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+exit( ($Errors?10:0) );
+
+
+#
+# xxxxx
+#
+sub xxxxxx {
+
+}
+
 
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
@@ -115,11 +148,11 @@ exit($ExitCode);
 sub RunDangerousCmd {
 	my ($Cmd,$FH,$Line);
 	$Cmd=join(' ',@_);
-	if ($opt_t) {
+	if ($Options{test}) {
 		print "Test: $Cmd\n";
 		return 0;
 	} else {
-		print "Executing: $Cmd\n" if ($opt_v);
+		print "Executing: $Cmd\n" if ($Options{verbose});
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
 				$Line=~s/[
@@ -138,6 +171,46 @@ sub RunDangerousCmd {
 
 
 #
+# opt_Value - generic single-value option processing
+#
+sub opt_Value {
+	my($Name,$Value) = @_;
+	$Options{$Name} = $Value;
+}
+
+
+#
+# opt_Array - generic multi-value optoin  processing
+#
+sub opt_Array {
+
+	my($Name,$Value,undef) = @_;
+	if (defined($Value) and length($Value)) {
+		# Add this value to the array.
+		push @{$Options{$Name}},$Value;
+	}
+	else {
+		# Received "--opt=".  Empty this array.
+		@{$Options{$Name}}=();
+	}
+}
+
+
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n>;
+	}
+}
+
+#
 # opt_h: Usage
 #
 sub opt_h {
@@ -147,8 +220,8 @@ sub opt_h {
 	system("pod2text $Bin/$Script | $Pagenater");
 	exit(1);
 }
-
 =pod
+
 =head1 $Prog - mysql-check
 
 mysql-check runs "mysqlcheck --alldatabases" and filters out any that report
@@ -160,19 +233,25 @@ a status of "OK", so that only error conditions are reported.
 	$Prog -h
 
 =head3 Flags:
-	-e mailid:      Error: Send an execution report to this e-mail address
-			if errors are detected.
-	-m mailid:      Mailid: Send an execution report to this e-mail address.
-	-p mailid:      Page: Send a very brief message (suitable for a pager)
-			to this e-mail address when this job completes.
-	-P mailid:      Page error: Send a very brief message to this e-mail 
-			address if errors are detected in this job.
-	-O config:      Insert the "config" configuration options from
-			$ConfigFile.
-			the command line at this point.
-	-t	:	Test: echo commands instead of running them.
-	-v	:	Verbose: echo commands before running them.
-	-h      :       Help: display this panel
+	--error-mail|-e mailid:	Error: Send an execution report to this
+				e-mail address if errors are detected.
+	--filter|-F filter:	Filter: Use alternate error detection
+				filter file "filter".  The default is
+				to use the built-in error filter.
+	--always-mail|-m addr:	Mailid: Send an execution report to
+				this e-mail address.
+	--always-page|-p addr:	Page: Send a very brief message
+				(suitable for a pager) to this e-mail
+				address when this job completes.
+	--error-page|-P addr:	Page error: Send a very brief message to
+				this e-mail address if errors are
+				detected in this job.
+	--option-set|-O config:	Insert the "config" configuration options
+				from $ConfigFile
+				into the command line at this point.
+	--test|-t:		Test: echo commands instead of running them.
+	--verbose|-v:		Verbose: echo commands before running them.
+	--help|-h:		Help: display this panel
 
 =head3 Parameters:
 	(none)
@@ -186,6 +265,7 @@ a status of "OK", so that only error conditions are reported.
 	5       :       Unexpected message found in output.
 
 =cut
+
 __END__
 #
 # Output filters.  The syntax is: type pattern
