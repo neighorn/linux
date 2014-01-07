@@ -1,5 +1,5 @@
 #! /bin/bash -xv
 for name in $@
 do
-	cp -pr $PWD/$name /usr/local/$name
+	cp -pr $PWD/$name /usr/local/${name%.sample}
 done
