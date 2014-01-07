@@ -6,8 +6,7 @@ Alias /mrtg /usr/local/etc/apache2/pages/mrtg
    ExpiresDefault A300
    order deny,allow
    deny from all
-   allow from 127.0.0.1
-   allow from 192.168.xxx.0/16
+   Include /usr/local/etc/conf.d/admin-only.inc
    AddType text/html .shtml
    AddHandler server-parsed .shtml
 </Directory>
