@@ -1,2 +1,2 @@
-ALLJOBS: -m jobrept
+ALLJOBS: -m sysadmin
 SCANLOG: /usr/local/etc/scanlog ssh://svr10//usr/local/etc/scanlog

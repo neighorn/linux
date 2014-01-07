@@ -1,1 +1,1 @@
-Alljobs: -m jobrept -x /usr/local/backup -x /mnt -x /media 
+Alljobs: -m sysadmin -x /usr/local/backup -x /mnt -x /media 

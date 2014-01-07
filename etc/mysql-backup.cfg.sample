@@ -1,1 +1,1 @@
-AllJobs: -v -m jobrept@localhost -joberror@localhost
+AllJobs: -v -m sysadmin
