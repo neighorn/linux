@@ -18,15 +18,15 @@ our $Version	= 3.1;
 sub LogOutput_cfg {
 
 # Insert name of mail server here.
-my($MailServer)="xxx.in.example.com";
+my($MailServer)="localhost";
 
 # Mail domain: either let it default based on mail server name above,
 # or explicitly set your own mail domain. An @ and this value are
 # appended to any e-mail addresses that don't contain a mail domain
 # (i.e. mail addressed to "joe" gets readdressed to "joe@example.com).
 my $MailDomain;
-#$MailDomain="example.com";			# Set it explicitly.
-($MailDomain = $MailServer) =~ s/^.*?\.//;	# Build from $MailServer
+$MailDomain="example.com";			# Set it explicitly.
+#($MailDomain = $MailServer) =~ s/^.*?\.//;	# Build from $MailServer
 
 # Pass back the machine that handles our mail, and our domain name.
 warn "MailServer has not been set in LogOutput_cfg.\n" unless ($MailServer);
