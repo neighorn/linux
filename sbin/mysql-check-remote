@@ -106,7 +106,7 @@ foreach my $Server (@Servers) {
 	local $opt_t=$main::opt_t;
 	$opt_t='';
 	printf "%s %-10.10s %s\n", '-'x30, $Server, '-'x30;
-	RunDangerousCmd("ssh $Server /usr/local/sbin/mysql-check $Options -F /usr/local/etc/filter-accept-all.filter");
+	RunDangerousCmd("ssh $Server /usr/local/sbin/mysql-check --always-mail='' $Options -F /usr/local/etc/filter-accept-all.filter");
 	warn "ssh to $Server failed with status $?: $@" if ($?);
 }
 print '-'x72 . "\n";
