@@ -65,7 +65,7 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 # default directories and assign the default output directory name.
 if (!$opt_o) {
 	my $Prefix="/recovery-";
-	RunDangerousCmd("find $Prefix* -prune -type d -mtime +$Limit -exec echo Removing {} \\; -exec rm -rf {} \\;");
+	RunDangerousCmd("find $Prefix* -prune -type d -mtime +$Limit -exec echo Removing {} \\; -exec rm -rf {} \\;") if (glob("$Prefix*"));
 	my($day,$month,$year) = (localtime())[3..5];
 	$month++;		# Convert 0-11 to 1-12.
 	$year+=1900;		# Convert "years since 1900".
