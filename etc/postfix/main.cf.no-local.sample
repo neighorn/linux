@@ -4,5 +4,4 @@ mydestination =
 myhostname = host.example.com
 mydomain = example.com
 myorigin = $mydomain
-relayhost = $mydomain
 smtpd_banner = ESMTP ready
