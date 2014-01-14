@@ -54,6 +54,7 @@ if (-e $ConfigFile) {
 		chomp;
 		my ($name,$settings)=split(/:?\s+/,$_,2);
 		$name=uc($name);	# Name is not case sensitive.
+		$settings='' unless ($settings);	# Avoid undef issues.
 		$settings=~s/\s+$//;	# Trim trailing spaces.
 		$Config{$name}.=$settings . ',' ;
 	}
