@@ -6,6 +6,7 @@ use LogOutput;
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
+use FindBin qw($Bin $Script);
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -53,6 +54,7 @@ if (-e $ConfigFile) {
 		chomp;
 		my ($name,$settings)=split(/:?\s+/,$_,2);
 		$name=uc($name);	# Name is not case sensitive.
+		$settings='' unless ($settings);  # Avoid undef warnings.
 		$settings=~s/\s+$//;	# Trim trailing spaces.
 		$Config{$name}.=$settings . ',' ;
 	}
