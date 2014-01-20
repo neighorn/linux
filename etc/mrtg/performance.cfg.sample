@@ -1,9 +1,9 @@
 Options[_]: growright,nopercent
-MaxBytes[_]: 100
 LegendO[_]: 
 ShortLegend[_]: %
 Unscaled[_]: ymwd
 MaxBytes[_]: 800
+AbsMax[_]: 3200
 YTics[_]: 10
 #
 # Load Average

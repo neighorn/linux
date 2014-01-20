@@ -704,6 +704,11 @@ are made:
 Single -- run tests one at a time rather than in parallel.  This is primarily
 used as a diagnostic aid.
 
+=item -t, --test
+
+Test -- run normal checks, but suppress any OnOK or OnFail actions, and don't
+send out any e-mail alerts.
+
 =item -v, --verbose
 
 Verbose -- turn on diagnostics.
