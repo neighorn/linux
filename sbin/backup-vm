@@ -243,7 +243,7 @@ sub ProcessBackup {
 	$BackupPattern =~ s"^.*/"";		# Remove leading path.
 	$BackupPattern =~ s/%[ymdHMSgGI]/../g;	# Two digit patterns.
 	$BackupPattern =~ s/%[Y]/..../g;	# Four digit patterns.
-	$BackupPattern = "^$BackupPattern.(tar|tgz)(.tmp|.bad)?\$";
+	$BackupPattern = "^$BackupPattern\.(tar|tgz)(\.tmp|\.bad)?\$";
 	if (open(my $FHLS,"ls -t $OutputDir 2>/dev/null |")) {
         	my $Count=0;
         	while (<$FHLS>) {
@@ -256,6 +256,7 @@ sub ProcessBackup {
 			elsif ($Options{cycles} and m<$BackupPattern>o) {
 				# Valid backup and we're deleting old cycles.
                 		$Count++;
+				print "debug: Considering item $Count: $OutputDir/$_\n";
                 		RunDangerousCmd(qq<rm "$OutputDir/$_">) if ($Count >= $Options{cycles});
 			}
         	}
