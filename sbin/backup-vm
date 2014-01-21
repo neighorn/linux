@@ -256,7 +256,6 @@ sub ProcessBackup {
 			elsif ($Options{cycles} and m<$BackupPattern>o) {
 				# Valid backup and we're deleting old cycles.
                 		$Count++;
-				print "debug: Considering item $Count: $OutputDir/$_\n";
                 		RunDangerousCmd(qq<rm "$OutputDir/$_">) if ($Count >= $Options{cycles});
 			}
         	}
