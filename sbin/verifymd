@@ -42,6 +42,7 @@ our $opt_p;				# -p (pager mail) option.
 our $opt_P;				# -P (pager error mail) option.
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
+our @opt_x;				# -x (exclude) option.
 #
 
 # Note: general purpose script - don't change current directory.
@@ -53,7 +54,7 @@ our $opt_v;				# -v (verbose) option.
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l f h i m=l n=s O=s p=l P=l t v';
+my $OptSpec='e=l f h i m=l n=s O=s p=l P=l t v x=l';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -102,10 +103,24 @@ if ($opt_n) {
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
 # Verify the command line.
-die("No devices specified on the command line.  See \"$Prog -h\" for usage.")
+if (@Parms == 0) {
+	# No parms.  Auto-generate a list.
+	@Parms = split(/\s+/,`ls /dev/md?*`);
+}
+die("No devices found.  See \"$Prog -h\" for usage.")
 	unless (@Parms > 0);
 
+# Turn @opt_x into a hash.
+my %Exclude;
+foreach (@opt_x) {
+	$Exclude{$_}=1;
+}
+
 foreach my $device (@Parms) {
+	if ($Exclude{$device}) {
+		print "$device excluded.\n";
+		next;
+	}
 	$device =~ s"^/dev/"";
 	my $SyncFile = "/sys/block/$device/md/sync_action";
 	if (! -e $SyncFile ) {
@@ -232,6 +247,7 @@ sub opt_h {
 }
 
 =pod
+
 =head1 $Prog - run MD device verification
 
 =head3 Usage:  
@@ -244,8 +260,11 @@ sub opt_h {
 			if errors are detected.
 	-f		Force: Run verify even if another RAID is resyncing
 			or rebuilding.
+	-h      :       Help: display this panel
 	-i:		Ignore: Don't treat missing devices as errors.
 	-m mailid:      Mailid: Send an execution report to this e-mail address.
+	-n weeknum:	weekNum: Only run on the "weeknum" (1-5) week of the 
+			month.  Used to work around limitations of some crons.
 	-p mailid:      Page: Send a very brief message (suitable for a pager)
 			to this e-mail address when this job completes.
 	-P mailid:      Page error: Send a very brief message to this e-mail 
@@ -255,7 +274,9 @@ sub opt_h {
 			the command line at this point.
 	-t	:	Test: echo commands instead of running them.
 	-v	:	Verbose: echo commands before running them.
-	-h      :       Help: display this panel
+	-x dev	:	eXclude: exclude this md device from verifications.
+			Used when excluding devices from a wildcard-
+			generated list of devices.
 
 =head3 Parameters:
 	device-file:	one or more devices to process.
@@ -290,6 +311,7 @@ __END__
 # The following are normal messages we don't need to see.
 #
 IGNORE  /^\s*$/
+IGNORE	"^\s*/dev/md\S+ excluded.$"
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
