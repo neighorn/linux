@@ -250,6 +250,25 @@ sub AUTOLOAD {
 	return $Value;
 }
 
+
+# =================================== Utility routines ==================================
+#
+# TransEscapes - translate \n to newline, etc.  Supports octal, hex, upper/lowercase, too.
+#
+sub TransEscapes {
+
+	my($Self,$data) = @_;
+        $data=~s/\\(
+            (?:[arnt'"\\]) |               # Single char escapes
+            (?:[ul].) |                    # uc or lc next char
+            (?:x[0-9a-fA-F]{2}) |          # 2 digit hex escape
+            (?:x\{[0-9a-fA-F]+\}) |        # more than 2 digit hex
+            (?:\d{2,3}) |                  # octal
+            (?:N\{U\+[0-9a-fA-F]{2,4}\})   # unicode by hex
+        )/"qq|\\$1|"/geex;  
+    return $data;
+}
+
 1;
 
 =pod
