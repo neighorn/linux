@@ -166,7 +166,6 @@ sub Check {
 					if ($Self->{'Send'}) {
 						# Looking for the right send/receive response.
 	    					printf "\r%5d   %s:%d Connected - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
-						printf "\rdebug: Send=$Self->{'Send'}\n";
 						$socket->print($Self->{'Send'});
 						my $response;
 						$socket->sysread($response,4096);
