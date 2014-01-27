@@ -147,7 +147,7 @@ sub Check {
 			TRY: for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
 			    printf "\r\%5d   Checking %s:%d (%s) try %d\n", $$,$host,$port,$Desc,$Try if ($Self->Verbose);  
 				if ($Self->{'Ssl'}) {
-					use IO::Socket::SSL;
+					eval qq[require "IO::Socket::SSL"];
 	    				$socket=IO::Socket::SSL->new(
 						PeerAddr=>"$host:$port",
 						Timeout=>$Self->{'Timeout'},
