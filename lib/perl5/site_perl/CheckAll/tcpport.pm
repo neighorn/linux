@@ -120,6 +120,16 @@ sub Check {
 		$Errors++;
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
+#	if ($Self->{'Ssl'}) {
+#        	if (!exists($INC{"IO/Socket/SSL.pm"})) {
+	if ($Self->{'Ssl'} and !exists($INC{"IO/Socket/SSL.pm"})) {
+               	eval qq[require IO::Socket::SSL;];
+               	if ($@) {
+			warn "$File:$Line: Unable to load IO::Socket:SSL: $@\n";
+			$Self->{'StatusDetail'} = 'Configuration error: missing required module';
+			$Errors++;
+		}
+	}
 
 	# If we don't have a timeout change it to the main value.
 	if (! $Self->{'Timeout'} ) {
@@ -147,7 +157,6 @@ sub Check {
 			TRY: for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
 			    printf "\r\%5d   Checking %s:%d (%s) try %d\n", $$,$host,$port,$Desc,$Try if ($Self->Verbose);  
 				if ($Self->{'Ssl'}) {
-					eval qq[require "IO::Socket::SSL"];
 	    				$socket=IO::Socket::SSL->new(
 						PeerAddr=>"$host:$port",
 						Timeout=>$Self->{'Timeout'},
