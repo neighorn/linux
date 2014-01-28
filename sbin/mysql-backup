@@ -43,6 +43,7 @@ our %OptionSpecifications=(
 		'min-size|s=s'		=>	\&opt_min_size,
 		'max-size|S=s'		=>	\&opt_max_size,
 		'output-directory|o=s'	=>	\&opt_Value,
+		'username|U=s'		=>	\&opt_Value,
 		'gzip|z'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
