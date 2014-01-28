@@ -248,12 +248,12 @@ sub ProcessBackup {
         	my $Count=0;
         	while (<$FHLS>) {
 			chomp;
-			next unless (m<$BackupPattern>o);
+			next unless (m<$BackupPattern>);
 			if (/(.tmp|.bad)$/) {
 				# Temporary or failed backup.  Just delete it.
 				RunDangerousCmd(qq<rm "$OutputDir/$_">);
 			}
-			elsif ($Options{cycles} and m<$BackupPattern>o) {
+			elsif ($Options{cycles} and m<$BackupPattern>) {
 				# Valid backup and we're deleting old cycles.
                 		$Count++;
                 		RunDangerousCmd(qq<rm "$OutputDir/$_">) if ($Count >= $Options{cycles});
