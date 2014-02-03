@@ -42,7 +42,7 @@ our $StatErrors = 0;			# Remember if we had stat errors.
 my $JOBLOCK;				# File handle for a job lock file, if used.
 my $SECTIONLOCK;			# File handle for a section lock file, if used.
 
-our $StartTime = time();		# Primarily for ifbefore, image-name.
+our $StartTime = time();		# Primarily for ifbefore, imagename.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -171,16 +171,6 @@ die "No BANKS defined in configuration file(s)"
 		and $Config{BANKS});
 my @Banks = shellwords(($Config{BANKS}));
 
-# Interpret imagename, if specified.
-if ($Options{imagename}) {
-	$Options{imagename} =
-		  "--image="
-		. strftime($Options{imagename},localtime($StartTime));
-}
-else {
-	$Options{imagename} = '';
-}
-
 PrintStatsFile(strftime("%D %T $Prog started<br>",localtime()));
 if ($Options{joblockfile}) {
 	if ($Options{joblockfile} !~ /^[a-zA-Z\d._~+\/-]+$/) {
@@ -223,6 +213,7 @@ foreach (@{$Options{jobinit}}) {
 	verbose => $Options{verbose},	# Make this global.
 );
 $Options{"max-fs-percent"} = 95 unless ($Options{"max-fs-percent"});
+
 $OptionSpecifications{'<>'} = \&ProcessBackup;
 $Errors++ unless GetOptions(%OptionSpecifications);
 
@@ -440,10 +431,16 @@ sub ProcessBackup {
 	$Status = system('/bin/ls ./dirvish/*.hist > /dev/null 2>&1') if ($Status eq 0);
 	my $Init = ($Status eq 0?'':'--init "--expire=+3 months"');	# Add --init if no trees.
 
+	# Interpret imagename, if specified.
+	my $ImageName='';
+	if ($Options{imagename}) {
+		$ImageName = "--image="
+			. strftime($Options{imagename},localtime($StartTime));
+	}
 	# Run the back-up.
 	my $AdditionalOptions = (exists($Options{dirvish})?join(' ',@{$Options{dirvish}}):'');
 	my $TargetStartTime = time();
-	$Status = RunDangerousCmd("dirvish --vault $Target $Init $Options{imagename} $AdditionalOptions");
+	$Status = RunDangerousCmd("dirvish --vault $Target $Init $ImageName $AdditionalOptions");
 	if ($Status == 0) {
 		foreach (`ls -tr $MachineDirectory`) {
 			chomp;
