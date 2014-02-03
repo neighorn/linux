@@ -255,6 +255,7 @@ IGNORE	"^\s*LibClamAV Warning: TNEF - unknown"
 IGNORE	"^\s*LibClamAV Warning: Unknown VBA version signature"
 IGNORE	"^\s*LibClamAV Warning: uudecode: buffer overflow stopped"
 IGNORE	"^\s*LibClamAV Warning: Cannot prepare for JIT, because it has already been converted to interpreter"
+SHOW	"^\s*LibClamAV Warning: cli_scanxz: decompress file size exceeds limits"
 IGNORE	"Phishing.Heuristics.Email.SpoofedDomain FOUND$"
 SHOW	": ClamAV-Test-File FOUND$"
 SHOW	"Eicar-Test-Signature FOUND$"i
