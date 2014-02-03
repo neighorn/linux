@@ -42,7 +42,7 @@ our $StatErrors = 0;			# Remember if we had stat errors.
 my $JOBLOCK;				# File handle for a job lock file, if used.
 my $SECTIONLOCK;			# File handle for a section lock file, if used.
 
-our $StartTime = time();	# Primarily for ifbefore.
+our $StartTime = time();		# Primarily for ifbefore, image-name.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -59,6 +59,7 @@ our %OptionSpecifications=(
 		'help|h|?!'		=>	\&opt_h,
 		'ifup!'			=>	\&opt_Value,
 		'ifbefore=s'		=>	\&opt_Value,
+		'imagename=s'		=>	\&opt_Value,
 		'ionice=s'		=>	\&opt_Value,
 		'jobinit|B=s'		=>	\&opt_Array,
 		'joblockfile=s'		=>	\&opt_Value,
@@ -169,6 +170,16 @@ die "No BANKS defined in configuration file(s)"
 		and exists($Config{BANKS})
 		and $Config{BANKS});
 my @Banks = shellwords(($Config{BANKS}));
+
+# Interpret imagename, if specified.
+if ($Options{imagename}) {
+	$Options{imagename} =
+		  "--image="
+		. strftime($Options{imagename},localtime($StartTime));
+}
+else {
+	$Options{imagename} = '';
+}
 
 PrintStatsFile(strftime("%D %T $Prog started<br>",localtime()));
 if ($Options{joblockfile}) {
@@ -432,7 +443,7 @@ sub ProcessBackup {
 	# Run the back-up.
 	my $AdditionalOptions = (exists($Options{dirvish})?join(' ',@{$Options{dirvish}}):'');
 	my $TargetStartTime = time();
-	$Status = RunDangerousCmd("dirvish --vault $Target $Init $AdditionalOptions");
+	$Status = RunDangerousCmd("dirvish --vault $Target $Init $Options{imagename} $AdditionalOptions");
 	if ($Status == 0) {
 		foreach (`ls -tr $MachineDirectory`) {
 			chomp;
@@ -831,6 +842,17 @@ Vault Options:
 					host was unreachable but don't generate
 					an error.  --noifup cancels a prior
 					--ifup.
+	--imagename=name		Interpret "name" with strftime and
+					the job start time, and then pass the
+					resulting value to dirvish as
+					--image=value.  This is used to 
+					specify image names with the dirvish-run
+					start date and time rather than that
+					of the individual dirvish job.  This
+					option avoids backup name collisions when
+					a job unexpectedly runs across midnight.
+					Use "-D '--imagename=value' to use
+					dirvish job start times instead.
 	--ionice=class(/classdata):	Run the backup with in ionice class
 					"class", optionally specifying a
 					class data value of "classdata".
