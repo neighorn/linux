@@ -186,6 +186,7 @@ sub Check {
 						else {
 							printf "\r%5d  %s:%d Received %s - no-match\n", $$, $host, $port, $response
 								if ($Self->Verbose);
+							$Self->{'StatusDetail'} = "Incorrect response";
 						}
 					}
 					else {
@@ -195,9 +196,15 @@ sub Check {
 					}
 					close($socket);
 				}
+				else {
+					$Self->{'StatusDetail'} = "Connect error: $!";
+					printf "\r%5d  %s:%d Connect error: %s\n", $$, $host, $port, $!
+						if ($Self->Verbose);
+				}
 	    			last TRY if ($HostDone);		# Don't need to try this host again
 			}
 			if ($GroupOK == $Self->CHECK_OK) {
+				$Self->{'StatusDetail'} = '';		# Delete any recovered errors.
 			    last HOST;					# Don't need to try other hosts.
 			}
 			else {
