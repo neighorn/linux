@@ -101,8 +101,8 @@ if (! $opt_m and ! $opt_e ) {
 
 do {
 	$ErrorFlag = CheckMDDevices();
-	sleep(60) if ($ErrorFlag);
-} until ($ErrorFlag == 0 or $opt_w == 0);
+	sleep(60) if ($ErrorFlag and $opt_w);
+} until (($ErrorFlag == 0) or ($opt_w == 0));
 
 
 # Document the devices if we had errors.
