@@ -23,7 +23,7 @@ our $opt_p;
 our $opt_P;
 our $opt_O;
 our $opt_v;
-our $opt_w;
+our $opt_w = 0;
 our %devices;
 my @Args=@ARGV;			# Preserve orig command for ref.
 my $ErrorFlag=0;			# No errors so far.
