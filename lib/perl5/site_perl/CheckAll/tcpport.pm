@@ -120,8 +120,6 @@ sub Check {
 		$Errors++;
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
-#	if ($Self->{'Ssl'}) {
-#        	if (!exists($INC{"IO/Socket/SSL.pm"})) {
 	if ($Self->{'Ssl'} and !exists($INC{"IO/Socket/SSL.pm"})) {
                	eval qq[require IO::Socket::SSL;];
                	if ($@) {
@@ -137,13 +135,20 @@ sub Check {
 	}
 
 	# Spin off a child process to check the status of this item.
-	my $pid = fork();
+	my $REALSTDOUT;
+	open($REALSTDOUT,'>&STDOUT') || warn "Unable to duplicate STDOUT";
+	my $CHECKFH;
+	my $pid = open($CHECKFH,"-|");
 	if ($pid) {
 		# We're the parent.  Remember the pid that goes with this line.
-		return "PIDList=$pid"
+		return "FHList=$pid/$CHECKFH";
 	}
 	else {
-		# We're the child.  Go test this service.
+		# We're the child.  Recover our file handles, then test the service.
+		my $PARENTFH;
+		open($PARENTFH,'>&STDOUT') || die "Unable to create PARENTFH";
+		open(STDOUT,'>&REALSTDOUT') || die "Unable to create PARENTFH";
+		close $REALSTDOUT;
 		my $Desc = $Self->{'Desc'};
 		printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
 		  if ($Self->{Verbose});
@@ -174,18 +179,18 @@ sub Check {
 					$HostDone = 1;		# Good or bad, we got an answer.
 					if ($Self->{'Send'}) {
 						# Looking for the right send/receive response.
-	    					printf "\r%5d   %s:%d Connected - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
+	    					printf "\r%5d   %s:%d Connected - %s\n", $$, $host, $port, $Desc if ($Self->Verbose > 1);
 						$socket->print($Self->{'Send'});
 						my $response;
 						$socket->sysread($response,4096);
 						if ($response =~ $Self->{'Expect'}) {
 							printf "\r%5d  %s:%d Received %s - match\n", $$, $host, $port, $response
-								if ($Self->Verbose);
+								if ($Self->Verbose > 1);
 							$GroupOK=$Self->CHECK_OK;
 						}
 						else {
 							printf "\r%5d  %s:%d Received %s - no-match\n", $$, $host, $port, $response
-								if ($Self->Verbose);
+								if ($Self->Verbose > 1);
 							$Self->{'StatusDetail'} = "Incorrect response";
 						}
 					}
@@ -204,15 +209,19 @@ sub Check {
 	    			last TRY if ($HostDone);		# Don't need to try this host again
 			}
 			if ($GroupOK == $Self->CHECK_OK) {
+				printf "\r%5d           %s OK\n", $$,$Desc if ($Self->Verbose);
 				$Self->{'StatusDetail'} = '';		# Delete any recovered errors.
 			    last HOST;					# Don't need to try other hosts.
 			}
 			else {
-				# Connection failing.
-				printf "\r%5d           %s FAILING: $!\n", $$,$Desc if ($Self->Verbose);
+				# Service failed.
+				printf "\r%5d           %s FAILING: %s\n", $$,$Desc,$Self->{'StatusDetail'} if ($Self->Verbose);
 				close($socket) if ($socket);
 			}
 		}
+		printf $PARENTFH "%d/%d/%s\n", $$, $GroupOK, $Self->{'StatusDetail'};	# Tell the parent whether it was OK or FAILING.
+		close $PARENTFH;
+		close STDOUT;
 		exit($GroupOK);		# Tell the parent whether it was OK or FAILING.
 	}
 }
