@@ -22,6 +22,9 @@ our $opt_e;
 our $opt_p;
 our $opt_P;
 our $opt_O;
+our $opt_v;
+our $opt_w;
+our %devices;
 my @Args=@ARGV;			# Preserve orig command for ref.
 my $ErrorFlag=0;			# No errors so far.
 my $Syslog='user';			# Name of Syslog facility.  '' for no logging.
@@ -39,7 +42,7 @@ chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
 #	   Normal =s and =i would replace values instead of concatenate.
 #	2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='d f h m=l e=l p=l P=l O=s';
+my $OptSpec='d f h m=l e=l p=l P=l O=s v w';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -96,61 +99,11 @@ if (! $opt_m and ! $opt_e ) {
 	`tty -s` && warn "No e-mail addresses supplied.  $Prog has no way to notify of raid failures.\n";
 }
 
+do {
+	$ErrorFlag = CheckMDDevices();
+	sleep(60) if ($ErrorFlag);
+} until ($ErrorFlag == 0 or $opt_w == 0);
 
-# Typical /proc/mdstat records...
-# md1 : active raid1 sda1[0] sdb1[1] sdc[2](S)
-#      261952 blocks [2/2] [UU]
-#      996018 blocks super 1.2 [2/1] [U_]
-# Recovery line...
-#[========>............]  recovery = 41.3% (45933184/111201856) finish=1051.6min speed=1032K/sec
-my ($mdname, $status, $type);
-my %devices;
-open (MDSTAT, '/proc/mdstat') || die("Unable to open /proc/mdstat: $!\n");
-while (<MDSTAT>) {
-	chomp;
-	next if (/^\s*$/);
-	#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
-	if (/^\s*(md\d+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d*\[\d+\](\([SF]\))?)+$/) {
-		# This is a "mdx : active raid1" line.
-		($mdname, $status, $type) = ($1,$2,$3);
-		my $rest;
-		($rest = $_) =~ s/^.*?://;
-		if ($status =~ /^active/ && $type =~ /raid[156]/ && $_ !~ /\(F\)/) {
-			# Everything is normal.
-		} else {
-			warn "Unexpected response from $mdname: $rest\n";
-			$ErrorFlag=1;
-		}
-		# Maintain a list of devices.
-		$rest =~ s/^raid\S+\s*//;
-		foreach (split(/\s+/,$rest)) {
-			if (/(...)\d+\[\d+\]/) {
-				$devices{$1}=1;
-			}
-		}
-	}
-	if (/\s*\d+\s+blocks\s.*\[\d+\/\d+\]\s+(\S+)\s*$/) {
-		# This is a "xxxxxx blocks [2/2] [UU]" line.
-		if ($1 !~ /^\[UU+\]/) {
-			warn "$mdname is degraded ($1)\n";
-			$ErrorFlag=1;
-		}
-	}
-	if (/\s*[\[\]=>.]+\s*(recovery|resync)/) {
-		# This is a recovery line.  It's an error, unless we're
-		# checking the RAID.  Find out.
-		my $FH;
-		if (open($FH,'<',"/sys/block/$mdname/md/sync_action")) {
-			my $sync_action=<$FH>;
-			close $FH;
-			next if ($sync_action =~ /^check/);	# We're verifying.
-		}
-		# We're recovering.  Report.
-		chomp;
-		warn "$mdname: $_\n";
-		$ErrorFlag=1;
-	}
-}
 
 # Document the devices if we had errors.
 if ($ErrorFlag) {
@@ -166,15 +119,68 @@ exit(0);
 
 
 #
-# SampleSub - sample subroutine
+# CheckMDDevices - check the status of MD devices.
 #
-sub SampleSub {
+sub CheckMDDevices {
 
-	#my($x,$y,$z,...)=@_;		# Get our calling arguments.
 
-	# Declare local variables.
-	#my($a);		# Variable description.	
-
+	# Typical /proc/mdstat records...
+	# md1 : active raid1 sda1[0] sdb1[1] sdc[2](S)
+	#      261952 blocks [2/2] [UU]
+	#      996018 blocks super 1.2 [2/1] [U_]
+	# Recovery line...
+	#[========>............]  recovery = 41.3% (45933184/111201856) finish=1051.6min speed=1032K/sec
+	my ($mdname, $status, $type);
+	my $ReturnStatus = 0;
+	open (MDSTAT, '/proc/mdstat') || die("Unable to open /proc/mdstat: $!\n");
+	while (<MDSTAT>) {
+		chomp;
+		next if (/^\s*$/);
+		#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
+		print "Verbose: $_\n" if ($opt_v);
+		if (/^\s*(md\d+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d*\[\d+\](\([SF]\))?)+$/) {
+			# This is a "mdx : active raid1" line.
+			($mdname, $status, $type) = ($1,$2,$3);
+			my $rest;
+			($rest = $_) =~ s/^.*?://;
+			if ($status =~ /^active/ && $type =~ /raid[156]/ && $_ !~ /\(F\)/) {
+				# Everything is normal.
+				print "Verbose:	- normal\n" if ($opt_v);
+			} else {
+				warn "Unexpected response from $mdname: $rest\n";
+				$ReturnStatus=1;
+			}
+			# Maintain a list of devices.
+			$rest =~ s/^raid\S+\s*//;
+			foreach (split(/\s+/,$rest)) {
+				if (/(...)\d+\[\d+\]/) {
+					$devices{$1}=1;
+				}
+			}
+		}
+		if (/\s*\d+\s+blocks\s.*\[\d+\/\d+\]\s+(\S+)\s*$/) {
+			# This is a "xxxxxx blocks [2/2] [UU]" line.
+			if ($1 !~ /^\[UU+\]/) {
+				warn "$mdname is degraded ($1)\n" unless ($opt_w);
+				$ReturnStatus=1;
+			}
+		}
+		if (/\s*[\[\]=>.]+\s*(recovery|resync)/) {
+			# This is a recovery line.  It's an error, unless we're
+			# checking the RAID.  Find out.
+			my $FH;
+			if (open($FH,'<',"/sys/block/$mdname/md/sync_action")) {
+				my $sync_action=<$FH>;
+				close $FH;
+				next if ($sync_action =~ /^check/);	# We're verifying.
+			}
+			# We're recovering.  Report.
+			chomp;
+			warn "$mdname: $_\n" unless ($opt_w);
+			$ReturnStatus=1;
+		}
+	}
+	return $ReturnStatus;
 }
 
 
@@ -227,6 +233,8 @@ Flags:
 	-k keyfile:	Key file: name of the user's key file.  The default
 			is ~/bin/pw.lst.
 	-h	:	Help: display this panel
+	-v	:	Verbose
+	-w	:	Wait: loop, waiting until all devices are normal before exiting.
 
 Examples:
 	checkmd
@@ -280,8 +288,9 @@ LOGONLY	/^Command: /
 SHOW	/^\s*debug:/
 SHOW	/^\s*Checks disabled until/
 SHOW	/^\s*\S+:\s*resync/
-SHOW	/^Job ended normally with status 0 and signal 0$/
+IGNORE	/^Job ended normally with status 0 and signal 0$/
 SHOW	"^Device /dev/\S+:\s+S#"
+SHOW	"^\s*Verbose:"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
