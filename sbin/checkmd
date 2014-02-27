@@ -212,10 +212,9 @@ sub opt_h {
 
 	open (PAGENATER,$ENV{'PAGER'}?"| $ENV{'PAGER'}":"| more") || die("Unable to start pagenater: $!\n");
 	print PAGENATER <<"ENDUSAGE";
-$Prog - (1 line description here)
+$Prog - check for incomplete RAID meta-devices.
 
 Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
-		[-k keyfile]
 	$Prog [-h]
 
 Flags:
@@ -230,8 +229,6 @@ Flags:
 	-O config:	Insert the "config" configuration options from
 			$ConfigFile into
 			the command line at this point.
-	-k keyfile:	Key file: name of the user's key file.  The default
-			is ~/bin/pw.lst.
 	-h	:	Help: display this panel
 	-v	:	Verbose
 	-w	:	Wait: loop, waiting until all devices are normal before exiting.
