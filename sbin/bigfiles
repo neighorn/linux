@@ -97,7 +97,7 @@ do
 	sort -k 2,2nr | \
 	while read trash1 trash2 trash3 trash4 owner trash6 size mon day year name
 	do
-		printf "%8.8s %12.0d %3.3s %2.2s %5.5s %s\n" $owner $size $mon $day $year $name
+		printf "%8.8s %12.0d %3.3s %2.2s %5.5s %s\n" $owner $size $mon $day $year "$name"
 	done |
 	head -60
 done
