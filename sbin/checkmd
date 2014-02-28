@@ -76,7 +76,7 @@ if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
 # Set up our logging and output filtering.
 LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 
-if ($Config{DISABLEUNTIL} and not $opt_f) {
+if ($Config{DISABLEUNTIL} and not $opt_f and not $opt_w) {
 	if ($Config{DISABLEUNTIL} =~ m"^(\d\d\d\d)[/-](\d\d?)[/-](\d\d?)(?:\s+(\d\d?):(\d\d?)(?::(\d\d+))?)?") {
 		my($AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond) = ($1,$2,$3,$4,$5,$6);
 		$AHour = 8 unless (defined($AHour));
