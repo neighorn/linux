@@ -306,8 +306,7 @@ sub ProcessBackup {
 		}
 	}
 
-	# Insert separators between tasks.
-	print "_"x60 . "\n";
+	# Document that we're starting a new target.
 	print strftime("Starting $Target at %H:%M:%S on %A, %Y-%m-%d...\n",localtime());
 
 	if (!chdir $MachineDirectory) {
@@ -548,14 +547,14 @@ sub Summarize {
 	find(\&FoundItem,"$Directory/tree");
 	my $WarnText='';
 	if ($Options{minsize} and $NewSize < $Options{minsize}) {
-		$WarnText .= "New item size of " . FormatSize($NewSize) . " falls below the alert threshold of " . FormatSize($Options{minsize}) . ".\n";
+		$WarnText .= "\tNew item size of " . FormatSize($NewSize) . " falls below the alert threshold of " . FormatSize($Options{minsize}) . ".\n";
 	}
 	if ($Options{maxsize} and $NewSize > $Options{maxsize}) {
-		$WarnText .= "New item size of " . FormatSize($NewSize) . " exceeds the alert threshold of " . FormatSize($Options{maxsize}) . ".\n";
+		$WarnText .= "\tNew item size of " . FormatSize($NewSize) . " exceeds the alert threshold of " . FormatSize($Options{maxsize}) . ".\n";
 	}
 	$TotalSize=FormatSize($TotalSize);
 	$NewSize=FormatSize($NewSize);
-	printf "%s %s: " . 
+	printf "\t%s %s: " . 
 		"Total Items: %s (%s), " .
 		"New Items: %s (%s)\n",
 		$Target,              $Directory,
@@ -954,7 +953,7 @@ IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
 IGNORE	"^\s*\S+:\S+\s+.*\s+==\s+\d{4}-\d\d-\d\d \d\d:\d\d\s*$"
 #
-SHOW	"^\S+ \S+: Total Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\), New Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\)$"
+SHOW	"^\s*\S+ \S+: Total Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\), New Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\)$"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
 SHOW	"^\s*Disk space report:$"
