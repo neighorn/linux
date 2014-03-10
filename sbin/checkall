@@ -5,6 +5,7 @@ no strict 'refs';
 use warnings;
 use Getopt::Long qw(:config bundling no_auto_abbrev gnu_compat no_ignore_case);
 use Sys::Syslog;
+use IO::Select;
 use IO::Socket;
 use File::Temp qw(tempfile);
 use POSIX qw(strftime);
@@ -29,7 +30,7 @@ our $opt_R=120;			# Set number of minutes to re-report fail items.
 our $opt_s='';			# Alert subject
 our $opt_S=0;			# Single - only run one process at a time (for diagnostics).
 our $opt_w=20;			# Wait time in seconds (for checks that timeout)
-our $Prog = $Script;	# Get our program name.
+our $Prog = $Script;		# Get our program name.
 $Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off path, if present.
 my @ItemList;			# List of item objects to check.
@@ -38,7 +39,10 @@ my @NowOK;			# Newly OK items.
 my @StillFail;			# On-going fail items.
 my %FailItems;			# List of items previously failing.
 my @OtherItems;			# Stuff in the status file from other check lists.
-my @ConfigFiles = ('/usr/local/etc/checkall.cfg');		# List of configuration files.
+my @ConfigFiles = (		# List of configuration files.
+	'/usr/local/etc/checkall.cfg',
+	"$ENV{HOME}/.checkallrc",
+);
 
 $| = 1;				# Unbuffer output.
 my $StartTime = time();
@@ -55,9 +59,15 @@ foreach my $FileName (@ConfigFiles) {
 #	my @Data = ReadFile($FileName);
 	foreach (ReadFile($FileName)) {
 		next unless ($_);	# Sparse array has blank entries.
-                my ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
+                my ($name,$settings)=/^\s*(\S+):\s*(.+)/;
+		$settings = '' unless ($settings);	# Suppress undef errors.
                 $name=~tr/[a-z]/[A-Z]/;
-                $Config{$name}=$settings;
+                if ($Config{$name}) {
+			$Config{$name}=$Config{$name} . ' ' . $settings;
+		}
+		else {
+			$Config{$name}=$settings;
+		}
         }
 }
 
@@ -65,14 +75,13 @@ foreach my $FileName (@ConfigFiles) {
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
         if (defined($Config{'ALLJOBS'}));
 
-
 GetOptions (
 	'v|verbose+'	=> \$opt_v,
 	'c|config=s'	=> \$opt_c,
 	'a|all'		=> sub {$opt_f = 0;},	# Synonym for --nofail
 	'fail|failed!'	=> \$opt_f,
 	'h|help'	=> \$opt_h,
-	'L|libdir=s'	=> sub{ push @INC, $_[1]; },
+	'L|libdir=s'	=> sub{ unshift @INC, glob($_[1]); },
 	't|test'	=> \$opt_t,
 	'q|quiet'	=> \$opt_q,
 	'P|page=s'	=> \@opt_P,
@@ -105,6 +114,7 @@ $Hours:$Minutes...";
 my $errors=0;
 my %PIDs;		# Map PID to @ItemList.
 my %NameMap;		# Maps status names to @ItemList.
+my $IOList;		# IO::Select item, to be used if needed.
 
 # Prepare the list of files to process.
 foreach (@ARGV) {
@@ -131,7 +141,13 @@ my $Services = @ItemList + 0;
 my $DescLen = 0;		# Will keep length of longest desc here.
 foreach my $Item (@ItemList) {
 	my $CheckResult = Check $Item;
-	my($Type,$Value) = ($CheckResult =~ m/^(\S+)=(\d+)$/);
+	my ($Type,$Value);
+	if (ref($CheckResult) eq 'ARRAY') {
+		$Type=$CheckResult->[0];
+	}
+	else {
+		($Type,$Value) = ($CheckResult =~ m/^(\S+)=(\S+)$/);
+	}
 	
 	if ($Type eq 'Status') {		# 5.8 doesn't have switch.
 		# This one returned a status immediately.
@@ -148,6 +164,16 @@ foreach my $Item (@ItemList) {
 			$Services--;
 		}
 	}
+	elsif ($Type eq 'FHList') {
+		# This one is running in the background, and the answer will come via pipe.
+		my($pid,$FH) = @{$CheckResult}[1..2];
+		if (!$IOList) {
+			# First one.  Create the IO::Select item.
+			$IOList = IO::Select->new() || die "Unable to create IO::Select item";
+		}
+		$PIDs{$pid} = $Item;
+		$IOList->add($FH) || warn "Handle add failed: $!";
+	}
 	else	{
 		# Somebody sent back a response we don't understand.
 		die qq[Unexpected response "$CheckResult" from $Item->{'Desc'}];
@@ -162,10 +188,22 @@ foreach my $Item (@ItemList) {
 }
 
 # All background processes submitted.  Wait for the results to come in.
-my $pid;
+my($pid,$status,$detail);
 `tty -s`;	# Find out if we have a tty.
 my $no_tty = $?;
 if ($Services) {
+	# Wait for any PIDs that return status detail via pipes.
+	do {
+		my @Ready = $IOList->can_read;
+		foreach my $FH (@Ready) {
+			($pid,$status,$detail) = split('/',<$FH>,3);
+			close $FH;
+			$IOList->remove($FH);
+			$PIDs{$pid}->Status($status);
+			$PIDs{$pid}->StatusDetail($detail);
+		}
+	} while ($IOList && $IOList->handles);
+	# Wait for any PIDs that just return a status (old-style);
 	do {
 		print "Waiting for results on $Services service" . ($Services==1?'':'s') . "   \r"
 			unless ($no_tty or  $opt_q);
