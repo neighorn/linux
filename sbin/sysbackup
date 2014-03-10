@@ -8,6 +8,7 @@ use LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 use POSIX qw(strftime);
+use Fcntl qw(:flock :mode :DEFAULT);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -15,8 +16,10 @@ $Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off the path, if present.
 $ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 my @Args=@ARGV;			# Preserve orig command for ref.
-my $ErrorFlag=0;			# No errors so far.
+my $ErrorFlag=0;		# No errors so far.
 my $ConfigFile="/usr/local/etc/${Prog}.cfg";     # Name of config file.
+my $JobLockFile;		# Name of our lock file.
+my $JOBLOCKFH;			# Lock file handle.
 our $Errors=0;
 our %Config;
 our $opt_d;
@@ -143,6 +146,7 @@ foreach (@opt_X) {
 	$TypeExclude{$_}=1;
 }
 
+
 # ---------------------------------------------------------
 #
 # Delete any failed back-ups.
@@ -173,6 +177,29 @@ RunDangerousCmd("chgrp sys $OutputDir") &&
 	die "Unable to set group for $OutputDir: $!\n";
 if (! $opt_t ) {
 	chdir $OutputDir || die "Unable to change directories to $OutputDir: $!\n";
+}
+
+# ---------------------------------------------------------
+#
+# Check for conflicting jobs.
+#
+$JobLockFile = "$OutputDir/$Prog.lock";
+if (!open($JOBLOCKFH,'>>',$JobLockFile)) {
+        print "Unable to create/open $JobLockFile: $!\n";
+        exit 11;
+}
+if (!flock($JOBLOCKFH, LOCK_EX | LOCK_NB)) {
+        my @stat = stat($JobLockFile);
+        my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
+        $mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
+        print "Skipped this job due to a conflicting job in progress per "
+                . qq<"$JobLockFile" dated $mdate at >
+                . strftime(
+                        "%H:%M:%S",
+                        localtime((stat($JobLockFile))[8]))
+                . "\n"
+                ;
+        exit 11;
 }
 
 # ---------------------------------------------------------
@@ -234,6 +261,16 @@ if (open(my $FHMOUNT,'mount |')) {
 # Capture recovery information here, also.
 #
 RunDangerousCmd("recovery-info -o $OutputDir/recovery");
+
+# ---------------------------------------------------------
+#
+# Release the job lock.
+#
+if ($JOBLOCKFH) {
+        close $JOBLOCKFH;
+        unlink $JobLockFile;
+}
+
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
