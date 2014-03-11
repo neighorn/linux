@@ -132,12 +132,16 @@ sub Check {
 	}
 	
 	# Run overall checks.  Any defined response means set set the status and are done.
-	return if (defined($Self->SUPER::Check($Self)));
+	my $Status = $Self->SUPER::Check($Self);
+	return $Status if (defined($Status));
 
 	# If we don't have a timeout change it to the main value.
 	if (! $Self->{'Timeout'} ) {
 		$Self->{'Timeout'} = $main::opt_w;
 	}
+
+	# Need a copy of STDOUT for consistency between forked and non-forked environment.
+	open(REALSTDOUT,'>&STDOUT') || warn "Unable to duplicate STDOUT: $!";
 
 	# If we're in single-stream mode, just test it ourselves rather than forking.
 	if ($main::opt_S) {
@@ -145,8 +149,6 @@ sub Check {
 	}
 
 	# Spin off a child process to check the status of this item.
-	my $REALSTDOUT;
-	open(REALSTDOUT,'>&STDOUT') || warn "Unable to duplicate STDOUT: $!";
 	my $CHECKFH;
 	my $pid = open($CHECKFH,"-|");
 	if ($pid) {
@@ -156,16 +158,13 @@ sub Check {
 	}
 	else {
 		# We're the child.  Recover our file handles, then test the service.
-		my $PARENTFH;
-		open($PARENTFH,'>&STDOUT') || die "Unable to create PARENTFH: $!";
-		close STDOUT;
-		open(STDOUT,">&REALSTDOUT") || die "Unable to recover STDOUT: $!";
-		close REALSTDOUT;
-		printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
-			if ($Self->{Verbose});
+		printf REALSTDOUT "\n%5d %s Checking %s %s\n",
+			$$, __PACKAGE__, $Self->Host, $Self->Target
+				if ($Self->{'Verbose'});
 		my $GroupOK = _CheckPort($Self,$File,$Line,$Desc);
-		printf $PARENTFH "%d/%d/%s\n", $$, $GroupOK, $Self->{'StatusDetail'};	# Tell the parent whether it was OK or FAILING.
-		close $PARENTFH;
+		printf "%d/%d/%s\n", $$, $GroupOK, $Self->{'StatusDetail'}	# Tell the parent whether it was OK or FAILING.
+			or warn("$$ $File:$Line: Error returning status: $!");
+		close REALSTDOUT;
 		close STDOUT;
 		exit($GroupOK);		# Tell the parent whether it was OK or FAILING.
 	}
@@ -195,7 +194,7 @@ sub _CheckPort {
 		# try to connect.
 		my $HostDone = 0;
 		TRY: for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
-		    printf "\r\%5d   Checking %s:%d (%s) try %d\n", $$,$host,$port,$Desc,$Try if ($Self->Verbose);  
+		    printf REALSTDOUT "\r\%5d   Checking %s:%d (%s) try %d\n", $$,$host,$port,$Desc,$Try if ($Self->Verbose);  
 			if ($Self->{'Ssl'}) {
     				$socket=IO::Socket::SSL->new(
 					PeerAddr=>"$host:$port",
@@ -209,7 +208,7 @@ sub _CheckPort {
 					Timeout=>$Self->{'Timeout'}
 				);
 			}
-    			printf "\r%5d   %s:%d Connected - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
+    			printf REALSTDOUT "\r%5d   %s:%d Connected - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
 			if ($socket) {
     				# Connected OK.  See if we're supposed to send a string.
 				$HostDone = 1;		# Good or bad, we got an answer.
@@ -227,38 +226,38 @@ sub _CheckPort {
 						$response . "\n"
 							if ($LOGFH);
 					if ($response =~ $Self->{'Expect'}) {
-						printf "\r%5d  %s:%d Received %s - match\n", $$, $host, $port, $response
+						printf REALSTDOUT "\r%5d  %s:%d Received %s - match\n", $$, $host, $port, $response
 							if ($Self->Verbose);
 						$GroupOK=$Self->CHECK_OK;
 					}
 					else {
-						printf "\r%5d  %s:%d Received %s - no-match\n", $$, $host, $port, $response
+						printf REALSTDOUT "\r%5d  %s:%d Received %s - no-match\n", $$, $host, $port, $response
 							if ($Self->Verbose);
 						$Self->{'StatusDetail'} = "Missing required response";
 					}
 				}
 				else {
 					# Just looking for a basic connection.
-    					printf "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
+    					printf REALSTDOUT "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
     					$GroupOK=$Self->CHECK_OK;	# One of this target group worked.
 				}
 				close($socket);
 			}
 			else {
 				$Self->{'StatusDetail'} = "Connect error: $!";
-				printf "\r%5d  %s:%d Connect error: %s\n", $$, $host, $port, $!
+				printf REALSTDOUT "\r%5d  %s:%d Connect error: %s\n", $$, $host, $port, $!
 					if ($Self->Verbose);
 			}
     			last TRY if ($HostDone);		# Don't need to try this host again
 		}
 		if ($GroupOK == $Self->CHECK_OK) {
-			printf "\r%5d           %s OK\n", $$,$Desc if ($Self->Verbose);
+			printf REALSTDOUT "\r%5d           %s OK\n", $$,$Desc if ($Self->Verbose);
 			$Self->{'StatusDetail'} = '';		# Delete any recovered errors.
 		    last HOST;					# Don't need to try other hosts.
 		}
 		else {
 			# Service failed.
-			printf "\r%5d           %s FAILING: %s\n", $$,$Desc,$Self->{'StatusDetail'} if ($Self->Verbose);
+			printf REALSTDOUT "\r%5d           %s FAILING: %s\n", $$,$Desc,$Self->{'StatusDetail'} if ($Self->Verbose);
 			close($socket) if ($socket);
 		}
 	}

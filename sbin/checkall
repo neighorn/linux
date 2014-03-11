@@ -31,9 +31,6 @@ our $opt_s='';			# Alert subject
 our $opt_S=0;			# Single - only run one process at a time (for diagnostics).
 our $opt_w=20;			# Wait time in seconds (for checks that timeout)
 our $Prog = $Script;		# Get our program name.
-our $CheckDate;			# Check-date in YYYY-MM-DD, for time checks
-our $CheckTime;			# Check-time in HH:MM:SS
-our $CheckDay;			# Check day-of-week in [0-6]
 $Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off path, if present.
 my @ItemList;			# List of item objects to check.
@@ -48,7 +45,7 @@ my @ConfigFiles = (		# List of configuration files.
 );
 
 $| = 1;				# Unbuffer output.
-my $StartTime = time();
+our $StartTime = time();
 
 my $StatusFile="$ENV{HOME}/.$Prog.dat";
 my $ServiceList="/usr/local/etc/$Prog.list";
@@ -136,21 +133,8 @@ if (@ItemList+0 == 0) {
 	push @NowFail,"No services found to monitor";
 }
 
-# Set timestamps
-($CheckDate,$CheckTime,$CheckDay) = split(/\s/,strftime('%Y-%m-%d %H:%M:%S %w',localtime()));
-
 # Load any prior statuses.
 LoadPriorStatuses($StatusFile, \%NameMap, \@OtherItems);
-
-# Set up child process handling.
-$SIG{CHLD} = sub {
-	# don't change $! and $? outside handler
-	local ($!, $?);
-	my $pid = waitpid(-1, WNOHANG);
-	return if $pid == -1;
-#	return unless defined $PIDs{$pid};
-#	delete $PIDs{$pid};
-};
 
 # Go check all these services.
 my $Services = @ItemList + 0;
@@ -172,16 +156,6 @@ foreach my $Item (@ItemList) {
 		$Item->Status($Value);
 		$Services--;			# Not waiting on this one.
 	}
-#	elsif ($Type eq 'PIDList') {
-#		# This one is running in the background.  Map the PID to the item.
-#		$PIDs{$Value} = $Item;
-#		if ($opt_S) {
-#			# Single-service submission - primarily to make diagnostics easier.
-#			my $pid = waitpid($Value,0);
-#			$PIDs{$pid}->Status($?>>8) if ($pid > 0);
-#			$Services--;
-#		}
-#	}
 	elsif ($Type eq 'FHList') {
 		# This one is running in the background, and the answer will come via pipe.
 		my($pid,$FH) = @{$CheckResult}[1..2];
@@ -211,24 +185,16 @@ my($pid,$status,$detail);
 my $no_tty = $?;
 if ($Services) {
 	# Wait for any PIDs that return status detail via pipes.
-	do {
-		my @Ready = $IOList->can_read;
+	my @Ready;
+	while ($IOList and @Ready = $IOList->can_read($opt_w)) {
 		foreach my $FH (@Ready) {
 			($pid,$status,$detail) = split('/',<$FH>,3);
-			close $FH;
 			$IOList->remove($FH);
+			close $FH;
 			$PIDs{$pid}->Status($status);
 			$PIDs{$pid}->StatusDetail($detail);
 		}
-	} while ($IOList && $IOList->handles);
-	# Wait for any PIDs that just return a status (old-style);
-	do {
-		print "Waiting for results on $Services service" . ($Services==1?'':'s') . "   \r"
-			unless ($no_tty or  $opt_q);
-		$pid = waitpid(-1,0);
-		$PIDs{$pid}->Status($?>>8) if ($pid > 0);
-		$Services--;
-	} while $pid > 0;
+	}
 	# Wipe out waiting message.
 	print ' 'x40 . "\r" unless ($no_tty or  $opt_q);
 }
