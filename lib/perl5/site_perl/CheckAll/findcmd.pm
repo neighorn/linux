@@ -94,7 +94,7 @@ sub Check {
 		@Data = `$BaseCmd`;
 	}
 
-	my $Status = $Self->CHECK_OK;		# Assume no errors.
+	$Status = $Self->CHECK_OK;		# Assume no errors.
 	my $Detail = '';
 	my $Actual = $Data[0];
 	if ( $Actual =~ /^\s*\d+\s*$/) {

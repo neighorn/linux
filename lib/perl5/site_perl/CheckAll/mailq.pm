@@ -113,7 +113,7 @@ sub Check {
 		@Data = @Data2;
 	}
 
-	my $Status = $Self->CHECK_OK;		# Assume no errors.
+	$Status = $Self->CHECK_OK;		# Assume no errors.
 	my $Detail = '';
 	my $Actual = @Data;
 	if ($Target =~ /^<(\d+)/) {
