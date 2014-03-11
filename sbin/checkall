@@ -217,9 +217,10 @@ foreach my $Item (@ItemList) {
 	}
 	my $Status = $Item->Report($DescLen,$opt_f);
 	my $DoDownActions = 0;
-	if ($Status == 0) {
+	if ($Status == 0 or $Status == 4) {
 		#
 		# CHECK_STILL_OK -- Item is still up.
+		# CHECK_NOT_TESTED -- Not tested due to time restrictions.
 		#
 		# syslog('INFO','%s is still OK',$Desc)  - don't fill log with "still OK".
 	 	#	if (ref $Item ne 'heading' and $^O !~ /MSWin/);
@@ -564,7 +565,7 @@ sub WriteStatusFile {
 	my $STATUS;
 	if (open ($STATUS,"> $StatusFile")) {
 		foreach my $Item (@$ArrayRef) {
-			next if ($Item->Status eq 0);		# Skip OK services.
+			next if ($Item->Status == 0 or $Item->Status == 4);	# Skip OK services.
 			next if (ref $Item eq 'history');	# We don't track history lines.
 			printf $STATUS "Name=%s, FailAt=%d=%s, FirstNotify=%d=%s, NextNotify=%d=%s, LastCheck=%d=%s, File=%s:%d\n",
 				$Item->Name,

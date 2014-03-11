@@ -23,7 +23,7 @@ use constant CHECK_STILL_OK => 0;
 use constant CHECK_STILL_FAILING => 1;
 use constant CHECK_NOW_OK => 2;
 use constant CHECK_NOW_FAILING => 3;
-use constant CHECK_NOT_TESTED => 3;
+use constant CHECK_NOT_TESTED => 4;
 
 our @ISA = ('Exporter');
 our @EXPORT = qw(
@@ -474,6 +474,22 @@ is not meaningful for all types of checks and is primarily used to with network 
 
 Tries: The number of times to try a TCP connection or SSH connection (for remote commands)
 before considering it a failure.  
+
+=item *
+
+Iftime: Restricts when this test is run.  The parameter is
+formatted as "format,pattern".  "format" is a time format that is interpreted by strftime(3)
+using the current local time.  These are the same format symbols as used by date(1).  
+"pattern" is a Perl
+regular expression.  If the results of strftime match the pattern, the test is executed. 
+Otherwise, it is marked as "not tested".
+
+Examples:
+
+  Iftime=%d,/01/			# Test only on the first day of the month
+  Iftime=%u,[1-5]			# Test only on Monday-Friday
+  Iftime=%m-%d,/(01|04|07|10)-01/	# Test only on Jan 01, Apr 01, Sep 01, Oct 01
+  Iftime=%H-%u,/(09|1[0-7])-[1-5]/	# Test 9AM-5:59PM (09:00-17:59), Monday-Friday.
 
 =back
 
