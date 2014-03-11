@@ -8,7 +8,7 @@ use Sys::Syslog;
 use IO::Select;
 use IO::Socket;
 use File::Temp qw(tempfile);
-use POSIX qw(strftime);
+use POSIX qw(strftime :sys_wait_h);
 use Fcntl;
 use FindBin qw($Bin $Script);
 use Text::ParseWords;
@@ -31,6 +31,9 @@ our $opt_s='';			# Alert subject
 our $opt_S=0;			# Single - only run one process at a time (for diagnostics).
 our $opt_w=20;			# Wait time in seconds (for checks that timeout)
 our $Prog = $Script;		# Get our program name.
+our $CheckDate;			# Check-date in YYYY-MM-DD, for time checks
+our $CheckTime;			# Check-time in HH:MM:SS
+our $CheckDay;			# Check day-of-week in [0-6]
 $Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off path, if present.
 my @ItemList;			# List of item objects to check.
@@ -133,13 +136,28 @@ if (@ItemList+0 == 0) {
 	push @NowFail,"No services found to monitor";
 }
 
+# Set timestamps
+($CheckDate,$CheckTime,$CheckDay) = split(/\s/,strftime('%Y-%m-%d %H:%M:%S %w',localtime()));
+
 # Load any prior statuses.
 LoadPriorStatuses($StatusFile, \%NameMap, \@OtherItems);
+
+# Set up child process handling.
+$SIG{CHLD} = sub {
+	# don't change $! and $? outside handler
+	local ($!, $?);
+	my $pid = waitpid(-1, WNOHANG);
+	return if $pid == -1;
+#	return unless defined $PIDs{$pid};
+#	delete $PIDs{$pid};
+};
 
 # Go check all these services.
 my $Services = @ItemList + 0;
 my $DescLen = 0;		# Will keep length of longest desc here.
 foreach my $Item (@ItemList) {
+	print "Checking $Item->{FILE}:$Item->{LINE}: $Item->{Desc}\n"
+		if ($opt_v);
 	my $CheckResult = Check $Item;
 	my ($Type,$Value);
 	if (ref($CheckResult) eq 'ARRAY') {
@@ -154,16 +172,16 @@ foreach my $Item (@ItemList) {
 		$Item->Status($Value);
 		$Services--;			# Not waiting on this one.
 	}
-	elsif ($Type eq 'PIDList') {
-		# This one is running in the background.  Map the PID to the item.
-		$PIDs{$Value} = $Item;
-		if ($opt_S) {
-			# Single-service submission - primarily to make diagnostics easier.
-			my $pid = waitpid($Value,0);
-			$PIDs{$pid}->Status($?>>8) if ($pid > 0);
-			$Services--;
-		}
-	}
+#	elsif ($Type eq 'PIDList') {
+#		# This one is running in the background.  Map the PID to the item.
+#		$PIDs{$Value} = $Item;
+#		if ($opt_S) {
+#			# Single-service submission - primarily to make diagnostics easier.
+#			my $pid = waitpid($Value,0);
+#			$PIDs{$pid}->Status($?>>8) if ($pid > 0);
+#			$Services--;
+#		}
+#	}
 	elsif ($Type eq 'FHList') {
 		# This one is running in the background, and the answer will come via pipe.
 		my($pid,$FH) = @{$CheckResult}[1..2];

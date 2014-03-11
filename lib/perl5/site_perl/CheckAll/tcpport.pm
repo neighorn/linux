@@ -97,6 +97,7 @@ sub Check {
 
 	my $File = $Self->{'FILE'};
 	my $Line = $Self->{'LINE'};
+	my $Desc = $Self->{'Desc'};
 
 	# First, make sure we have the necessary info.
 	my $Errors = 0;
@@ -129,10 +130,18 @@ sub Check {
 			$Errors++;
 		}
 	}
+	
+	# Run overall checks.  Any defined response means set set the status and are done.
+	return if (defined($Self->SUPER::Check($Self)));
 
 	# If we don't have a timeout change it to the main value.
 	if (! $Self->{'Timeout'} ) {
 		$Self->{'Timeout'} = $main::opt_w;
+	}
+
+	# If we're in single-stream mode, just test it ourselves rather than forking.
+	if ($main::opt_S) {
+		return "Status=" . _CheckPort($Self,$File,$Line,$Desc);
 	}
 
 	# Spin off a child process to check the status of this item.
@@ -152,96 +161,109 @@ sub Check {
 		close STDOUT;
 		open(STDOUT,">&REALSTDOUT") || die "Unable to recover STDOUT: $!";
 		close REALSTDOUT;
-		my $Desc = $Self->{'Desc'};
 		printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
-		  if ($Self->{Verbose});
-		my $LOGFH;
-		if ($Self->{'Logfile'}) {
-			my $LogFile = strprintf($Self->{Logfile},localtime());
-			sysopen($LOGFH,$LogFile,O_CREAT | O_WRONLY) ||
-				warn "$File:$Line: Unable to open logfile $LogFile: $!";
-		}
-		
-		my $GroupOK=$Self->CHECK_FAIL;
-		my $socket;
-		HOST: foreach (@{$Self->_TargetArray}) {
-			my($host,$port)=split(/:/);
-			# try to connect.
-			my $HostDone = 0;
-			TRY: for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
-			    printf "\r\%5d   Checking %s:%d (%s) try %d\n", $$,$host,$port,$Desc,$Try if ($Self->Verbose);  
-				if ($Self->{'Ssl'}) {
-	    				$socket=IO::Socket::SSL->new(
-						PeerAddr=>"$host:$port",
-						Timeout=>$Self->{'Timeout'},
-						SSL_hostname=>$host,
-					);
-				}
-				else {
-	    				$socket=IO::Socket::INET->new(
-						PeerAddr=>"$host:$port",
-						Timeout=>$Self->{'Timeout'}
-					);
-				}
-	    			printf "\r%5d   %s:%d Connected - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
-				if ($socket) {
-	    				# Connected OK.  See if we're supposed to send a string.
-					$HostDone = 1;		# Good or bad, we got an answer.
-					if ($Self->{'Send'}) {
-						# Looking for the right send/receive response.
-						print $LOGFH "PID $$, $File:$Line, Host $host:port, Try $Try," .
-							" Sending following:\n" .
-							$Self->{'Send'} . "\n"
-								if ($LOGFH);
-						$socket->print($Self->{'Send'});
-						my $response;
-						$socket->sysread($response,4096);
-						print $LOGFH "PID $$, $File:$Line, Host $host:port, Try $Try," .
-							" Received following:\n" .
-							$response . "\n"
-								if ($LOGFH);
-						if ($response =~ $Self->{'Expect'}) {
-							printf "\r%5d  %s:%d Received %s - match\n", $$, $host, $port, $response
-								if ($Self->Verbose);
-							$GroupOK=$Self->CHECK_OK;
-						}
-						else {
-							printf "\r%5d  %s:%d Received %s - no-match\n", $$, $host, $port, $response
-								if ($Self->Verbose);
-							$Self->{'StatusDetail'} = "Incorrect response";
-						}
-					}
-					else {
-						# Just looking for a basic connection.
-	    					printf "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
-	    					$GroupOK=$Self->CHECK_OK;	# One of this target group worked.
-					}
-					close($socket);
-				}
-				else {
-					$Self->{'StatusDetail'} = "Connect error: $!";
-					printf "\r%5d  %s:%d Connect error: %s\n", $$, $host, $port, $!
-						if ($Self->Verbose);
-				}
-	    			last TRY if ($HostDone);		# Don't need to try this host again
-			}
-			if ($GroupOK == $Self->CHECK_OK) {
-				printf "\r%5d           %s OK\n", $$,$Desc if ($Self->Verbose);
-				$Self->{'StatusDetail'} = '';		# Delete any recovered errors.
-			    last HOST;					# Don't need to try other hosts.
-			}
-			else {
-				# Service failed.
-				printf "\r%5d           %s FAILING: %s\n", $$,$Desc,$Self->{'StatusDetail'} if ($Self->Verbose);
-				close($socket) if ($socket);
-			}
-		}
+			if ($Self->{Verbose});
+		my $GroupOK = _CheckPort($Self,$File,$Line,$Desc);
 		printf $PARENTFH "%d/%d/%s\n", $$, $GroupOK, $Self->{'StatusDetail'};	# Tell the parent whether it was OK or FAILING.
 		close $PARENTFH;
 		close STDOUT;
-		close $LOGFH if ($LOGFH);
 		exit($GroupOK);		# Tell the parent whether it was OK or FAILING.
 	}
+}
+
+
+#
+# See if the port is up.
+#
+sub _CheckPort {
+	my($Self,$File,$Line,$Desc) = @_;
+	my $GroupOK=$Self->CHECK_FAIL;
+	my $socket;
+
+
+	# Set up logging if requested.
+	my $LOGFH;
+	if ($Self->{'Logfile'}) {
+		my $LogFile = strprintf($Self->{Logfile},localtime());
+		sysopen($LOGFH,$LogFile,O_CREAT | O_WRONLY) ||
+			warn "$File:$Line: Unable to open logfile $LogFile: $!";
+	}
+
+	# Loop through each host until we get a success.
+	HOST: foreach (@{$Self->_TargetArray}) {
+		my($host,$port)=split(/:/);
+		# try to connect.
+		my $HostDone = 0;
+		TRY: for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
+		    printf "\r\%5d   Checking %s:%d (%s) try %d\n", $$,$host,$port,$Desc,$Try if ($Self->Verbose);  
+			if ($Self->{'Ssl'}) {
+    				$socket=IO::Socket::SSL->new(
+					PeerAddr=>"$host:$port",
+					Timeout=>$Self->{'Timeout'},
+					SSL_hostname=>$host,
+				);
+			}
+			else {
+    				$socket=IO::Socket::INET->new(
+					PeerAddr=>"$host:$port",
+					Timeout=>$Self->{'Timeout'}
+				);
+			}
+    			printf "\r%5d   %s:%d Connected - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
+			if ($socket) {
+    				# Connected OK.  See if we're supposed to send a string.
+				$HostDone = 1;		# Good or bad, we got an answer.
+				if ($Self->{'Send'}) {
+					# Looking for the right send/receive response.
+					print $LOGFH "PID $$, $File:$Line, Host $host:port, Try $Try," .
+						" Sending following:\n" .
+						$Self->{'Send'} . "\n"
+							if ($LOGFH);
+					$socket->print($Self->{'Send'});
+					my $response;
+					$socket->sysread($response,4096);
+					print $LOGFH "PID $$, $File:$Line, Host $host:port, Try $Try," .
+						" Received following:\n" .
+						$response . "\n"
+							if ($LOGFH);
+					if ($response =~ $Self->{'Expect'}) {
+						printf "\r%5d  %s:%d Received %s - match\n", $$, $host, $port, $response
+							if ($Self->Verbose);
+						$GroupOK=$Self->CHECK_OK;
+					}
+					else {
+						printf "\r%5d  %s:%d Received %s - no-match\n", $$, $host, $port, $response
+							if ($Self->Verbose);
+						$Self->{'StatusDetail'} = "Missing required response";
+					}
+				}
+				else {
+					# Just looking for a basic connection.
+    					printf "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
+    					$GroupOK=$Self->CHECK_OK;	# One of this target group worked.
+				}
+				close($socket);
+			}
+			else {
+				$Self->{'StatusDetail'} = "Connect error: $!";
+				printf "\r%5d  %s:%d Connect error: %s\n", $$, $host, $port, $!
+					if ($Self->Verbose);
+			}
+    			last TRY if ($HostDone);		# Don't need to try this host again
+		}
+		if ($GroupOK == $Self->CHECK_OK) {
+			printf "\r%5d           %s OK\n", $$,$Desc if ($Self->Verbose);
+			$Self->{'StatusDetail'} = '';		# Delete any recovered errors.
+		    last HOST;					# Don't need to try other hosts.
+		}
+		else {
+			# Service failed.
+			printf "\r%5d           %s FAILING: %s\n", $$,$Desc,$Self->{'StatusDetail'} if ($Self->Verbose);
+			close($socket) if ($socket);
+		}
+	}
+	close $LOGFH if ($LOGFH);
+	return($GroupOK);
 }
 =pod
 
