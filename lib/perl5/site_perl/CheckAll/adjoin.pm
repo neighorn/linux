@@ -61,7 +61,6 @@ sub Check {
 	}
 
 	my $Detail;
-	$Status;
 	my $Actual = ($Data[0]?$Data[0]:'');
 	if ($Actual =~ / OK\s*$/) {
 		$Status = $Self->CHECK_OK;
