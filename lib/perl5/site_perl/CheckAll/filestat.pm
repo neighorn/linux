@@ -106,6 +106,10 @@ sub Check {
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
 
+        # Run overall checks.  Any defined response means set set the status and are done.
+        my $Status = $Self->SUPER::Check($Self);
+        return $Status if (defined($Status));
+
 	# This host or remote?
 	my @StatData;
 	if (defined($Self->{Host})) {

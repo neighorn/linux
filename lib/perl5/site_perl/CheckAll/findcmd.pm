@@ -63,6 +63,10 @@ sub Check {
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
 
+        # Run overall checks.  Any defined response means set set the status and are done.
+        my $Status = $Self->SUPER::Check($Self);
+        return $Status if (defined($Status));
+
 	my @Data;
 	my $BaseCmd = "find " . $Self->{Parms} . " | wc -l";
 	if ($Self->{Host} and $Self->{Host} ne "localhost") {

@@ -43,6 +43,12 @@ sub Check {
 sub Report {
         my($Self,$DescLen,$failonly) = @_;
 
+	# Can't use Iftime logic, as header doesn't use parm=value
+#        if ($Self->{Iftime}) {
+#                my $Status = CheckTimePattern($Self, $Self->{FILE}, $Self->{LINE}, $main::StartTime);
+#                return "Status=$Status" if ($Status);
+#        }
+
         printf "%s\n", $Self->{Desc} if (!$main::opt_q and !$failonly);
         return $Self->{Status};
 }

@@ -23,11 +23,13 @@ use constant CHECK_STILL_OK => 0;
 use constant CHECK_STILL_FAILING => 1;
 use constant CHECK_NOW_OK => 2;
 use constant CHECK_NOW_FAILING => 3;
+use constant CHECK_NOT_TESTED => 3;
 
 our @ISA = ('Exporter');
 our @EXPORT = qw(
 	CHECK_OK CHECK_FAIL CHECK_HIGHLIGHT CHECK_RESET
 	CHECK_STILL_OK CHECK_STILL_FAILING CHECK_NOW_OK CHECK_NOW_FAILING
+	CHECK_NOT_TESTED
 );
 
 my %Attributes;
@@ -42,25 +44,26 @@ my %IntegerFields = (
 # Define fields.  Note that Autoload normalizes all field names to "first-upper rest lowercase".
 # Names with multiple uppercase characters are not settable from the service files.
 use fields (
-	'FILE',				        # File this definition came from
-	'LINE',				        # Line in file this definition came from
-	'Name',				        # Unique descriptor for status file - defaults to desc.
+	'FILE',				# File this definition came from
+	'LINE',				# Line in file this definition came from
+	'Name',				# Unique descriptor for status file - defaults to desc.
 	'Delayfirstnotification',	# Delay the first notification this much time.
-	'Desc',				        # Description of service, for messages.
-	'Host',				        # Target host.
-	'Target',			        # Target of check (host:port, process pattern, etc.).
-	'Status',			        # Current status (set by Check).
-	'StatusDetail',			    # Additional detail
-	'FirstFail',			    # When this was first detected failing
+	'Desc',				# Description of service, for messages.
+	'Host',				# Target host.
+	'Iftime',			# Only check on this date/time pattern.
+	'Target',			# Target of check (host:port, process pattern, etc.).
+	'Status',			# Current status (set by Check).
+	'StatusDetail',			# Additional detail
+	'FirstFail',			# When this was first detected failing
 	'FirstNotification',		# When we first reported it down (for DelayFirstNotification).
-	'PriorStatus',			    # Its prior status.  Detects "Now failing" vs "Still failing".
-	'NextNotification',		    # The last time we told someone it was failing.
-	'Onfail',			        # Run this command when it first fails.
-	'Onok',				        # Run this command when it becomes OK again.
-	'Renotifyinterval',		    # How often to repeat failing notifications.
-	'Timeout',			        # Timeout: time in seconds to wait for conn.
-	'Tries',                    # How many times we attempt a TCP or SSH connection.
-	'Verbose',			        # Verbose.
+	'PriorStatus',			# Its prior status.  Detects "Now failing" vs "Still failing".
+	'NextNotification',		# The last time we told someone it was failing.
+	'Onfail',			# Run this command when it first fails.
+	'Onok',				# Run this command when it becomes OK again.
+	'Renotifyinterval',		# How often to repeat failing notifications.
+	'Timeout',			# Timeout: time in seconds to wait for conn.
+	'Tries',			# How many times we attempt a TCP or SSH connection.
+	'Verbose',			# Verbose.
 );
 
 
@@ -130,6 +133,10 @@ sub Report {
 	elsif ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_FAIL) {
 		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q && !$failonly);
 		return CHECK_NOW_OK;
+	}
+	elsif ($Self->{Status} eq CHECK_NOT_TESTED) {
+		printf "\t%-${DescLen}.${DescLen}s not tested\n", $Self->{Desc} if (!$main::opt_q && !$failonly);
+		return CHECK_NOT_TESTED;
 	}
 	else {
 		my $text = $Self->{Desc}
@@ -205,6 +212,57 @@ sub SetOptions {
 	}
 	return 1;
 }
+
+
+sub Check {
+	#
+	# Perform common checks (e.g. time/date restrictions).
+	#
+	#	Returns:
+	#		CHECK_FAIL - check failed (e.g. test parameters invalid)
+	#		CHECK_NOT_TESTED - outside of time range for testing
+	#		undef - no failures detected, continue module-specific tests.
+	#	
+        my $Self = shift;
+
+        my $File = $Self->{'FILE'};
+        my $Line = $Self->{'LINE'};
+	my $Status;
+
+	if ($Self->{Iftime}) {
+		$Status = CheckTimePattern($Self, $File, $Line, $main::StartTime);
+		return "Status=$Status" if ($Status);
+	}
+
+	return undef;
+}
+
+
+
+sub CheckTimePattern {
+	my($Self, $File, $Line, $StartTime) = @_;
+	my($TimeFormat,$Pattern) = split(',',$Self->{Iftime},2);
+	my $Regex;
+	eval "\$Regex = qr$Pattern;";
+	if ($@) {
+		# Pattern is invalid.
+		print "$File:Line: " .
+			qq[Invalid pattern "$Pattern": $@\n];
+		$Self->{Status} = CHECK_FAIL;
+		$Self->{StatusDetail} = "Configuration error";
+		return CHECK_FAIL;		# Config error
+	}
+	elsif (strftime($TimeFormat,localtime($StartTime)) =~ $Regex) {
+		# We're within the specified time.  Continue the test.
+		return undef;
+	}
+	else {
+		# We're outside the specified time.  Skip the test.
+		$Self->{Status} = CHECK_NOT_TESTED;
+		return CHECK_NOT_TESTED;	# Skip test.
+	}
+}
+
 
 # ================================ Data Accessors ===============================
 #

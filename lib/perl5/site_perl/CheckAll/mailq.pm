@@ -66,6 +66,10 @@ sub Check {
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
 
+        # Run overall checks.  Any defined response means set set the status and are done.
+        my $Status = $Self->SUPER::Check($Self);
+        return $Status if (defined($Status));
+
 	# See if we've gathered the process information for this host yet.
 	my @Data;
 	if ($Self->{Host}) {
