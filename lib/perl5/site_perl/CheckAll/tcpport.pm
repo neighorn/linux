@@ -10,6 +10,7 @@ package tcpport;
 use base 'CheckItem';
 use fields qw(_TargetArray Send Expect Ssl Logfile);
 use Fcntl;
+use POSIX qw(strftime);
 
 #================================= Data Accessors ===============================
 sub Target {
@@ -183,7 +184,7 @@ sub _CheckPort {
 	# Set up logging if requested.
 	my $LOGFH;
 	if ($Self->{'Logfile'}) {
-		my $LogFile = strprintf($Self->{Logfile},localtime());
+		my $LogFile = strftime($Self->{Logfile},localtime());
 		sysopen($LOGFH,$LogFile,O_CREAT | O_WRONLY) ||
 			warn "$File:$Line: Unable to open logfile $LogFile: $!";
 	}
