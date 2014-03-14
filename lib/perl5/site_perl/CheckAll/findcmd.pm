@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package findcmd;
 use base 'CheckItem';
-use fields qw(Port User Parms );
+use fields qw(Port User Parms Verifyexist);
 
 #================================= Data Accessors ===============================
 sub Target {
@@ -66,6 +66,18 @@ sub Check {
         # Run overall checks.  Any defined response means set set the status and are done.
         my $Status = $Self->SUPER::Check($Self);
         return $Status if (defined($Status));
+
+	if ($Self->{Verifyexist}) {
+		my $Found;
+		for (my $Count=1;$Count<=$Self->{Tries};$Count++) {
+			last if (defined($Found = glob($Self->{Verifyexist})));
+			sleep(15);
+		}
+		if (! defined($Found)) {
+			$Self->{StatusDetail} = "$Self->{Verifyexist} not present";
+			return "Status=" . $Self->CHECK_FAIL;
+		}
+	}
 
 	my @Data;
 	my $BaseCmd = "find " . $Self->{Parms} . " | wc -l";
@@ -175,6 +187,13 @@ typically results in using port 22.
 
 User = the name of the remote user account.  The default is to not specify a remote user name
 typically resulting in using the same name as the local user.
+
+=item *
+
+VerifyExist = the optional name of a directory or file that must exist before running the
+specified find command.  If the specified item doesn't exist, the module will sleep 15
+seconds and try again "Tries" times (typically 3).  This is primarily used for auto-mounted
+directories that may not mount instantly.
 
 =back
 
