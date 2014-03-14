@@ -183,8 +183,9 @@ sub _CheckPort {
 
 	# Set up logging if requested.
 	my $LOGFH;
+	my $LogFile;
 	if ($Self->{'Logfile'}) {
-		my $LogFile = strftime($Self->{Logfile},localtime());
+		$LogFile = strftime($Self->{Logfile},localtime());
 		sysopen($LOGFH,$LogFile,O_CREAT | O_WRONLY) ||
 			warn "$File:$Line: Unable to open logfile $LogFile: $!";
 	}
@@ -226,6 +227,7 @@ sub _CheckPort {
 						" Received following:\n" .
 						$response . "\n"
 							if ($LOGFH);
+
 					if ($response =~ $Self->{'Expect'}) {
 						printf REALSTDOUT "\r%5d  %s:%d Received %s - match\n", $$, $host, $port, $response
 							if ($Self->Verbose);
@@ -254,7 +256,12 @@ sub _CheckPort {
 		if ($GroupOK == $Self->CHECK_OK) {
 			printf REALSTDOUT "\r%5d           %s OK\n", $$,$Desc if ($Self->Verbose);
 			$Self->{'StatusDetail'} = '';		# Delete any recovered errors.
-		    last HOST;					# Don't need to try other hosts.
+			if ($LOGFH) {
+				close $LOGFH;
+				unlink($LogFile);
+				$LOGFH = undef;
+			}
+			last HOST;					# Don't need to try other hosts.
 		}
 		else {
 			# Service failed.
