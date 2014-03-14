@@ -45,7 +45,7 @@ sub Check {
 	my $File = $Self->{'FILE'};
 	my $Line = $Self->{'LINE'};
 	my $Target = $Self->{'Target'};
-	printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
+	printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Parms
 		if ($Self->{Verbose});
 		
 	# First, make sure we have the necessary config info.
@@ -65,19 +65,25 @@ sub Check {
 
         # Run overall checks.  Any defined response means set set the status and are done.
         my $Status = $Self->SUPER::Check($Self);
+	printf "\n%5d %s\tSUPER returned status %d\n", $$, __PACKAGE__, $Status
+		if ($Self->{Verbose} >= 3 && $Status);
         return $Status if (defined($Status));
 
 	if ($Self->{Verifyexist}) {
 		my $Found;
 		for (my $Count=1;$Count<=$Self->{Tries};$Count++) {
 			last if (defined($Found = glob($Self->{Verifyexist})));
-			sleep(15);
+			printf "\n%5d %s\tVerifyExist failed on try %d\n", $$, __PACKAGE__, $Count
+				if ($Self->{Verbose} >= 3);
+			sleep(15) unless ($Count >= $Self->{Tries});
 		}
 		if (! defined($Found)) {
 			$Self->{StatusDetail} = "$Self->{Verifyexist} not present";
 			return "Status=" . $Self->CHECK_FAIL;
 		}
 	}
+	printf "\n%5d %s\tVerifyExist OK\n", $$, __PACKAGE__
+		if ($Self->{Verbose} >= 3);
 
 	my @Data;
 	my $BaseCmd = "find " . $Self->{Parms} . " | wc -l";
@@ -105,6 +111,8 @@ sub Check {
 	else {
 		@Data = `$BaseCmd`;
 	}
+	printf "\n%5d %s\t\@Data = %s\n", $$, __PACKAGE__, join(', ',@Data)
+		if ($Self->{Verbose} >= 3);
 
 	$Status = $Self->CHECK_OK;		# Assume no errors.
 	my $Detail = '';
@@ -140,6 +148,8 @@ sub Check {
 	}
 			
 	$Self->{StatusDetail}=$Detail;
+	printf "\n%5d %s\tExiting with Status = %d and Detail = %s\n", $$, __PACKAGE__, $Status, ($Detail?$Detail:'""')
+		if ($Self->{Verbose} >= 3);
 	return "Status=" . $Status;
 }
 1;
