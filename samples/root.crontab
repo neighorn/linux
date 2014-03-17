@@ -8,18 +8,6 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 # Clean up log files that aren't beeing cleaned some other way.
 00 01 * * * /usr/bin/find /var/log /var/spool/amavis/virusmails -type f -mtime +60 -exec echo Deleting {} \; -exec rm {} \; 2>&1 | /bin/logger -t cron.logs
 #
-# Monitor software RAID devices.
-#05 * * * * /usr/local/sbin/checkmd > /dev/null
-#
-# Update ClamAV
-#12 * * * * /usr/local/bin/freshclam > /dev/null
-#
-# Local virus scan.
-#00 18 * * 0 /usr/local/sbin/scanav > /dev/null
-#
-# Keep mrtg up to date.
-#00-59/5 * * * * (/usr/local/sbin/sensors-to-mrtg -e sysadmin || /usr/local/sbin/startsys lm_sensors) && /usr/bin/mrtg /usr/local/etc/mrtg/mrtg.cfg > /dev/null
-#
 # Document disk space utilization.
 05 0,6,12,18 * * * /bin/df -hP | /bin/grep -vE '/mnt/|/cd-roms/' | /bin/logger -t cron.df
 #
@@ -37,14 +25,26 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 35 0 * * sun,mon,tue,wed,thu,fri /usr/local/sbin/hostcfg -c dirvish && /usr/local/sbin/dirvish-run -B /usr/local/sbin/dirvish-offsite-init xxx yyy zzz > /dev/null
 35 0 * * sat /usr/local/sbin/hostcfg -c dirvish && /usr/local/sbin/dirvish-run -D -checksum -B /usr/local/sbin/dirvish-offsite-init xxx yyy zzz > /dev/null
 #
+# Keep mrtg up to date.
+#00-59/5 * * * * (/usr/local/sbin/sensors-to-mrtg -e sysadmin || /usr/bin/service lm_sensors start) && LANG=C /usr/bin/mrtg /usr/local/etc/mrtg/mrtg.cfg > /dev/null
+#
 # Back up the MySQL databases.
-00 02 * * * /usr/local/sbin/dbbu > /dev/null
+##00 02 * * * /usr/local/sbin/mysql-backup > /dev/null
+#
+# Monitor software RAID devices.
+##05 * * * * /usr/local/sbin/checkmd > /dev/null
+#
+# Update ClamAV
+##12 * * * * /usr/local/bin/freshclam > /dev/null
+#
+# Local virus scan.
+##00 18 * * 0 /usr/local/sbin/scanav > /dev/null
 #
 # Update spamassassin
-00 01 * * * (/usr/bin/sa-update && /usr/local/sbin/restartsys spamd) > /dev/null
+##00 01 * * * (/usr/bin/sa-update && /usr/local/sbin/restartsys spamd) > /dev/null
 #
 # Make sure iptables is loaded.
-00 * * * * /usr/local/sbin/check-iptables > /dev/null
+##00 * * * * /usr/local/sbin/check-iptables > /dev/null
 #
 # Make sure dhcp is running
-05 7-18 * * * /usr/local/sbin/check-dhcp > /dev/null || /etc/init.d/dhcpd start
+##05 7-18 * * * /usr/local/sbin/check-dhcp > /dev/null || /etc/init.d/dhcpd start
