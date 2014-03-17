@@ -182,10 +182,15 @@ sub BackupDatabase {
 		if (-f "$OutPath.tmp" or $Options{test}) {
 			RunDangerousCmd(qq<mv "$OutPath.tmp" "$OutPath">);	# Rename tmp file now that it's done.
 			my $size =  ($Options{test}?0:(stat($OutPath))[7]);
-			print commify($size) . " bytes written to $OutPath\n";
-			warn "Warning: backup is less than the minimum expected size ($Options{'min-size'} bytes)\n"
+			print commify($size)
+				. " bytes "
+				. ($size > 1024?'(' . CompressSize($size) . ') ':'')
+				. "written to $OutPath\n";
+			warn "Warning: backup is less than the minimum expected size ("
+				. commify($Options{'min-size'}) ." bytes)\n"
 			    if ($Options{'min-size'} and $size < $Options{'min-size'} and ! $Options{test});
-			warn "Warning: backup is more than the maximum expected size ($Options{'max-size'} bytes)\n"
+			warn "Warning: backup is more than the maximum expected size ("
+				. commify($Options{'max-size'}) . " bytes)\n"
 			    if ($Options{'max-size'} and $size > $Options{'max-size'} and ! $Options{test});
 			if ($Options{gzip}) {
 			    RunDangerousCmd("rm $OutPath.gz") if (-e "$OutPath.gz");
@@ -260,6 +265,24 @@ sub ExpandSize {
         else {
                 return undef;
         }
+}
+
+
+
+#
+# CompressSize - convert bytes to KMGT
+#
+sub CompressSize {
+        my $Value = shift;
+        $Value =~ s/,//g;               # Ignore commas.
+	my $Unit = ' bytes';
+	foreach (('K','M','G','T')) {
+		if ($Value >= 1024) {
+			$Unit = $_;
+			$Value /= 1024;
+		}
+	}
+	return sprintf('%.1f%s',$Value,$Unit);
 }
 
 
@@ -465,4 +488,4 @@ SHOW	/^test:/i
 SHOW	/^Executing:/i
 SHOW	/^Verbose:/i
 SHOW	"^\s*Deleting /usr/local/backup/mysql/"
-SHOW	"^[0-9,]+ bytes written to \S+$"
+SHOW	"^[0-9,]+ bytes (\(.*\) )?written to \S+$"
