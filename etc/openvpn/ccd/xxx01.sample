@@ -1,0 +1,6 @@
+; Special options for this client only.
+;
+; Assign a fixed address.
+ifconfig-push xxx.xxx.xxx.105 xxx.xxx.xxx.106
+; Route their traffic for us, to us.
+push "route 192.168.xxx.0 255.255.255.0"

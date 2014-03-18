@@ -1,0 +1,37 @@
+local 192.168.xxx.xxx
+port 1194
+proto udp
+dev tun
+ca /usr/local/etc/openvpn/keys/ca.crt
+cert /usr/local/etc/openvpn/keys/server.crt
+key /usr/local/etc/openvpn/keys/server.key  # This file should be kept secret
+dh /usr/local/etc/openvpn/keys/dh2048.pem
+tls-auth /usr/local/etc/openvpn/xxx-ta.key 0 # This file is secret
+client-config-dir /usr/local/etc/openvpn/ccd
+keepalive 10 120
+comp-lzo
+max-clients 15
+user nobody
+group nobody
+persist-key
+persist-tun
+verb 2
+mute 20
+ifconfig-pool-persist ipp.txt
+
+# Configure server mode and supply a VPN subnet
+# for OpenVPN to draw client addresses from.
+server 172.30.0.0 255.255.255.0
+
+# Push routes to the client to allow it
+# to reach other private subnets behind
+# the server.
+#push "route 192.168.xxx.0 255.255.255.0"
+
+# Tell the kernel to route traffic to other networks on
+# the other end through us.
+#route 192.168.yyy.0 255.255.255.0
+
+# Allow remote clients to talk to each other.
+#client-to-client
+
