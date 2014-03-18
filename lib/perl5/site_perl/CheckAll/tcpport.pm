@@ -157,6 +157,11 @@ sub Check {
 		my @array = ("FHList",$pid,$CHECKFH);
 		return (\@array);
 	}
+	elsif (! defined($pid)) {
+                warn "$File:$Line: fork failed: $!";
+                $Self->{'StatusDetail'} = 'Operating system error: fork failed: $!';
+		return "Status=" . $Self->CHECK_FAIL;
+	}
 	else {
 		# We're the child.  Recover our file handles, then test the service.
 		printf REALSTDOUT "\n%5d %s Checking %s %s\n",
