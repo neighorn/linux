@@ -150,8 +150,9 @@ RunDangerousCmd("lshw > $opt_o/lshw.out");
 
 # Document Adaptec configuration
 if (-x '/usr/StorMan/arcconf') {
-	my $Count = 1;
+	my $Count = 0;
 	until ($?) {
+		((Count=$Count+1))
 		RunDangerousCmd("echo '-------- Controller $Count --------' >> $opt_o/arcconf.out");
 		RunDangerousCmd("/usr/StorMan/arcconf getconfig $Count >> $opt_o/arcconf.out");
 	}
