@@ -1,4 +1,4 @@
-IGNORE	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*-+$"
-IGNORE	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*-+\s+\S+\s+-+$"
-IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s+Deleting /usr/local/backup/mysql/\S+.sql$"
-IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s+[\d,]+ bytes (\(\S+\) )?written to /usr/local/backup/mysql/\S+.sql"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*-+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*-+\s+\S+\s+-+$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s+Deleting \S+.sql$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s+[\d,]+ bytes (\(\S+\) )?written to \S+.sql"
