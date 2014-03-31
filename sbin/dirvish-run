@@ -13,7 +13,7 @@ use File::Temp qw(mktemp);
 use POSIX qw(strftime);
 use IO::Socket;
 use Data::Dumper;
-$Data::Dumper::Pad = "Verbose:\t\t";
+$Data::Dumper::Pad = "Verbose:        ";
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -547,14 +547,14 @@ sub Summarize {
 	find(\&FoundItem,"$Directory/tree");
 	my $WarnText='';
 	if ($Options{minsize} and $NewSize < $Options{minsize}) {
-		$WarnText .= "\tNew item size of " . FormatSize($NewSize) . " falls below the alert threshold of " . FormatSize($Options{minsize}) . ".\n";
+		$WarnText .= "    New item size of " . FormatSize($NewSize) . " falls below the alert threshold of " . FormatSize($Options{minsize}) . ".\n";
 	}
 	if ($Options{maxsize} and $NewSize > $Options{maxsize}) {
-		$WarnText .= "\tNew item size of " . FormatSize($NewSize) . " exceeds the alert threshold of " . FormatSize($Options{maxsize}) . ".\n";
+		$WarnText .= "    New item size of " . FormatSize($NewSize) . " exceeds the alert threshold of " . FormatSize($Options{maxsize}) . ".\n";
 	}
 	$TotalSize=FormatSize($TotalSize);
 	$NewSize=FormatSize($NewSize);
-	printf "\t%s %s: " . 
+	printf "        %s %s: " . 
 		"Total Items: %s (%s), " .
 		"New Items: %s (%s)\n",
 		$Target,              $Directory,

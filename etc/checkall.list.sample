@@ -28,7 +28,7 @@
 #             Example: process Desc=Postfix Target="/smtpd -n smtp/"
 
 heading Basic networking
-TCPPort	Target=www.ibm.com:80,www.tri-met.org:80,www.amazon.com:80) Desc="External network"
+TCPPort	Target=www.ibm.com:80,www.tri-met.org:80,www.amazon.com:80 Desc="External network"
 TCPPort	Target=alpha:22,beta:22,gamma:139 Desc="Internal network"
 
 heading External services
