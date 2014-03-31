@@ -554,7 +554,7 @@ sub Summarize {
 	}
 	$TotalSize=FormatSize($TotalSize);
 	$NewSize=FormatSize($NewSize);
-	printf "        %s %s: " . 
+	printf "    %s %s: " . 
 		"Total Items: %s (%s), " .
 		"New Items: %s (%s)\n",
 		$Target,              $Directory,
