@@ -131,6 +131,7 @@ sub _Check {
 			my $Status = $handle->ping($host);
 			if (!defined($Status)) {
 				warn qq<Invalid address "$host"\n>;
+				$Self->{'StatusDetail'}=qq<Invalid address "$host">;
 				$HostDone=1;
 		                printf REALSTDOUT "\r\%5d   %s (%s) try %d - Invalid address\n", $$,$host,$Desc,$Try if ($Self->Verbose);  
 			}
@@ -138,14 +139,17 @@ sub _Check {
 				$GroupOK = $Self->CHECK_OK;
 				$HostDone = 1;
 		                printf REALSTDOUT "\r\%5d   %s (%s) try %d - success\n", $$,$host,$Desc,$Try if ($Self->Verbose);  
+				$Self->{'StatusDetail'}='';
 			}
 			else {
 		                printf REALSTDOUT "\r\%5d   %s (%s) try %d - failed\n", $$,$host,$Desc,$Try if ($Self->Verbose);  
+				$Self->{'StatusDetail'}='no response';
 			}
     			last TRY if ($HostDone);		# Don't need to try this host again
 		}
 		if ($GroupOK == $Self->CHECK_OK) {
 			printf REALSTDOUT "\r%5d           %s OK\n", $$,$Desc if ($Self->Verbose);
+			$Self->{'StatusDetail'}='';
 			last HOST;					# Don't need to try other hosts.
 		}
 		else {
