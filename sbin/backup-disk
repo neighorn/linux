@@ -133,6 +133,22 @@ shift
 SystemName=`echo $SystemName | tr 'A-Z' 'a-z' | sed 's/ //g'`
 TargetDir=${0%$Prog}
 [[ "$TargetDir" = '' ]] && TargetDir="."
+if ! cd "$TargetDir"
+then
+	echo "Unable to cd to $TargetDir" 1>&2
+	exit 8
+fi
+if [[ "$PWD" != /mnt/* ]]
+then
+	echo "* Warning: $PWD does not appear to be "
+	echo "* removable storage.  Continue [y/N]?"
+	read response
+	if [[ "$response" != [yY]* ]]
+	then
+		echo "Exiting."
+		exit 9
+	fi
+fi
 TargetDir="${TargetDir%/}/$SystemName"
 
 # Create the output directory, if it doesn't already exist.
