@@ -210,7 +210,7 @@ foreach my $Item (@ItemList) {
 	my $Desc = $Item->Desc;
 	my $LongDesc;
 	if ($Item->{StatusDetail}) {
-		$LongDesc = "$Desc(" . $Item->{StatusDetail} . ")";
+		$LongDesc = "$Desc (" . $Item->{StatusDetail} . ")";
 	}
 	else {
 		$LongDesc = $Desc;
@@ -245,7 +245,7 @@ foreach my $Item (@ItemList) {
 				$DoDownActions = 1;
 				$Item->FirstNotification($Now);
 			}
-			else {
+			elsif ($opt_R) {
 				# We sent out notifications before, but it's time for another one.
 				push @StillFail, $LongDesc;
 			}
