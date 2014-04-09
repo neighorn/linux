@@ -1,0 +1,16 @@
+<HTML>
+<HEAD>
+<TITLE >Reboot</TITLE>
+</HEAD>
+<BODY>
+<H2>
+	<!--#config timefmt="%T" -->
+        <!--#exec cmd="hostname -s" -->
+	Rebooting as of <!--#echo var="DATE_LOCAL" -->
+</H2>
+<pre>
+<!--#exec cmd="/usr/bin/sudo -n shutdown -r now" -->
+</pre>
+<strong>Command issued</strong>
+</BODY>
+<HTML>

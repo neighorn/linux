@@ -1,0 +1,16 @@
+<HTML>
+<HEAD>
+<TITLE >Restart SSH</TITLE>
+</HEAD>
+<BODY>
+<H2>
+	<!--#config timefmt="%T" -->
+        <!--#exec cmd="hostname -s" -->
+	Restarting sshd as of <!--#echo var="DATE_LOCAL" -->
+</H2>
+<pre>
+<!--#exec cmd="/usr/bin/sudo -n service sshd restart" -->
+</pre>
+<strong>Command issued</strong>
+</BODY>
+<HTML>

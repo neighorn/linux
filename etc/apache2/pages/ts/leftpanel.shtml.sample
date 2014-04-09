@@ -12,5 +12,10 @@
 	<a name=dirvmon	href="dirvish-mon.shtml"	target="dynamic">dirvish-mon</a><br>
 	<a name=dirvrun	href="dirvish-run.shtml"	target="dynamic">dirvish-run</a><br>
 	<a name=dirvded	href="dirvish-dedup.html"	target="dynamic">dirvish-dedup</a><br>
+<br>
+<strong>Immediate commands</strong><br>
+<a name=sshd href="sshd.shtml"				target="dynamic">Restart sshd!</a><br>
+<a name=reboot href="reboot.shtml"			target="dynamic">Reboot!</a><br>
+
 </body>
 </html>
