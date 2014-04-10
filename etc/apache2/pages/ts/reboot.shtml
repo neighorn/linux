@@ -9,7 +9,7 @@
 	Rebooting as of <!--#echo var="DATE_LOCAL" -->
 </H2>
 <pre>
-<!--#exec cmd="/usr/bin/sudo -n shutdown -r now" -->
+<!--#exec cmd="/usr/bin/sudo -n shutdown -r now 2>&1" -->
 </pre>
 <strong>Command issued</strong>
 </BODY>
