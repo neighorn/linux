@@ -22,14 +22,28 @@
 # series and the stable 3.x series. The primary additional features
 # over Samba 3.6 are support for the Active Directory logon protocols
 # used by Windows 2000 and above.
+# Default-Start: 3 5
 ### END INIT INFO
 
-# Source function library.
-. /etc/init.d/functions
+# Source function library (Ubuntu)
+if [[ -f /etc/init.d/functions ]]
+then
+	. /etc/init.d/functions
+	. /etc/sysconfig/network
+	START='daemon'
+	STOP='killproc' 
+fi
 
+# Source function library (OpenSUSE)
+if [[ -f /etc/rc.status ]] 
+then
+	. /etc/rc.status
+	rc_reset
+	START='startproc'
+	STOP='killproc' 
+fi
 
-# Source networking configuration.
-. /etc/sysconfig/network
+# Source networking configuration (Ubuntu).
 
 prog_dir=/usr/local/samba
 lockfile=/var/lock/subsys/$prog
@@ -49,7 +63,7 @@ else
 fi
 
 start_item() {
-	daemon $prog_dir/sbin/$1 -D
+	$START $prog_dir/sbin/$1 -D
 	RETVAL=$?
 	return $RETVAL
 }
@@ -65,7 +79,7 @@ start() {
 		[ $? -eq 0 ] || break
 	done
         echo
-        [ $RETVAL -eq 0 ] && touch $lockfile
+        [ $RETVAL -eq 0 ] && touch $lockfile 2> /dev/null
         return $RETVAL
 }
 
@@ -75,7 +89,7 @@ stop() {
         echo -n $"Shutting down $prog_list: "
 	for prog in $prog_list
 	do
-        	killproc $prog_dir/sbin/$prog 
+        	$STOP $prog_dir/sbin/$prog 
 	done
 	prog_list=`echo $prog_list | tr ' ' '|'`
 	ps -fu root | grep -Eq "$prog_list"
