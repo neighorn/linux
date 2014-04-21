@@ -28,7 +28,7 @@ History:
 
 #include <stdio.h>
 #include <syslog.h>
-#include <sys/limits.h>
+#include <limits.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
