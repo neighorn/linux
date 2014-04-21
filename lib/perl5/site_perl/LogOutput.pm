@@ -836,7 +836,7 @@ sub _SetupMail {
 	# message occurs, a non-normal exit code occurs, or a bad signal happens
 	$Mail{'X-JOBERRORS'}="$ErrorsDetected";
 	if ($MailFile) {
-		open($READLOGFILE_FH, $MailFile) or die "Unable to reopen log file: $!\n";
+		open($READLOGFILE_FH, $MailFile) or die qq<Unable to reopen log file "$MailFile": $!\n>;
 		my $Count = 0;
 		while (<$READLOGFILE_FH>) {
 			$Count++;
