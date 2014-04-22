@@ -356,11 +356,16 @@ sub ProcessBackup {
 		my $CONFFH;
 		my $ConfFile = "$MachineDirectory/dirvish/$branch.conf";
 		my $Client;
+		my $Tree;
 		if (open($CONFFH,'<',$ConfFile)) {
 			while (<$CONFFH>) {
-				next unless /^\s*client:\s*(\S*@)?(\S+)/i;
-				$Client=$2;
-				last;
+				if ( /^\s*client:\s*(\S*@)?(\S+)/i ) {
+					$Client=$2;
+				}
+				elsif ( /^\s*tree:\s*(\S+)/i ) {
+					$Tree=$1;
+				}
+				last if ($Client and $Tree);
 			}
 		}
 		else {
@@ -369,7 +374,14 @@ sub ProcessBackup {
 		}
 		close $CONFFH;
 		my $SOCKET;
-		if ($Client) {
+		if ($Client =~ /^(localhost|127.0.0.1|)/i) {
+			# Localhost.  Make sure tree exists, to support automounts.
+			if (! -e $Tree) {
+				print "Skipped $Target -- $Tree is not accessible.\n";
+				return;
+			}
+		}
+		elsif ($Client) {
 			if ($SOCKET = IO::Socket::INET->new(PeerHost=>$Client,PeerPort=>'ssh',Timeout=>5)) {
 				close $SOCKET;
 			}
@@ -836,8 +848,12 @@ Vault Options:
 	--ifup/--noifup			Only run this backup if the host is
 					reachable.  Otherwise, note that the
 					host was unreachable but don't generate
-					an error.  --noifup cancels a prior
-					--ifup.
+					an error.  For remote hosts, the host 
+					is up if we can connect via ssh or rsync.
+					For the local host, the host is up if the
+					source directory tree exists, to support
+					automount access to remote systems.
+					--noifup cancels a prior --ifup.
 	--imagename=name		Interpret "name" with strftime and
 					the job start time, and then pass the
 					resulting value to dirvish as
@@ -971,6 +987,7 @@ IGNORE	"^\s*(file|directory) has vanished: "
 IGNORE	"^\s*Status: warning \(24\) -- file vanished on sender$"
 IGNORE	"^\s*Status: success$"
 SHOW	"^\s*Skipped \S+ -- \S+ is unreachable.$"
+SHOW	"^\s*Skipped \S+ -- .* is not accessible.$"
 SHOW	"^\s*Skipped \S+ due to \"--ifbefore\" time constraints"
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
