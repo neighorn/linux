@@ -16,7 +16,7 @@ credfile="/usr/local/etc/cifs.credentials/$key"
 mountopts="-fstype=cifs,file_mode=0644,dir_mode=0755,uid=nobody,gid=nobody"
 smbclientopts=""
 echo "Attempting to mount $key" | /usr/bin/logger -t auto.cifs
-for P in /bin /sbin /usr/bin /usr/sbin
+for P in /usr/local/samba/bin /usr/local/bin /bin /sbin /usr/bin /usr/sbin
 do
         if [ -x $P/smbclient ]
         then
