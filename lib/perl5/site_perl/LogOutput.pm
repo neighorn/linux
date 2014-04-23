@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.17;
+our $Version	= 3.18;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -487,9 +487,9 @@ sub _OpenMailFile {
 		# Open the log file R/W with create and append.  No trunctation until
 		# we get the lock.
 		if (!open($WRITEMAILFILE_FH, '+>>', $FileName)) {
+			warn qq<LogOutput: Unable to open "$FileName": $!>;
 			close $WRITEMAILFILE_FH;
 			$WRITEMAILFILE_FH = undef;
-			warn qq<LogOutput: Unable to open "$FileName": $!>;
 			$ErrorsDetected++;
 			return '';
 		}
