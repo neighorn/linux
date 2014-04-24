@@ -374,7 +374,7 @@ sub ProcessBackup {
 		}
 		close $CONFFH;
 		my $SOCKET;
-		if ($Client =~ /^(localhost|127.0.0.1|)/i) {
+		if ($Client =~ /^(localhost|127.0.0.1)$/i) {
 			# Localhost.  Make sure tree exists, to support automounts.
 			if (! -e $Tree) {
 				print "Skipped $Target -- $Tree is not accessible.\n";
