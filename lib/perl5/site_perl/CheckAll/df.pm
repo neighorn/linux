@@ -148,7 +148,11 @@ sub Check {
 
 	my @TargetList;
 	if ($Self->{Target} =~ /^ALL$/i) {
-		@TargetList = keys(%Hash);
+		foreach (keys(%Hash)) {
+			# Use everything except NFS mounts, which can be too many
+			# to exclude due to /net.
+			push @TargetList,$_ unless ($Hash{$_}->[0] =~ m"^[^/\s]+:");
+		}
 	}
 	else {
 		@TargetList = ($Self->{Target});
