@@ -143,9 +143,11 @@ sub Check {
                         $$, __PACKAGE__, $Self->Host, $Self->Target
                                 if ($Self->{'Verbose'});
 		
+		my $Timeout = int($main::opt_w / $Self->{Tries});
 		my $Cmd = 
 	    		'ssh '
 	    		. '-o "NumberOfPasswordPrompts 0" '
+	    		. "-o 'ConnectTimeOut $Timeout' "
 	    		. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
 	    		. ($Self->{User}?"$Self->{User}@":'')
 	    		. $Self->{Host}
