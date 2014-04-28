@@ -91,97 +91,174 @@ sub Check {
 
 	# See if we've gathered the process information for this host yet.
 	$Self->{Host} = 'localhost' unless (defined($Self->{Host}));
-	my %Hash;
-	my($device,$total,$used,$free,$percent,$mount);
+	if (exists($HostHash{$Self->{Host}})) {
+		# Already have gathered data on this host.
+		_Check($Self);
+		return "Status=" . $Self->{Status};
+	}
+
+	# Need a copy of STDOUT for consistency between forked and non-forked environment.
+	open(REALSTDOUT,'>&STDOUT') || warn "Unable to duplicate STDOUT: $!";
+
+	# Don't have any data on this host.  Go gather it.
+	my @Data;
 	my $CmdStatus;
-	if (!exists($HostHash{$Self->{Host}})) {
-		# No.  Go gather it.
-		my @Data;
-		my $POSIX = (!defined($Self->{Posix}) or $Self->{Posix})?'-P':' ';
-		if ($Self->{Host} eq 'localhost') {
-			@Data = `df -k $POSIX`;
-			$CmdStatus = "rc=$?";
-		}
-		else {
-			# On a remote host.
-			my $Cmd = 
-    			'ssh '
-    			. '-o "NumberOfPasswordPrompts 0" '
-    			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
-    			. ($Self->{User}?"$Self->{User}@":'')
-    			. $Self->{Host}
-    			. " df -k $POSIX"
-    			;
+	my $POSIX = (!defined($Self->{Posix}) or $Self->{Posix})?'-P':' ';
+
+	# If we're checking localhost, just run it now and evaluate the results.
+	if ($Self->{Host} eq 'localhost') {
+		# Get the data.
+		@Data = `df -k $POSIX`;
+		$CmdStatus = $?;
+	    	if ($CmdStatus != 0) {
+		    $Self->{StatusDetail} = "Unable to gather data: $CmdStatus";
+		    return "Status=" . $Self->CHECK_FAIL;
+	    	}
+		# Populate the hash for this host, in case there are subsequent checks
+		# that need this data.
+		_PopulateHostHash($Self,@Data);
+		# Find out how we're doing.
+		_Check($Self);
+		printf REALSTDOUT "\r\%5d	Status=%d, Detail=%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
+			if ($Self->{Verbose});
+		return "Status=" . $Self->{Status}
+	}
+
+	# We're checking on a remote host.  Need to fork, as this could take some time.
+        my $CHECKFH;
+        my $pid = open($CHECKFH,"-|");
+        if ($pid) {
+                # We're the parent.  Remember the pid that goes with this line.
+                my @array = ("FHList",$pid,$CHECKFH);
+                return (\@array);
+        }
+        elsif (! defined($pid)) {
+                warn "$File:$Line: fork failed: $!";
+                $Self->{'StatusDetail'} = 'Operating system error: fork failed: $!';
+                return "Status=" . $Self->CHECK_FAIL;
+        }
+        else {
+                # We're the child.  Recover our file handles, then test the service.
+                printf REALSTDOUT "\n%5d %s Checking %s %s\n",
+                        $$, __PACKAGE__, $Self->Host, $Self->Target
+                                if ($Self->{'Verbose'});
+		
+		my $Cmd = 
+	    		'ssh '
+	    		. '-o "NumberOfPasswordPrompts 0" '
+	    		. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
+	    		. ($Self->{User}?"$Self->{User}@":'')
+	    		. $Self->{Host}
+	    		. " df -k $POSIX"
+	    		;
+
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
-    		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
+			printf REALSTDOUT "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
     			eval("\@Data = `$Cmd`;");
     			last unless ($@ or $? != 0);
 			$CmdStatus = ($??"rc=$?":$@);
-		    }
-		    if (@Data == 0)
-		    {
-			    $Self->{StatusDetail} = "Unable to gather data: $CmdStatus";
-			    return "Status=" . $Self->CHECK_FAIL;
-		    }
+		}
+		if (@Data == 0)
+		{
+			# No data came back.
+			printf "%d/%d/%s\n", $$, $Self->CHECK_FAIL, "Unable to gather data: $CmdStatus"
+				or warn("$$ $File:$Line: Error returning status: $!");
+			close REALSTDOUT;
+			close STDOUT;
+			exit($Self->CHECK_FAIL);
+		}
 				
-		}
-		foreach (@Data) {
-			next if (/^\s*Filesystem/);
-			# Filesystem           1K-blocks      Used Available Use% Mounted on
-			next if (/^\s*Filesystem\s/i);
-    		        printf "\r\%5d       Processing: %s\n", $$,$_
+		# We have data.  Go run our checks.
+		_PopulateHostHash($Self,@Data);
+		_Check($Self);
+		printf "%d/%d/%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
+			or warn("$$ $File:$Line: Error returning status: $!");
+		printf REALSTDOUT "\r\%5d		Status=%d, Detail=%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
+			if ($Self->{Verbose});
+                close REALSTDOUT;
+                close STDOUT;
+                exit($Self->{Status});         # Tell the parent whether it was OK or FAILING.
+	}
+}
+
+
+
+#
+# Populate Hash of data for this host.
+#  This saves time when run on localhost, but is kind of a waste for remote hosts
+#  since we're a child process and the hash goes away.  Haven't figured out how
+#  I should address that yet.
+#
+sub _PopulateHostHash {
+
+	my($Self,@Data) = @_;
+	my $Host = $Self->{Host};	# Save some dereferencing.
+	my($device,$total,$used,$free,$percent,$mount);
+	# Create a hash of arrays keyed on mount point.  Each array is one df line-item.
+	foreach (@Data) {
+		next if (/^\s*Filesystem/);
+		# Filesystem           1K-blocks      Used Available Use% Mounted on
+		next if (/^\s*Filesystem\s/i);		# Heading
+		# Data line.  Break it out into fields.
+    	        printf REALSTDOUT "\r\%5d       Processing: %s", $$,$_
+			if ($Self->Verbose);
+		my($device,$total,$used,$free,$percent,$mount) = split(/\s+/);
+    	        printf REALSTDOUT "\r\%5d       	device=%s, total=%s, used=%s, free=%s, percent=%s, mount=%s\n",
+			$$,$device,$total,$used,$free,$percent,$mount
 				if ($Self->Verbose);
-			my($device,$total,$used,$free,$percent,$mount) = split(/\s+/);
-    		        printf "\r\%5d       device=%s, total=%s, used=%s, free=%s, percent=%s, mount=%s\n",
-				$$,$device,$total,$used,$free,$percent,$mount
-					if ($Self->Verbose);
-			next if ($device eq 'none');
-			$percent=~s/%//;
-			@{$Hash{$mount}} = ($device,$total,$used,$free,$percent);
-		}
-		$HostHash{$Self->{Host}} = \%Hash;
+		next if ($device eq 'none');		# Not a real file system (e.g. proc, sys, etc.).
+		$percent=~s/%//;			# Strip the percent sign off the percent value.
+		$HostHash{$Host}{$mount}{device}=$device;
+		#$HostHash{$Host}{$mount}{total}=$total;	# Uncomment this when we find a need for it
+		#$HostHash{$Host}{$mount}{used}=$used;		# Uncomment this when we find a need for it
+		#$HostHash{$Host}{$mount}{free}=$free;		# Uncomment this when we find a need for it
+		$HostHash{$Host}{$mount}{percent}=$percent;
 	}
-	else {
-		# Retrive the previously gathered data.
-		%Hash = %{$HostHash{$Self->{Host}}};
-	}
+}
+
+
+
+#
+# _Check
+#
+sub _Check {
+	my $Self = shift;
+	my $Host = $Self->{Host};
 
 	my @TargetList;
 	if ($Self->{Target} =~ /^ALL$/i) {
-		foreach (keys(%Hash)) {
+		foreach my $Target (keys(%{$HostHash{$Host}})) {
 			# Use everything except NFS mounts, which can be too many
 			# to exclude due to /net.
-			push @TargetList,$_ unless ($Hash{$_}->[0] =~ m"^[^/\s]+:");
+			push @TargetList,$_ unless ($HostHash{$Host}{$Target}{device} =~ m"^[^/\s]+:");
 		}
 	}
 	else {
 		@TargetList = ($Self->{Target});
 	}
 	
-	$Status = $Self->CHECK_OK;		# Assume no errors.
+	my $Status = $Self->CHECK_OK;		# Assume no errors.
 	my $Detail = '';
 	foreach my $Target (@TargetList) {
 		next if ($Self->{Exclude}{$Target});
-		($device,$total,$used,$free,$percent) = @{$Hash{$Target}};
-		printf "\r\%5d   Checking %s at %d%%\n", $$, $device, $percent
-			if ($Self->{Verbose});
-		if ($Self->{Maxpercent}) {
-			if (defined($percent)) {
-				if ($percent > $Self->{Maxpercent}) {
-					$Detail .= ", $Target at $percent%";
-					$Status = $Self->CHECK_FAIL;
-				}
-			}
-			else {
+		if (! exists($HostHash{$Host}{$Target}{percent})) {
 				$Detail .= ", $Target not mounted";
 				$Status = $Self->CHECK_FAIL;
-			}
+				next;
+		}
+		my $percent = $HostHash{$Host}{$Target}{percent};
+		printf REALSTDOUT "\r\%5d   Checking %s at %d%%\n", $$, $Target, $percent
+			if ($Self->{Verbose});
+		if ($percent > $Self->{Maxpercent}) {
+			$Detail .= ", $Target at $percent%";
+			$Status = $Self->CHECK_FAIL;
 		}
 	}
 			
 	$Detail =~ s/^, //;
+	$Self->{Status} = $Status;
 	$Self->{StatusDetail}=$Detail;
-	return "Status=" . $Status;
+	return $Status;
 }
 1;
 
