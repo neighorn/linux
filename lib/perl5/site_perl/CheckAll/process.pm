@@ -1,6 +1,6 @@
 #-------------------------------- process Item -----------------------------------
 #
-# process - check to see if a process is present.
+# process - check to see if a process is present
 #
 
 use strict;
@@ -8,9 +8,9 @@ no strict 'refs';
 use warnings;
 package process;
 use base 'CheckItem';
-use fields qw(Port User);
+use fields qw(Port User);	
 
-my %ProcessHash;	# Hash of lists of processes, keyed by remote host.
+my %HostData;	# Hash of lists of process data.
 
 #================================= Data Accessors ===============================
 sub Target {
@@ -47,18 +47,18 @@ sub Check {
 	my $File = $Self->{'FILE'};
 	my $Line = $Self->{'LINE'};
 	my $Target = $Self->{'Target'};
+	$Self->{StatusDetail} = '';
+
 	printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host, $Self->Target
 		if ($Self->{Verbose});
 		
 	# First, make sure we have the necessary config info.
 	my $Errors = 0;
 	if (! $Self->{Desc}) {
-		warn "$File:$Line: Desc not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Desc not specified";
 		$Errors++;
 	}
 	if (! $Self->{Target}) {
-		warn "$File:$Line: Target not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Target not specified";
 		$Errors++;
 	}
@@ -70,48 +70,121 @@ sub Check {
 
 	# See if we've gathered the process information for this host yet.
 	$Self->{Host} = 'localhost' unless (defined($Self->{Host}));
-	if (!exists($ProcessHash{$Self->{Host}})) {
-		# No.  Go gather it.
-		my @Data;
-		if ($Self->{Host} eq 'localhost') {
-			@Data = `ps -e o cmd`;
-		}
-		else {
-			# On a remote host.
-			my $Cmd = 
-				'ssh '
-				. '-o "NumberOfPasswordPrompts 0" '
-				. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
-				. ($Self->{User}?"$Self->{User}@":'')
-				. $Self->{Host}
-				. ' ps -e -o cmd '
-				;
-			for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
-    		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
-    			eval("\@Data = `$Cmd`;");
-    			last unless ($@ or $? != 0);
-		    }
-		    if (@Data == 0)
-		    {
-			    warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: rc=$?, $@\n";
-			    $Self->{StatusDetail} = "Unable to gather data";
-			    return "Status=" . $Self->CHECK_FAIL;
-		    }
-		}
-		$ProcessHash{$Self->{Host}} = \@Data;
+	my $Host = $Self->{Host};
+	if (exists($HostData{$Host})) {
+		# Already have gathered data on this host.
+		_Check($Self);
+		return "Status=" . $Self->{Status};
 	}
 
-	foreach (@{$ProcessHash{$Self->{Host}}}) {
-	    chomp;
-		printf "\r%5d   Checking %s\n", $$, $_ if ($Self->{Verbose});
-		return "Status=" . $Self->CHECK_OK if ( $_ =~ $Target );
-	};
-	return "Status=" . $Self->CHECK_FAIL;
+	# Need a copy of STDOUT for consistency between forked and non-forked environment.
+	open(REALSTDOUT,'>&STDOUT') || warn "Unable to duplicate STDOUT: $!";
+
+	# Don't have any data on this host.  Go gather it.
+	my @Data;
+	my $CmdStatus;
+
+	# If we're checking localhost, just run it now and evaluate the results.
+	if ($Host eq 'localhost') {
+		# Get the data.
+		@Data = `ps -e -o cmd`;
+		$CmdStatus = $?;
+	    	if ($CmdStatus != 0) {
+		    $Self->{StatusDetail} = "Unable to gather data: $CmdStatus";
+		    return "Status=" . $Self->CHECK_FAIL;
+	    	}
+		@{$HostData{$Host}} = @Data;
+		
+		# Find out how we're doing.
+		_Check($Self);
+		printf REALSTDOUT "\r\%5d	Status=%d, Detail=%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
+			if ($Self->{Verbose});
+		return "Status=" . $Self->{Status}
+	}
+
+	# We're checking on a remote host.  Need to fork, as this could take some time.
+        my $CHECKFH;
+        my $pid = open($CHECKFH,"-|");
+        if ($pid) {
+                # We're the parent.  Remember the pid that goes with this line.
+                my @array = ("FHList",$pid,$CHECKFH);
+                return (\@array);
+        }
+        elsif (! defined($pid)) {
+                warn "$File:$Line: fork failed: $!";
+                $Self->{'StatusDetail'} = 'Operating system error: fork failed: $!';
+                return "Status=" . $Self->CHECK_FAIL;
+        }
+        else {
+                # We're the child.  Recover our file handles, then test the service.
+                printf REALSTDOUT "\n%5d %s Checking %s %s\n",
+                        $$, __PACKAGE__, $Self->Host, $Self->Target
+                                if ($Self->{'Verbose'});
+		
+		my $Timeout = int($main::opt_w / $Self->{Tries});
+		my $Cmd = 
+	    		'ssh '
+	    		. '-o "NumberOfPasswordPrompts 0" '
+	    		. "-o 'ConnectTimeOut $Timeout' "
+	    		. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
+	    		. ($Self->{User}?"$Self->{User}@":'')
+	    		. $Host
+	    		. " ps -e -o cmd"
+	    		;
+
+    		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
+			printf REALSTDOUT "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
+    			eval("\@Data = `$Cmd`;");
+    			last unless ($@ or $? != 0);
+			$CmdStatus = ($??"rc=$?":$@);
+		}
+		if (@Data == 0)
+		{
+			# No data came back.
+			printf "%d/%d/%s\n", $$, $Self->CHECK_FAIL, "Unable to gather data: $CmdStatus"
+				or warn("$$ $File:$Line: Error returning status: $!");
+			close REALSTDOUT;
+			close STDOUT;
+			exit($Self->CHECK_FAIL);
+		}
+				
+		# We have data.  Go run our checks.
+		@{$HostData{$Host}} = @Data;
+		_Check($Self);
+		printf REALSTDOUT "\r\%5d		Status=%d, Detail=%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
+			if ($Self->{Verbose});
+		printf "%d/%d/%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
+			or warn("$$ $File:$Line: Error returning status: $!");
+                close REALSTDOUT;
+                close STDOUT;
+                exit($Self->{Status});         # Tell the parent whether it was OK or FAILING.
+	}
+}
+
+
+
+#
+# _Check
+#
+sub _Check {
+	my $Self = shift;
+	my $Host = $Self->{Host};
+	my $Target = $Self->{Target};
+
+        foreach (@{$HostData{$Host}}) {
+        	chomp;
+        	printf REALSTDOUT "\r%5d   Checking %s\n", $$, $_ if ($Self->{Verbose});
+		if ($_ =~ $Target) {
+			$Self->{Status} = $Self->CHECK_OK;
+        		return $Self->CHECK_OK;
+		}
+        };
+	$Self->{Status} = $Self->CHECK_FAIL;
+       	return $Self->CHECK_FAIL;
 }
 1;
 
 =pod
-
 =head1 Checkall::process
 
 =head2 Summary
