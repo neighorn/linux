@@ -230,7 +230,7 @@ sub _Check {
 		foreach my $Target (keys(%{$HostHash{$Host}})) {
 			# Use everything except NFS mounts, which can be too many
 			# to exclude due to /net.
-			push @TargetList,$_ unless ($HostHash{$Host}{$Target}{device} =~ m"^[^/\s]+:");
+			push @TargetList,$Target unless ($HostHash{$Host}{$Target}{device} =~ m"^[^/\s]+:");
 		}
 	}
 	else {
@@ -240,7 +240,7 @@ sub _Check {
 	my $Status = $Self->CHECK_OK;		# Assume no errors.
 	my $Detail = '';
 	foreach my $Target (@TargetList) {
-		next if ($Self->{Exclude}{$Target});
+		next if (exists($Self->{Exclude}{$Target}));
 		if (! exists($HostHash{$Host}{$Target}{percent})) {
 				$Detail .= ", $Target not mounted";
 				$Status = $Self->CHECK_FAIL;
