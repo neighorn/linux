@@ -1,0 +1,7 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d\s+\S+\s+anacron(\[\d+\])?:\s*Anacron \S+ started on "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d\s+\S+\s+anacron(\[\d+\])?:\s*Job \`\S+' started$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d\s+\S+\s+anacron(\[\d+\])?:\s*Job \`\S+' termnated$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d\s+\S+\s+anacron(\[\d+\])?:\s*Jobs will be executed sequentially$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d\s+\S+\s+anacron(\[\d+\])?:\s*Normal exit \(\d+ jobs? run\)$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d\s+\S+\s+anacron(\[\d+\])?:\s*Updated timestamp for job \`\S+' to"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d\s+\S+\s+anacron(\[\d+\])?:\s*Will run job \`\S+' "
