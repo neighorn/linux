@@ -1,0 +1,3 @@
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+init:\s*splash-manager main process \(\d+\) terminated with status 1\s*$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+init:\s*start-ttys main process \(\d+\) terminated with status 1\s*$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+init:\s*tty \(\S+\) main process ended, respawning\s*$"
