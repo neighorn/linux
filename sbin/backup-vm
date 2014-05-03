@@ -92,7 +92,7 @@ if ($Errors) {
 	print STDERR "Invalid command line options. Aborting\n";
 	exit 15;
 }
-if ($Options{output} and $Options{output} !~ m<^[a-zA-Z0-9_:.,%=, *?/-]+$>) {
+if ($Options{output} and $Options{output} !~ m<^[a-zA-Z0-9_:.,%= *?/{}[\]-]+$>) {
 	print STDERR "Invalid value \"$Options{output}\" for --output. Aborting\n";
 	exit 16;
 }
@@ -215,7 +215,7 @@ sub ProcessBackup {
 	$Output .= ($Options{gzip}?'.tgz':'.tar');	# Add .tar/.tgz suffix.
 	$Output =~ m"^(.*)/([^/]*)$";			# Split path from file name.
 	my ($OutputDir,$OutputFile) = ($1, $2);
-	if ($OutputDir =~ /[?*]/) {
+	if ($OutputDir =~ /[?*{}[\]]/) {
 		# Contains wild cards.
 		my $OutputDirTest = glob $OutputDir;
 		$OutputDir = $OutputDirTest if ($OutputDirTest and -d $OutputDirTest);
@@ -489,6 +489,9 @@ Options:
 					substituted as follows:
 						%C - name of the virtual machine
 						All others - as per strftime.
+					Wildcards (?,*,[],{}) may be used, such as:
+					   -o /media/{main,vault}?
+					which matches /media/main? or /media/vault?.
 					Note that ".tar" or ".tgz" is always appended to
 					the output file name.
 	--exclude-file=name:		Exclude: exclude image files named
