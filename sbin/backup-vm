@@ -47,6 +47,7 @@ our %OptionSpecifications=(
 		'output|o=s'		=>	\&opt_Value,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
+		'timeout|T=s'		=>	\&opt_Value,
 		'gzip|z!'		=>	\&opt_Value,
 		'test|t!'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
@@ -91,14 +92,6 @@ $Errors ++ unless (GetOptions(%OptionSpecifications));
 if ($Errors) {
 	print STDERR "Invalid command line options. Aborting\n";
 	exit 15;
-}
-if ($Options{output} and $Options{output} !~ m<^[a-zA-Z0-9_:.,%= *?/{}[\]-]+$>) {
-	print STDERR "Invalid value \"$Options{output}\" for --output. Aborting\n";
-	exit 16;
-}
-if ($Options{cycles} and $Options{cycles} !~ /^[1-9]\d*$/) {
-	print STDERR "Invalid value for --cycles. Aborting.\n";
-	exit 17;
 }
 
 # If there aren't any parameters here, back up everything.
@@ -157,7 +150,8 @@ LogOutput({
 		"after-state" => 'same',
 		cd => '/var/lib/libvirt/images',
 		test => $Options{test},
-		verbose => $Options{verbose}
+		verbose => $Options{verbose},
+		timeout => 5,
 );			# Reset Options to defaults for reprocessing.
 $Errors ++ unless (GetOptions(%OptionSpecifications,'<>'=>\&ProcessBackup));
 
@@ -183,6 +177,20 @@ sub ProcessBackup {
 
 	print strftime("Backing up $Machine at %Y-%m-%d %T\n",localtime());
 	my $BackupErrors = 0;
+
+	# Validate options.  These can change from backup to backup.
+	if ($Options{output} and $Options{output} !~ m<^[a-zA-Z0-9_:.,%= *?/{}[\]-]+$>) {
+		print STDERR "\tInvalid value \"$Options{output}\" for --output. Skipping backup\n";
+		return 1;
+	}
+	if ($Options{cycles} and $Options{cycles} !~ /^[1-9]\d*$/) {
+		print STDERR "\tInvalid value for --cycles. Skipping backup.\n";
+		return 1;
+	}
+	if ($Options{timeout} !~ /^[1-9]\d*$/) {
+		print STDERR "\tInvalid value for --timeout. Skipping backup.\n";
+		return 1;
+	}
 
 	# Capture the XML for later, and to determine if the machine exists.
 	my @XML;
@@ -272,12 +280,12 @@ sub ProcessBackup {
 	if ( $WasRunning ) {
 		# It's running.
 		print "    Shutting down $Machine" . ($Options{test}?" (test)\n":"\n");
-		my $Count = 0;
-		while (! $Options{test} and IsRunning($Machine)) {
-			last if ($Count++ > 24);
-			RunDangerousCmd("virsh shutdown $Machine")
-				if ($Count % 12 == 1);
-			sleep 5
+		my $Count = 2*$Options{timeout};	# Convert minutes -> 30 second cycles
+		while (! $Options{test} and IsRunning($Machine) and $Count > 0) {
+			RunDangerousCmd("echo debug virsh shutdown $Machine")
+				if ($Count % 2 == 0);	# Send shutdown once per minute.
+			$Count--;
+			sleep 30;
 		}
 	}
 	else {
@@ -483,7 +491,7 @@ Options:
 	--cd=path:			Change directories: virtual machine folders
 					will be stored in this path.  Defaults to
 					/var/lib/libvirt/images.
-	--cycles|-C=n:			Cycles: keep n backups.
+	--cycles=n|-C n:		Cycles: keep n backups.
 	--output="name":		Output: Where to write the output tar file.
 					This may include % variables, which are 
 					substituted as follows:
@@ -505,10 +513,10 @@ Options:
 					specified.  May be repeated.
 	--exclude-vm=name:		Do not back up this virtual machine.
 	--(no)gzip|-z:			Gzip the tar file.  Default is --nogzip.
-	--always-mail|-m=mailid:	Mail: Send an execution report to this
+	--always-mail=mailid|-m mailid:	Mail: Send an execution report to this
 					e-mail address.
 
-	--error-mail|-M=mailid: 	Mail on error: Send an execution report
+	--error-mail=mailid|-M mailid: 	Mail on error: Send an execution report
 					to this e-mail address only if errors
 					are detected.
 
@@ -516,14 +524,18 @@ Options:
 					the machine up, leave it down, or
 					return it to the same state it was
 					in before the backup started (default).
-	--always-page|-p=mailid: 	Page: Send a very brief message
+	--always-page=mailid|-p mailid:	Page: Send a very brief message
 					(suitable for a pager or text message)
 					to this e-mail address when this job
 					completes.
 
-	--error-page|-P=mailid:		Page on error: Send a very brief message
+	--error-page=mailid|-P mailid:	Page on error: Send a very brief message
 					to this e-mail address if errors are
 					detected in this job.
+
+	--timeout=min|-T min:		Timeout: How long in minutes should
+					backup-vm wait for this machine to
+					shutdown.  Default is 5 minutes.
 
 	--help|-h|-?:			Help: display this panel
 
@@ -569,6 +581,28 @@ Notes:
           In this example, most backups would keep 6 cycles, except those that
           include "-O offsites" on the command line.  Option set names are case
           insensitive.
+     2) Options may be interspersed with virtual machine names.  Some options
+	are only relevant to the entire job (e.g. mail notifications), and
+	apply to the entire job regardless of where they appear in the command
+	line.  Other options are processed in the order that they appear, and
+	apply to all subsequent virtual machine names until changed.  These
+	options are:
+                after-state
+                cd, -C
+		exclude-file
+                gzip, -z
+                test, -t
+                timeout, -T
+                verbose, -v
+	Example:
+		backup-vm --timeout=1 vm1 --timeout=5 vm2 vm3 -m john\@example.com
+	In the above example, vm1 will have a timeout value of 1 minute,
+	vm2 and vm3 will have a timeout value of 5 minutes.  "john\@example.com"
+	will receive an execution report of the entire backup job, because
+	-m applies to an entire job regardless of position.
+
+	When specified, the 
+	
 
 Bugs:
 
