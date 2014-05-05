@@ -282,7 +282,7 @@ sub ProcessBackup {
 		print "    Shutting down $Machine" . ($Options{test}?" (test)\n":"\n");
 		my $Count = 2*$Options{timeout};	# Convert minutes -> 30 second cycles
 		while (! $Options{test} and IsRunning($Machine) and $Count > 0) {
-			RunDangerousCmd("echo debug virsh shutdown $Machine")
+			RunDangerousCmd("virsh shutdown $Machine")
 				if ($Count % 2 == 0);	# Send shutdown once per minute.
 			$Count--;
 			sleep 30;
