@@ -59,6 +59,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+PUSH: Received contr
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+Preserving previous TUN/TAP instance: \S+\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+R="
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+Re-using SSL/TLS context"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+read UDPv4 \[EHOSTUNREACH\]: No route to host \(code=113\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+Restart pause, \d+ second\(s\)"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+SENT CONTROL \[\S+\]: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+SIGUSR1\[soft,ping-restart\] received, process restarting"
