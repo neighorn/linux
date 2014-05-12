@@ -1,0 +1,7 @@
+SHOW	"^... [ 0-3]\d 00:0\d:\d\d \S+ rsyslogd: \[origin software=\"rsyslogd\" swVersion=\"\d+.\d+.\d+\" x-pid=\"\d+\" x-info=\"http://www.rsyslog.com\"\] exiting on signal 15\.$"
+IGNORE  "^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: \[origin software=\"rsyslogd\" swVersion=\"\d+.\d+.\d+\" x-pid=\"\d+\" x-info=\"http://www.rsyslog.com\"\] rsyslogd was HUPed"
+SHOW	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: \[origin software=\"rsyslogd\" swVersion=\"\d+.\d+.\d+\" x-pid=\"\d+\" x-info=\"http://www.rsyslog.com\"\] (\(re\))?start$"
+IGNORE  "^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: \S+$"
+IGNORE  "^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: rsyslogd's groupid changed to 103$"
+IGNORE  "^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: rsyslogd's userid changed to 101$"
+IGNORE  "^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd-\d+: Could not? open output (file|pipe) '/dev/xconsole'"
