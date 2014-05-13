@@ -140,7 +140,7 @@ foreach my $device (@Parms) {
 				die "Aborting $Prog - another RAID is rebuilding\n";
 			}
 			print strftime(
-				"Beginning check of /dev/$device at %T on %D"
+				"Beginning check of /dev/$device at %T on %Y-%m-%d"
 				. ($opt_t?' (test)':'')
 				. "\n",
 				localtime());
@@ -166,7 +166,7 @@ foreach my $device (@Parms) {
 		}
 		if ($Status eq 'idle') {
 			print strftime(
-				"Completed check of /dev/$device at %T on %D\n",
+				"Completed check of /dev/$device at %T on %Y-%m-%d\n",
 				localtime());
 			;
 		}
