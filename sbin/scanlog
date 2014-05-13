@@ -23,6 +23,7 @@ my $LogFile='';				# Name of the log file.
 my @ConfigFiles=(
 	"/usr/localhosts/etc/$Prog/${Prog}.cfg",
 	"/usr/local/etc/$Prog/${Prog}.cfg",
+	"/usr/local/etc/${Prog}.cfg",
 );     # Name of config files.
 our %Config;				# Config parms.
 our @Parms;				# Command line parms.
