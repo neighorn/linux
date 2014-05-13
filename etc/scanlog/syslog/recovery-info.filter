@@ -1,0 +1,6 @@
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ recovery-info(\[\d+\])?:\s* recovery-info started on "
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ recovery-info(\[\d+\])?:\s*1\+0 records (in|out)$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ recovery-info(\[\d+\])?:\s*512 bytes \(512 B\) copied"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ recovery-info(\[\d+\])?:\s*Volume group \"\S+\" successfully backed up.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ recovery-info(\[\d+\])?:\s*Job ended normally with status 0 and signal 0$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ recovery-info(\[\d+\])?:\s*Job ended on "
