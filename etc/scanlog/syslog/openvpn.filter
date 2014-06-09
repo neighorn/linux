@@ -89,7 +89,7 @@ IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+IfIndex of an inter
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+Incoming Control Channel Authentication: Using 160 bit message hash 'SHA1' for HMAC authentication$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+MULTI: multi_init called, r=\d+ v=\d+$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+NOTE: --mute triggered...$"
-IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+OpenVPN \S+ x\S+ (\[\S+\] )+ (\[IPv6 payload \S+ \(\S+\)\ ])?built on ... .. 2...$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+OpenVPN \S+ x\S+\s+(\[\S+\]\s+)+(\[IPv6 payload \S+ \(\S+\)\ ])?built on ... .. 2...$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+Outgoing Control Channel Authentication: Using 160 bit message hash 'SHA1' for HMAC authentication$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+ROUTE default_gateway="
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ovpn-\S+\[\d+\]:\s+TLS-Auth MTU parms "
