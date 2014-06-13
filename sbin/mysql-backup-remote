@@ -63,6 +63,7 @@ if (-e $ConfigFile) {
 		next if (/^\s*$/);      # Blank line.
 		chomp;
 		my ($name,$settings)=split(/:?\s+/,$_,2);
+		$settings =~ s/\s*$//;		# Remove trailing spaces.
 		$name=~tr/[a-z]/[A-Z]/;
 		$Config{$name}.=$settings . ',' ;
 	}
