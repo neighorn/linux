@@ -165,7 +165,7 @@ if ($DeleteList) {
 		print "apt-get returned status $Status\n";
 		$Errors++;
 	}
-	RunDangerousCmd("apt-get autoremove");
+	RunDangerousCmd("apt-get autoremove -y");
 }
 else {
 	print "No old kernel packages need to be removed.\n";
