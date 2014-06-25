@@ -442,7 +442,6 @@ sub ProcessServiceLine {
 	# Substitute variables
 	foreach my $Name (keys(%Vars)) {
 		$Rest=~s/$Name/$Vars{$Name}/g;
-		print " -> $Rest\n";
 	}
 
 	# Is there an "ifhost" prefix to this test?
