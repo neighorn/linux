@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package filestat;
 use base 'CheckItem';
-use fields qw(Host Port User Dev Ino Mode Nlink Uid Gid Rdev Size Atime Mtime Ctime Blksize Blocks);
+use fields qw(Port User Dev Ino Mode Nlink Uid Gid Rdev Size Atime Mtime Ctime Blksize Blocks);
 
 my %Attributes = (
 	Dev =>		'integer,keep-operator',
@@ -120,27 +120,31 @@ sub Check {
 			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
 			. ($Self->{User}?"$Self->{User}@":'')
 			. $Self->{Host} . ' '
-			. "stat -c %d,%i,%f,%h,%u,%g,%t,%s,%X,%Y,%Z,%o,%b $Self->{Target}"
+			. qq["stat -c %d,%i,%f,%h,%u,%g,%t,%s,%X,%Y,%Z,%o,%b '$Self->{Target}' 2> /dev/null || exit 0"]
+			. ' 2> /dev/null'
 			;
 		my $Data;
 		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
-		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
+			printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
 			eval("\$Data = `$Cmd`;");
-			last unless ($@ or $? != 0);
-	    }
-	    if ($Data == 0) {
-		    warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: rc=$?, $@\n";
-		    $Self->{StatusDetail} = "Unable to gather data";
-		    return "Status=" . $Self->CHECK_FAIL;
-	    }
-		else {
+			$Status =$?;
+			last unless ($@ or $Status != 0);
+		}
+		if ($Status) {
+			# SSH failed.
+			$Self->{StatusDetail} = "Unable to gather data($Status)";
+			return "Status=" . $Self->CHECK_FAIL;
+		}
+		if ($Data) {
 			@StatData=split(',',$Data);
+			$Self->{StatusDetail} = "";
 			if (!@StatData) {
-				warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Target}: $@\n";
-			        $Self->{StatusDetail} = "Unable to find/read file system stat data";
 				return "Status=" . $Self->CHECK_FAIL;
 			}
-			$StatData[2] = hex($StatData[2]);
+		}
+		else {
+		       	$Self->{StatusDetail} = "not found";
+			return "Status=" . $Self->CHECK_FAIL;
 		}
 	}
 	else {
@@ -158,6 +162,7 @@ sub Check {
 
 	# Check attributes.
 	my @AttrList = qw(Dev Ino Mode Nlink Uid Gid Rdev Size Absatime Absmtime Absctime Blksize Blocks Atime Mtime Ctime);
+	$StatData[2] = hex($StatData[2]);	# Convert file mode to hex.
 	foreach (0..$#AttrList) {
 		my $AttrName = $AttrList[$_];
 		my $TargetValue;
@@ -265,67 +270,79 @@ typically resulting in using the same name as the local user.
 
 =item *
 
+Attributes-oper-value
+
+Zero or more of the following attributes may be compared to the specified value.  Comparison
+operators are listed below.  If no
+comparisons are supplied, the item is simply checked for existence.
+
+=over 4
+
+=item -
+
 dev: The file system device number is compared to the provided value.  (See comparison operators below).
 
-=item *
+=item -
 
 ino: The inode number is compared to the provided value.
 
-=item *
+=item -
 
 mode: [Currently unsupported]
 
-=item *
+=item -
 
 nlink: The number of hard links is compared to the provided value.
 
-=item *
+=item -
 
 uid: The uid number is compared to the provided value.
 
-=item *
+=item -
 
 gid: The gid number is compared to the provided value.
 
-=item *
+=item -
 
 rdev: The device identifier (special files only) is compared to the provided value.
 
-=item *
+=item -
 
 size: The total file size in bytes is compared to the specified value
 
-=item *
+=item -
 
 absatime: The actual last accessed time (in seconds) is compared to the provided value.
 
-=item *
+=item -
 
 absmtime: The actual last modification (in seconds) is compared to the provided value.
 
-=item *
+=item -
 
 absctime: The actual last inode change (in seconds) is compared to the provided value.
 
-=item *
+=item -
 
 atime: The elapsed time since the last access is compared to the provided value.
 
-=item *
+=item -
 
 mtime: The elapsed time since the last modification is compared to the provided value.
 
-=item *
+=item -
 
 ctime: The elapsed time since the last inode change is compared to the provided value.
 
-=item *
+=item -
 
 blksize: The preferred block size for the file system I/O is compared to the provided value.
 
-=item *
+=item -
 
 blocks: The actual number of blocks allocated is compared to the provided value.
+
+=back
 
 =back
 
