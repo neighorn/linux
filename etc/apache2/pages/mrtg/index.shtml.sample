@@ -2,7 +2,7 @@
 <HTML>
 <HEAD>
     <TITLE>
-	<!--#echo var="SERVER_NAME"-->
+	<!--#exec cmd="hostname -s" -->
 	MRTG Index Page
     </TITLE>
     <!-- Command line is easier to read using "View Page Properties" of your browser -->
@@ -27,7 +27,7 @@
 
 <H1>
     MRTG Index Page for
-    <!--#echo var="SERVER_NAME"-->
+    <!--#exec cmd="hostname -s" -->
 </H1>
 
 <TABLE BORDER=0 CELLPADDING=0 CELLSPACING=10>
