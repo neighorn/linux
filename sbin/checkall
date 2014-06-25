@@ -129,7 +129,7 @@ foreach (@ARGV) {
 
 if (@ItemList+0 == 0) {
 	# Nothing to monitor.
-	warn "No services found in $ServiceList to monitor.";
+	warn 'No services found in ' . join(', ',@ARGV) . ' to monitor.';
 	push @NowFail,"No services found to monitor";
 }
 
@@ -410,10 +410,19 @@ else {
 # LoadServiceList - load a list of services.
 #
 sub LoadServiceList {
-	my($FileName,$ArrayRef,$MapRef) = @_;
+	my($FileName,$ArrayRef,$MapRef,@Vars) = @_;
+	# Prepare @Vars.
+	my %Vars;
+	foreach (@Vars) {
+		my($Var,$Value) = split('=',$_,2);
+		$Value =~ s/^(['"])(.*)\1$/$2/; # Strip quotes.
+		$Vars{$Var}=$Value;
+	}
 	my @Data = ReadFile($FileName);
+	print "Processing $FileName ($#Data items found)...\n"
+		if ($opt_v);
 	foreach my $Index (0..$#Data) {
-		ProcessServiceLine($FileName, $Index, $ArrayRef, $MapRef, $Data[$Index]);	
+		ProcessServiceLine($FileName, $Index, $ArrayRef, $MapRef, $Data[$Index], %Vars);	
 	}
 }
 
@@ -423,12 +432,18 @@ sub LoadServiceList {
 # ProcessServiceLine : process one logical line from a service file.
 #
 sub ProcessServiceLine {
-	my($FileName, $StartLine, $ArrayRef, $MapRef, $Line) = @_;
+	my($FileName, $StartLine, $ArrayRef, $MapRef, $Line, %Vars) = @_;
 	return if (!defined($Line) or $Line =~ /^\s*$/);		# Skip empty lines.
-	print "Verbose: Processing line $StartLine: $Line\n" if ($opt_v >= 3);
+	print "	Processing line $StartLine: $Line\n" if ($opt_v >= 3);
 
 	my($Keyword,$Rest) = split('\s+',$Line,2);
 	$Keyword = lc($Keyword);				# Ignore case.
+	
+	# Substitute variables
+	foreach my $Name (keys(%Vars)) {
+		$Rest=~s/$Name/$Vars{$Name}/g;
+		print " -> $Rest\n";
+	}
 
 	# Is there an "ifhost" prefix to this test?
 ##### ifhost and ifcmd need quote processing on the second argument only.
@@ -480,8 +495,10 @@ sub ProcessServiceLine {
 		
 	if ($Keyword eq 'include') {
 		# Include file.
-		$Rest =~ s/^(["'])(.*)\1$/$2/;	# Strip quotes.
-		LoadServiceList($Rest,$ArrayRef,$MapRef);
+		my @Vars = parse_line('\s+',0,$Rest);
+		my $FileName = shift(@Vars);
+		$FileName =~ s/^(["'])(.*)\1$/$2/;	# Strip quotes.
+		LoadServiceList($FileName,$ArrayRef,$MapRef,@Vars);
 		return 0;
 	}
 
@@ -793,7 +810,19 @@ Lines beginning with white space are treated as continuation lines.
 
 A service list file may include another service list file using the "include" directive as follows:
 
-   include path-to-file
+   include path-to-file [var=value ...]
+
+if var=value pairs are specified, the included file will have all occurrances of "var" replaced
+with "value", allowing a single file to be included multiple times with different values.  For
+example:
+
+  checkall.list contains:
+	include /usr/local/etc/checkall.checkserver %HOST=ben %FUNCTION="web server"
+	include /usr/local/etc/checkall.checkserver %HOST=sandy %FUNCTION="mail server"
+
+  checkall.checkserver contains:
+        heading %HOST: %FUNCTION
+	tcpport  Target=%HOST:22 Desc="%HOST %FUNCTION ssh port"
 
 =item *
 
