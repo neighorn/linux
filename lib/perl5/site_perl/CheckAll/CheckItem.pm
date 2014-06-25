@@ -385,7 +385,9 @@ Target:  This is target item to check.  Interpretation of the target is left to 
 
 =item *
 
-Desc: This is the description of this item, used when reporting the status of the item.
+Desc: This is the description of this item, used when reporting the status of the item.  The variable
+"%C" will be replaced with the value of Host, if specified and not "localhost", or else the name of
+the computer running checkall.
 
 =item *
 

@@ -487,7 +487,6 @@ sub ProcessServiceLine {
 
 	# Must be a check type.  Load it if it isn't already loaded.
 	if (!exists($INC{"CheckAll/$Keyword.pm"})) {
-	#		eval("use CheckAll::$Keyword;");
 		eval qq[require "CheckAll/$Keyword.pm"];
 		if ($@) {
 			warn qq[$FileName:$StartLine: Unable to include a "$Keyword" module: $@\n];
@@ -508,6 +507,15 @@ sub ProcessServiceLine {
 		return 2;	
 	}
 	else {
+		# Interpret variables in Desc.
+		if ($Item->{Desc} =~ /%C/) {
+			if ($Item->{Host} and $Item->{Host} ne 'localhost') {
+				$Item->{Desc} =~ s/%C/$Item->{Host}/g;
+			}
+			else {
+				$Item->{Desc} =~ s/%C/$HostName/g;
+			}
+		}
 		# Set the unique name if it isn't already set.
 		$Item->Name(ref($Item) . "=" . ($Item->Host?$Item->Host:'localhost') . "=" . ($Item->Target?$Item->Target:'no-target')) unless (defined($Item->Name) and $Item->Name);
 
