@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 
-# Delete old kernels
-
 use strict;
 use warnings;
 use LogOutput;
@@ -40,7 +38,6 @@ our %OptionSpecifications=(
 		'filter-file|F=s'	=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
-		'keep|k=i'	=>	\&opt_Value,
 );
 #
 
@@ -102,7 +99,6 @@ foreach (qw(always-mail error-mail always-page error-page)) {
 $Options{verbose} = 0 unless (exists($Options{verbose}));
 $Options{logfile} = '' unless (exists($Options{logfile}));
 my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
-$Options{keep} = 2 unless ($Options{keep});
 
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
@@ -117,58 +113,18 @@ LogOutput({
 	VERBOSE			=> $LogOutputVerbose,
 });
 
+die "No remote servers specified.  Enter '$Prog -h' for syntax.\n"
+	unless (@Parms > 0);
 
-my $DPKG;
-my $Prior=$Options{keep};
-my $Current = `uname -r`;
-$Current =~ s/(\d+\.\d+\.\d+-\d+)(\D.*)?$/$1/;
-die "Unable to run uname -r: status=$?, error=$!" if ($?);
-chomp $Current;
-print "The current kernel is $Current\n" if ($Options{verbose} >= 2);
-open($DPKG,"dpkg -l | grep -E '(ii|rc) *linux-image-' | sed 's/^ *ii *//;s/^ *rc *//' | sort -r |")
-	or die "Unable to run dpkg: $!";
-my $DeleteList = '';
-while (<$DPKG>) {
-	chomp;
-	s/^(\S+)\s.*$/$1/;	# Strip extraneous data.
-	# linux-image-3.2.0-64-generic
-	print "Verbose: Evaluating $_\n" if ($Options{verbose} >= 3);
-	if  (! /^linux-image-(\d+\.\d+\.\d+-\d+)(\D.*)?$/) {
-		# Not a kernel.
-		print "Skipping $_: not a kernel\n" if ($Options{verbose} >= 2);
-		next;
+foreach my $Item (@Parms) {
+	my($Server,$SSHParm);
+	if ($Item =~ /(\S+):(\S+)/) {
+		($Server,$SSHParm) = ($1,"-e 'ssh -p $2'")
 	}
-	my $version=$1;
-	my $PackageName = $_;
-	if ($version ge $Current) {
-		# Newer than our running version.  Keep.
-		print "Skipping $version: newer than our current version\n"
-			if ($Options{verbose} >= 2);
-		next;
+	else {
+		($Server,$SSHParm) = ($Item,'');
 	}
-	if ($Prior > 0) {
-		# Within number of prior versions to keep.
-		print "Skipping $version: within --keep limit\n"
-			if ($Options{verbose} >= 2);
-		$Prior--;
-		next;
-	}
-	print "Will delete $version\n" if ($Options{verbose} >= 2);
-	$DeleteList .= " $PackageName";
-}
-
-if ($DeleteList) {
-	print "Deleting old kernel packages...\n"
-		if ($Options{verbose} >= 2);
-	my $Status = RunDangerousCmd("apt-get purge -y $DeleteList");
-	if ($Status) {
-		print "apt-get returned status $Status\n";
-		$Errors++;
-	}
-	RunDangerousCmd("apt-get autoremove -y");
-}
-else {
-	print "No old kernel packages need to be removed.\n";
+	RunDangerousCmd("/usr/bin/rsync -aHq $SSHParm --delete /usr/local/etc/scanlog/ $Server:/usr/local/etc/scanlog/");
 }
 
 if ($Errors) {
@@ -269,14 +225,20 @@ sub opt_h {
 }
 =pod
 
-=head1 $Prog - 
+=head1 sync-mcsi - Synchronize MCSI code library on multiple machines
 
-<<description>>
+The Martin Consulting code library resides in /usr/mcsi-linux and is referenced
+by various symbolic links in /usr/local.  In complex environments, keeping 
+this code at a consistent release level across all machines can be difficult.
+sync-mcsi will synchronize this code on remote systems to the local system.  This
+allows the local system to become a sort of "master" copy.  When it is updated,
+sync-mcsi will then update all other systems to match.  sync-mcsi is
+normally run on a regular basis out of cron.
 
 =head3 Usage:  
-        $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
+        sync-mcsi [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] system1...
 
-        $Prog -h
+        sync-mcsi -h
 
 =head3 Flags:
         --error-mail|-e mailid: Error: Send an execution report to this
@@ -292,19 +254,31 @@ sub opt_h {
         --error-page|-P addr:   Page error: Send a very brief message to
                                 this e-mail address if errors are
                                 detected in this job.
-	--keep|-k num		Keep: Keep this many current and past
-				kernels.  Newer kernels than the current
-				running kernel are automatically kept.
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFile
                                 into the command line at this point.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
-				May be used multiple times to increase verbosity.
         --help|-h:              Help: display this panel
 
 =head3 Parameters:
-        (none)
+        system1...:	Remote system(s) to receive our version of /usr/mcsi-linux
+
+=head3 Notes:
+
+=over 4
+
+=item *
+
+The local version of /usr/mcsi-linux is not updated.  That is normally
+done as-needed via a "git pull" request.
+
+=item *
+
+This code requires that the local system have access to remote systems via ssh
+keys.
+
+=back
 
 =head3 Return codes:
         0       :       Normal termination
@@ -344,29 +318,3 @@ SHOW    "^\s*Executing:"
 SHOW    "^\s*Verbose:"
 SHOW    "^\s*debug:"
 SHOW    "^\s*$"
-SHOW	"^\s*The current kernel is"
-SHOW	"^\s*Skipping "
-SHOW	"^\s*Will delete "
-SHOW	"^\s*Deleting "
-SHOW	"^\s*Removing "
-SHOW	"^\s*Purging configuration files for "
-SHOW	"^\s*No old kernel packages need to be removed.$"
-IGNORE	"^\s*Examining "
-IGNORE	"^\s*run-parts: executing "
-IGNORE	"^\s*P: Checking "
-IGNORE	"^\s*update-initramfs: Deleting "
-IGNORE	"^\s*Generating grub.cfg ...\s*$"
-IGNORE	"^\s*Found \S+ image: "
-IGNORE	"^\s*Found .* on /dev/\S+$"
-IGNORE	"^\s*Reading package lists...$"
-IGNORE	"^\s*Building dependency tree...$"
-IGNORE	"^\s*Reading state information...$"
-IGNORE	"^\s*The following packages will be REMOVED:$"
-IGNORE	"^\s*linux-headers-"
-IGNORE	"^\s*linux-image-"
-IGNORE	"^\s*0 upgraded, 0 newly installed, \d+ to remove and \d+ not upgraded.$"
-IGNORE	"^\s*After this operation, .* of additional disk space will be used.$"
-IGNORE	"^\s*The following packages were automatically installed and are no longer required:$"
-IGNORE	"^\s*Use 'apt-get autoremove' to remove them.$"
-IGNORE	"^\s*After this operation, .* disk space will be freed.$"
-IGNORE	"^\s*done\s*$"
