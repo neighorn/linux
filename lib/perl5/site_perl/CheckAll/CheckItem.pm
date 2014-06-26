@@ -177,6 +177,12 @@ sub SetOptions {
 			elsif ($Field eq 'OnUp') {
 				$Field = 'Onok';
 			}
+			
+			# Fix up field names that don't match valid variable names, 
+			# like loadavg's "1m", "5m", "15m".
+			$Field = "Var$Field" if ("$Field" !~ /^[A-Z]/);  # Hack for loadavg 1m, etc.
+
+			# Extract the operator.
 			my $OperRegEx = (exists($Oper{$Field})?$Oper{$Field}:qr/=/o);
 			my($Operator,$Value) = ($Rest =~ /^($OperRegEx)(.*)$/);
 			if (!defined($Operator)) {
