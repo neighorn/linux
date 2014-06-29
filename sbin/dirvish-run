@@ -59,7 +59,7 @@ our %OptionSpecifications=(
 		'help|h|?!'		=>	\&opt_h,
 		'ifup!'			=>	\&opt_Value,
 		'ifbefore=s'		=>	\&opt_Value,
-		'imagename=s'		=>	\&opt_Value,
+		'imagename|image=s'		=>	\&opt_Value,
 		'ionice=s'		=>	\&opt_Value,
 		'jobinit|B=s'		=>	\&opt_Array,
 		'joblockfile=s'		=>	\&opt_Value,
