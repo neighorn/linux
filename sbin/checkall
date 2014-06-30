@@ -505,7 +505,8 @@ sub ProcessServiceLine {
 	if (!exists($INC{"CheckAll/$Keyword.pm"})) {
 		eval qq[require "CheckAll/$Keyword.pm"];
 		if ($@) {
-			warn qq[$FileName:$StartLine: Unable to include a "$Keyword" module: $@\n];
+			warn qq[$FileName:$StartLine: Unable to include a "$Keyword" module: $@\n\@INC = ] 
+				. join("\n\t",@INC) . "\n";
 			return 1;
 		}
 	}
