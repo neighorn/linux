@@ -60,6 +60,7 @@ use fields (
 	'NextNotification',		# The last time we told someone it was failing.
 	'Onfail',			# Run this command when it first fails.
 	'Onok',				# Run this command when it becomes OK again.
+	'PIDComplete',			# PID ended of it's own accord (e.g. no timeout).
 	'Renotifyinterval',		# How often to repeat failing notifications.
 	'Timeout',			# Timeout: time in seconds to wait for conn.
 	'Tries',			# How many times we attempt a TCP or SSH connection.

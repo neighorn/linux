@@ -19,17 +19,17 @@ my $RESET = "\e[0m";
 # Set a path, particularly for OnOK/OnFail actions.
 $ENV{PATH}="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$ENV{PATH}";
 
-our $opt_c='';			# Service file (service list).
-our $opt_f='';			# Service file (service list).
-our $opt_h=0;			# Help
-our $opt_v=0;			# Verbose option.
-our $opt_t=0;			# Test option.
-our $opt_q=0;			# Quiet option.
-our @opt_P;			# Who to page on errors.
-our $opt_R=120;			# Set number of minutes to re-report fail items.
-our $opt_s='';			# Alert subject
-our $opt_S=0;			# Single - only run one process at a time (for diagnostics).
-our $opt_w=20;			# Wait time in seconds (for checks that timeout)
+our %Options = (		# Command line options.
+	help => 0,
+	verbose => 0,
+	test => 0,
+	quiet => 0,
+	renotify => 120,
+	subject => '',
+	single => 0,
+	waittime => 20,
+	maxwaittime => 60,
+);
 our $Prog = $Script;		# Get our program name.
 $Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off path, if present.
@@ -76,25 +76,26 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
         if (defined($Config{'ALLJOBS'}));
 
 GetOptions (
-	'v|verbose+'	=> \$opt_v,
-	'c|config=s'	=> \$opt_c,
-	'a|all'		=> sub {$opt_f = 0;},	# Synonym for --nofail
-	'fail|failed!'	=> \$opt_f,
-	'h|help'	=> \$opt_h,
+	'v|verbose+'	=> \$Options{verbose},
+	'c|config=s'	=> \$Options{config},
+	'a|all'		=> sub {$Options{failed} = 0;},	# Synonym for --nofail
+	'fail|failed!'	=> \$Options{failed},
+	'h|help'	=> \$Options{help},
 	'L|libdir=s'	=> sub{ unshift @INC, glob($_[1]); },
-	't|test'	=> \$opt_t,
-	'q|quiet'	=> \$opt_q,
-	'P|page=s'	=> \@opt_P,
-	'R|renotify=i'	=> \$opt_R,
-	's|subject=s'	=> \$opt_s,
-	'S|single!'	=> \$opt_S,
-	'w|waittime=i'	=> \$opt_w,
+	't|test'	=> \$Options{test},
+	'q|quiet'	=> \$Options{quiet},
+	'P|page=s'	=> \@{$Options{page}},
+	'R|renotify=i'	=> \$Options{renotify},
+	's|subject=s'	=> \$Options{subject},
+	'S|single!'	=> \$Options{single},
+	'w|waittime=i'	=> \$Options{waittime},
+	'maxwaittime=i'	=> \$Options{maxwaittime},
 );
 
 eval "use CheckAll::CheckItem;"; # Do this late, to benefit from -L.
 
 # Check options.
-if ($opt_h) {
+if ($Options{help}) {
 	system("pod2text $Bin/$Script");
 	exit 1;
 }
@@ -103,7 +104,7 @@ openlog("$Prog");
 
 
 my $FailMessages;
-if ($opt_q) {
+if ($Options{quiet}) {
 	# Prepare the Fail-Message header text.
 	my($Minutes,$Hours)=(localtime())[1,2];
 	$Minutes="0$Minutes" if ($Minutes <= 9);
@@ -121,7 +122,7 @@ foreach (@ARGV) {
 	# Add a path and file name prefix to unqualified names.
 	s"^"/usr/local/etc/$Prog." unless (m"/");
 }
-push @ARGV,$opt_c if ($opt_c);	# Use opt_c for files in other locations.
+push @ARGV,$Options{config} if ($Options{config});	# Use Options{config} for files in other locations.
 push @ARGV,$ServiceList unless (@ARGV+0 > 0);	# Use default if nothing else.
 foreach (@ARGV) {
 	LoadServiceList($_,\@ItemList,\%NameMap);	# Load this file.
@@ -141,7 +142,7 @@ my $Services = @ItemList + 0;
 my $DescLen = 0;		# Will keep length of longest desc here.
 foreach my $Item (@ItemList) {
 	print "Checking $Item->{FILE}:$Item->{LINE}: $Item->{Desc}\n"
-		if ($opt_v);
+		if ($Options{verbose});
 	my $CheckResult = Check $Item;
 	my ($Type,$Value);
 	if (ref($CheckResult) eq 'ARRAY') {
@@ -184,19 +185,42 @@ my($pid,$status,$detail);
 `tty -s`;	# Find out if we have a tty.
 my $no_tty = $?;
 if ($Services) {
-	# Wait for any PIDs that return status detail via pipes.
-	my @Ready;
-	while ($IOList and @Ready = $IOList->can_read($opt_w)) {
-		foreach my $FH (@Ready) {
-			($pid,$status,$detail) = split('/',<$FH>,3);
-			$IOList->remove($FH);
-			close $FH;
-			$PIDs{$pid}->Status($status);
-			$PIDs{$pid}->StatusDetail($detail);
+	eval {
+		local $SIG{ALRM} = sub{ die "alarm\n" };
+		alarm $Options{maxwaittime};
+		
+		# Wait for any PIDs that return status detail via pipes.
+		my @Ready;
+		while ($IOList and @Ready = $IOList->can_read($Options{waittime})) {
+			foreach my $FH (@Ready) {
+				($pid,$status,$detail) = split('/',<$FH>,3);
+				$IOList->remove($FH);
+				close $FH;
+				$PIDs{$pid}->Status($status);
+				$PIDs{$pid}->StatusDetail($detail);
+				$PIDs{$pid}->PIDComplete(1);
+			}
+		}
+		alarm 0;
+		# Wipe out waiting message.
+		print ' 'x40 . "\r" unless ($no_tty or $Options{quiet});
+	};
+	if ($@) {
+		my $Signal = $@;
+		chomp $Signal;
+		print "Verbose: signal $Signal received\n" if ($Options{verbose});
+		die "Received unexpected signal $Signal while waiting for processes to complete"
+			unless $Signal eq 'alarm';
+		# Timed out.
+		foreach my $pid (keys(%PIDs)) {
+			if (! $PIDs{$pid}->PIDComplete) {
+				$PIDs{$pid}->Status(8);		# Failing.
+
+				$PIDs{$pid}->StatusDetail('timed out');
+				kill 'KILL', $pid;
+			}
 		}
 	}
-	# Wipe out waiting message.
-	print ' 'x40 . "\r" unless ($no_tty or  $opt_q);
 }
 
 # All results are in.  Run back through our report and list the results.
@@ -215,12 +239,12 @@ foreach my $Item (@ItemList) {
 	else {
 		$LongDesc = $Desc;
 	}
-	my $Status = $Item->Report($DescLen,$opt_f);
+	my $Status = $Item->Report($DescLen,$Options{failed});
 	my $DoDownActions = 0;
 	if ($Status == 0 or $Status == 4) {
 		#
 		# CHECK_STILL_OK -- Item is still up.
-		# CHECK_NOT_TESTED -- Not tested due to time restrictions.
+		# CHECK_NOT_TESTED -- Not tested due to TOD restrictions.
 		#
 		# syslog('INFO','%s is still OK',$Desc)  - don't fill log with "still OK".
 	 	#	if (ref $Item ne 'heading' and $^O !~ /MSWin/);
@@ -237,7 +261,7 @@ foreach my $Item (@ItemList) {
 			$WorstError = 8;
 			$Item->NextNotification(
 				$Now +
-				60*(defined($Item->Renotifyinterval)?$Item->Renotifyinterval:$opt_R)
+				60*(defined($Item->Renotifyinterval)?$Item->Renotifyinterval:$Options{renotify})
 			);
 			if ($Item->FirstNotification == 0) {
 				# This was a DelayFirstNotification target, that has remained down through the delay period.
@@ -245,7 +269,7 @@ foreach my $Item (@ItemList) {
 				$DoDownActions = 1;
 				$Item->FirstNotification($Now);
 			}
-			elsif ($opt_R) {
+			elsif ($Options{renotify}) {
 				# We sent out notifications before, but it's time for another one.
 				push @StillFail, $LongDesc;
 			}
@@ -268,11 +292,11 @@ foreach my $Item (@ItemList) {
 		next if ($Item->FirstNotification == 0);	# Recovered within DelayFirstNotification period.
 		push @NowOK, $Desc;
 		if (my $Action = $Item->Onok) {
-			if ($opt_t) {
+			if ($Options{test}) {
 				print "\t\tTesting: OnOK for $Desc suppressed.\n";
 			}
 			else {
-				print "Triggering OnOK for $Desc\n" if ($opt_v);
+				print "Triggering OnOK for $Desc\n" if ($Options{verbose});
 				$Action =~ s/%D/$Desc/g;
 				system("($Action)&");
 				my $Status = $?;
@@ -317,11 +341,11 @@ foreach my $Item (@ItemList) {
 	if ($DoDownActions) {
 		push @NowFail, $LongDesc;
 		if (my $Action = $Item->Onfail) {
-			if ($opt_t) {
+			if ($Options{test}) {
 				print "\t\tTesting: OnFail action for $Desc suppressed.\n";
 			}
 			else {
-				print "Triggering OnFail for $Desc\n" if ($opt_v);
+				print "Triggering OnFail for $Desc\n" if ($Options{verbose});
 				$Action =~ s/%D/$Desc/g;
 				system("($Action)&");
 				my $Status = $?;
@@ -331,12 +355,12 @@ foreach my $Item (@ItemList) {
 		}
 		$Item->NextNotification(
 			$Now +
-				60*(defined($Item->Renotifyinterval)?$Item->Renotifyinterval:$opt_R)
+				60*(defined($Item->Renotifyinterval)?$Item->Renotifyinterval:$Options{renotify})
 		);
 	}
 }
 
-if (@NowFail+@NowOK+$Renotify > 0 and @opt_P > 0 and ! $opt_t) {
+if (@NowFail+@NowOK+$Renotify > 0 and @{$Options{page}} > 0 and ! $Options{test}) {
 	# Set up the e-mail subject.
 	my $TotalDown = @NowFail + @StillFail;
 	my $Status;
@@ -349,18 +373,18 @@ if (@NowFail+@NowOK+$Renotify > 0 and @opt_P > 0 and ! $opt_t) {
 	else {
 		$Status = 'All services up';		# Never was down (shouldn't happen).
 	}
-	$opt_s = '%C alert: %S' unless ($opt_s);
-	$opt_s =~ s/%C/$HostName/g;
-	$opt_s =~ s/%N/$TotalDown/g;
-	$opt_s =~ s/%S/$Status/g;
+	$Options{subject} = '%C alert: %S' unless ($Options{subject});
+	$Options{subject} =~ s/%C/$HostName/g;
+	$Options{subject} =~ s/%N/$TotalDown/g;
+	$Options{subject} =~ s/%S/$Status/g;
 
 	# Build the e-mail text.	
 	my($MAIL,$MailFile) = tempfile();
-	my $ToList=join(', ',@opt_P);
+	my $ToList=join(', ',@{$Options{page}});
 	print $MAIL <<ENDHeaders;
 X-Jobsummary: Name=checkall Status=8 RunTime=0:0:0:20
 To: $ToList
-Subject: $opt_s
+Subject: $Options{subject}
 
 ENDHeaders
 	
@@ -377,7 +401,7 @@ ENDHeaders
 	# Send the e-mail.
 	printf $MAIL strftime("\nFrom $HostName at %T on %D\n",localtime());
 	close $MAIL;
-	if (my $Status = system("sed 's/  */ /g' $MailFile | sendmail " . join(' ',@opt_P))) {
+	if (my $Status = system("sed 's/  */ /g' $MailFile | sendmail " . join(' ',@{$Options{page}}))) {
 		syslog('ERROR','%s','Unable to send notifications. RC=$Status, Error=$!')
 			if ($^O !~ /MSWin/);
 	}
@@ -388,16 +412,16 @@ ENDHeaders
 }
 
 # Write the status file, so we know "still failing" from "now failing".
-WriteStatusFile($StartTime,$StatusFile,\@ItemList,\@OtherItems) unless ($opt_t);
+WriteStatusFile($StartTime,$StatusFile,\@ItemList,\@OtherItems) unless ($Options{test});
 
 if ($Errors > 0) {
 	printf "%s==> %d " . ($Errors == 1?'service is':'services are') . " failing.%s\n",
 		$HIGHLIGHT, $Errors, $RESET
-		unless ($opt_q);
+		unless ($Options{quiet});
 	exit $WorstError;
 }
 else {
-	print "All services are OK.\n" unless ($opt_q);
+	print "All services are OK.\n" unless ($Options{quiet});
 	syslog('INFO','All services are OK.')
 		if ($^O !~ /MSWin/);
 	exit 0;
@@ -420,7 +444,7 @@ sub LoadServiceList {
 	}
 	my @Data = ReadFile($FileName);
 	print "Processing $FileName ($#Data items found)...\n"
-		if ($opt_v);
+		if ($Options{verbose});
 	foreach my $Index (0..$#Data) {
 		ProcessServiceLine($FileName, $Index, $ArrayRef, $MapRef, $Data[$Index], %Vars);	
 	}
@@ -434,7 +458,7 @@ sub LoadServiceList {
 sub ProcessServiceLine {
 	my($FileName, $StartLine, $ArrayRef, $MapRef, $Line, %Vars) = @_;
 	return if (!defined($Line) or $Line =~ /^\s*$/);		# Skip empty lines.
-	print "	Processing line $StartLine: $Line\n" if ($opt_v >= 3);
+	print "	Processing line $StartLine: $Line\n" if ($Options{verbose} >= 3);
 
 	my($Keyword,$Rest) = split('\s+',$Line,2);
 	$Keyword = lc($Keyword);				# Ignore case.
@@ -760,6 +784,12 @@ send out any e-mail alerts.
 =item -v, --verbose
 
 Verbose -- turn on diagnostics.
+
+
+=item --maxwaittime=seconds
+
+Max Wait Time -- overall time all background processes have to complete
+before they're killed.  Killed checks will have show detailed status of 'timed out'.
 
 =item -w seconds, --waittime=seconds
 

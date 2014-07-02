@@ -305,17 +305,19 @@ host name or IP address, followed by a colon and the TCP port number.
 
 Additionally, it supports the following optional fields:
 
-=h3 Send
+=over
 
-Send the following string if a connection is made.
+=item
 
-=h3 Expect
+Send: Send the following string if a connection is made.
 
-Compare the response returned as a result of the Send field to this pattern.
+=item
 
-=h3 SSL
+Expect: Compare the response returned as a result of the Send field to this pattern.
 
-If set to a true value (e.g. 1), use the SSL protocol.  The default is to use 
+=item
+
+SSL: If set to a true value (e.g. 1), use the SSL protocol.  The default is to use 
 unencrypted traffic.
 
 =back
