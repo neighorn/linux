@@ -49,7 +49,7 @@ sub Report {
 #                return "Status=$Status" if ($Status);
 #        }
 
-        printf "%s\n", $Self->{Desc} if (!$main::opt_q and !$failonly);
+        printf "%s\n", $Self->{Desc} if (!$main::Options{quiet} and !$failonly);
         return $Self->{Status};
 }
 

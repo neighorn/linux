@@ -75,14 +75,14 @@ sub Check {
 
 	# If we don't have a timeout change it to the main value.
 	if (! $Self->{'Timeout'} ) {
-		$Self->{'Timeout'} = $main::opt_w;
+		$Self->{'Timeout'} = $main::Options{waittime};
 	}
 
 	# Need a copy of STDOUT for consistency between forked and non-forked environment.
 	open(REALSTDOUT,'>&STDOUT') || warn "Unable to duplicate STDOUT: $!";
 
 	# If we're in single-stream mode, just test it ourselves rather than forking.
-	if ($main::opt_S) {
+	if ($main::Options{single}) {
 		return "Status=" . _Check($Self,$File,$Line,$Desc);
 	}
 

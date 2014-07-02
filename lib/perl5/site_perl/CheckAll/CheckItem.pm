@@ -34,7 +34,7 @@ our @EXPORT = qw(
 
 my %Attributes;
 my %Operators;
-my $x = $main::opt_R;	# suppress warning
+my $x = $main::Options{renotify};	# suppress warning
 
 my %IntegerFields = (
 	Delayfirstnotification => 1,
@@ -83,8 +83,8 @@ sub new{
 	$Self->{FirstFail} = 0;				# Not failing, unless status file changes it.
 	$Self->{Host} = 'localhost';			# Assume localhost.
 	$Self->{NextNotification} = 0;			# Ditto.
-	$Self->{Renotifyinterval} = $main::opt_R;	# Default renotify minutes.
-	$Self->{Verbose} = $main::opt_v;		# Default verbose flag.
+	$Self->{Renotifyinterval} = $main::Options{renotify};	# Default renotify minutes.
+	$Self->{Verbose} = $main::Options{verbose};		# Default verbose flag.
 	$Self->{Tries} = 1;                # Assume only one TCP/SSH attempt.
 
 	# Set options from the caller (from the file).
@@ -105,7 +105,7 @@ sub Report {
 
 	# Return our status + status change information.
 	if ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_OK) {
-		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q && !$failonly);
+		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::Options{verbose} && !$failonly);
 		return CHECK_STILL_OK;
 	}
 	elsif ($Self->{Status} eq CHECK_FAIL and $Self->{PriorStatus} eq CHECK_FAIL) {
@@ -126,17 +126,17 @@ sub Report {
 			CHECK_HIGHLIGHT,
 			$text,
 			CHECK_RESET
-				if (!$main::opt_q);
+				if (!$main::Options{quiet});
 		syslog('WARNING','%s',$text)
 			if ($^O !~ /MSWin/);
 		return CHECK_STILL_FAILING;
 	}
 	elsif ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_FAIL) {
-		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::opt_q && !$failonly);
+		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::Options{quiet} && !$failonly);
 		return CHECK_NOW_OK;
 	}
 	elsif ($Self->{Status} eq CHECK_NOT_TESTED) {
-		printf "\t%-${DescLen}.${DescLen}s not tested\n", $Self->{Desc} if (!$main::opt_q && !$failonly);
+		printf "\t%-${DescLen}.${DescLen}s not tested\n", $Self->{Desc} if (!$main::Options{quiet} && !$failonly);
 		return CHECK_NOT_TESTED;
 	}
 	else {
@@ -147,7 +147,7 @@ sub Report {
 			CHECK_HIGHLIGHT,
 			$text,
 			CHECK_RESET
-				if (!$main::opt_q);
+				if (!$main::Options{quiet});
 		syslog('WARNING','%s',$text)
 			if ($^O !~ /MSWin/);
 		return CHECK_NOW_FAILING;

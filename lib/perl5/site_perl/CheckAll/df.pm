@@ -143,7 +143,7 @@ sub Check {
                         $$, __PACKAGE__, $Self->Host, $Self->Target
                                 if ($Self->{'Verbose'});
 		
-		my $Timeout = int($main::opt_w / $Self->{Tries});
+		my $Timeout = int($main::Options{waittime} / $Self->{Tries});
 		my $Cmd = 
 	    		'ssh '
 	    		. '-o "NumberOfPasswordPrompts 0" '
