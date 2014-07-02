@@ -61,6 +61,7 @@ fi
 
 cd $FROMWHERE
 for d in $DIRS;do
+	[[ -d "$d" ]] || continue
 	relativedirname=`find . -type d -name "$d" -prune`
 	n=`echo $d | sed 's/\//_/g'`
 	if [ "$d" = "private" ]; then
