@@ -81,6 +81,7 @@ sub Check {
 			. ($Self->{User}?"$Self->{User}@":'')
 			. $Self->{Host}
 			. ' mailq '
+			. ' 2> /dev/null'
 			;
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
     		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
@@ -89,7 +90,6 @@ sub Check {
 		    }
 		    if (@Data == 0)
 		    {
-			    warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: rc=$?, $@\n";
 			    $Self->{StatusDetail} = "Unable to gather data";
 			    return "Status=" . $Self->CHECK_FAIL;
 		  	}
