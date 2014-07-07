@@ -487,5 +487,5 @@ SHOW	/^debug:/i
 SHOW	/^test:/i
 SHOW	/^Executing:/i
 SHOW	/^Verbose:/i
-SHOW	"^\s*Deleting /usr/local/backup/mysql/"
+SHOW	"^\s*Deleting "
 SHOW	"^[0-9,]+ bytes (\(.*\) )?written to \S+$"
