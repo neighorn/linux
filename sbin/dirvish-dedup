@@ -713,11 +713,11 @@ sub FindMatch ($@) {
         		setfattr($cand,'dirvish-dedup-stat',join(',',@candstat),{ namespace => 'user'});
 		}
 		elsif ($FileAttrMode == 1) {
-			if (system(qq<setfattr -n dirvish-dedup-md5 -v $$md5ref "$cand">) != 0) {
+			if (system(qq<setfattr -n user.dirvish-dedup-md5 -v $$md5ref "$cand">) != 0) {
 				warn "setfattr for $cand failed - disabling file attributes\n";
 				$FileAttrMode = 0;
 			}
-			if (system('setfattr -n dirvish-dedup-stat -v ' . join(',',@candstat) . qq<"$cand">) != 0) {
+			if (system('setfattr -n user.dirvish-dedup-stat -v ' . join(',',@candstat) . qq<"$cand">) != 0) {
 				warn "setfattr for $cand failed - disabling file attributes\n";
 				$FileAttrMode = 0;
 			}
