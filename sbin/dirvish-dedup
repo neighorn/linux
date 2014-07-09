@@ -639,8 +639,8 @@ sub FindMatch ($@) {
 		$PriorMD5stat = getfattr($cand,'dirvish-dedup-stat',{ namespace => 'user'});
     }
     elsif ($FileAttrMode == 1) {
-		$PriorMD5 = `getfattr -n user.dirvish-dedup-md5 --only-values "$cand" 2> /dev/null`;
-		$PriorMD5stat = `getfattr -n user.dirvish-dedup-stat --only-values "$cand" 2> /dev/null`;
+		$PriorMD5 = `getfattr -n dirvish-dedup-md5 --only-values "$cand" 2> /dev/null`;
+		$PriorMD5stat = `getfattr -n dirvish-dedup-stat --only-values "$cand" 2> /dev/null`;
     }
 
     # Use the existing MD5 if present, and if the file hasn't changed (mtime, size).
