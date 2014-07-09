@@ -635,12 +635,12 @@ sub FindMatch ($@) {
     my $PriorMD5;
     my $PriorMD5stat;
     if ($FileAttrMode == 2) {
-		$PriorMD5 = getfattr($cand,'dirvish-dedup-md5',{ namespace => 'user'});
-		$PriorMD5stat = getfattr($cand,'dirvish-dedup-stat',{ namespace => 'user'});
+		$PriorMD5 = getfattr($cand,'user.dirvish-dedup-md5',{ namespace => 'user'});
+		$PriorMD5stat = getfattr($cand,'user.dirvish-dedup-stat',{ namespace => 'user'});
     }
     elsif ($FileAttrMode == 1) {
-		$PriorMD5 = `getfattr -n dirvish-dedup-md5 --only-values "$cand" 2> /dev/null`;
-		$PriorMD5stat = `getfattr -n dirvish-dedup-stat --only-values "$cand" 2> /dev/null`;
+		$PriorMD5 = `getfattr -n user.dirvish-dedup-md5 --only-values "$cand" 2> /dev/null`;
+		$PriorMD5stat = `getfattr -n user.dirvish-dedup-stat --only-values "$cand" 2> /dev/null`;
     }
 
     # Use the existing MD5 if present, and if the file hasn't changed (mtime, size).
@@ -709,8 +709,8 @@ sub FindMatch ($@) {
         if (! $PriorMD5 ) {
         	# Remember the MD5 we calculated, so we don't have to do it next time'
 		if ($FileAttrMode == 2) {
-        		setfattr($cand,'user.dirvish-dedup-md5',$$md5ref,{ namespace => 'user'});
-        		setfattr($cand,'user.dirvish-dedup-stat',join(',',@candstat),{ namespace => 'user'});
+        		setfattr($cand,'dirvish-dedup-md5',$$md5ref,{ namespace => 'user'});
+        		setfattr($cand,'dirvish-dedup-stat',join(',',@candstat),{ namespace => 'user'});
 		}
 		elsif ($FileAttrMode == 1) {
 			if (system(qq<setfattr -n user.dirvish-dedup-md5 -v $$md5ref "$cand">) != 0) {
