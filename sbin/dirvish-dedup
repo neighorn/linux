@@ -709,15 +709,15 @@ sub FindMatch ($@) {
         if (! $PriorMD5 ) {
         	# Remember the MD5 we calculated, so we don't have to do it next time'
 		if ($FileAttrMode == 2) {
-        		setfattr($cand,'dirvish-dedup-md5',$$md5ref,{ namespace => 'user'});
-        		setfattr($cand,'dirvish-dedup-stat',join(',',@candstat),{ namespace => 'user'});
+        		setfattr($cand,'user.dirvish-dedup-md5',$$md5ref,{ namespace => 'user'});
+        		setfattr($cand,'user.dirvish-dedup-stat',join(',',@candstat),{ namespace => 'user'});
 		}
 		elsif ($FileAttrMode == 1) {
 			if (system(qq<setfattr -n user.dirvish-dedup-md5 -v $$md5ref "$cand">) != 0) {
 				warn "setfattr for $cand failed - disabling file attributes\n";
 				$FileAttrMode = 0;
 			}
-			if (system('setfattr -n user.dirvish-dedup-stat -v ' . join(',',@candstat) . qq<"$cand">) != 0) {
+			if (system('setfattr -n user.dirvish-dedup-stat -v ' . join(',',@candstat) . qq< "$cand">) != 0) {
 				warn "setfattr for $cand failed - disabling file attributes\n";
 				$FileAttrMode = 0;
 			}
