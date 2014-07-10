@@ -175,7 +175,9 @@ sub ProcessBackup {
 	my $Machine = shift;
 	return if ($Options{"exclude-vm"}{$Machine});
 
-	print strftime("Backing up $Machine at %Y-%m-%d %T\n",localtime());
+	my $TestPrefix = ($Options{test}?'Test: ':'');
+
+	print strftime("${TestPrefix}Backing up $Machine at %Y-%m-%d %T\n",localtime());
 	my $BackupErrors = 0;
 
 	# Validate options.  These can change from backup to backup.
@@ -279,7 +281,7 @@ sub ProcessBackup {
 	# If it's running, shut it down.
 	if ( $WasRunning ) {
 		# It's running.
-		print "    Shutting down $Machine" . ($Options{test}?" (test)\n":"\n");
+		print "    ${TestPrefix}Shutting down $Machine\n";
 		my $Count = 2*$Options{timeout};	# Convert minutes -> 30 second cycles
 		while (! $Options{test} and IsRunning($Machine) and $Count > 0) {
 			RunDangerousCmd("virsh shutdown $Machine")
@@ -331,7 +333,7 @@ sub ProcessBackup {
 
 	# Run the backup.
 	
-	print "    Starting backup" . ($Options{test}?" (test)\n":"\n");
+	print "    ${TestPrefix}Starting backup\n";
 	my $OutputTmp = "$Output.tmp";		# Create work file name.
 	my $GzipOpt = ($Options{gzip}?'-z':'');
 	my $Status = RunDangerousCmd(qq<tar -chf "$OutputTmp" -C "$TmpDir" $GzipOpt .>);
@@ -341,7 +343,10 @@ sub ProcessBackup {
 		RunDangerousCmd(qq<rm "$OutputTmp">);
 	}
 	elsif ( RunDangerousCmd(qq<mv "$OutputTmp" "$Output">) == 0) {
-		print strftime("    Backup of $Machine completed normally at %Y-%m-%d %H:%M:%S\n",localtime());
+		print strftime(
+			 "    ${TestPrefix}Backup of $Machine completed normally at %Y-%m-%d %H:%M:%S\n"
+			, localtime()
+		);
 	}
 	else {
 		print STDERR "    Unable to rename $OutputTmp to $Output.\n";
@@ -356,8 +361,7 @@ sub ProcessBackup {
 		or ($Options{"after-state"} eq 'same' and $WasRunning)
 	) {
 		print strftime(
-			  "    Restarting $Machine at %Y-%m-%d %T"
-				. ($Options{test}?" (test)\n":"\n")
+			  "    ${TestPrefix}Restarting $Machine at %Y-%m-%d %T\n"
 				,localtime());
 		foreach ((1,2,3)) {
 			RunDangerousCmd("virsh start $Machine");
@@ -366,8 +370,7 @@ sub ProcessBackup {
 		}
 		if (IsRunning($Machine) or $Options{test}) {
 			print strftime(
-				  "    $Machine started at %Y-%m-%d %T"
-				. ($Options{test}?" (test)\n":"\n")
+				"    ${TestPrefix}$Machine started at %Y-%m-%d %T\n"
 				,localtime());
 		}
 		else {
