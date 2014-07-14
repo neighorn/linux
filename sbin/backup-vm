@@ -48,6 +48,7 @@ our %OptionSpecifications=(
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'timeout|T=s'		=>	\&opt_Value,
+		'subject'		=>	\&opt_Value,
 		'gzip|z!'		=>	\&opt_Value,
 		'test|t!'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
