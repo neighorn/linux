@@ -1,0 +1,3 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba\[\d+\]:\s*\[\d+/\d+/\d+ \d+:\d+:\d+\.\d+,\s*\d+\] ../source4/smbd/server.c:\d+\(binary_smbd_main\)$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba\[\d+\]:\s*samba version \S+ started.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba\[\d+\]:\s*Copyright Andrew Tridgell and the Samba Team \d+-\d+$"
