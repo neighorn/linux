@@ -10,6 +10,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*kernel time sync status 
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*Listen and drop on \d+ v.wildcard \S+ UDP 123$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*Listen normally on \d+ "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*Listening on (interface|routing socket)"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*MS-SNTP signd operations currently block ntpd degrading service to all clients.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*ntpd .*@.* ... ... [0-9 ]\d \d\d:\d\d:\d\d UTC \d\d\d\d \(\d\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*ntpd exiting on signal 15$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*peers refreshed$"
