@@ -184,11 +184,11 @@ if (! $opt_t ) {
 # Check for conflicting jobs.
 #
 $JobLockFile = "$OutputDir/$Prog.lock";
-if (!open($JOBLOCKFH,'>>',$JobLockFile)) {
+if (!$opt_t and !open($JOBLOCKFH,'>>',$JobLockFile)) {
         print "Unable to create/open $JobLockFile: $!\n";
         exit 11;
 }
-if (!flock($JOBLOCKFH, LOCK_EX | LOCK_NB)) {
+if (!$opt_t and !flock($JOBLOCKFH, LOCK_EX | LOCK_NB)) {
         my @stat = stat($JobLockFile);
         my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
         $mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
