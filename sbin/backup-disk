@@ -32,8 +32,6 @@ function CopyDisk {
 }
 
 function RunBackup {
-while [[ $# -gt 0 ]]
-do
 
 	SystemName=$1
 
@@ -73,10 +71,11 @@ do
 	Sector0="$TargetDir/$Date-${BaseDisk##*/}.sector0"
 	time CopyDisk $BaseDisk $2
 	shift
-done
-Status=`cat $TmpFile`
-echo "Ended with exit code $Status"
-return $Status
+
+	Status=`cat $TmpFile`
+	echo "Ended with exit code $Status"
+	return $Status
+
 }
 
 function StatusReport {
