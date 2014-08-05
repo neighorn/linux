@@ -8,7 +8,9 @@ use Text::ParseWords;
 use POSIX qw(strftime);
 use FindBin qw($Bin $Script);
 use Date::Parse qw(str2time);
-use Mail::Sendmail;
+#use Mail::Sendmail;
+#use Email::Sender::Simple qw(sendmail);
+use Mail::Sender;
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -19,10 +21,14 @@ $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 my $Errors=0;   	                # No errors so far.
 my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
-my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+my @ConfigFiles= (			# Name of config files
+	"$Bin/../etc/${Prog}.cfg",
+	"$Bin/${Prog}.cfg"
+);
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
+our %LMHosts;				# List of defined LMHosts.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -39,10 +45,11 @@ our %OptionSpecifications=(
 		'error-page|P=s'	=>	\&opt_Array,
 		'filter-file|F=s'	=>	\&opt_Value,
 		'days|D=i'		=>	\&opt_Value,
-		'report=s'		=>	\&opt_Array,
-		'all'			=>	\&opt_Value,
+		'maxdays=i'		=>	\&opt_Value,
+		'report|n=s'		=>	\&opt_Array,
 		'test|t'		=>	\&opt_Value,
-		'quiet'			=>	\&opt_Value,
+		'quiet|q'			=>	\&opt_Value,
+		'lmutil=s'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -50,26 +57,39 @@ our %OptionSpecifications=(
 # Note: general purpose script - don't change current directory.
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 
-# Load the config file.
-if (-e $ConfigFile) {
-	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-	# Build a hash of settings found in the config file.
-	while (<CONFIG>) {
-		next if (/^\s*#/);      # Comment.
-		next if (/^\s*$/);      # Blank line.
-		chomp;
-		my ($name,$settings)=split(/:?\s+/,$_,2);
-		$name=uc($name);	# Name is not case sensitive.
-		$settings='' unless ($settings);  # Avoid undef warnings.
-		$settings=~s/\s+$//;	# Trim trailing spaces.
-		$Config{$name}.=$settings . ',' ;
-	}
-	close CONFIG;
-	foreach (keys(%Config)) {
-		$Config{$_} =~ s/,$//;	# Remove trailing comma
+# Load the config files.
+foreach my $ConfigFile (@ConfigFiles) {
+	if (-e $ConfigFile) {
+		open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+		# Build a hash of settings found in the config file.
+		my @Lines;
+	
+		# Read config file and assemble continuation lines into single items.
+		while (<CONFIG>) {
+			next if (/^\s*#/);			# Comment.
+			next if (/^\s*$/);			# Blank line.
+			chomp;
+			if (/^\s+/ and @Lines > 0) {
+				# Continuation line.  Append to prior line.
+				$Lines[$#Lines] .= " $_";
+			}
+			else {
+				push @Lines, $_;
+			}
+		}
+		close CONFIG;
+	
+		# Process assembled lines.
+		foreach (@Lines) {
+			my ($name,$settings)=split(/:?\s+/,$_,2);
+			$name=uc($name);			# Name is not case sensitive.
+			$settings='' unless ($settings);	# Avoid undef warnings.
+			$settings=~s/\s+$//;			# Trim trailing spaces.
+			$Config{$name}.=$settings . ',' ;
+		}
 	}
 }
-foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+foreach (keys(%Config)) {$Config{$_} =~ s/,$//;};		# Trim off trailing commas.
 
 # Process the config file defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
@@ -91,9 +111,6 @@ my $Subject;
 if ($Options{subject}) {
 	$Subject="$Options{subject}" ;
 }
-elsif (@Parms >= 1) {
-	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
-}
 else {
 	$Subject="%* %m/%d %C %N %E %*%*%*" ;
 };
@@ -104,7 +121,7 @@ foreach (qw(always-mail error-mail always-page error-page)) {
 }
 $Options{verbose} = 0	unless (exists($Options{verbose}));
 $Options{logfile} = ''	unless (exists($Options{logfile}));
-$Options{days} = 42	unless (exists($Options{days}));
+$Options{days} = undef	unless (exists($Options{days}));
 my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 
 LogOutput({
@@ -120,17 +137,21 @@ LogOutput({
 	VERBOSE			=> $LogOutputVerbose,
 });
 
-if ($Errors) {
-	warn "$Prog failed.\n";
-}
-else {
-	#print "$Prog ended normally.\n";
-}
-
-push @Parms,(split(/\s*,\s*/,$Options{LMHOSTS})) unless (0+@Parms);
-
+# Make sure we have a list of hosts to check.
+push @Parms,parse_line('\s+',0,$Config{LMHOSTS}) unless (0+@Parms);
 die "No servers specified on the command line or in the LMHOSTS record of the configuration file"
 	unless (0+@Parms);
+
+# Build our LMHost look-up table, in case they ask for something by it's common name.
+foreach (parse_line('\s+',0,$Config{LMHOSTS})) {
+	next unless (/(.+)=/);
+	$LMHosts{uc($1)}=$_;
+}
+
+$Options{lmutil} = $Config{LMUTIL} unless ($Options{lmutil});		# Use the config value if no commandline value.
+$Options{lmutil} = `which lmutil 2>& /dev/null` unless ($Options{lmutil});	# Use the default if still no value.
+die qq<Unable to locate lmutil.  Specify "--lmutil=path" on the command line or add "LMUTIL: path" to the config file.\n>
+	unless ($Options{lmutil});
 
 my @Report;
 foreach (@Parms) {
@@ -142,19 +163,50 @@ print join("\n",@Report) unless ($Options{quiet});
 
 # E-mail the report if requested.
 if (exists($Options{report})) {
-	my @Recipients = @{$Options{report}};
-	my %mail = (
-		To	=> (join(',',@Recipients)),
-		From	=> 'linuxadmin@nwlogic.com',
-		Subject	=> 'License expiration report',
-		Message => join("\n",
-			'Subject: License expiration report',
-			strftime("The following report lists licenses and expiration dates as of %A, %B %d, %Y:\n",localtime()),
-			@Report,
-			),
-		debug => 1,
-	);
-	sendmail(%mail);
+	my $Subject;
+	my $Prolog;
+	if ($Options{days}) {
+		$Subject = 'Pending license expirations';
+		$Prolog =
+			 "The following report shows licenses that have expired or will expire in the next $Options{days} days:";
+	}
+	else {
+		$Subject = 'Monthly license expiration-date report';
+		$Prolog =
+			"The following report lists licenses and their associated expiration dates:";
+	}
+	my $Body = join("\n", $Prolog, @Report);
+	my $Mail = new Mail::Sender{
+		on_errors	=> 'die',
+		smtp		=> '127.0.0.1',
+		from		=> 'linuxadmin@nwlogic.com',
+		boundry		=> 'part-boundry-dslfjdlsfdljslfjsldjflewoowejowoswefjowj',
+	} or die "Error creating new e-mail: $Mail::Sender::Error";
+	$Mail->OpenMultipart({
+		to		=> (join(',',@{$Options{report}})),
+		subject		=> $Subject,
+		multipart	=> 'mixed',
+	}) or die "Error creating multipart e-mail: $Mail::Sender::Error";
+	$Mail->Part({ ctype	=> 'multipart/alternative' });
+	$Mail->Part({
+		ctype		=> 'text/plain', 
+		disposition	=> 'NONE',
+		msg		=> $Body . "\n",
+	}) or die "Error creating e-mail text part: $Mail::Sender::Error";
+	$Mail->Part({
+		ctype		=> 'text/html',
+		disposition	=> 'NONE',
+		msg		=> "<html><body><pre>$Body</pre></body></html>\n",
+	}) or die "Error creating e-mail html part: $Mail::Sender::Error";
+	$Mail->EndPart('multipart/alternative');
+	$Mail->Close() or die "Failed to send e-mail: $Mail->{'error_msg'}";
+}
+
+if ($Errors) {
+	warn "$Prog failed.\n";
+}
+else {
+	#print "$Prog ended normally.\n";
 }
 
 exit( ($Errors?10:0) );
@@ -164,11 +216,37 @@ exit( ($Errors?10:0) );
 #
 sub CheckLicenses {
 
-	my $Server = shift;
+	my $Target = shift;
+	my($Name,$Host,$Port);
+	print "Verbose: Beginning $Target\n" if ($Options{verbose});
+
+	# If they just gave us a simple name for a host we know, translate it.
+	$Target = $LMHosts{uc($Target)}
+		if ($Target =~ /^[^=:@]+$/ and exists($LMHosts{uc($Target)}));
+			
+	# Parse out the target in to an optional name, a host, and a port number.
+	if ($Target =~ /^(.+)=(\S+):(\d+)$/ or $Target =~ /^(\S+)=(\S+):(\d+)$/) {
+		($Name,$Host,$Port) = ($1,$2,$3);
+	}
+	elsif ($Target =~ /^(.+)=(\d+)@(\S+)$/ or $Target =~ /^(\S+)=(\d+)@(\S+)$/) {
+		($Name,$Port,$Host) = ($1,$2,$3);
+	}
+	elsif ($Target =~ /^(\S+):(\d+)$/ or $Target =~ /^(\S+):(\d+)$/) {
+		($Host,$Port) = ($1,$2);
+		$Name="$Port\@$Host";
+	}
+	elsif ($Target =~ /^(\d+)@(\S+)$/ or $Target =~ /^(\d+)@(\S+)$/) {
+		($Port,$Host) = ($1,$2);
+		$Name="$Port\@$Host";
+	}
+	else {
+		warn qq<Incorrectly formatted license server "$Target" ignored.\n>;
+		return;
+	}
 
 	my $LICENSES;
-	open ($LICENSES,"~flexlm/syncad/lmutil lmdiag -c $Server -n |")
-		or die "Unable to launch lmutil: $!\n";
+	open ($LICENSES,"$Options{lmutil} lmdiag -c $Port\@$Host -n |")
+		or die "Unable to launch lmutil for $Name: $!\n";
 	my $LicName='(none)';
 	my $LicStart='(none)';
 	my $LicEnd='(none)';
@@ -182,11 +260,13 @@ sub CheckLicenses {
 	# "infactcx" v2014.110, vendor: mgcld
 	#   License server: LS2
 	#   floating license  starts: 15-nov-2013,   expires: 30-nov-2014
+	#  nodelocked license, locked to "FLEXID=9-07249bfc"  starts: 13-feb-2014,   expires: 30-jun-2015
+	#
 	# 
 	# This license can be checked out
 
 	# Gather expiration data.  If we have multiple copies of the same license, report the
-	# earliest expiration.
+	# largest/latest expiration.
 	my %Expirations;
 	while (<$LICENSES>) {
 		chomp;
@@ -195,48 +275,92 @@ sub CheckLicenses {
 			$LicName = $1;
 			print "Verbose:   Identified license $LicName\n" if ($Options{verbose});
 		}
-		elsif (/^\s*\S+ license .* expires: (\d{1,2}-...-\d{4})$/) {
+		elsif (/^\s*\S+ license.* expires: (\d{1,2}-...-\d{4})$/) {
 			$LicEnd=$1;
 			my $Expiration=str2time($LicEnd);
 			if (!defined($Expiration)) {
 				warn qq<Unable to interpret date "$LicEnd" for license "$LicName"\n>;
 				next;
 			}
+			print strftime("Verbose:   License $LicName expires %Y-%m-%d\n",localtime($Expiration))
+				if ($Options{verbose});
 			$Expirations{$LicName} = $Expiration
 				if (
 					not exists($Expirations{$LicName})
-					or $Expirations{$LicName} > $Expiration
+					or $Expirations{$LicName} < $Expiration
 				);
 		}
 	}
 	close $LICENSES;
 
 	my @Report;
-	if ($Options{all}) {
-		push @Report,
-			  "License report for $Server:\n"
-			. "  License                        Expires      Days Remaining  Comments\n"
-		;
-	}
+	my @Header = (
+		"\nLicense report for $Name:",
+		"  License                        Expires    Days Remaining",
+		"  ------------------------------ ---------- --------------",
+	);
+
+	push(@Report, @Header) unless ($Options{days});
 
 	# Review the results and generate a report or list of licenses needing renewal.
+	my($OK,$Expiring,$Expired) = (0,0,0);
 	foreach $LicName (sort(keys(%Expirations))) {
 		my $Expiration = $Expirations{$LicName};
 		my $FormattedEnd = strftime("%Y-%m-%d",(localtime($Expiration)));
 		my $DaysRemaining = int(($Expiration - time())/84200+.5);
 		print qq<Verbose:   Identified expiration date as "$LicEnd" = $FormattedEnd = $DaysRemaining days from now\n>
 			if ($Options{verbose});
-		my $LicStatus =
-			  $DaysRemaining <= 0			? '         expired'
-			: $DaysRemaining <= $Options{days}	? '         ready for renewal'
-			:					  '';
-		my $Summary = sprintf('%-30s %-10s %10d%s',$LicName,$FormattedEnd,$DaysRemaining,$LicStatus);
-		if ($Options{all}) {
+		my $LicStatus;
+		if (defined($Options{maxdays}) and $DaysRemaining <= 0-$Options{maxdays}) {
+			# This license has expired too long ago to report.
+			print "Verbose:      $LicName has expired more than $Options{maxdays} days ago -- suppressed\n"
+				if ($Options{verbose});
+			next;
+		}
+		if ($DaysRemaining <= 0) {
+			# This license has expired.
+			$LicStatus = 'expired';
+			$Expired++;
+		}
+		elsif (!defined($Options{days})) {
+			# We're not checking pending expirations.
+			$LicStatus = '';
+			$OK++;
+		}
+		elsif ($DaysRemaining <= $Options{days}) {
+			$LicStatus = 'ready for renewal';
+			$Expiring++;
+		}
+		else {
+			# We're checking pending expirations, but this one is not pending
+			$LicStatus = '';
+			$OK++;
+		}
+
+		my $Summary = sprintf('  %-30s %-10s %8d            %-s',$LicName,$FormattedEnd,$DaysRemaining,$LicStatus);
+		if (!$Options{days}) {
+			# No "--days" specification, we're printing everything.
 			push @Report,$Summary;
 		}
 		elsif ($LicStatus) {
+			# License has expired, or will within "--days" days.
+			if (@Header > 0) {
+				push(@Report,@Header);
+				@Header=();		# Don't need another header for this server/port.
+			}
 			push @Report,$Summary;
 		}
+	}
+	my $Summary =
+		  "Summary: "
+		. "$Expired expired, "
+		. ($Options{days}?"$Expiring expiring, ":'')
+		. "$OK OK"
+		. "\n"
+		;
+	if (!defined($Options{days})) {
+		# Insert the summary after the header.
+		splice @Report,1,0, $Summary;
 	}
 	
 	return @Report;
@@ -332,16 +456,16 @@ sub opt_h {
 }
 =pod
 
-=head1 $Prog - 
+=head1 lmutil-expirations - 
 
-<<description>>
+Generation a report of licenses and expirations
 
 =head3 Usage:  
-        $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
+        lmutil-expirations [options] [target1...]
 
-        $Prog -h
+        lmutil-expirations -h
 
-=head3 Flags:
+=head3 Options:
         --error-mail|-e mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
@@ -358,18 +482,20 @@ sub opt_h {
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFile
                                 into the command line at this point.
+	--debug|-d		Debug: run low-level Perl debugging
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
 				Show diagnostic information.  May be repeated
 				to increase verbosity.
         --help|-h:              Help: display this panel
-	--days=n:		Days: flag any license that expires within
-				this many days.  Defaults to 42 days (6
-				weeks).
-	--all:			All: Generate a report of all license
-				expirations.  Default is to only report
-				licenses that are going to expire within
-				"--days" days.
+	--days=n:		Days: if specified, only report licenses that
+				have expired, or will expire in the next n 
+				days.  Default is to print all licenses.
+	--maxdays=n:		Max expiration days: suppress licenses
+				that have expired by more than n days.
+				Default is to show all licenses.
+	--lmutil=path:		lmutil: specifies the path to the lmutil
+				utility.  The default is to search the
 	--report=address:	Send a report to this e-mail address if
 				any licenses are reported (either will
 				expire within "--days" days, or all 
@@ -381,8 +507,94 @@ sub opt_h {
 				--report.
 
 =head3 Parameters:
-        (none)
+       target1...:		An optional list of one or more target
+				license servers to check. Each target
+				may be specified as:
+					port@hostname		(lmutil format)
+					hostname:port		(ssh format)
+					name=port@hostname
+					name=hostname:port
+					name
+				In the last case, the "LMHOSTS:" list 
+				found in the configuration file will
+				be searched for a matching name= target,
+				which will be used to replace "name".
+				"name" is case insensitive.  If no targets
+				are specified on the command line, all entries
+				in the LMHOSTS: list will be used.
 
+=head3 Configuration file:
+
+The configuration file is called lmutil-expirations.cfg.
+The script looks for zero or more configuration files in the following locations:
+
+=over
+
+=item
+
+The etc directory that is a peer to the folder
+containing the script (e.g. if the script is in /usr/local/bin,
+the script looks for /usr/local/etc/lmutil-expirations.cfg).
+
+=item
+
+The directory that contains the script (e.g. /usr/local/bin/lmutil-expirations.cfg)
+
+=back
+
+The configuration file consists of:
+
+=over
+
+=item
+
+blank lines -- ignored
+
+=item
+
+comments, beginning with # -- ignored
+
+=item
+
+lists of the format "LISTNAME: item item item...", beginning in column 1
+
+=item
+
+continuation lines, beginning with whitespace, which are appended to the prior
+list or continuation line
+
+=back
+
+List names are case insensitive.  There are three pre-defined list names, plus
+any optional arbitrarily named "option set" lists, as follows:
+
+=over
+
+=item
+
+ALLJOBS: a list of command line options or parameters to prepend to any command line parameters
+
+=item
+
+LMHOSTS: A series of license manager targets, in the formats described in Parameters above
+
+=item
+
+LMUTIL:	A single value identifying the location of the lmutil command
+
+=item
+
+Option set lists, are any list name not shown above.  These
+are ignored by default, but may be included in the command
+line using -O.  For example, if the configuration file contains:
+
+	REPORT: -n joe@example.com --days=42 28000@licenseserver
+
+then "lmutil-expirations -O report" is equivalent to
+"lmutil-expirations -n joe@example.com --days=42 28000@licenseserver".
+
+=back
+		
 =head3 Return codes:
         0       :       Normal termination
         1       :       Help panel displayed.
@@ -422,5 +634,7 @@ SHOW    "^\s*Verbose:"
 SHOW    "^\s*debug:"
 SHOW    "^\s*$"
 SHOW    "^\s*\S+\s+\d\d\d\d-\d\d-\d\d\s+-?\d+\s*(expired|ready for renewal)?$"
-SHOW	"^\s*License report for \S+:\s*$"
-SHOW	"^\s*License\s+Expires\s+Days Remaining\s+Comments$"
+SHOW	"^\s*License report for .+:\s*$"
+SHOW	"^\s*[ -]+$"
+SHOW	"^\s*License\s+Expires\s+Days Remaining$"
+SHOW	"^\s*Summary:"
