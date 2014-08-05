@@ -26,10 +26,12 @@ my $Errors=0;   	                # No errors so far.
 #my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
 my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+my $Syslog = 'user';			# Log to the syslog.
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
-our $Syslog = 'user';			# Log to the syslog.
+our @RecoveryRestart;			# List of machines that failed to
+					# shutdown.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -148,13 +150,23 @@ LogOutput({
 # the user turn options on and off for each kind of backup (e.g.
 # change the exclude list per backup).
 %Options = (
-		"after-state" => 'same',
+		'after-state' => 'same',
 		cd => '/var/lib/libvirt/images',
 		test => $Options{test},
 		verbose => $Options{verbose},
 		timeout => 5,
 );			# Reset Options to defaults for reprocessing.
 $Errors ++ unless (GetOptions(%OptionSpecifications,'<>'=>\&ProcessBackup));
+
+# If we tried to shut a machine down and it didn't go, make sure it's
+# still up.  We don't want to leave it down if it's supposed to be up,
+# and just processed the shutdown late.
+foreach (@RecoveryRestart) {
+	if (!IsRunning($_)) {
+		print "$_ is now down - restarting\n";
+		RunDangerousCmd("virsh start $_");
+	}
+}
 
 #
 # Wrap up.
@@ -194,6 +206,7 @@ sub ProcessBackup {
 		print STDERR "\tInvalid value for --timeout. Skipping backup.\n";
 		return 1;
 	}
+	$Options{'after-state'} = lc($Options{'after-state'});
 
 	# Capture the XML for later, and to determine if the machine exists.
 	my @XML;
@@ -296,6 +309,10 @@ sub ProcessBackup {
 	}
 	if (! $Options{test} and IsRunning($Machine)) {
 		print STDERR "    $Machine failed to shutdown -- backup skipped\n";
+		# Check on this one later, to make sure it's still up and
+		# not just really slow shutting down.
+		push @RecoveryRestart, $Machine,
+			if ($Options{'after-state'} =~ /^(same|up)$/);
 		return 18;
 	}
 
@@ -355,11 +372,10 @@ sub ProcessBackup {
 	}
 
 	# Set the machine in the desired after-state.
-	$Options{"after-state"} = lc($Options{"after-state"});
-	$Options{"after-state"} = 'same'
-		unless ($Options{"after-state"} =~ /^(up|down|same)$/);
-	if ( $Options{"after-state"} eq 'up' 
-		or ($Options{"after-state"} eq 'same' and $WasRunning)
+	$Options{'after-state'} = 'same'
+		unless ($Options{'after-state'} =~ /^(up|down|same)$/);
+	if ( $Options{'after-state'} eq 'up' 
+		or ($Options{'after-state'} eq 'same' and $WasRunning)
 	) {
 		print strftime(
 			  "    ${TestPrefix}Restarting $Machine at %Y-%m-%d %T\n"
