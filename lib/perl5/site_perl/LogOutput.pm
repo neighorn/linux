@@ -354,7 +354,7 @@ sub _SetOptions {
 			if ($ValidOptions{$key}) {
 				$Options{$key} = $$HashRef{$key};
 				print "LogOutput: Set $key to $$HashRef{$key} from LogOutput_cfg\n"
-					if ($Options{Verbose});
+					if ($Options{VERBOSE});
 			}
 			else {
 				$ErrorsDetected += _FilterMessage("LogOutput: Invalid option '$key' passed from LogOutput_cfg -- ignored.\n");
@@ -389,7 +389,7 @@ sub _SetOptions {
 			if ($ValidOptions{$key}) {
 				$Options{$key} = $$HashRef{$key};
 				print "LogOutput: Set $key to $$HashRef{$key} from calling arguments\n"
-					if ($Options{Verbose});
+					if ($Options{VERBOSE});
 			}
 			else {
 				$ErrorsDetected += _FilterMessage("LogOutput: Invalid option '$key' passed to LogOutput -- ignored.\n");
@@ -748,7 +748,7 @@ sub _FilterMessage {
 		if (!(syslog("INFO", "%s", $_))) {
 			$Options{SYSLOG_FACILITY}=0;
 			$ErrorsDetected += _FilterMessage("LogOutput: Unable to write to syslog: $!");
-			print "LogOutput: Unable to write to syslog\n" if ($Options{Verbose});
+			print "LogOutput: Unable to write to syslog\n" if ($Options{VERBOSE});
 
 		}
 	}
@@ -756,24 +756,24 @@ sub _FilterMessage {
 	# Classify this message as ignorable, normal, mailonly, or error.
 	if (&$IgnoreTest) {
 		# Ignore it.
-		print "LogOutput: Ignoring: $_\n" if ($Options{Verbose});
+		print "LogOutput: Ignoring: $_\n" if ($Options{VERBOSE});
 		return $ErrorsDetected;
 	}
 	elsif (&$NormalTest) {
 		# This is normal.
-		print "LogOutput: Normal message: $_\n" if ($Options{Verbose});
+		print "LogOutput: Normal message: $_\n" if ($Options{VERBOSE});
 		$Prefix='   ';
 		$StdOut=1;
 	}
 	elsif (&$MailOnlyTest) {
 		# This is normal, no stdout.
-		print "LogOutput: MailOnly message: $_\n" if ($Options{Verbose});
+		print "LogOutput: MailOnly message: $_\n" if ($Options{VERBOSE});
 		$Prefix='   ';
 		$StdOut=0;
 	}
 	else {
 		# This is not normal.
-		print "LogOutput: Error message: $_\n" if ($Options{Verbose});
+		print "LogOutput: Error message: $_\n" if ($Options{VERBOSE});
 		$Prefix='-> ';
 		$ErrorsDetected=1;
 		$StdOut=1;
@@ -865,7 +865,7 @@ sub _SetupMail {
 			printf "\t%-12.12s %s\n", $_, $Mail{$_};
 		}
 	}
-	$Mail{debug}=6 if $Options{Verbose};
+	$Mail{debug}=6 if $Options{VERBOSE};
 	sendmail(%Mail) || warn "LogOutput: Unable to send e-mail: $Mail::Sendmail::error";
 }
 #
