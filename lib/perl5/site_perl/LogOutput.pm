@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.18;
+our $Version	= 3.19;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -748,26 +748,32 @@ sub _FilterMessage {
 		if (!(syslog("INFO", "%s", $_))) {
 			$Options{SYSLOG_FACILITY}=0;
 			$ErrorsDetected += _FilterMessage("LogOutput: Unable to write to syslog: $!");
+			print "LogOutput: Unable to write to syslog\n" if ($Options{Verbose});
+
 		}
 	}
 
 	# Classify this message as ignorable, normal, mailonly, or error.
 	if (&$IgnoreTest) {
 		# Ignore it.
+		print "LogOutput: Ignoring: $_\n" if ($Options{Verbose});
 		return $ErrorsDetected;
 	}
 	elsif (&$NormalTest) {
 		# This is normal.
+		print "LogOutput: Normal message: $_\n" if ($Options{Verbose});
 		$Prefix='   ';
 		$StdOut=1;
 	}
 	elsif (&$MailOnlyTest) {
 		# This is normal, no stdout.
+		print "LogOutput: MailOnly message: $_\n" if ($Options{Verbose});
 		$Prefix='   ';
 		$StdOut=0;
 	}
 	else {
 		# This is not normal.
+		print "LogOutput: Error message: $_\n" if ($Options{Verbose});
 		$Prefix='-> ';
 		$ErrorsDetected=1;
 		$StdOut=1;
