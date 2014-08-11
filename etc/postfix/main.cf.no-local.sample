@@ -1,4 +1,5 @@
 canonical_maps = hash:/usr/local/etc/postfix/canonical
+disable_vrfy_command=yes
 inet_interfaces = loopback-only
 mydestination =
 myhostname = host.example.com
