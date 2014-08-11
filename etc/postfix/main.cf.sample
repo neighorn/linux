@@ -11,6 +11,7 @@ defer_transports =
 disable_dns_lookups = no
 disable_vrfy_command = no
 inet_interfaces = all
+inet_protocols = ipv4
 mail_owner = postfix
 mail_spool_directory = /var/mail
 mailbox_command = /usr/bin/procmail
