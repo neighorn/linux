@@ -1,1 +1,1 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ checkall(\[\d+\])?:\s*All service are OK.$
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ checkall(\[\d+\])?:\s*All services are OK.$"
