@@ -54,7 +54,7 @@ if grep -qi 'active directory domain controller' $prog_dir/etc/smb.conf
 then
 	prog_list="samba"
 else
-	if grep -qi -E '^[ 	]*wins *server[ 	]*= *yes' $prog_dir/etc/smb.conf
+	if grep -q winbind /etc/nsswitch.conf
 	then
 		prog_list="smbd nmbd winbindd"
 	else
