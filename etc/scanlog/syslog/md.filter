@@ -11,3 +11,6 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel: \[\d+\.\d+\]\s+md: minimum .* s
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel: \[\d+\.\d+\]\s+md: using \d+k window, over a total of \d+k.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel: \[\d+\.\d+\]\s+md: using maximum available idle IO bandwidth"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel: \[\d+\.\d+\]\s+RAID\d+ conf printout:$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mdadm(\[\d+\])?: RebuildStarted event detected on md device"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mdadm(\[\d+\])?: RebuildFinished event detected on md device"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mdadm(\[\d+\])?: Rebuild\d+ event detected on md device"
