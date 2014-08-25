@@ -12,5 +12,5 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*zone \S+ loaded seri
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*zone \S+: sending notifies \(serial \d+\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*zone \S+: Transfer started.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*zone \S+: Transfer completed:"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*clients-per-query increased to \d+$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*validating .* no valid signature found.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*clients-per-query (increased|decreased) to \d+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*validating .* no valid signature found$"
