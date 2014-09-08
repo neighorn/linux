@@ -137,6 +137,7 @@ foreach my $device (@Parms) {
 		if ($Status eq 'idle') {
 			system('grep -Eq "\[=*>" /proc/mdstat');
 			if ($? == 0 and ! $opt_f) {
+				system('cat /proc/mdstat');
 				die "Aborting $Prog - another RAID is rebuilding\n";
 			}
 			print strftime(
