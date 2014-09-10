@@ -20,7 +20,7 @@ sub Check {
 	my $File = $Self->{'FILE'};
 	my $Line = $Self->{'LINE'};
 	my $Target = $Self->{'Target'};
-	printf "\n%5d %s Checking %s %s\n", $$, __PACKAGE__, $Self->Host
+	printf "\n%5d %s Checking %s\n", $$, __PACKAGE__, $Self->Host
 		if ($Self->{Verbose});
 		
 	# First, make sure we have the necessary config info.
@@ -42,33 +42,39 @@ sub Check {
 			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
 			. ($Self->{User}?"$Self->{User}@":'')
 			. $Self->{Host}
-			. ' net ads testjoin 2>&1'
+			. ' net ads testjoin 2> /dev/null'
 			;
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
-    		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
+    			printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
     			eval("\@Data = `$Cmd`;");
     			last unless ($@ or $? != 0);
-		    }
-		    if (@Data == 0)
-		    {
-			    warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: rc=$?, $@\n";
-			    $Self->{StatusDetail} = "Unable to gather data";
-			    return "Status=" . $Self->CHECK_FAIL;
-		  	}
+		}
+		if (@Data == 0)
+		{
+			$Self->{StatusDetail} = 'Unable to gather data';
+			return "Status=" . $Self->CHECK_FAIL;
+		}
 	}
 	else {
 		@Data = `net ads testjoin 2>&1`;
 	}
 
+	if ($Self->{Verbose}) {
+		foreach (@Data) {
+			printf "\r\%5d     %s (%s) received %s\n", $$,$Self->{Host},$Self->{Desc}, $_;
+		}
+	}
+
 	my $Detail;
 	my $Actual = ($Data[0]?$Data[0]:'');
+	chomp $Actual;
 	if ($Actual =~ / OK\s*$/) {
 		$Status = $Self->CHECK_OK;
 		$Detail = '';
 	}
 	else {
 		$Status = $Self->CHECK_FAIL;
-		$Detail = chomp($Actual);
+		$Detail = $Actual;
 	}
 			
 	$Self->{StatusDetail}=$Detail;

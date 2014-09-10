@@ -48,7 +48,6 @@ sub Check {
 	# First, make sure we have the necessary config info.
 	my $Errors = 0;
 	if (! $Self->{Desc}) {
-		warn "$File:$Line: Desc not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Desc not specified";
 		$Errors++;
 	}
@@ -115,8 +114,7 @@ sub Check {
 	}
 	else {
 		# On the local host.
-		if (!(@Data=split'\s+',`head -1 /proc/loadavg`)) {
-			warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from /proc/loadavg: $@\n";
+		if (!(@Data=split'\s+',`head -1 /proc/loadavg 2> /dev/null`)) {
 			$Self->{StatusDetail} = "Unable to read /proc/loadavg";
 			return "Status=" . $Self->CHECK_FAIL;
 		}

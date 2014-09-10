@@ -95,7 +95,7 @@ sub Check {
 		  	}
 	}
 	else {
-		@Data = `mailq`;
+		@Data = `mailq 2> /dev/null`;
 	}
 	if (exists($Self->{Filter}) and $Self->{Filter}) {
 		# Strip out anything that doesn't match the filter.

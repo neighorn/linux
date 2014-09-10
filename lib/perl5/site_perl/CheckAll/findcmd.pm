@@ -52,12 +52,10 @@ sub Check {
 	my $Errors = 0;
 	$Self->{Desc} = 'findcmd' unless ($Self->{Desc});
 	if (!exists($Self->{Target}) or !defined($Self->{Target})) {
-		warn "$File:$Line: Target not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Target not specified";
 		$Errors++;
 	}
 	if (! $Self->{Parms}) {
-		warn "$File:$Line: Parms not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Parms not specified";
 		$Errors++;
 	}
@@ -96,6 +94,7 @@ sub Check {
 			. ($Self->{User}?"$Self->{User}@":'')
 			. $Self->{Host}
 			. " $BaseCmd "
+			. ' 2> /dev/null '
 			;
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
     		    printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
@@ -103,13 +102,12 @@ sub Check {
     			last unless ($@ or $? != 0);
 		}
 		if (@Data == 0) {
-		        warn "$Self->{FILE}:$Self->{LINE} Unable to gather data from $Self->{Host}: rc=$?, $@\n";
 		        $Self->{StatusDetail} = "Unable to gather data";
 		        return "Status=" . $Self->CHECK_FAIL;
 		}
 	}
 	else {
-		@Data = `$BaseCmd`;
+		@Data = `$BaseCmd 2> /dev/null`;
 	}
 	printf "\n%5d %s\t\@Data = %s\n", $$, __PACKAGE__, join(', ',@Data)
 		if ($Self->{Verbose} >= 3);
@@ -121,7 +119,6 @@ sub Check {
 		$Actual = 0+$Actual;
 	}
 	else {
-		warn "$Self->{FILE}:$Self->{LINE} Non-numeric count received: $Actual\n";
 		$Self->{StatusDetail} = "Invalid count received";
 	        return "Status=" . $Self->CHECK_FAIL;
 	}

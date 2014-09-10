@@ -95,12 +95,10 @@ sub Check {
 	# First, make sure we have the necessary config info.
 	my $Errors = 0;
 	if (! $Self->{Desc}) {
-		warn "$File:$Line: Desc not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Desc not specified";
 		$Errors++;
 	}
 	if (! $Self->{Target}) {
-		warn "$File:$Line: Target not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Target not specified";
 		$Errors++;
 	}
@@ -150,7 +148,6 @@ sub Check {
 	else {
 		# On the local host.
 		if (!(@StatData=stat($Self->{Target}))) {
-			warn "$Self->{FILE}:$Self->{LINE} Unable to gather data about $Self->{Target}: $@\n";
 			$Self->{StatusDetail} = "Unable to find/read file system stat data";
 			return "Status=" . $Self->CHECK_FAIL;
 		}
