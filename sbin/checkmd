@@ -138,7 +138,7 @@ sub CheckMDDevices {
 		next if (/^\s*$/);
 		#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
 		print "Verbose: $_\n" if ($opt_v);
-		if (/^\s*(md\d+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.\d*\[\d+\](\([SF]\))?)+$/) {
+		if (/^\s*(md\d+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.+\d*\[\d+\](\([SF]\))?)+$/) {
 			# This is a "mdx : active raid1" line.
 			($mdname, $status, $type) = ($1,$2,$3);
 			my $rest;
