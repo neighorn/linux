@@ -1,0 +1,4 @@
+# Sites that don't want to see checkall failure notices flagged should
+# include this file in addition to checkall.filter.
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ checkall(\[\d+\])?:\s*.*FAILING"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ checkall(\[\d+\])?:\s*Notifications sent.$"
