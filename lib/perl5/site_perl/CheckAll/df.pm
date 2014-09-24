@@ -232,7 +232,7 @@ sub _Check {
 		foreach my $Target (keys(%{$HostHash{$Host}})) {
 			# Use everything except NFS mounts, which can be too many
 			# to exclude due to /net.
-			push @TargetList,$Target unless ($HostHash{$Host}{$Target}{device} =~ m"^[^/\s]+(:|//)");
+			push @TargetList,$Target unless ($HostHash{$Host}{$Target}{device} =~ m"^([^/\s]+:|//)");
 		}
 	}
 	else {
