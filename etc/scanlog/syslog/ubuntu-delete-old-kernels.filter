@@ -8,7 +8,7 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*Examining "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*Found initrd image: "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*Found linux image: "
-IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*Found memtest86+ image: "
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*Found memtest86\+ image: "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*Generating grub.cfg ...$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*linux-headers-"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*linux-image-"
