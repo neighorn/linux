@@ -3,6 +3,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ cron.df(\[\d+\])?:\s*none\s+"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ cron.df(\[\d+\])?:\s*cgroup\s+"
 # Ignore NFS mounts:
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ cron.df(\[\d+\])?:\s*\S+:\S+\s"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ cron.df(\[\d+\])?:\s*//\S+\s"
 # Sample message:                         cron.df: /dev/md2 19G 2.6G 15G 15% /
 # Sample mesage:                          cron.df: tmpfs   995M    0 995M 0% /dev/shm
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ cron.df(\[\d+\])?:\s*\S+\s+\d+(\.\d+)?[KMGT]?\s+\d+(\.\d+)?[KMGT]?\s+\d+(\.\d+)?[KMGT]?\s+(\d|[0-7]\d|8[0-4])%\s+\S+"
