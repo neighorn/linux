@@ -108,7 +108,7 @@ sub Check {
 	# If we're checking localhost, just run it now and evaluate the results.
 	if ($Self->{Host} eq 'localhost') {
 		# Get the data.
-		@Data = `df -k $POSIX 2> /dev/null`;
+		@Data = `df -lk $POSIX 2> /dev/null`;
 		$CmdStatus = $?;
 	    	if ($CmdStatus != 0) {
 		    $Self->{StatusDetail} = "Unable to gather data: $CmdStatus";
@@ -151,7 +151,7 @@ sub Check {
 	    		. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
 	    		. ($Self->{User}?"$Self->{User}@":'')
 	    		. $Self->{Host}
-	    		. " df -k $POSIX 2> /dev/null"
+	    		. " df -lk $POSIX 2> /dev/null"
 	    		;
 
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
