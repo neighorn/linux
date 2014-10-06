@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.19;
+our $Version	= 3.20;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -837,6 +837,8 @@ sub _SetupMail {
 	$Mail{From}=_MakeSubstitutions($Options{MAIL_FROM});
 	$Mail{'X-JOBSUMMARY'}="Name=$Options{PROGRAM_NAME} Status=$ExitCode RunTime=$RawRunTime";
 	$Mail{'X-JOBEXIT'}="$ExitCode";	
+	$Mail{retries}=3;
+	$Mail{delay}=30;
 	# Following added in V3, because non-zero exit codes now may now
 	# be a normal return code.  ErrorsDetected will be > 0 if an unexpected
 	# message occurs, a non-normal exit code occurs, or a bad signal happens
