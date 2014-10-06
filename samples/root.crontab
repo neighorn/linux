@@ -9,7 +9,7 @@ PERL5LIB="/usr/local/lib/perl5/site_perl"
 00 01 * * * /usr/bin/find /var/log /var/spool/amavis/virusmails -type f -mtime +60 -exec echo Deleting {} \; -exec rm {} \; 2>&1 | /bin/logger -t cron.logs
 #
 # Document disk space utilization.
-05 0,6,12,18 * * * /bin/df -hP | /bin/grep -vE '/mnt/|/cd-roms/' | /bin/logger -t cron.df
+05 0,6,12,18 * * * /bin/df -hlP | /bin/grep -vE '/mnt/|/cd-roms/' | /bin/logger -t cron.df
 #
 # Take weekly back-ups of critical systems
 0 2 * * 0 /usr/local/sbin/sysbackup > /dev/null
