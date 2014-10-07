@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use LogOutput;
-use Getopt::Long 2.42 qw(GetOptionsFromString :config gnu_compat permute bundling);
+use Getopt::Long 2.38 qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
 use FindBin qw($Bin $Script $Script);
