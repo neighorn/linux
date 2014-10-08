@@ -7,6 +7,7 @@ use Getopt::Long 2.38 qw(GetOptionsFromString :config gnu_compat permute bundlin
 use Text::ParseWords;
 use POSIX qw(strftime);
 use FindBin qw($Bin $Script);
+use Sys::Hostname;
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -17,10 +18,11 @@ $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 my $Errors=0;   	                # No errors so far.
 my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
-my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+my @ConfigFiles=("$BaseDir/${Prog}.cfg");	# Name of config file.
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
+my $Hostname = hostname;		# Get our host name.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -45,23 +47,8 @@ our %OptionSpecifications=(
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 
 # Load the config file.
-if (-e $ConfigFile) {
-	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-	# Build a hash of settings found in the config file.
-	while (<CONFIG>) {
-		next if (/^\s*#/);      # Comment.
-		next if (/^\s*$/);      # Blank line.
-		chomp;
-		my ($name,$settings)=split(/:?\s+/,$_,2);
-		$name=uc($name);	# Name is not case sensitive.
-		$settings='' unless ($settings);  # Avoid undef warnings.
-		$settings=~s/\s+$//;	# Trim trailing spaces.
-		$Config{$name}.=$settings . ',' ;
-	}
-	close CONFIG;
-	foreach (keys(%Config)) {
-		$Config{$_} =~ s/,$//;	# Remove trailing comma
-	}
+foreach (@ConfigFiles) {
+	LoadConfigFile($_);
 }
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 
@@ -124,7 +111,8 @@ foreach my $Item (@Parms) {
 	else {
 		($Server,$SSHParm) = ($Item,'');
 	}
-	RunDangerousCmd("/usr/bin/rsync -aHq $SSHParm --delete /usr/mcsi-linux/ $Server:/usr/mcsi-linux/");
+	RunDangerousCmd("/usr/bin/rsync -aHq $SSHParm --delete /usr/mcsi-linux/ $Server:/usr/mcsi-linux/")
+		unless ($Hostname =~ /^$Server(\..+)/);	# Skip ourselves.
 }
 
 if ($Errors) {
@@ -141,6 +129,38 @@ exit( ($Errors?10:0) );
 #
 sub xxxxxx {
 
+}
+
+
+#
+# LoadConfigFile - load a configuration file
+#
+sub LoadConfigFile {
+	my $ConfigFile = shift;
+	if (-e $ConfigFile) {
+		my $CONFIGFH;
+		open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+		# Build a hash of settings found in the config file.
+		while (<$CONFIGFH>) {
+			next if (/^\s*#/);      # Comment.
+			next if (/^\s*$/);      # Blank line.
+			chomp;
+			my ($name,$settings)=split(/:?\s+/,$_,2);
+			$name=uc($name);	# Name is not case sensitive.
+			$settings='' unless ($settings);  # Avoid undef warnings.
+			if ($name eq 'INCLUDE') {
+				LoadConfigFile($settings);
+			}
+			else {
+				$settings=~s/\s+$//;	# Trim trailing spaces.
+				$Config{$name}.=$settings . ',' ;
+			}
+		}
+		close $CONFIGFH;
+		foreach (keys(%Config)) {
+			$Config{$_} =~ s/,$//;	# Remove trailing comma
+		}
+	}
 }
 
 
