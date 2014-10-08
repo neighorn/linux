@@ -17,7 +17,7 @@ $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 my $Errors=0;   	                # No errors so far.
 my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
-my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+my @ConfigFiles=("$BaseDir/${Prog}.cfg");	# Name of config files.
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
@@ -45,23 +45,8 @@ our %OptionSpecifications=(
 #chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
 
 # Load the config file.
-if (-e $ConfigFile) {
-	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-	# Build a hash of settings found in the config file.
-	while (<CONFIG>) {
-		next if (/^\s*#/);      # Comment.
-		next if (/^\s*$/);      # Blank line.
-		chomp;
-		my ($name,$settings)=split(/:?\s+/,$_,2);
-		$name=uc($name);	# Name is not case sensitive.
-		$settings='' unless ($settings);  # Avoid undef warnings.
-		$settings=~s/\s+$//;	# Trim trailing spaces.
-		$Config{$name}.=$settings . ',' ;
-	}
-	close CONFIG;
-	foreach (keys(%Config)) {
-		$Config{$_} =~ s/,$//;	# Remove trailing comma
-	}
+foreach (@ConfigFiles) {
+	LoadConfigFile($_);
 }
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 
@@ -130,6 +115,50 @@ exit( ($Errors?10:0) );
 #
 sub xxxxxx {
 
+}
+
+
+#
+# LoadConfigFile - load a configuration file
+#
+sub LoadConfigFile {
+	my $ConfigFile = shift;
+	if (-e $ConfigFile) {
+		my $CONFIGFH;
+                open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+                # Build a hash of settings found in the config file.
+                my @Lines;
+
+                # Read config file and assemble continuation lines into single items.
+                while (<$CONFIGFH>) {
+                        next if (/^\s*#/);                      # Comment.
+                        next if (/^\s*$/);                      # Blank line.
+                        chomp;
+                        if (/^\s+/ and @Lines > 0) {
+                                # Continuation line.  Append to prior line.
+                                $Lines[$#Lines] .= " $_";
+                        }
+                        else {
+                                push @Lines, $_;
+                        }
+                }
+                close $CONFIGFH;
+
+                # Process assembled lines.
+                foreach (@Lines) {
+                        my ($name,$settings)=split(/:?\s+/,$_,2);
+                        $name=uc($name);                        # Name is not case sensitive.
+                        $settings='' unless ($settings);        # Avoid undef warnings.
+                        $settings=~s/\s+$//;                    # Trim trailing spaces.
+			if ($name eq 'INCLUDE') {
+				LoadConfigFile($settings);
+			}
+			else {
+				$settings=~s/\s+$//;	# Trim trailing spaces.
+				$Config{$name}.=$settings . ',' ;
+			}
+                }
+        }
 }
 
 
@@ -238,7 +267,7 @@ sub opt_h {
                                 this e-mail address if errors are
                                 detected in this job.
         --option-set|-O config: Insert the "config" configuration options
-                                from $ConfigFile
+                                from $ConfigFiles[0]
                                 into the command line at this point.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
@@ -246,6 +275,36 @@ sub opt_h {
 
 =head3 Parameters:
         (none)
+
+=head3 Configuration files
+
+Configuration data may be loaded from the configuration files.  These files
+form key-value pairs that $Prog may reference.  The syntax of the file is:
+
+	name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=back
 
 =head3 Return codes:
         0       :       Normal termination
