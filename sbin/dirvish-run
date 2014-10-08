@@ -24,7 +24,7 @@ $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 my $Errors=0;   	                # No errors so far.
 my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
-my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+my @ConfigFiles=("$BaseDir/${Prog}.cfg");	# Name of config file.
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our $OptionMode='';			# Are we preprocessing, or running for real?
@@ -80,22 +80,8 @@ our %OptionSpecifications=(
 $SIG{HUP} = "IGNORE";
 
 # Load the config file.
-if (-e $ConfigFile) {
-	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-	# Build a hash of settings found in the config file.
-	while (<CONFIG>) {
-		next if (/^\s*#/);      # Comment.
-		next if (/^\s*$/);      # Blank line.
-		chomp;
-		my ($name,$settings)=split(/:?\s+/,$_,2);
-		$name=uc($name);	# Name is not case sensitive.
-		$settings=~s/\s+$//;	# Trim trailing spaces.
-		$Config{$name}.=$settings . ',' ;
-	}
-	close CONFIG;
-	foreach (keys(%Config)) {
-		$Config{$_} =~ s/,$//;	# Remove trailing comma
-	}
+foreach (@ConfigFiles) {
+	LoadConfigFile($_);
 }
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 
@@ -265,6 +251,38 @@ if ($SECTIONLOCK) {
 }
 
 exit( ($Errors?10:0) );
+
+
+#
+# LoadConfigFile - load a configuration file
+#
+sub LoadConfigFile {
+	my $ConfigFile = shift;
+	if (-e $ConfigFile) {
+		my $CONFIGFH;
+		open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+		# Build a hash of settings found in the config file.
+		while (<$CONFIGFH>) {
+			next if (/^\s*#/);      # Comment.
+			next if (/^\s*$/);      # Blank line.
+			chomp;
+			my ($name,$settings)=split(/:?\s+/,$_,2);
+			$name=uc($name);	# Name is not case sensitive.
+			$settings='' unless ($settings);  # Avoid undef warnings.
+			if ($name eq 'INCLUDE') {
+				LoadConfigFile($settings);
+			}
+			else {
+				$settings=~s/\s+$//;	# Trim trailing spaces.
+				$Config{$name}.=$settings . ',' ;
+			}
+		}
+		close $CONFIGFH;
+		foreach (keys(%Config)) {
+			$Config{$_} =~ s/,$//;	# Remove trailing comma
+		}
+	}
+}
 
 
 #
@@ -870,7 +888,7 @@ Vault Options:
 					class data value of "classdata".
 					Ex: --ionice=2/4
 	-O|--option-set=config:		Insert the "config" configuration
-					options from $ConfigFile.
+					options from $ConfigFiles[0].
 
 	-R|--rerun=[days]:		Rerun: delete the most recent backup, 
 					provided that it is no more than "days"
