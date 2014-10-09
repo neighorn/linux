@@ -55,23 +55,7 @@ my @Servers;
 my $OptSpec='e=l h m=l O=s p=l P=l r=s s=s t v';
 
 # Load the config file.
-if (-e $ConfigFile) {
-	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-	# Build a hash of settings found in the config file.
-	while (<CONFIG>) {
-		next if (/^\s*#/);      # Comment.
-		next if (/^\s*$/);      # Blank line.
-		chomp;
-		my ($name,$settings)=split(/:?\s+/,$_,2);
-		$settings =~ s/\s*$//;		# Remove trailing spaces.
-		$name=~tr/[a-z]/[A-Z]/;
-		$Config{$name}.=$settings . ',' ;
-	}
-	close CONFIG;
-	foreach (keys(%Config)) {
-		$Config{$_} =~ s/,$//;	# Remove trailing comma
-	}
-}
+LoadConfigFile($ConfigFile);
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 
 # Process the config file defaults if present.
@@ -121,6 +105,52 @@ if ($ExitCode) {
 
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
+
+
+#
+# LoadConfigFile - load a configuration file
+#
+sub LoadConfigFile {
+	my $ConfigFile = shift;
+	if (-e $ConfigFile) {
+		my $CONFIGFH;
+                open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+                # Build a hash of settings found in the config file.
+                my @Lines;
+
+                # Read config file and assemble continuation lines into single items.
+                while (<$CONFIGFH>) {
+                        next if (/^\s*#/);                      # Comment.
+                        next if (/^\s*$/);                      # Blank line.
+                        chomp;
+                        if (/^\s+/ and @Lines > 0) {
+                                # Continuation line.  Append to prior line.
+                                $Lines[$#Lines] .= " $_";
+                        }
+                        else {
+                                push @Lines, $_;
+                        }
+                }
+                close $CONFIGFH;
+
+                # Process assembled lines.
+                foreach (@Lines) {
+                        my ($name,$settings)=split(/:?\s+/,$_,2);
+                        $name=uc($name);                        # Name is not case sensitive.
+                        $settings='' unless ($settings);        # Avoid undef warnings.
+                        $settings=~s/\s+$//;                    # Trim trailing spaces.
+			if ($name eq 'INCLUDE') {
+				LoadConfigFile($settings);
+			}
+			else {
+				$settings=~s/\s+$//;	# Trim trailing spaces.
+				$Config{$name}.=$settings . ',' ;
+			}
+                }
+        }
+}
+
+
 
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
