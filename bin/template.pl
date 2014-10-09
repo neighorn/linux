@@ -158,6 +158,9 @@ sub LoadConfigFile {
 				$Config{$name}.=$settings . ',' ;
 			}
                 }
+		foreach (keys(%Config)) {
+			$Config{$_} =~ s/,$//;  # Remove trailing comma
+		}
         }
 }
 
