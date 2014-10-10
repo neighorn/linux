@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package df;
 use base 'CheckItem';
-use fields qw(Port User Maxpercent Exclude Posix);	
+use fields qw(Port User Maxpercent Exclude Posix Localonly);	
 
 my %HostHash;	# Hash of lists of df data.
 
@@ -104,11 +104,13 @@ sub Check {
 	my @Data;
 	my $CmdStatus;
 	my $POSIX = (!defined($Self->{Posix}) or $Self->{Posix})?'-P':' ';
+	my $Localonly = (!defined($Self->{Localonly}) or $Self->{Localonly})?'-l':' ';
 
 	# If we're checking localhost, just run it now and evaluate the results.
 	if ($Self->{Host} eq 'localhost') {
 		# Get the data.
-		@Data = `df -lk $POSIX 2> /dev/null`;
+		my $Cmd = "df -k $POSIX $Localonly " . ($Self->{Verbose} < 3?' 2> /dev/null':'');
+		@Data = `$Cmd`;
 		$CmdStatus = $?;
 	    	if ($CmdStatus != 0) {
 		    $Self->{StatusDetail} = "Unable to gather data: $CmdStatus";
@@ -150,8 +152,10 @@ sub Check {
 	    		. "-o 'ConnectTimeOut $Timeout' "
 	    		. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
 	    		. ($Self->{User}?"$Self->{User}@":'')
+	    		. ($Self->{Verbose} > 4?'-vvv ':'')
 	    		. $Self->{Host}
-	    		. " df -lk $POSIX 2> /dev/null"
+	    		. " df -k $POSIX $Localonly "
+			. ($Self->{Verbose} < 3?' 2> /dev/null':'')
 	    		;
 
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
@@ -318,6 +322,11 @@ typically resulting in using the same name as the local user.
 
 Posix - a true value adds the -P flag to the df command (default).  This option allows df to
 work on some embedded systems that don't support the -P option by specifying Posix=0.
+
+=item *
+
+LocalOnly - a true value adds the -l flag to the df command (default).  This option allows df to
+work on some embedded systems that don't support the -l option by specifying LocalOnly=0.
 
 =back
 
