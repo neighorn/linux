@@ -40,6 +40,7 @@ our $opt_r = '';			# -r mysql-backup retention-period passthrough
 our $opt_s = '';			# -s mysql-backup retention-period passthrough
 our $opt_t;				# -t (test) option.
 our $opt_v;				# -v (verbose) option.
+our $opt_z;				# -z compression passhthrough
 #
 my @Servers;
 
@@ -52,7 +53,7 @@ my @Servers;
 #          Normal =s and =i would replace values instead of concatenate.
 #       2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='e=l h m=l O=s p=l P=l r=s s=s t v';
+my $OptSpec='e=l h m=l O=s p=l P=l r=s s=s t v z';
 
 # Load the config file.
 LoadConfigFile($ConfigFile);
@@ -84,6 +85,7 @@ my $BaseOptions = '';
 $BaseOptions .= " -t" if ($opt_t);
 $BaseOptions .= " -r $opt_r" if ($opt_r);
 $BaseOptions .= " -s $opt_s" if ($opt_s);
+$BaseOptions .= " -z" if ($opt_z);
 foreach my $Server (@Servers) {
 	my $Options = $BaseOptions;
 	$Options .= " " . $Config{uc("OPTIONS-$Server")}
