@@ -129,11 +129,14 @@ RunDangerousCmd("swapon -s > $opt_o/swapon.out");
 # Capture lots of system facts, if we can.
 RunDangerousCmd("facter > $opt_o/facter.out");
 
-# Capture LVM configuration information.
-RunDangerousCmd("lvm vgcfgbackup -f $opt_o/vg-%s.out");
-RunDangerousCmd("pvdisplay -m > $opt_o/pvdisplay.out");
-RunDangerousCmd("vgdisplay > $opt_o/vgdisplay.out");
-RunDangerousCmd("lvdisplay > $opt_o/lvdisplay.out");
+# Capture LVM configuration information, if it's in use.
+system('vgdisplay > /dev/null 2>&1');
+if ($? eq 0) {
+	RunDangerousCmd("lvm vgcfgbackup -f $opt_o/vg-%s.out");
+	RunDangerousCmd("pvdisplay -m > $opt_o/pvdisplay.out");
+	RunDangerousCmd("vgdisplay > $opt_o/vgdisplay.out");
+	RunDangerousCmd("lvdisplay > $opt_o/lvdisplay.out");
+}
 
 # Capture network configuration.
 RunDangerousCmd("ifconfig -a > $opt_o/ifconfig.out");
