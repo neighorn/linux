@@ -14,3 +14,6 @@ PERL5LIB="${PERL5LIB%:}"	# Strip trailing colon, if any.
 export PERL5LIB
 #
 export HISTTIMEFORMAT="%F %T "
+#
+# Change LS colors (directory from blue to green; blue on black is hard to read)
+LS_COLORS=`echo $LS_COLORS|sed 's/di=00;34/di=00;33/'`
