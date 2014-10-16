@@ -1,4 +1,6 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*<warn> /sys/devices/virtual/net/\S+: couldn't determine device driver; ignoring...$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*DHCPACK from \S+"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*DHCPREQUEST on \S+ to"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*SCPlugin-Ifupdown: devices? added \(path: /sys/devices/virtual/net/\S+, iface: \S+\)"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*SCPlugin-Ifupdown: devices? removed \(path: /sys/devices/virtual/net/\S+, iface: \S+\)"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*SCPlugin-Ifupdown: devices? removed \(path: /sys/devices/virtual/net/\S+, iface: \S+\)"
