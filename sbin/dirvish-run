@@ -83,7 +83,7 @@ $SIG{HUP} = "IGNORE";
 foreach (@ConfigFiles) {
 	LoadConfigFile($_);
 }
-foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+foreach (%Config { s/,$//;};	# Trim off trailing commas.
 
 # Process the config file defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
@@ -274,13 +274,10 @@ sub LoadConfigFile {
 			}
 			else {
 				$settings=~s/\s+$//;	# Trim trailing spaces.
-				$Config{$name}.=$settings . ',' ;
+				$Config{$name}.=$settings . ' ' ;
 			}
 		}
 		close $CONFIGFH;
-		foreach (keys(%Config)) {
-			$Config{$_} =~ s/,$//;	# Remove trailing comma
-		}
 	}
 }
 
