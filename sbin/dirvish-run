@@ -83,7 +83,7 @@ $SIG{HUP} = "IGNORE";
 foreach (@ConfigFiles) {
 	LoadConfigFile($_);
 }
-foreach (%Config { s/\s*$//;};	# Trim off trailing spaces.
+foreach (%Config) {s/\s*$//;};	# Trim off trailing spaces.
 
 # Process the config file defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
