@@ -1,4 +1,5 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*command channel listening on 127.0.0.1"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*error \(no valid RRSIG\) resolving"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*found \d+ CPUs, using \d+ worker threads$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*lame server resolving"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*listening on \S+ interface"
