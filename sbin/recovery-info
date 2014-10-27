@@ -130,7 +130,7 @@ RunDangerousCmd("swapon -s > $opt_o/swapon.out");
 RunDangerousCmd("facter > $opt_o/facter.out");
 
 # Capture LVM configuration information.
-if (`vgdisplay 2>&1` !~ /No such file or directory/) {
+if (`vgdisplay 2>&1` !~ /(No such file or directory|No entry)/) {
 	RunDangerousCmd("lvm vgcfgbackup -f $opt_o/vg-%s.out");
 	RunDangerousCmd("pvdisplay -m > $opt_o/pvdisplay.out");
 	RunDangerousCmd("vgdisplay > $opt_o/vgdisplay.out");
