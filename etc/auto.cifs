@@ -10,7 +10,7 @@ key="$1"
 #       Please don't use blank spaces to separate the equal sign from the
 #       user account name or password.
 credfile=""
-[[ -e "/usr/local/etc/auto.cifs.d" ]] && credfile="/usr/local/etc/auto.cifs.d/$key"
+[[ -f "/usr/local/etc/auto.cifs.d/$key" ]] && credfile="/usr/local/etc/auto.cifs.d/$key"
 [[ -z "$credfile" && -f "/usr/local/etc/auto.cifs.d/DEFAULT" ]] && credfile="/usr/local/etc/auto.cifs.d/DEFAULT"
 [[ -z "$credfile" ]] && credfile="/usr/local/etc/cifs.credentials/$key" # backwards compatibility
 
