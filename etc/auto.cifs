@@ -9,8 +9,10 @@ key="$1"
 #          password=*****
 #       Please don't use blank spaces to separate the equal sign from the
 #       user account name or password.
-credfile="/usr/local/etc/cifs.credentials/$key"
+credfile=""
 [[ -e "/usr/local/etc/auto.cifs.d" ]] && credfile="/usr/local/etc/auto.cifs.d/$key"
+[[ -z "$credfile" && -f "/usr/local/etc/auto.cifs.d/DEFAULT" ]] && credfile="/usr/local/etc/auto.cifs.d/DEFAULT"
+[[ -z "$credfile" ]] && credfile="/usr/local/etc/cifs.credentials/$key" # backwards compatibility
 
 # Note: Use cifs instead of smbfs:
 mountopts="-fstype=cifs,file_mode=0644,dir_mode=0755,uid=nobody,gid=nobody"
