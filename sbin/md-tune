@@ -1,0 +1,11 @@
+#! /bin/bash
+
+# This is called by /etc/rc.local.  It's kept as a separate script
+# so it can be run manually when new MDs are created.
+
+for name in /sys/block/md*
+do
+    echo 16384 > $name/md/stripe_cache_size
+    /sbin/blockdev --setra 16384 /dev/${name##*/}
+done
+
