@@ -295,7 +295,7 @@ sub ProcessBackup {
 	# If it's running, shut it down.
 	if ( $WasRunning ) {
 		# It's running.
-		print "    ${TestPrefix}Shutting down $Machine\n";
+		print "    ${TestPrefix}Shutting down $Machine\n" if ($Options{verbose});
 		my $Count = 2*$Options{timeout};	# Convert minutes -> 30 second cycles
 		while (! $Options{test} and IsRunning($Machine) and $Count > 0) {
 			RunDangerousCmd("virsh shutdown $Machine")
@@ -351,7 +351,7 @@ sub ProcessBackup {
 
 	# Run the backup.
 	
-	print "    ${TestPrefix}Starting backup\n";
+	print "    ${TestPrefix}Starting backup\n" if ($Options{verbose});
 	my $OutputTmp = "$Output.tmp";		# Create work file name.
 	my $GzipOpt = ($Options{gzip}?'-z':'');
 	my $Status = RunDangerousCmd(qq<tar -chf "$OutputTmp" -C "$TmpDir" $GzipOpt .>);
@@ -379,7 +379,8 @@ sub ProcessBackup {
 	) {
 		print strftime(
 			  "    ${TestPrefix}Restarting $Machine at %Y-%m-%d %T\n"
-				,localtime());
+				,localtime())
+			if ($Options{verbose});
 		foreach ((1,2,3)) {
 			RunDangerousCmd("virsh start $Machine");
 			sleep 10 unless ($Options{test});
@@ -388,7 +389,8 @@ sub ProcessBackup {
 		if (IsRunning($Machine) or $Options{test}) {
 			print strftime(
 				"    ${TestPrefix}$Machine started at %Y-%m-%d %T\n"
-				,localtime());
+				,localtime())
+				if ($Options{verbose});
 		}
 		else {
 			print STDERR "    $Machine failed to restart\n";
@@ -418,7 +420,7 @@ sub RunDangerousCmd {
 		print "    Test: $Cmd\n";
 		return 0;
 	} else {
-		print "    Executing: $Cmd\n" if ($Options{verbose});
+		print "    Executing: $Cmd\n" if ($Options{verbose} > 1);
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
 				$Line=~s/[
