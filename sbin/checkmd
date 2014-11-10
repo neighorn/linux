@@ -290,7 +290,6 @@ LOGONLY	/^Command: /
 #
 SHOW	/^\s*debug:/
 SHOW	/^\s*Checks disabled until/
-SHOW	/^\s*\S+:\s*resync/
 IGNORE	/^Job ended normally with status 0 and signal 0$/
 SHOW	"^Device /dev/\S+:\s+S#"
 SHOW	"^\s*Verbose:"
