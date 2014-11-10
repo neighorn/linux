@@ -179,6 +179,12 @@ sub CheckMDDevices {
 			warn "$mdname: $_\n" unless ($opt_w);
 			$ReturnStatus=1;
 		}
+		if (/^\s*resync=/) {
+			# This device needs resync, but is delayed.  So it is still broken.
+			chomp;
+			warn "$mdname: $_\n" unless ($opt_w);
+			$ReturnStatus=1;
+		}
 	}
 	return $ReturnStatus;
 }
