@@ -5,7 +5,7 @@
 
 for name in /sys/block/md*
 do
-    echo 16384 > $name/md/stripe_cache_size
+    [[ -f $name/md/stripe_cache_size ]] && echo 16384 > $name/md/stripe_cache_size
     /sbin/blockdev --setra 16384 /dev/${name##*/}
 done
 
