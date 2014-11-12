@@ -18,6 +18,8 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*listening on \S+ int
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*loading configuration from '/etc/named.conf'$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*no longer listening on \S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*running$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*reloading configuration succeeded$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*reloading zones succeeded$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*starting BIND \S+ "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*success resolving "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*transfer of .* connected using"
