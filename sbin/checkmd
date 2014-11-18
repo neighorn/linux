@@ -14,6 +14,7 @@ $ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/sbin:/usr/sbin:/usr/bin:/bin';
 our $Prog=$0;			# Get our name, for messages.
 $Prog=~s/^.*\///;		# Trim off the path, if present.
 our @Parms;
+our $opt_C;
 our $opt_d;
 our $opt_f;
 our $opt_h;
@@ -42,7 +43,7 @@ chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
 #	   Normal =s and =i would replace values instead of concatenate.
 #	2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='d f h m=l e=l p=l P=l O=s v w';
+my $OptSpec='C d f h m=l e=l p=l P=l O=s v w';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -165,16 +166,23 @@ sub CheckMDDevices {
 				$ReturnStatus=1;
 			}
 		}
-		if (/\s*[\[\]=>.]+\s*(recovery|resync)/) {
+		if (/\s*[\[\]=>.]+\s*(recovery|resync|check)/) {
+			my $operation=$1;
 			# This is a recovery line.  It's an error, unless we're
 			# checking the RAID.  Find out.
-			my $FH;
-			if (open($FH,'<',"/sys/block/$mdname/md/sync_action")) {
-				my $sync_action=<$FH>;
-				close $FH;
-				next if ($sync_action =~ /^check/);	# We're verifying.
+			if ($operation ne 'check') {
+				# Older versions didn't flag check in /proc/mdstat.
+				my $FH;
+				if (open($FH,'<',"/sys/block/$mdname/md/sync_action")) {
+					my $sync_action=<$FH>;
+					close $FH;
+					$operation = 'check' if ($sync_action =~ /^check/);	# We're verifying.
+				}	
 			}
-			# We're recovering.  Report.
+			# If we're checking, and haven't been told to treat that as an error, we're OK.
+			next if ($operation eq 'check' and !$opt_C);
+
+			# We're recovering (or checking and told to treat that as an error).  Report.
 			chomp;
 			warn "$mdname: $_\n" unless ($opt_w);
 			$ReturnStatus=1;
@@ -224,6 +232,8 @@ Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
 	$Prog [-h]
 
 Flags:
+	-C:		Check: consider check (verify) status as an error.
+			By default RAIDs that are verifying are considered healthy.
 	-e mailid:	Error: Send an execution report to this e-mail address
 			if errors are detected.
 	-f:		Force: Ignore "DisableUntil" parameter from the config file.
