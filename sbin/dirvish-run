@@ -288,6 +288,7 @@ sub LoadConfigFile {
 sub ProcessBackup {
 
 	my $Target = shift;
+	my $VaultStartTime = time();
 	if ($Options{verbose} >= 3) {
 		print "Verbose:	Beginning backup of $Target.  Options:\n";
 		print Dumper(\%Options);
@@ -475,7 +476,7 @@ sub ProcessBackup {
 			next unless ( -d "$Dir" and ! -l "$Dir");		# Skip symbolic links ("latest"), etc.
 			next unless ( -f "$Dir/summary");			# Skip stray non-backup folders.
 			next unless ((stat($Dir))[9] > $TargetStartTime);	# Skip older backups.
-			Summarize($Target, $Dir);
+			Summarize($Target, $Dir, $VaultStartTime);
 		}
 	} else {
 		print "dirvish failed with status $Status\n";
@@ -548,7 +549,7 @@ sub PrintStatsFile {
 # Summarize - write a summary about this backup.
 #
 sub Summarize {
-	my($Target,$Directory) = @_;			# Current directory we're processing.
+	my($Target,$Directory,$VaultStartTime) = @_;			# Current directory we're processing.
 	# Document any errors in the execution report.
 	if (!open(SUMMARY,'<', "$Directory/summary")) {
 		warn "Unable to open $Directory/summary: $!\n";
@@ -581,12 +582,18 @@ sub Summarize {
 	}
 	$TotalSize=FormatSize($TotalSize);
 	$NewSize=FormatSize($NewSize);
+	my $RunTime=time()-$VaultStartTime;
+	my $RunHours=int($RunTime/3600);
+	my $RunMin=int(($RunTime-$RunHours*3600)/60);
+	my $RunSec=$RunTime%60;
 	printf "    %s %s: " . 
 		"Total Items: %s (%s), " .
-		"New Items: %s (%s)\n",
+		"New Items: %s (%s), Run Time: %02d:%02d:%02ds\n",
 		$Target,              $Directory,
 		commify($TotalItems), $TotalSize,
-		commify($NewItems),   $NewSize;
+		commify($NewItems),   $NewSize,
+		$RunHours, $RunMin, $RunSec,
+		;
 	print $WarnText if ($WarnText);
 }
 
@@ -976,7 +983,7 @@ LOGONLY /^Command: /
 # These are normal messages that we want to see.
 #
 SHOW	"^\s*[-_]+\s*$"
-SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 SHOW	/^\s*Unable to lock (stat|mail) file "\S+": Resource temporarily unavailable/
 # Ignore dirvish-expire messages
 IGNORE	"^\s*Expiring\s"
@@ -984,7 +991,7 @@ IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
 IGNORE	"^\s*\S+:\S+\s+.*\s+==\s+\d{4}-\d\d-\d\d \d\d:\d\d\s*$"
 #
-SHOW	"^\s*\S+ \S+: Total Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\), New Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\)$"
+SHOW	"^\s*\S+ \S+: Total Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\), New Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\), Run Time: \d\d"\d\d"\d\ds$"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
 SHOW	"^\s*Disk space report:$"
