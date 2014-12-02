@@ -587,8 +587,8 @@ sub Summarize {
 	my $RunMin=int(($RunTime-$RunHours*3600)/60);
 	my $RunSec=$RunTime%60;
 	printf "    %s %s: " . 
-		"Total Items: %s (%s), " .
-		"New Items: %s (%s), Run Time: %02d:%02d:%02ds\n",
+		"Total Items: %-7s (%-6s), " .
+		"New Items: %-3s (%-6s), Run Time: %02d:%02d:%02ds\n",
 		$Target,              $Directory,
 		commify($TotalItems), $TotalSize,
 		commify($NewItems),   $NewSize,
