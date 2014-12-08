@@ -43,6 +43,9 @@ my $JOBLOCK;				# File handle for a job lock file, if used.
 my $SECTIONLOCK;			# File handle for a section lock file, if used.
 
 our $StartTime = time();		# Primarily for ifbefore, imagename.
+our $MaxVaultLength=0;			# Length of longest vault name, for formatting.
+our $MaxVaultDirLength=0;		# Length of longest vault directory, for formatting.
+our @Banks;				# List of banks, from the config file.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -93,13 +96,16 @@ push @ARGV,(shellwords($Config{DEFAULTJOB}))
 # Process the config file defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 	if (defined($Config{'ALLJOBS'}));
+@Banks = shellwords(($Config{BANKS}));	# Need this early for GetMachineDir.
 
 # Pre-process our command line, to get the options we need for LogOutput.
 my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
 $OptionMode = 'preprocess';	# Some options need to know if we're running or not.
 %Options=(verbose => 0);	# Initialize Options.
+$OptionSpecifications{'<>'}=\&GetNameLengths;	# Get max length of names.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+$MaxVaultDirLength+=14;		# Add room for a vault name.  This is a reasonable guess.
 $OptionMode = 'normal';		# We're done preprocessing.
 
 # Set our ionice value, if specified, so it applies to LogOutput's child too.
@@ -155,7 +161,6 @@ die "No BANKS defined in configuration file(s)"
 	unless (defined($Config{BANKS}) 
 		and exists($Config{BANKS})
 		and $Config{BANKS});
-my @Banks = shellwords(($Config{BANKS}));
 
 PrintStatsFile(strftime("%D %T $Prog started<br>",localtime()));
 if ($Options{joblockfile}) {
@@ -283,6 +288,18 @@ sub LoadConfigFile {
 
 
 #
+# GetNameLengths - get the length of the longest vault and machine directory
+#                  for formatting purposes.
+sub GetNameLengths {
+	my $Vault = shift;
+	my $length = length($Vault);
+	$MaxVaultLength = ($MaxVaultLength > $length?$MaxVaultLength:$length);
+	$length = length(GetMachineDirectory($Vault,0));
+	$MaxVaultDirLength = ($MaxVaultDirLength > $length?$MaxVaultDirLength:$length);
+}
+
+
+#
 # ProcessBackup - run a particular backup
 #
 sub ProcessBackup {
@@ -295,32 +312,8 @@ sub ProcessBackup {
 	}
 	PrintStatsFile(strftime("\n%D %T Starting $Target\n",localtime()));
 
-	# Make sure they gave us a valid vault.
-	if ($Target =~ m"^/") {
-		# They gave us a full path.  See if it's valid.
-		($MachineDirectory=$Target) =~ s":"/";
-		$MachineDirectory =~ s"^(.*)[^/]*$"$1";
-		$Target =~ s"^.*([^/]*$)"$1";
-		if (! -d $MachineDirectory) {
-			warn "$MachineDirectory not found\n";
-			$Errors++;
-			return;
-		};
-	} else {
-		# No full path.  Hunt for it.
-		$MachineDirectory='';
-		foreach (@Banks) {
-			if (-d "$_/$Target/dirvish") {
-				$MachineDirectory = "$_/$Target";
-				last;
-			}
-		}
-		if (! $MachineDirectory) {
-			warn "Unable to locate $Target in dirvish banks.\n";
-			$Errors++;
-			return;
-		}
-	}
+	return unless($MachineDirectory=GetMachineDirectory($Target,0));
+
 
 	# Document that we're starting a new target.
 	print strftime("Starting $Target at %H:%M:%S on %A, %Y-%m-%d...\n",localtime());
@@ -495,6 +488,39 @@ sub ProcessBackup {
 
 
 #
+# GetMachineDirectory - find the machine directory for a target.
+#
+sub GetMachineDirectory {
+	my($Target,$Quiet) = @_;
+	my $MachineDirectory = '';
+	# Make sure they gave us a valid vault.
+	if ($Target =~ m"^/") {
+		# They gave us a full path.  See if it's valid.
+		($MachineDirectory=$Target) =~ s":"/";
+		$MachineDirectory =~ s"^(.*)[^/]*$"$1";
+		$Target =~ s"^.*([^/]*$)"$1";
+		if (! -d $MachineDirectory & ! $Quiet) {
+			warn "$MachineDirectory not found\n";
+			$Errors++;
+		};
+	} else {
+		# No full path.  Hunt for it.
+		foreach (@Banks) {
+			if (-d "$_/$Target/dirvish") {
+				$MachineDirectory = "$_/$Target";
+				last;
+			}
+		}
+		if (! $MachineDirectory & ! $Quiet) {
+			warn "Unable to locate $Target in dirvish banks.\n";
+			$Errors++;
+		}
+	}
+	return $MachineDirectory;
+}
+
+
+#
 # PrintStatsFile - write an HTML stats file for easy monitoring.
 #
 sub PrintStatsFile {
@@ -586,12 +612,16 @@ sub Summarize {
 	my $RunHours=int($RunTime/3600);
 	my $RunMin=int(($RunTime-$RunHours*3600)/60);
 	my $RunSec=$RunTime%60;
-	printf "    %s %s: " . 
-		"Total Items: %-7s (%-6s), " .
-		"New Items: %-3s (%-6s), Run Time: %02d:%02d:%02ds\n",
-		$Target,              $Directory,
-		commify($TotalItems), $TotalSize,
-		commify($NewItems),   $NewSize,
+	my $length = length($Directory);
+	$MaxVaultDirLength = ($length > $MaxVaultDirLength?$length:$MaxVaultDirLength);
+	printf "    %-*s %-*s: " . 
+		"Total Items: %-15s " .
+		"New Items: %-15s " .
+		"Run Time: %02d:%02d:%02ds\n",
+		$MaxVaultLength, $Target,
+		$MaxVaultDirLength, $Directory,
+		commify($TotalItems) . "=" . $TotalSize . ',' ,
+		commify($NewItems) . "=" . $NewSize . ',' ,
 		$RunHours, $RunMin, $RunSec,
 		;
 	print $WarnText if ($WarnText);
@@ -991,7 +1021,7 @@ IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
 IGNORE	"^\s*\S+:\S+\s+.*\s+==\s+\d{4}-\d\d-\d\d \d\d:\d\d\s*$"
 #
-SHOW	"^\s*\S+ \S+: Total Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\), New Items: [\d,]+ \(\d+(\.\d)?[BKGMT]\), Run Time: \d\d:\d\d:\d\ds$"
+SHOW	"^\s*\S+\s+\S+\s*:\s+Total Items:\s+[\d,]+=\d+(\.\d)?[BKGMT],\s+New Items:\s+[\d,]+=\d+(\.\d)?[BKGMT],\s+Run Time: \d\d:\d\d:\d\ds$"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
 SHOW	"^\s*Disk space report:$"
