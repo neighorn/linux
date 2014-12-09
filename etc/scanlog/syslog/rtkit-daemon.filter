@@ -2,3 +2,4 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Demoted \d+ t
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Demoting known real-time threads.\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Successfully demoted thread \d+ of process \d+ "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Sucessfully made thread \d+ of process \d+ \(\S+\) owned by "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Supervising \d+ threads of \d+ processes of \d+ users.$"
