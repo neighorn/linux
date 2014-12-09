@@ -14,7 +14,7 @@ function ReadLSOF {
 		fi
 		# [[ $fh = [0-9]*r ]] && continue			# Filter out input file.
 		filename="${filename% (*}"			# Clean up NFS mounts.
-		percent=`df -hP "${filename%/*}" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
+		percent=`df -hlP "${filename%/*}" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
 
 		# Get size in a compact unit.
 		size=`stat -c %s "$filename" 2> /dev/null`
@@ -69,7 +69,7 @@ do
 	while read trash pid trash trash trash trash trash trash dir
 	do
 		dir=${dir%%/tree/*}
-		percent=`df -hP "$dir" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
+		percent=`df -hlP "$dir" | awk '!/Filesystem/ {gsub(/%/,"",$5);print \$5}'`
 		printf "%-s %5d %-6s % 3d%%: %s\n" $now $pid "expire" $percent "$dir"
 	done |
 	sort -r |
