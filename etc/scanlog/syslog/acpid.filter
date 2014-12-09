@@ -1,3 +1,3 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ \[acpid\]: client connected from"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ \[acpid\]: client \d+\[\d+:\d+\] has disconnected$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ \[acpid\]: \d+ client rule loaded\s*$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ \[?acpid\]?: client connected from"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ \[?acpid\]?: client \d+\[\d+:\d+\] has disconnected$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ \[?acpid\]?: \d+ client rule loaded\s*$"
