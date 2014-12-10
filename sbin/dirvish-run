@@ -604,19 +604,26 @@ sub Summarize {
 	$TotalSize=FormatSize($TotalSize);
 	$NewSize=FormatSize($NewSize);
 	my $RunTime=time()-$VaultStartTime;
-	my $RunHours=int($RunTime/3600);
-	my $RunMin=int(($RunTime-$RunHours*3600)/60);
-	my $RunSec=$RunTime%60;
+	if ($RunTime == 0) {
+		$RunTime = '       0';
+	}
+	else {
+		my $RunHours=int($RunTime/3600);
+		my $RunMin=int(($RunTime-$RunHours*3600)/60);
+		my $RunSec=$RunTime%60;
+		$RunTime = sprintf("%02d:%02d:%02d",$RunHours,$RunMin,$RunSec);
+		$RunTime =~ s/^\s*[0:]+//g;
+	}
 	my $length = length($Directory);
 	printf "    %-*s : " . 
 		"Total Items: %9s =%7s, " .
 		"New Items: %9s =%7s, " .
-		"Run Time: %02d:%02d:%02ds, " .
+		"Run Time: %8ss, " .
 		"%s\n",
 		$MaxVaultLength, $Target,
 		commify($TotalItems), $TotalSize ,
 		commify($NewItems), $NewSize , 
-		$RunHours, $RunMin, $RunSec,
+		$RunTime,
 		$Directory,
 		;
 	print $WarnText if ($WarnText);
@@ -659,7 +666,7 @@ sub FormatSize {
 		}
 	}
 	$Size = sprintf("%.1f%s",$Size,$Unit);
-	$Size =~ s/\.0// if ($Size =~ /\d+\.0.$/);	# Normalize number.
+	#$Size =~ s/\.0// if ($Size =~ /\d+\.0.$/);	# Normalize number.
 	return $Size;
 }
 
@@ -1016,7 +1023,7 @@ IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
 IGNORE	"^\s*\S+:\S+\s+.*\s+==\s+\d{4}-\d\d-\d\d \d\d:\d\d\s*$"
 #
-SHOW	"^\s*\S+\s*:\s+Total Items:\s+[\d,]+\s*=\s*\d+(\.\d)?[BKGMT],\s+New Items:\s+[\d,]+\s*=\s*\d+(\.\d)?[BKGMT],\s+Run Time: \d\d:\d\d:\d\ds, \S"
+SHOW	"^\s*\S+\s*:\s+Total Items:\s+[\d,]+\s*=\s*\d+(\.\d)?[BKGMT],\s+New Items:\s+[\d,]+\s*=\s*\d+(\.\d)?[BKGMT],\s+Run Time:\s+[\d:]*\ds, \S"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
 SHOW	"^\s*Disk space report:$"
