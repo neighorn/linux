@@ -1,10 +1,11 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\d+ unexpected messages"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+ /\S+: Total Items:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+: ERROR: "
-# Sample message:                         dirvish-run[17169]: ben:daily       2014-03-05-Wed  2014-03-05 00:53  +35 days == 2014-04-09 00:41
-#                                         dirvish-run[11223]: hargor  : Total Items:   3 =  34.0B, New Items: 0 =   0.0B, Run Time:  8s, /usr/local/dirvish/hargor/2014-12-11-Thu
+# Sample message:  dirvish-run[17169]: ben:daily       2014-03-05-Wed  2014-03-05 00:53  +35 days == 2014-04-09 00:41
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+:\S+\s*\d{4}-\d\d-\d\d-...\s+\d{4}-\d\d-\d\d\s+\d\d:\d\d\s+\+\d+ \S+ == \d{4}-\d\d-\d\d \d\d:\d\d$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+\s*:\s+Total Items:\s*\d+ =\s*\d+\.\d[BKMGT], New Items:\s*\d+ =\s*\d+\.\d[BKMGT], Run Time:\s*[\d:]+s, \S+$"
+#                                                                office  : Total Items: 1,633,276 =  83.5G, New Items:     1,903 =1004.7M, Run Time: 00:23:37s, /usr/local/dirvish/office/2014-12-10-Wed
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+\s*:\s+Total Items:\s*[\d,]+ =\s*\d+\.\d[BKMGT], New Items:\s*[\d,]+ =\s*\d+\.\d[BKMGT], Run Time:\s*[\d:]+s, \S"
+#IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+\s*:\s+Total Items:\s*[\d,]+ =\s*\d+\.\d"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+\s+[\d.]+.\s+[\d.]+.\s+[\d.]+.\s+(\d|[0-8]\d|9[0-4])%\s+\S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+_+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+dirvish \S+:\S+ error"
@@ -13,7 +14,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+dirvish failed
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+dirvish-run failed.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+Disk space report:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+Expiring images as of \S+ \S+$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+job \d+ at \S+ \S+\s+\d+\s+\d+:\d+:\d+ \d+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+job \d+ at "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+Job failed with status \d+ and signal \d+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+Running:? "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+Skipped \S+ due to \"--ifbefore\" time constraints.$"
