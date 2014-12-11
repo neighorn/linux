@@ -7,4 +7,5 @@ SHOW	"^... [ 0-3]\d 00:0\d:\d\d \S+ rsyslogd(-\d+)?:\s*\[origin software=\"rsysl
 SHOW	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*imklog \S+, log source = /proc/kmsg started.$"
 SHOW	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*Kernel logging \(proc\) stopped.$"
 SHOW	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd(-\d+)?:\s*\[origin software=\"rsyslogd\" swVersion=\"\d+.\d+.\d+\" x-pid=\"\d+\" x-info=\"http://www.rsyslog.com\"\] (\(re\))?start$"
+SHOW	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd(-\d+)?:\s*\[origin software=\"rsyslogd\" swVersion=\"\d+.\d+.\d+\" x-pid=\"\d+\" x-info=\"http://www.rsyslog.com\"\] exiting on signal 15.$"
 SHOW	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd(-\d+)?:\s*\[origin software=\"rsyslogd\" swVersion=\"\d+.\d+.\d+\" x-pid=\"\d+\" x-info=\"http://www.rsyslog.com\"\] rsyslogd was HUPed"
