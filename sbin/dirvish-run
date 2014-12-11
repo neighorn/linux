@@ -44,7 +44,6 @@ my $SECTIONLOCK;			# File handle for a section lock file, if used.
 
 our $StartTime = time();		# Primarily for ifbefore, imagename.
 our $MaxVaultLength=0;			# Length of longest vault name, for formatting.
-our $MaxVaultDirLength=0;		# Length of longest vault directory, for formatting.
 our @Banks;				# List of banks, from the config file.
 
 # Define our command-line options.  I use sub for everything, because
@@ -105,7 +104,6 @@ $OptionMode = 'preprocess';	# Some options need to know if we're running or not.
 $OptionSpecifications{'<>'}=\&GetNameLengths;	# Get max length of names.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
-$MaxVaultDirLength+=14;		# Add room for a vault name.  This is a reasonable guess.
 $OptionMode = 'normal';		# We're done preprocessing.
 
 # Set our ionice value, if specified, so it applies to LogOutput's child too.
@@ -288,14 +286,11 @@ sub LoadConfigFile {
 
 
 #
-# GetNameLengths - get the length of the longest vault and machine directory
-#                  for formatting purposes.
+# GetNameLengths - get the length of the longest vault for formatting purposes.
 sub GetNameLengths {
 	my $Vault = shift;
 	my $length = length($Vault);
 	$MaxVaultLength = ($MaxVaultLength > $length?$MaxVaultLength:$length);
-	$length = length(GetMachineDirectory($Vault,0));
-	$MaxVaultDirLength = ($MaxVaultDirLength > $length?$MaxVaultDirLength:$length);
 }
 
 
@@ -609,20 +604,27 @@ sub Summarize {
 	$TotalSize=FormatSize($TotalSize);
 	$NewSize=FormatSize($NewSize);
 	my $RunTime=time()-$VaultStartTime;
-	my $RunHours=int($RunTime/3600);
-	my $RunMin=int(($RunTime-$RunHours*3600)/60);
-	my $RunSec=$RunTime%60;
+	if ($RunTime == 0) {
+		$RunTime = '       0';
+	}
+	else {
+		my $RunHours=int($RunTime/3600);
+		my $RunMin=int(($RunTime-$RunHours*3600)/60);
+		my $RunSec=$RunTime%60;
+		$RunTime = sprintf("%02d:%02d:%02d",$RunHours,$RunMin,$RunSec);
+		$RunTime =~ s/^\s*[0:]+//g;
+	}
 	my $length = length($Directory);
-	$MaxVaultDirLength = ($length > $MaxVaultDirLength?$length:$MaxVaultDirLength);
-	printf "    %-*s %-*s: " . 
-		"Total Items: %-15s " .
-		"New Items: %-15s " .
-		"Run Time: %02d:%02d:%02ds\n",
+	printf "    %-*s : " . 
+		"Total Items: %9s =%7s, " .
+		"New Items: %9s =%7s, " .
+		"Run Time: %8ss, " .
+		"%s\n",
 		$MaxVaultLength, $Target,
-		$MaxVaultDirLength, $Directory,
-		commify($TotalItems) . "=" . $TotalSize . ',' ,
-		commify($NewItems) . "=" . $NewSize . ',' ,
-		$RunHours, $RunMin, $RunSec,
+		commify($TotalItems), $TotalSize ,
+		commify($NewItems), $NewSize , 
+		$RunTime,
+		$Directory,
 		;
 	print $WarnText if ($WarnText);
 }
@@ -664,7 +666,7 @@ sub FormatSize {
 		}
 	}
 	$Size = sprintf("%.1f%s",$Size,$Unit);
-	$Size =~ s/\.0// if ($Size =~ /\d+\.0.$/);	# Normalize number.
+	#$Size =~ s/\.0// if ($Size =~ /\d+\.0.$/);	# Normalize number.
 	return $Size;
 }
 
@@ -1021,7 +1023,7 @@ IGNORE	"^\s*VAULT:BRANCH\s+IMAGE\s+CREATED\s+EXPIRED\s*$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
 IGNORE	"^\s*\S+:\S+\s+.*\s+==\s+\d{4}-\d\d-\d\d \d\d:\d\d\s*$"
 #
-SHOW	"^\s*\S+\s+\S+\s*:\s+Total Items:\s+[\d,]+=\d+(\.\d)?[BKGMT],\s+New Items:\s+[\d,]+=\d+(\.\d)?[BKGMT],\s+Run Time: \d\d:\d\d:\d\ds$"
+SHOW	"^\s*\S+\s*:\s+Total Items:\s+[\d,]+\s*=\s*\d+(\.\d)?[BKGMT],\s+New Items:\s+[\d,]+\s*=\s*\d+(\.\d)?[BKGMT],\s+Run Time:\s+[\d:]*\ds, \S"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 # The disk space report is normal unless capacity reaches 90% full.
 SHOW	"^\s*Disk space report:$"
