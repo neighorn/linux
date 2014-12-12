@@ -140,7 +140,7 @@ foreach my $Host (@HostList) {
 	my $Cmd=
 		($Host ne 'localhost'?"ssh $Host ":'')
 		. 'iptables-save | '
-		. q<sed '/^#/d;/^:/s/\[[0-9]*:[0-9]*\]$//' | >	# Strip comments, table counters
+		. q<sed '/^#/d;/^:/s/\[[0-9]*:[0-9]*\]$//' >	# Strip comments, table counters
 		;
 	# Are we saving (-s) or comparing?
 	if ($Options{save}) {
