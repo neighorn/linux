@@ -107,9 +107,9 @@ die("$Options{refdir} does not exist\n")
 # Interpret remote-host if present.
 my @HostList;
 foreach (@{$Options{"hosts"}},@Parms) {
-	if (exists($Config{$_})) {
+	if (exists($Config{uc($_)})) {
 		# This is a config name.  Interpret it.
-		push @HostList, split(/\s+/,$Config{$_});
+		push @HostList, split(/\s+/,$Config{uc($_)});
 	}
 	else {
 		# This must be a host name.
