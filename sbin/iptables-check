@@ -147,13 +147,13 @@ foreach my $Host (@HostList) {
 		# Saving.  Just store the output in the ref file.
 		$Cmd .= " > $RefFile";
 		my $Status = RunDangerousCmd($Cmd);
-		print "$Host matches\n" if ($Status == 0);
+		print "$Host saved\n" if ($Status == 0);
 	}
 	else {
 		# Comparing.  Pipe the output through diff.
 		$Cmd .= "| diff -bB --unified=0 --label=Reference --label=Current -- $RefFile -";
 		my $Status = RunDangerousCmd($Cmd);
-		print "$Host saved\n" if ($Status == 0);
+		print "$Host matches\n" if ($Status == 0);
 	}
 	
 }
