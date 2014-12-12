@@ -39,7 +39,8 @@ our %OptionSpecifications=(
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'hosts|host|H=s'	=>	\&opt_Array,
-		'refdir|reference-dir=s'	=>	\&opt_Value,
+		'refdir|reference-dir=s'=>	\&opt_Value,
+		'save|s'		=>	\&opt_Value,
 );
 #
 
@@ -126,7 +127,7 @@ foreach my $Host (@HostList) {
 	printf "%s %-*s %s\n", '-' x 20, $MaxLength, $Host, '-' x 20
 		if $Header;
 	my $RefFile;
-	if (-f "$Options{refdir}/$Host.ref") {
+	if (-f "$Options{refdir}/$Host.ref" or $Options{save}) {
 		$RefFile = "$Options{refdir}/$Host.ref";
 	}
 	elsif (-f "$Options{refdir}/DEFAULT.ref") {
@@ -140,10 +141,20 @@ foreach my $Host (@HostList) {
 		($Host ne 'localhost'?"ssh $Host ":'')
 		. 'iptables-save | '
 		. q<sed '/^#/d;/^:/s/\[[0-9]*:[0-9]*\]$//' | >	# Strip comments, table counters
-		. "diff -bB --unified=0 --label=Reference --label=Current -- $RefFile -"
 		;
-	my $Status = RunDangerousCmd($Cmd);
-	print "$Host matches\n" if ($Status == 0);
+	# Are we saving (-s) or comparing?
+	if ($Options{save}) {
+		# Saving.  Just store the output in the ref file.
+		$Cmd .= " > $RefFile";
+		my $Status = RunDangerousCmd($Cmd);
+		print "$Host matches\n" if ($Status == 0);
+	}
+	else {
+		# Comparing.  Pipe the output through diff.
+		$Cmd .= "| diff -bB --unified=0 --label=Reference --label=Current -- $RefFile -";
+		my $Status = RunDangerousCmd($Cmd);
+		print "$Host saved\n" if ($Status == 0);
+	}
 	
 }
 		
@@ -327,6 +338,8 @@ sub opt_h {
 				current iptables configuration to.  Each
 				host is compared to a file "hostname.ref"
 				file if present, or else to "DEFAULT.ref".
+	--save|-s		Save: Save the current IPTables 
+				configuration as the new reference file.
 
 =head3 Parameters:
         (none)
