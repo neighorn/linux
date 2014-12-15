@@ -9,6 +9,7 @@ use ProcessOptions;
 use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
+use File::Basename;
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -60,7 +61,7 @@ our $ExitCode;
 my $HostName = `hostname`;
 chomp $HostName;
 $HostName =~ s/\..*$//;		# Strip domain.
-our $BaseDir="/usr/local/backup/$HostName";	# Set our base directory.
+our $BaseDir="/usr/local/backup/$Prog";	# Set our base directory.
 #
 # ---------------------------------------------------------
 #
@@ -69,10 +70,12 @@ our $BaseDir="/usr/local/backup/$HostName";	# Set our base directory.
 our $OutputDir;			# Name of directory we're creating.
 if ($opt_D) {
 	$OutputDir = $opt_D;
+	$BaseDir = basename($OutputDir);
 }
 else {
-	$OutputDir=strftime("$BaseDir/%m-%d",localtime());
+	$OutputDir="$BaseDir/%m-%d";
 }
+$OutputDir=strftime($OutputDir,localtime());
 
 
 chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin: $!\n";
@@ -157,9 +160,10 @@ RunDangerousCmd("rm -rf $BaseDir/*.bad 2> /dev/null");
 #
 # Keep the most recent $opt_C back-ups.
 #
-if (open(my $FHLS,"ls -dt $BaseDir/[01][0-9]-[0-3][0-9] |")) {
+if (open(my $FHLS,"ls -dt $BaseDir 2> /dev/null |")) {
         my $Count=0;
 	while (<$FHLS>) {
+		next unless (-d $_);	# Skip non-directories.
 		$Count++;
                 RunDangerousCmd("rm -rf $_") if ($Count > $opt_C);
 	}
