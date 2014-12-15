@@ -105,7 +105,17 @@ LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
 # Verify the command line.
 if (@Parms == 0) {
 	# No parms.  Auto-generate a list.
-	@Parms = split(/\s+/,`ls /dev/md?*`);
+	my $FH;
+	if (open($FH,'ls /dev/md?* |')) {
+		foreach (<$FH>) {
+			chomp;
+			push @Parms,$_ if (m"/dev/md\d+");
+		}
+		close $FH;
+	}
+	else {
+		die "Unable to auto-generate /dev/md list: $!";
+	}
 }
 die("No devices found.  See \"$Prog -h\" for usage.")
 	unless (@Parms > 0);
@@ -167,7 +177,9 @@ foreach my $device (@Parms) {
 		}
 		if ($Status eq 'idle') {
 			print strftime(
-				"Completed check of /dev/$device at %T on %Y-%m-%d\n",
+				"Completed check of /dev/$device at %T on %Y-%m-%d"
+				. ($opt_t?' (test)':'')
+				. "\n",
 				localtime());
 			;
 		}
