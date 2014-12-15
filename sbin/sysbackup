@@ -160,12 +160,13 @@ RunDangerousCmd("rm -rf $BaseDir/*.bad 2> /dev/null");
 #
 # Keep the most recent $opt_C back-ups.
 #
-if (open(my $FHLS,"ls -dt $BaseDir 2> /dev/null |")) {
+if (open(my $FHLS,"ls -t $BaseDir 2> /dev/null |")) {
         my $Count=0;
 	while (<$FHLS>) {
-		next unless (-d $_);	# Skip non-directories.
+		chomp;
+		next unless (-d "$BaseDir/$_");	# Skip non-directories.
 		$Count++;
-                RunDangerousCmd("rm -rf $_") if ($Count > $opt_C);
+                RunDangerousCmd("rm -rf $BaseDir/$_") if ($Count > $opt_C);
 	}
 	close $FHLS;
 } else {
@@ -343,9 +344,14 @@ Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v
 	$Prog -h
 
 Flags:
-	-C cycle-count:	Cycles: Keep "cycle-count" cycles.  Default is 5.
+	-C cycle-count:	Cycles: Keep "cycle-count" cycles.  Default is 5.  Note
+			that any directories found in the parent of the output
+			directory (e.g. /usr/local/backup/sysbackup by default)
+			are candidates for deletion, so the parent directory
+			must be dedicated to holding these backups.
 	-D output-dir:	Write to "output-dir".  Default is:
-			/usr/local/backup/`hostname`/mm-dd
+			/usr/local/backup/sysbackup/%m-%d.  This value is
+			processed with strftime to interpret % variables.
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
 	-h      :       Help: display this panel
