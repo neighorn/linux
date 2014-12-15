@@ -75,7 +75,8 @@ if ($opt_D) {
 else {
 	$OutputDir="$BaseDir/%m-%d";
 }
-$OutputDir=strftime($OutputDir,localtime());
+$OutputDir =~ s/%C/$HostName/g;			# Interpret %C.
+$OutputDir=strftime($OutputDir,localtime());	# Interpret other variables.
 
 
 chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin: $!\n";
@@ -344,14 +345,13 @@ Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v
 	$Prog -h
 
 Flags:
-	-C cycle-count:	Cycles: Keep "cycle-count" cycles.  Default is 5.  Note
-			that any directories found in the parent of the output
-			directory (e.g. /usr/local/backup/sysbackup by default)
-			are candidates for deletion, so the parent directory
-			must be dedicated to holding these backups.
+	-C cycle-count:	Cycles: Keep "cycle-count" cycles.  Default is 5.  Older
+			backups will be deleted.  See cautionary note below.
 	-D output-dir:	Write to "output-dir".  Default is:
-			/usr/local/backup/sysbackup/%m-%d.  This value is
-			processed with strftime to interpret % variables.
+			/usr/local/backup/sysbackup/%m-%d.  The output directory
+			may contain % variables.  %C is replaced with the short
+			host name.  Remaining % variables are interpreted by
+			strftime.
 	-e mailid:      Error: Send an execution report to this e-mail address
 			if errors are detected.
 	-h      :       Help: display this panel
@@ -372,6 +372,14 @@ Flags:
 
 Parameters:
 	(none)
+
+Notes:
+As indicated above, cycle processing implies deleting older directories.  If
+cycle processing is requested with -C, then any directory in the parent is a
+candidate for deletion.  For example, with the default output directory of
+/usr/local/backup/sysbackup/%m-%d, any directory contained within
+/usr/local/backup/sysbackup is a candidate for deletion.  Therefore, the
+parent directory should only be used for holding these backups.
 
 Return codes:
 	0       :       Normal termination
