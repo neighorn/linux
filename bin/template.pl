@@ -256,7 +256,7 @@ sub opt_h {
         $Prog -h
 
 =head3 Flags:
-        --error-mail|-e mailid: Error: Send an execution report to this
+        --error-mail|-M mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
                                 filter file "filter".  The default is
