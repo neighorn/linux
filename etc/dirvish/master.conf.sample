@@ -8,7 +8,7 @@ exclude:
 	/sys/
 	/dev/shm
 	/home/*/.gvfs
-	/usr/local/backup/*/*/*.gz
+	/usr/local/backup/sysbackup/*/*.gz
 	/usr/local/dirvish/*/*/tree/*
 Runall:
 	machine1 machine2 machine3
