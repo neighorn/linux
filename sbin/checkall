@@ -254,6 +254,7 @@ foreach my $Item (@ItemList) {
 		# CHECK_STILL_DOWN -- Item is still down.
 		#
 		$Errors++;
+		push @StillFail, $LongDesc;
 		#syslog('WARNING','%s',"$Desc is still failing")
 		#	if ($^O !~ /MSWin/);
 		if ($Now >= $Item->NextNotification) {
