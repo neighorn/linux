@@ -8,6 +8,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*clients-per-query (i
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*command channel listening on 127.0.0.1"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*corporation.  Support and training for BIND 9 are$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*error \(no valid RRSIG\) resolving"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*error \(broken trust chain\) resolving"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*found \d+ CPUs, using \d+ worker threads$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*generating session key for dynamic DNS$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ named(\[\d+\])?:\s*Inc. \(ISC\), a non-profit 501\(c\)\(3\) public-benefit$"
