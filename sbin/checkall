@@ -246,17 +246,12 @@ foreach my $Item (@ItemList) {
 		# CHECK_STILL_OK -- Item is still up.
 		# CHECK_NOT_TESTED -- Not tested due to TOD restrictions.
 		#
-		# syslog('INFO','%s is still OK',$Desc)  - don't fill log with "still OK".
-	 	#	if (ref $Item ne 'heading' and $^O !~ /MSWin/);
 	}	
 	elsif ($Status == 1) {
 		#
 		# CHECK_STILL_DOWN -- Item is still down.
 		#
 		$Errors++;
-		push @StillFail, $LongDesc;
-		#syslog('WARNING','%s',"$Desc is still failing")
-		#	if ($^O !~ /MSWin/);
 		if ($Now >= $Item->NextNotification) {
 			$Renotify++;
 			$WorstError = 8;
@@ -269,11 +264,16 @@ foreach my $Item (@ItemList) {
 				# Essentially, it's a firstfail as far as notifications are concerned.
 				$DoDownActions = 1;
 				$Item->FirstNotification($Now);
+				push @NowFail, $LongDesc;
 			}
 			elsif ($Options{renotify}) {
 				# We sent out notifications before, but it's time for another one.
 				push @StillFail, $LongDesc;
 			}
+		}
+		else {
+			# Still down, but not due for notification.
+			push @StillFail, $LongDesc;
 		}
 		if ($Item->FirstNotification == 0) {
 			# We have a service down with a delay notification that hasn't notified yet.
@@ -288,8 +288,6 @@ foreach my $Item (@ItemList) {
 		#
 		# CHECK_NOW_OK -- Item is back up.
 		#
-		#syslog('INFO','%s', "$Desc is NOW OK")
-		#	if ($^O !~ /MSWin/);
 		next if ($Item->FirstNotification == 0);	# Recovered within DelayFirstNotification period.
 		push @NowOK, $Desc;
 		if (my $Action = $Item->Onok) {
