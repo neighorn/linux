@@ -1,0 +1,33 @@
+#! /bin/bash
+#
+# performancemode - sets cpu govermor to performance
+#
+# chkconfig: 2345 10 90
+#
+# description: Set the CPU Frequency Scaling governor to "performance"
+#
+# Note:
+#  May also need to:
+#    chkconfig cpuspeed off
+#    service cpuspeed stop
+### BEGIN INIT INFO
+# Provides: $ondemand
+### END INIT INFO
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+case "$1" in
+    start|restart|reload|force-reload)
+        for CPUFREQ in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+        do
+                [ -f $CPUFREQ ] || continue
+                echo -n performance > $CPUFREQ
+        done
+        ;;
+    stop)
+        ;;
+    *)
+        echo "Usage: $0 start|stop" >&2
+        exit 3
+        ;;
+esac
