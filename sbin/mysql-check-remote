@@ -276,15 +276,14 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 #
-LOGONLY "^\s*\S+ started on \S+ on \d+/\d+/\d+"
-LOGONLY "^\s*\S+ started on \S+ on( \S+,)? \d+[-/]\d+[-/]\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*mysql-check-remote started on \S+ on( \S+,)? \d+[-/]\d+[-/]\d+ at \d+:\d+:\d+"
 LOGONLY /^\s*Command: /
 SHOW	"^\s*-{30} \S+\s+-{30}$"
 SHOW	"^\s*-+$"
 IGNORE	"^\s*Command: /usr/local/sbin/mysql-check"
 IGNORE	"^\s*$"
 SHOW	"^\s?\s?\s?Job ended on( \S+,)? \d+[-/]\d+[-/]\d+ at ..:..:.. - run time: "
-SHOW	"^\s?\s?Job ended normally with status 0 and signal 0$"
+SHOW	"^\s*Job ended normally with status 0 and signal 0$"
 # The following are normal messages we don't need to see.
 #
 IGNORE  /^\s*$/
@@ -303,15 +302,11 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-check\[\d+\]:\s+\S+\s+OK$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-check\[\d+\]:\s+status\s+: OK$"
 SHOW	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-check\[\d+\]:\s+\S+$"
 SHOW	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-check\[\d+\]:\s+warning\s+: \d+ (client is|clients are) using or (haven't|hasn't) closed the table properly$"
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-LOGONLY "^\S+ started on \S+ on \d+/\d+/\d+"
+IGNORE	"^mysql-check started on \S+, \d+-\d+-\d+"
 LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
-SHOW    "^\s*Job ended normally with status 0 and signal 0$"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"
