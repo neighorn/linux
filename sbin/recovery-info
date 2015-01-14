@@ -129,6 +129,9 @@ RunDangerousCmd("swapon -s > $opt_o/swapon.out");
 # Capture lots of system facts, if we can.
 RunDangerousCmd("facter > $opt_o/facter.out");
 
+# Capture lots of system facts, if we can.
+RunDangerousCmd("getconf -a > $opt_o/getconf.out");
+
 # Capture LVM configuration information.
 if (`vgdisplay 2>&1` !~ /(No such file or directory|No entry)/) {
 	RunDangerousCmd("lvm vgcfgbackup -f $opt_o/vg-%s.out");
