@@ -21,6 +21,12 @@ function ReadLSOF {
 		if [[ -z "$size" ]]
 		then
 			size='  ?'
+		elif [[ size -gt 1024**4 ]]
+		then
+			size=`printf "%'dT" $(($size/1024**4))`
+		elif [[ size -gt 1024**3 ]]
+		then
+			size=`printf "%'dG" $(($size/1024**3))`
 		elif [[ size -gt 1024**2 ]]
 		then
 			size=`printf "%'dM" $(($size/1024**2))`
@@ -28,11 +34,11 @@ function ReadLSOF {
 		then
 			size=`printf "%dK" $(($size/1024))`
 		else
-			size="$sizeB"
+			size="${size}B"
 		fi
 
 		filename=`echo "$filename" | sed 's/^.*\/\(.*\/.*\/tree\)/\1/'`		# Strip down to vault.
-		printf "%-s %5d %-6s % 3d%% %s: %s\n" $now $pid "rsync" $percent $size "$filename"
+		printf "%-s %5d %-6s % 3d%% %4s: %s\n" $now $pid "rsync" $percent $size "$filename"
 	done 
 }
 
