@@ -167,7 +167,7 @@ if (open(my $FHLS,"ls -t $BaseDir 2> /dev/null |")) {
 		chomp;
 		next unless (-d "$BaseDir/$_");	# Skip non-directories.
 		$Count++;
-                RunDangerousCmd("rm -rf $BaseDir/$_") if ($Count > $opt_C);
+                RunDangerousCmd("rm -rf $BaseDir/$_") if ($Count >= $opt_C);
 	}
 	close $FHLS;
 } else {
