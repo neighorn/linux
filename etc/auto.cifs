@@ -13,6 +13,7 @@ credfile=""
 [[ -f "/usr/local/etc/auto.cifs.d/$key" ]] && credfile="/usr/local/etc/auto.cifs.d/$key"
 [[ -z "$credfile" && -f "/usr/local/etc/auto.cifs.d/DEFAULT" ]] && credfile="/usr/local/etc/auto.cifs.d/DEFAULT"
 [[ -z "$credfile" ]] && credfile="/usr/local/etc/cifs.credentials/$key" # backwards compatibility
+[[ -z "$credfile" ]] && credfile="/usr/local/etc/auto.master.d/cifs.credentials/$key" # backwards compatibility
 
 # Note: Use cifs instead of smbfs:
 mountopts="-fstype=cifs,file_mode=0644,dir_mode=0755,uid=nobody,gid=nobody"

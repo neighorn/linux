@@ -120,40 +120,57 @@ LogOutput({
 
 my $DPKG;
 my $Prior=$Options{keep};
-my $Current = `uname -r`;
-$Current =~ s/(\d+\.\d+\.\d+-\d+)(\D.*)?$/$1/;
+my $CurVersion = `uname -r`;
+chomp $CurVersion;
+my $Current;
 die "Unable to run uname -r: status=$?, error=$!" if ($?);
-chomp $Current;
-print "The current kernel is $Current\n" if ($Options{verbose} >= 2);
-open($DPKG,"dpkg -l | grep -E '(ii|rc) *linux-image-' | sed 's/^ *ii *//;s/^ *rc *//' | sort -r |")
+
+if ($CurVersion =~ /^(\d+)\.(\d+)\.(\d+)-(\d+)(\D.*)?$/) {
+	$Current=NumericVersion($1,$2,$3,$4);
+}
+else {
+	die "Unable to interpret current version $CurVersion";
+}
+print "The current kernel is $CurVersion($Current)\n" if ($Options{verbose} >= 2);
+
+# Get a list of installed kernels
+open($DPKG,"dpkg -l | grep -E '(ii|rc) *linux-image-' | sed 's/^ *ii *//;s/^ *rc *//' |")
 	or die "Unable to run dpkg: $!";
-my $DeleteList = '';
-while (<$DPKG>) {
-	chomp;
-	s/^(\S+)\s.*$/$1/;	# Strip extraneous data.
-	# linux-image-3.2.0-64-generic
-	print "Verbose: Evaluating $_\n" if ($Options{verbose} >= 3);
-	if  (! /^linux-image-(\d+\.\d+\.\d+-\d+)(\D.*)?$/) {
-		# Not a kernel.
-		print "Skipping $_: not a kernel\n" if ($Options{verbose} >= 2);
+my %Installed;
+while (my $ThisVersion = <$DPKG>) {
+	chomp $ThisVersion;
+	# linux-image-3.13.0-40-generic          3.13.0-40.69~precise1 ...
+	print "Verbose: Found $ThisVersion\n" if ($Options{verbose} >=2);
+	$ThisVersion =~ s/\s.*$//;
+	# linux-image-3.13.0-40-generic
+	if ($ThisVersion =~ /^linux-image-(\d+)\.(\d+)\.(\d+)-(\d+)(\D.*)?$/) {
+		print "Verbose: Learning version: $ThisVersion\n" if ($Options{verbose} >= 2);
+		$Installed{NumericVersion($1,$2,$3,$4)}=$ThisVersion;
+	}
+	else {
+		print "Verbose: Ignoring unknown version: $ThisVersion\n" if ($Options{verbose} >= 2);
 		next;
 	}
-	my $version=$1;
-	my $PackageName = $_;
-	if ($version ge $Current) {
+}
+
+my $DeleteList = '';
+foreach my $ThisVersion (sort {$b<=>$a} keys(%Installed)) {
+	my $PackageName = $Installed{$ThisVersion};
+	print "Verbose: Evaluating $PackageName($ThisVersion)\n" if ($Options{verbose} >= 3);
+	if ($ThisVersion ge $Current) {
 		# Newer than our running version.  Keep.
-		print "Skipping $version: newer than our current version\n"
+		print "  Skipping $PackageName($ThisVersion): same or newer than our current version\n"
 			if ($Options{verbose} >= 2);
 		next;
 	}
 	if ($Prior > 0) {
 		# Within number of prior versions to keep.
-		print "Skipping $version: within --keep limit\n"
+		print "  Skipping $PackageName($ThisVersion): within --keep limit\n"
 			if ($Options{verbose} >= 2);
 		$Prior--;
 		next;
 	}
-	print "Will delete $version\n" if ($Options{verbose} >= 2);
+	print "  Will delete $PackageName($ThisVersion)\n" if ($Options{verbose} >= 2);
 	$DeleteList .= " $PackageName";
 }
 
@@ -181,10 +198,11 @@ exit( ($Errors?10:0) );
 
 
 #
-# xxxxx
+# NumericVersion - Convert version to numeric form for easy handling.
 #
-sub xxxxxx {
+sub NumericVersion {
 
+	return ($_[0]*1000000+$_[1]*10000+$_[2]*100+$_[3]);
 }
 
 
@@ -357,7 +375,7 @@ IGNORE	"^\s*P: Checking "
 IGNORE	"^\s*update-initramfs: Deleting "
 IGNORE	"^\s*Generating grub.cfg ...\s*$"
 IGNORE	"^\s*Found \S+ image: "
-IGNORE	"^\s*Found .* on /dev/\S+$"
+IGNORE	"^\s*Found .* on /dev/\S+\s*$"
 IGNORE	"^\s*Reading package lists...$"
 IGNORE	"^\s*\(Reading database \.\.\."
 IGNORE	"^\s*Building dependency tree...$"
@@ -365,6 +383,10 @@ IGNORE	"^\s*Reading state information...$"
 IGNORE	"^\s*The following packages will be REMOVED:$"
 IGNORE	"^\s*linux-headers-"
 IGNORE	"^\s*linux-image-"
+IGNORE	"^\s*P: Writing config for "
+IGNORE	"^\s*P: Updating /boot/"
+IGNORE	"^\s*P: Installing debian theme... done.$"
+IGNORE	"^\s*Processing triggers"
 IGNORE	"^\s*0 upgraded, 0 newly installed, \d+ to remove and \d+ not upgraded.$"
 IGNORE	"^\s*After this operation, .* of additional disk space will be used.$"
 IGNORE	"^\s*The following packages were automatically installed and are no longer required:$"
