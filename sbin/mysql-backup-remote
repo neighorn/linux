@@ -280,8 +280,8 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 #
-LOGONLY "^\s*\S+ started on \S+ on \d+/\d+/\d+"
-LOGONLY "^\s*\S+ started on \S+ on( \S+,)? \d+[-/]\d+[-/]\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*mysql-backup-remote started on \S+ on( \S+,)? \d+[-/]\d+[-/]\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*mysql-backup started on \S+ on( \S+,)? \d+[-/]\d+[-/]\d+ at \d+:\d+:\d+"
 LOGONLY /^\s*Command: /
 SHOW	"^\s*-{30} \S+\s+-{30}$"
 SHOW	"^\s*-+$"
