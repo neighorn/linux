@@ -323,7 +323,7 @@ LOGONLY /^\s*Command: /
 #
 # These are normal messages that we want to see.
 #
-IGNORE  "^\s*Job ended normally with status 0 and signal 0$"
+IGNORE  "^\s*\S+ ended normally with status 0 and signal 0$"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW	"^\s*debug:"

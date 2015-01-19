@@ -290,7 +290,7 @@ LOGONLY /^Command: /
 # These are normal messages that we want to see.
 #
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
+SHOW    /^\S+ ended normally with status 0 and signal 0 - run time:/
 SHOW    /^Test:/
 SHOW    /^Executing:/
 SHOW    /^Verbose:/

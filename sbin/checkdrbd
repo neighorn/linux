@@ -222,7 +222,7 @@ LOGONLY	/^Command: /
 #
 SHOW	/^\s*debug:/
 SHOW	/^\s*Checks disabled until/
-SHOW	/^Job ended normally with status 0 and signal 0$/
+SHOW	/^\S+ ended normally with status 0 and signal 0$/
 IGNORE	"^\s*version: \d+.\d+.\d+"
 IGNORE	"^\s*srcversion:\s+[0-9A-F]+\s*$" 
 IGNORE	"^\s*\d+: cs:Connected ro:(Primary|Secondary)/(Primary|Secondary) ds:UpToDate/UpToDate . r-----$"

@@ -341,7 +341,7 @@ __END__
 LOGONLY "^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY "^\s*Command: "
 SHOW    "^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-SHOW    "^\s*Job ended normally with status 0 and signal 0 - run time:"
+SHOW    "^\s*\S+ ended normally with status 0 and signal 0 - run time:"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW    "^\s*Verbose:"

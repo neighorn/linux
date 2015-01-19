@@ -266,8 +266,8 @@ LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
-LOGONLY    /^\s*Job ended normally with status 0 and signal 0$/
-LOGONLY    /^\s*Job ended on/
+LOGONLY    /^\s*\S+ ended normally with status 0 and signal 0$/
+LOGONLY    /^\s*\S+ ended on/
 IGNORE	"Subroutine SNMP(v1)?_Session::pack_sockaddr_in6 redefined at"
 SHOW    /^Test:/
 SHOW    /^Executing:/

@@ -328,7 +328,7 @@ LOGONLY	/^Command: /
 #
 SHOW	"^\S+ started on \S+ on \d\d/\d\d/\d\d\d\d at \d\d:\d\d:\d\d$"
 SHOW	"^512 bytes \(512 B\) copied,"
-SHOW	/^Job ended normally with status 0 and signal 0$/
+SHOW	/^\S+ ended normally with status 0 and signal 0$/
 SHOW	/^Test:/
 SHOW	/^debug:/i
 SHOW	/^Executing:/

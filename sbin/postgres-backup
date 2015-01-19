@@ -293,7 +293,7 @@ LOGONLY	/^Command: /
 #
 # These are normal messages that we want to see.
 #
-SHOW	/^Job ended normally with status 0 and signal 0$/
+SHOW	/^\S+ ended normally with status 0 and signal 0$/
 SHOW	/^debug:/
 SHOW	/^test:/
 SHOW	/^Executing:/

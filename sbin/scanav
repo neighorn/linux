@@ -280,7 +280,7 @@ IGNORE	"^\s*/.* Excluded$"
 IGNORE	"^\s*Data scanned: \d+.\d+ MB$"
 IGNORE	"^\s*Time: \d+.\d+ sec \(\d+ m \d+ s\)$"
 SHOW	"^\s*clamscan returned status 256$"
-SHOW    /^Job ended normally with status 0 and signal 0 - run time:/
+SHOW    /^\S+ ended normally with status 0 and signal 0 - run time:/
 SHOW    /^Test:/
 SHOW    /^Executing:/
 SHOW	/^\s*debug:/

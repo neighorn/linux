@@ -385,8 +385,8 @@ __END__
 #
 IGNORE  /^\s*$/
 IGNORE	/^\s*Job failed/
-IGNORE	/^\s*Job ended normally/
-IGNORE	/^\s*Job ended on/
+IGNORE	/^\s*\S+ ended normally/
+IGNORE	/^\s*\S+ ended on/
 IGNORE	/^\s*Unexpected messages/
 IGNORE	/^\s*redirecting to systemctl\s*$/
 #
