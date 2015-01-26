@@ -35,7 +35,9 @@ our %OptionSpecifications=(
 		'option-set|O=s'	=>	\&opt_O,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
+		'config-file=s'		=>	sub {LoadConfigFile($_[1]);},
 		'filter-file|F=s'	=>	\&opt_Value,
+		'remote-host|R=s'	=>	\&opt_Array,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
@@ -98,20 +100,33 @@ my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 #	VERBOSE			=> $LogOutputVerbose,
 #});
 
+push @{$Options{'remote-host'}}, 'SERVERS' unless (exists($Options{'remote-host'}));
+my @HostList;
+foreach (@{$Options{'remote-host'}}) {
+	if (exists($Config{uc($_)})) {
+		# This is a name from the config file.  Push it's list.
+		push @HostList, split(/\s+/,$Config{uc($_)});
+	}
+	else {
+		push @HostList, $_;
+	}
+}
+	
 die "No command specified on command line\n" unless (@Parms > 0);
-die "No servers specified in config file\n" unless ($Config{SERVERS});
+die "No servers specified in config file\n" unless (@HostList);
 my $MaxHostLen = 0;
-foreach (split(/\s+/,$Config{SERVERS})) {
+foreach (@HostList) {
 	$MaxHostLen = ($MaxHostLen < length($_)?length($_):$MaxHostLen);
 }
 
-foreach (split(/\s+/,$Config{SERVERS})) {
+foreach (@HostList) {
 	if (!/^[a-zA-Z0-9_-]+$/) {
 		warn qq<Invalid server name "$_" - skipped>;
-		next;
 	}
-	printf("%s %-*s %s\n", '-'x20, $MaxHostLen, $_, '-'x20);
-	RunDangerousCmd(qq<ssh $_ "> . join(' ',@Parms) .  '"');
+	else {
+		printf("%s %-*s %s\n", '-'x20, $MaxHostLen, $_, '-'x20);
+		RunDangerousCmd(qq<ssh $_ "> . join(' ',@Parms) .  '"');
+	}
 }
 
 if ($Errors) {
@@ -123,12 +138,6 @@ if ($Errors) {
 exit( ($Errors?10:0) );
 
 
-#
-# xxxxx
-#
-sub xxxxxx {
-
-}
 
 
 #
