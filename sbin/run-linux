@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use LogOutput;
-use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling require_order);
 use Text::ParseWords;
 use POSIX qw(strftime);
 use FindBin qw($Bin $Script);
@@ -30,11 +30,11 @@ our %OptionSpecifications=(
 		'<>'			=>	sub {push @Parms,shift;},
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'help|h|?!'		=>	\&opt_h,
-		'always-mail|m=s'	=>	\&opt_Array,
-		'error-mail|M=s'	=>	\&opt_Array,
-		'option-set|O=s'	=>	\&opt_O,
-		'always-page|p=s'	=>	\&opt_Array,
-		'error-page|P=s'	=>	\&opt_Array,
+#		'always-mail|m=s'	=>	\&opt_Array,
+#		'error-mail|M=s'	=>	\&opt_Array,
+#		'option-set|O=s'	=>	\&opt_O,
+#		'always-page|p=s'	=>	\&opt_Array,
+#		'error-page|P=s'	=>	\&opt_Array,
 		'config-file=s'		=>	sub {LoadConfigFile($_[1]);},
 		'filter-file|F=s'	=>	\&opt_Value,
 		'remote-host|R=s'	=>	\&opt_Array,
@@ -65,26 +65,26 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
 %Options=(verbose => 0);	# Initialize Options.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
-@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+#@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 	
 # Set up our logging and output filtering.
 my $RunDate=`date +%m/%d`;
 chomp $RunDate;
-my $Subject;
-if ($Options{subject}) {
-	$Subject="$Options{subject}" ;
-} elsif (@Parms >= 1) {
-	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
-} else {
-	$Subject="%* %m/%d %C %N %E %*%*%*" ;
-};
+#my $Subject;
+#if ($Options{subject}) {
+#	$Subject="$Options{subject}" ;
+#} elsif (@Parms >= 1) {
+#	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
+#} else {
+#	$Subject="%* %m/%d %C %N %E %*%*%*" ;
+#};
 
-# Make sure some key items exist;
-foreach (qw(always-mail error-mail always-page error-page)) {
-	@{$Options{$_}} = () unless (exists($Options{$_}));
-}
+## Make sure some key items exist;
+#foreach (qw(always-mail error-mail always-page error-page)) {
+#	@{$Options{$_}} = () unless (exists($Options{$_}));
+#}
 $Options{verbose} = 0 unless (exists($Options{verbose}));
-$Options{logfile} = '' unless (exists($Options{logfile}));
+#$Options{logfile} = '' unless (exists($Options{logfile}));
 my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 
 #LogOutput({
@@ -112,7 +112,7 @@ foreach (@{$Options{'remote-host'}}) {
 	}
 }
 	
-die "No command specified on command line\n" unless (@Parms > 0);
+die "No command specified on command line\n" unless (@ARGV > 0);
 die "No servers specified in config file\n" unless (@HostList);
 my $MaxHostLen = 0;
 foreach (@HostList) {
@@ -125,7 +125,7 @@ foreach (@HostList) {
 	}
 	else {
 		printf("%s %-*s %s\n", '-'x20, $MaxHostLen, $_, '-'x20);
-		RunDangerousCmd(qq<ssh $_ "> . join(' ',@Parms) .  '"');
+		RunDangerousCmd(qq<ssh $_ "> . join(' ',@ARGV) .  '"');
 	}
 }
 
@@ -273,27 +273,21 @@ sub opt_h {
 <<description>>
 
 =head3 Usage:  
-        $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
+        $Prog [-O config] [-R host] [-t|-v] 
 
         $Prog -h
 
 =head3 Flags:
-        --error-mail|-M mailid: Error: Send an execution report to this
-                                e-mail address if errors are detected.
-        --filter|-F filter:     Filter: Use alternate error detection
-                                filter file "filter".  The default is
-                                to use the built-in error filter.
-        --always-mail|-m addr:  Mailid: Send an execution report to
-                                this e-mail address.
-        --always-page|-p addr:  Page: Send a very brief message
-                                (suitable for a pager) to this e-mail
-                                address when this job completes.
-        --error-page|-P addr:   Page error: Send a very brief message to
-                                this e-mail address if errors are
-                                detected in this job.
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFiles[0]
                                 into the command line at this point.
+	--remote-host|-R host	Remote: Send this command to "host".  If 
+				host matches a label in a configuration file,
+				the list associated with that label will be
+				used.  Otherwise, "host" will be assumed to
+				be a real host name and used.  The default
+				host is "Servers", which should appear in 
+				a configuration file.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
         --help|-h:              Help: display this panel
