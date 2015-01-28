@@ -36,6 +36,7 @@ our %OptionSpecifications=(
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'filter-file|F=s'	=>	\&opt_Value,
+		'keep|k'		=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'hosts|host|H=s'	=>	\&opt_Array,
@@ -137,6 +138,9 @@ foreach my $Host (@HostList) {
 		warn "Cannot read $Options{refdir}/$Host.ref - $Host skipped.\n";
 		next;
 	}
+	my $TempFile = "$Options{refdir}/$Host.current";
+	die "Invalid reference file name" unless ($RefFile =~ m"^[a-zA-Z0-9/._-]+$"); # Careful what we write.
+	
 	my $Cmd=
 		($Host ne 'localhost'?"ssh $Host ":'')
 		. 'iptables-save | '
@@ -151,9 +155,10 @@ foreach my $Host (@HostList) {
 	}
 	else {
 		# Comparing.  Pipe the output through diff.
-		$Cmd .= "| diff -bB --unified=0 --label=Reference --label=Current -- $RefFile -";
+		$Cmd .= "> $TempFile;diff -bB --unified=0 --label=Reference --label=Current -- $RefFile $TempFile";
 		my $Status = RunDangerousCmd($Cmd);
 		print "$Host matches\n" if ($Status == 0);
+		RunDangerousCmd("rm -f $TempFile") unless ($Options{keep});
 	}
 	
 }
@@ -338,6 +343,11 @@ sub opt_h {
 				current iptables configuration to.  Each
 				host is compared to a file "hostname.ref"
 				file if present, or else to "DEFAULT.ref".
+	--keep			Keep: Keep the current IPTables configuration
+				working file in the reference directory with
+				a suffix of ".current".  This doesn't
+				overwrite the reference file, but provides a
+				current copy for manual comparison.
 	--save|-s		Save: Save the current IPTables 
 				configuration as the new reference file.
 
