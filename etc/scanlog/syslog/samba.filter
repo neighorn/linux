@@ -12,3 +12,6 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ nmbd(\[\d+\])?:\s*dump_workgroups\(\)$
 # The following two occur because Samba tries to change its machine trust account password from time to time, and fails.
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd(\[\d+\])?:\s*\[\d+/\d+/\d+ \d+:\d+:\d+\.\d+,\s*\d+\] ../source3/rpc_client/cli_netlogon.c:\d+\(rpccli_netlogon_set_trust_password\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd(\[\d+\])?:\s*credentials chain check failed$"
+# The following two occur because we asked a client to give up its opportunistic lock and didn't hear back.  Client might be offline.
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba(\[\d+\])?:\s*\[\d+/\d+/\d+ \d+:\d+:\d+\.\d+,\s*\d+\] ../source3/smbd/oplock.c:\d+\(oplock_timeout_handler\)$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd\([\d+\])?:\s+Oplock break failed for file *"
