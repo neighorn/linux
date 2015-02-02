@@ -461,16 +461,16 @@ sub ProcessBackup {
 			chomp;
 			my $Dir = "$MachineDirectory/$_";
 			if (/^dirvish$/) {
-				print "Verbose: skipping $_ - dirvish definitions" if ($Options{verbose} > 2);
+				print "Verbose: skipping $_ - dirvish definitions\n" if ($Options{verbose} > 2);
 			}
 			elsif ( (! -d "$Dir") or ( -l "$Dir")) {
-				print "Verbose: skipping $_ - not a directory" if ($Options{verbose} > 2);
+				print "Verbose: skipping $_ - not a directory\n" if ($Options{verbose} > 2);
 			}
 			elsif ( ! -f "$Dir/summary") {
-				print "Verbose: skipping $_ - missing summary file" if ($Options{verbose} > 2);
+				print "Verbose: skipping $_ - missing summary file\n" if ($Options{verbose} > 2);
 			}
 			elsif ((stat($Dir))[9] <= $TargetStartTime) {
-				print "Verbose: skipping $_ - older backup" if ($Options{verbose} > 2);
+				print "Verbose: skipping $_ - older backup\n" if ($Options{verbose} > 2);
 			}
 			else {
 				Summarize($Target, $Dir, $VaultStartTime);
