@@ -232,7 +232,7 @@ sub opt_Array {
 	my($Name,$Value,undef) = @_;
 	if (defined($Value) and length($Value)) {
 		# Add this value to the array.
-		push @{$Options{$Name}},$Value;
+		push @{$Options{$Name}},split(/\s*,\s*/,$Value);
 	}
 	else {
 		# Received "--opt=".  Empty this array.
