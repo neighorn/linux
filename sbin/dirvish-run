@@ -301,6 +301,14 @@ sub ProcessBackup {
 
 	my $Target = shift;
 	my $VaultStartTime = time();
+
+	# Load any machine-specific options from the config files.
+	local(%Options,%OptionSpecifications);
+	$OptionSpecifications{'<>'} = '';	# No recursive loops.
+	if ($Config{$Target}) {
+		$Errors ++ unless GetOptionsFromString($Config{$Target},%OptionSpecifications);
+	}
+
 	if ($Options{verbose} >= 3) {
 		print "Verbose:	Beginning backup of $Target.  Options:\n";
 		print Dumper(\%Options);
@@ -894,10 +902,6 @@ Universal Options:
 	-t|--test:			Test: echo commands instead of running
 					them.
 
-	-v|--verbose:			Verbose: echo commands before running
-					them.  May be repeated to increase
-					verbosity.  --test overrides --verbose.
-
 Vault Options:
 	-D|--dirvish=parms:		Dirvish: Pass the following parameters
 					and options directly to dirvish. 
@@ -934,7 +938,7 @@ Vault Options:
 					class data value of "classdata".
 					Ex: --ionice=2/4
 	-O|--option-set=config:		Insert the "config" configuration
-					options from $ConfigFiles[0].
+					options from the configuration files.
 
 	-R|--rerun=[days]:		Rerun: delete the most recent backup, 
 					provided that it is no more than "days"
@@ -960,10 +964,14 @@ Vault Options:
                                         if the file name is empty), and at the
                                         end of the job.
 
+	-v|--verbose:			Verbose: echo commands before running
+					them.  May be repeated to increase
+					verbosity.  --test overrides --verbose.
+
 Parameters:
 	vault...:	One or more vault names.  Vault names may be fully 
 			qualified, or else the directories listed in the 
-			"BANKS:" setting in the configuration file ares
+			"BANKS:" setting in the configuration file are
 			searched in sequence.  A branch name may be included.
 
 Example:
@@ -982,6 +990,36 @@ the long form of the name followed by an equal sign and a space.  For example:
 
 Vault1 will be run with the "--checksum" option passed to dirvish, but 
 vault2 will be run without the --checksum option.
+
+Configuration file:
+
+The configuration file is located in /usr/local/etc/$Prog.cfg.  The file
+syntax is a series of lines in the format:
+
+name: data
+
+"name" is an arbitrary name, is case insensitive, and starts in column 1.
+data is a case-sensitivie string containing values associated with "name".
+
+Reserved names are:
+	Alljobs:	"data" is a list of command line options and paramters
+			that are prepended to the command line.
+	DefaultJob:	"data" is a list of command line options and parameters
+			that are used if no command line options or parameters
+			are specified.
+	Banks:		"data" is a list of directories containing dirvish 
+			backups.
+	<target>:	Any backup target may have specific command line
+			options by listing its name as a "name" value in
+			a configuration file, and the options as the "data"
+			portion.  Note that any option is accepted, but 
+			only the vault options are effective.
+
+Configuration File Example:
+Alljobs:	-m sysadmin --subject "dirvish-run job report"
+DefaultJob:	sys1 sys2 sys3
+Banks:		/usr/local/dirvish /mnt/offsite/dirvish
+sys1:		-vvv
 
 Return codes:
 	0       :       Normal termination
