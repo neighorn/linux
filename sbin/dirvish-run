@@ -459,12 +459,22 @@ sub ProcessBackup {
 	if ($Status == 0) {
 		foreach (`ls -tr $MachineDirectory`) {
 			chomp;
-			next if (/^dirvish$/);
 			my $Dir = "$MachineDirectory/$_";
-			next unless ( -d "$Dir" and ! -l "$Dir");		# Skip symbolic links ("latest"), etc.
-			next unless ( -f "$Dir/summary");			# Skip stray non-backup folders.
-			next unless ((stat($Dir))[9] > $TargetStartTime);	# Skip older backups.
-			Summarize($Target, $Dir, $VaultStartTime);
+			if (/^dirvish$/) {
+				print "Verbose: skipping $_ - dirvish definitions" if ($Options{verbose} > 2);
+			}
+			elsif ( (! -d "$Dir") or ( -l "$Dir")) {
+				print "Verbose: skipping $_ - not a directory" if ($Options{verbose} > 2);
+			}
+			elsif ( ! -f "$Dir/summary") {
+				print "Verbose: skipping $_ - missing summary file" if ($Options{verbose} > 2);
+			}
+			elsif ((stat($Dir))[9] <= $TargetStartTime) {
+				print "Verbose: skipping $_ - older backup" if ($Options{verbose} > 2);
+			}
+			else {
+				Summarize($Target, $Dir, $VaultStartTime);
+			}
 		}
 	} else {
 		print "dirvish failed with status $Status\n";
