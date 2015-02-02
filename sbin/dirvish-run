@@ -481,7 +481,7 @@ sub ProcessBackup {
 			elsif ( ! -f "$Dir/summary") {
 				print "Verbose: skipping $_ - missing summary file\n" if ($Options{verbose} > 2);
 			}
-			elsif ((stat($Dir))[9] <= $TargetStartTime) {
+			elsif ((stat("$Dir/summary"))[9] < $TargetStartTime) {
 				print "Verbose: skipping $_ - older backup\n" if ($Options{verbose} > 2);
 			}
 			else {
