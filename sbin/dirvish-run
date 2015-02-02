@@ -303,7 +303,11 @@ sub ProcessBackup {
 	my $VaultStartTime = time();
 
 	# Load any machine-specific options from the config files.
+	my %TmpOptions = %Options;
+	my %TmpOptSpec = %OptionSpecifications;
 	local(%Options,%OptionSpecifications);
+	%Options = %TmpOptions;
+	%OptionSpecifications = %TmpOptSpec;
 	$OptionSpecifications{'<>'} = '';	# No recursive loops.
 	if ($Config{$Target}) {
 		$Errors ++ unless GetOptionsFromString($Config{$Target},%OptionSpecifications);
