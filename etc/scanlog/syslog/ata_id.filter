@@ -1,0 +1,1 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ata_id(\[\d+\])?:\s*HDIO_GET_IDENTITY failed for '/dev/\S+': Invalid argument$"
