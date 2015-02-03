@@ -307,7 +307,10 @@ sub ProcessBackup {
 	else {
 		print "    $Machine is already down\n";
 	}
-	if (! $Options{test} and IsRunning($Machine)) {
+	if ($WasRunning and (!IsRunning($Machine))) {
+		print "    $Machine is down";		# Document that it is down.
+	}
+	elsif (IsRunning($Machine) and (!$Options{test})) {
 		print STDERR "    $Machine failed to shutdown -- backup skipped\n";
 		# Check on this one later, to make sure it's still up and
 		# not just really slow shutting down.
@@ -703,6 +706,7 @@ SHOW	"^\s*Starting backup"
 SHOW	"^\s*Shutting down \S+"
 IGNORE	"^\s*Domain \S+ is being shutdown"
 IGNORE	"^\s*Domain \S+ started$"
+IGNORE	"^\s*\S+ is down$"
 SHOW	"^\s*\S+ is already down$"
 SHOW	"^\s*Restarting \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
 SHOW	"^\s*\S+ started at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
