@@ -308,7 +308,7 @@ sub ProcessBackup {
 		print "    $Machine is already down\n";
 	}
 	if ($WasRunning and (!IsRunning($Machine))) {
-		print "    $Machine is down";		# Document that it is down.
+		print "    $Machine is down\n";		# Document that it is down.
 	}
 	elsif (IsRunning($Machine) and (!$Options{test})) {
 		print STDERR "    $Machine failed to shutdown -- backup skipped\n";
