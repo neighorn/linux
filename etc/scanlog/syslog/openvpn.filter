@@ -1,6 +1,6 @@
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? /sbin/ip addr (add|del) dev \S+ local \S+ peer \S+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? /sbin/ip link set dev \S+ up mtu \d+$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? /sbin/ip route add \S+/\d+( via \S+)?$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? /sbin/ip route (add|del) \S+/\d+( via \S+)?$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? \[\S+\] Inactivity timeout \(--ping-restart\), restarting\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? \[\S+\] Peer Connection Initiated with \[AF_INET\]\S+\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? \d+ variation\(s\) on previous \d+ message\(s\) suppressed by --mute\s*$"
