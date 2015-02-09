@@ -1,1 +1,5 @@
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*Created slice "
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*Failed to mark scope \S+ as abandoned : Stale file handle$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*Started "
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*Starting "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-logind(\[\d+\])?:\s*New session \d+ of user \S+\.$"
