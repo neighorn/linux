@@ -38,6 +38,7 @@ my @NowFail;			# Newly failing items.
 my @NowOK;			# Newly OK items.
 my @StillFail;			# On-going fail items.
 my %FailItems;			# List of items previously failing.
+my @Pending;			# List of items pending failure.
 my @OtherItems;			# Stuff in the status file from other check lists.
 my @ConfigFiles = (		# List of configuration files.
 	'/usr/local/etc/checkall.cfg',
@@ -239,7 +240,7 @@ foreach my $Item (@ItemList) {
 	else {
 		$LongDesc = $Desc;
 	}
-	my $Status = $Item->Report($DescLen,$Options{failed});
+	my $Status = $Item->Report($DescLen,$Options{failed},$StartTime);
 	my $DoDownActions = 0;
 	if ($Status == 0 or $Status == 4) {
 		#
@@ -260,11 +261,10 @@ foreach my $Item (@ItemList) {
 				60*(defined($Item->Renotifyinterval)?$Item->Renotifyinterval:$Options{renotify})
 			);
 			if ($Item->FirstNotification == 0) {
-				# This was a DelayFirstNotification target, that has remained down through the delay period.
+				# This was a Delayfirstnotification target, that has remained down through the delay period.
 				# Essentially, it's a firstfail as far as notifications are concerned.
 				$DoDownActions = 1;
 				$Item->FirstNotification($Now);
-				push @NowFail, $LongDesc;
 			}
 			elsif ($Options{renotify}) {
 				# We sent out notifications before, but it's time for another one.
@@ -288,7 +288,7 @@ foreach my $Item (@ItemList) {
 		#
 		# CHECK_NOW_OK -- Item is back up.
 		#
-		next if ($Item->FirstNotification == 0);	# Recovered within DelayFirstNotification period.
+		next if ($Item->FirstNotification == 0);	# Recovered within Delayfirstnotification period.
 		push @NowOK, $Desc;
 		if (my $Action = $Item->Onok) {
 			if ($Options{test}) {
@@ -308,29 +308,24 @@ foreach my $Item (@ItemList) {
 		#
 		# CHECK_NOW_DOWN -- Item has gone down.
 		#
-		$Item->FirstFail($StartTime);	# Remember when it failed.
 		$Errors++;
 		
-		# Delay errors on first notification if DelayFirstNotification time specified.
-		if ($Item->Delayfirstnotification) {
-			#
-			# Delaying notifications.
-			syslog('INFO','%s', "$Desc notification delayed per config")
-				if ($^O !~ /MSWin/);
-			$Item->FirstNotification(0);
-			$Item->NextNotification($Now + 60*$Item->Delayfirstnotification);
-			$WorstError = 4 if ($WorstError == 0);
-			next;
-		}
-		else {
-			#
-			# Not delaying notifications.
-			#syslog('WARNING','%s', "$Desc is NOW FAILING")
-			#	if ($^O !~ /MSWin/);
-			$DoDownActions = 1;
-			$Item->FirstNotification($Now);
-			$WorstError = 8;
-		}
+		# Delay errors on first notification if Delayfirstnotification time specified.
+		#
+		#syslog('WARNING','%s', "$Desc is NOW FAILING")
+		#	if ($^O !~ /MSWin/);
+		$DoDownActions = 1;
+		$Item->FirstNotification($Now);
+		$WorstError = 8;
+	}
+	elsif ($Status == 5) {
+		#
+		# CHECK_PENDING
+		#
+		# Delaying notifications.
+		push @Pending, $Desc;
+		$WorstError = 4 if ($WorstError == 0);
+		next;
 	}
 	else {
 		die "$Item->{FILE}:$Item->{LINE} Unexpected status $Status returned.";
@@ -362,12 +357,19 @@ foreach my $Item (@ItemList) {
 if (@NowFail+@NowOK+$Renotify > 0 and @{$Options{page}} > 0 and ! $Options{test}) {
 	# Set up the e-mail subject.
 	my $TotalDown = @NowFail + @StillFail;
+	my $PendingCount = (0 + @Pending);
 	my $Status;
 	if ($TotalDown) {
-		$Status = "$TotalDown service" . ($TotalDown > 1?'s':'') . " down";	# Something is down.
+		$Status =
+			  "$TotalDown service" . ($TotalDown > 1?'s':'') . " down" 
+			. ($PendingCount > 0?", $PendingCount pending":'')
+			;
 	}
 	elsif (@NowOK) {
-		$Status = 'All services restored';	# Was down, but all up now.
+		$Status = 
+			  'All services restored'
+			. ($PendingCount > 0?' or pending':'')
+			;
 	}
 	else {
 		$Status = 'All services up';		# Never was down (shouldn't happen).
@@ -392,6 +394,9 @@ ENDHeaders
 	}
 	if (@StillFail) {
 		print $MAIL "Still failing: " . join(', ',@StillFail) . "\n";
+	}
+	if (@Pending) {
+		print $MAIL "Pending failures: " . join(', ',@Pending) . "\n";
 	}
 	if (@NowOK) {
 		print $MAIL "Now OK: " . join(', ',@NowOK) . "\n";
@@ -420,8 +425,9 @@ if ($Errors > 0) {
 	exit $WorstError;
 }
 else {
-	print "All services are OK.\n" unless ($Options{quiet});
-	syslog('INFO','All services are OK.')
+	my $text = "All services are OK" . (@Pending > 0?" or pending":'') . ".\n";
+	print $text unless ($Options{quiet});
+	syslog('INFO',$text)
 		if ($^O !~ /MSWin/);
 	exit 0;
 }
@@ -615,6 +621,7 @@ sub WriteStatusFile {
 		foreach my $Item (@$ArrayRef) {
 			next if ($Item->Status == 0 or $Item->Status == 4);	# Skip OK services.
 			next if (ref $Item eq 'history');	# We don't track history lines.
+			$Item->{FirstNotification} = 0 unless ($Item->FirstNotification);
 			printf $STATUS "Name=%s, FailAt=%d=%s, FirstNotify=%d=%s, NextNotify=%d=%s, LastCheck=%d=%s, File=%s:%d\n",
 				$Item->Name,
 				$Item->FirstFail,

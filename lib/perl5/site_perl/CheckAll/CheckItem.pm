@@ -19,11 +19,12 @@ use constant CHECK_FAIL => 8;
 use constant CHECK_HIGHLIGHT => "\e[33;40;1m"; # Yellow FG, Black BG, Bright
 use constant CHECK_RESET => "\e[0m";
 
-use constant CHECK_STILL_OK => 0;
-use constant CHECK_STILL_FAILING => 1;
-use constant CHECK_NOW_OK => 2;
-use constant CHECK_NOW_FAILING => 3;
-use constant CHECK_NOT_TESTED => 4;
+use constant CHECK_STILL_OK => 0;		# We're up.
+use constant CHECK_STILL_FAILING => 1;		# We're down, and we've been down.
+use constant CHECK_NOW_OK => 2;			# We've just come up.
+use constant CHECK_NOW_FAILING => 3;		# We've just come down.
+use constant CHECK_NOT_TESTED => 4;		# We're outside of our time period.
+use constant CHECK_PENDING => 5;		# We're down, but within our delay period.
 
 our @ISA = ('Exporter');
 our @EXPORT = qw(
@@ -55,7 +56,7 @@ use fields (
 	'Status',			# Current status (set by Check).
 	'StatusDetail',			# Additional detail
 	'FirstFail',			# When this was first detected failing
-	'FirstNotification',		# When we first reported it down (for DelayFirstNotification).
+	'FirstNotification',		# When we first reported it down (for Delayfirstnotification).
 	'PriorStatus',			# Its prior status.  Detects "Now failing" vs "Still failing".
 	'NextNotification',		# The last time we told someone it was failing.
 	'Onfail',			# Run this command when it first fails.
@@ -94,7 +95,7 @@ sub new{
 
 
 sub Report {
-        my($Self,$DescLen,$failonly) = @_;
+        my($Self,$DescLen,$failonly,$StartTime) = @_;
 	$DescLen = 40 unless ($DescLen);
 
 	# Make sure we have values for everything.
@@ -105,10 +106,12 @@ sub Report {
 
 	# Return our status + status change information.
 	if ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_OK) {
+		# Still OK.
 		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::Options{verbose} && !$failonly);
 		return CHECK_STILL_OK;
 	}
 	elsif ($Self->{Status} eq CHECK_FAIL and $Self->{PriorStatus} eq CHECK_FAIL) {
+		# Still failing.
 		my $Since;
 		my $FirstFail = $Self->FirstFail;
 		if (time() - $FirstFail < 84200) {
@@ -132,12 +135,33 @@ sub Report {
 		return CHECK_STILL_FAILING;
 	}
 	elsif ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_FAIL) {
+		# Now OK.
 		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::Options{quiet} && !$failonly);
 		return CHECK_NOW_OK;
 	}
 	elsif ($Self->{Status} eq CHECK_NOT_TESTED) {
+		# Didn't test this one due to time constraints.
 		printf "\t%-${DescLen}.${DescLen}s not tested\n", $Self->{Desc} if (!$main::Options{quiet} && !$failonly);
 		return CHECK_NOT_TESTED;
+	}
+	elsif (
+		    ($Self->{Status} eq CHECK_FAIL)
+		and $Self->{Delayfirstnotification}
+		and ($Self->{FirstFail}+$Self->{Delayfirstnotification} < time())
+	) {
+		# Pending failure, but notice is delayed for an interval.
+		$Self->{FirstFail} = $StartTime unless ($Self->{FirstFail});	# Remember when it first failed.
+		my $text = $Self->{Desc}
+			. " pending failure "
+			. ($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail};
+		printf "\t\t%s%s%s\n",
+			CHECK_HIGHLIGHT,
+			$text,
+			CHECK_RESET
+				if (!$main::Options{quiet});
+		syslog('WARNING','%s',$text)
+			if ($^O !~ /MSWin/);
+		return CHECK_PENDING;
 	}
 	else {
 		my $text = $Self->{Desc}
