@@ -1,0 +1,1 @@
+postconf -e 'default_transport = retry: holding mail temporarily' && echo Outbound mail is now being held.
