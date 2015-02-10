@@ -19,7 +19,7 @@ sub Target {
 	if (@_) {
 		# This is a set operation.
 		my $Target = shift;
-		if ($Target =~ /^\s*([<>]?\d{1,2}|100)%?\s*$/) {
+		if ($Target =~ /^\s*([<>]?\d+?\s*$/) {
 			$Self->{Target} = $1;
 			return 1;
 		}
@@ -116,6 +116,9 @@ sub Check {
 	$Status = $Self->CHECK_OK;		# Assume no errors.
 	my $Detail = '';
 	my $Actual = @Data;
+	print __PACKAGE__ . "::Check: $File:$Line Actual=$Actual\n"
+               	if ($Self->{Verbose});
+	
 	if ($Target =~ /^<(\d+)/) {
 		$Target = $1;
 		if ($Actual > $Target) {
