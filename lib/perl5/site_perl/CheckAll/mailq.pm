@@ -19,7 +19,7 @@ sub Target {
 	if (@_) {
 		# This is a set operation.
 		my $Target = shift;
-		if ($Target =~ /^\s*([<>]?\d+?\s*$/) {
+		if ($Target =~ /^\s*[<>]?\d+\s*$/) {
 			$Self->{Target} = $1;
 			return 1;
 		}
