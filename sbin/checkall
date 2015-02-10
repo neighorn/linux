@@ -29,6 +29,7 @@ our %Options = (		# Command line options.
 	single => 0,
 	waittime => 20,
 	maxwaittime => 60,
+	ignoretimes => 0,
 );
 our $Prog = $Script;		# Get our program name.
 $Prog=~s/\.pl$|\.bat$//;       	# Trim off the suffix, if present.
@@ -91,6 +92,7 @@ GetOptions (
 	'S|single!'	=> \$Options{single},
 	'w|waittime=i'	=> \$Options{waittime},
 	'maxwaittime=i'	=> \$Options{maxwaittime},
+	'ignoretimes|ignore-times!'	=> \$Options{ignoretimes},
 );
 
 eval "use CheckAll::CheckItem;"; # Do this late, to benefit from -L.
@@ -706,20 +708,55 @@ take action when a service fails or recovers, and/or send out notifications.
 
    checkall [options] [listname ...]
    
+=head2 Statuses:
+
+Services can be determined to be in one of the following statuses:
+
+=over 3
+
+=item *
+
+Up - this service is up
+
+=item *
+
+Now down - this service has just been detected as down
+
+=item *
+
+Still down - this service has been previously detected as down and is still down
+
+=item *
+
+Now up - this service has just been detected as having come back up
+
+=item *
+
+Pending - this service appears to be down, however we've been told to delay
+down notifications for a period of time and that period hasn't expired yet.
+
+=item *
+
+Not tested - this service is only tested during specific times (e.g workdays)
+and it is currently outside of those time constraints.  May be overridden
+with "--ignoretimes".
+
+=back
+
 =head2 Return codes:
 
 =over 3
 
-=item 0
+=item 0 -
 
 All services are up.
 
-=item 4
+=item 4 -
 
 Some services are down, but none have reached their "DelayNotification" delay yet,
 so no alerts have gone out.
 
-=item 8
+=item 8 -
 
 One or more services are down.  Alerts have gone out if requested.
 
@@ -804,6 +841,10 @@ Wait Time -- Wait up to "seconds" seconds for individual checks to complete.  So
 
 The effective value for any given check is the larger of this value or a waittime value specified in the check definition.  The default value is 20 seconds.
 
+=item --ignoretimes
+
+This causes checkall to ignore any time constraints when checking services.
+
 =back
 
 =head2 Configuration File
@@ -873,6 +914,7 @@ parameters, and other modules in the CheckAll:: tree for kinds of checks and spe
 
 The most common checks are "tcpport", which checks for connectivity to a TCP socket, and "process", which
 checks the process table for a running process.  "heading" is also used to insert headings.
+
 =back
 
 =cut

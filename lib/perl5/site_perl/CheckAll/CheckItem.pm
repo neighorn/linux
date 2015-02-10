@@ -260,7 +260,7 @@ sub Check {
         my $Line = $Self->{'LINE'};
 	my $Status;
 
-	if ($Self->{Iftime}) {
+	if ($Self->{Iftime} and (! $main::Options{ignoretimes}) ) {
 		$Status = CheckTimePattern($Self, $File, $Line, $main::StartTime);
 		return "Status=$Status" if ($Status);
 	}
