@@ -1,3 +1,5 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?auto.cifs: Attempting to mount \S+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?auto.removable: Mounting /dev/\S+ for disk\d+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: >> Please refer to the WARNINGS section of the nfs(5) manual page.\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: >> Using NFS over UDP can cause data corruption.\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: >> nfs server reported tcp not available, falling back to udp\s*$"
@@ -6,4 +8,3 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: get_exports:
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: key \S+ not found in map source\(s\).$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: rmdir_path: lstat of \S+ failed$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: umount_autofs_indirect: ask umount returned busy"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ auto.removable: Mounting /dev/\S+ for disk\d+$"
