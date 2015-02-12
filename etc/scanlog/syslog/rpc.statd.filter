@@ -1,0 +1,3 @@
+# Known harmless message.  Occurs when a system boots up, telling others to release any locks they may have been
+# holding for it.
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rpc.statd(\[\d+\])?:\s*SM_NOTIFY from \S+ while not monitoring"
