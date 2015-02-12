@@ -1,2 +1,4 @@
 # Known harmless message.  Later patch will demote this to a debugging message.
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ snmpd(\[\d+\])?:\s*error finding row index in _ifXTable_container_row_restore$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ snmpd(\[\d+\])?:\s*Connection from UDP: \[\S+\]:\d+->\[\S+\]:161$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ snmpd(\[\d+\])?:\s*message repeated \d+ times:"
