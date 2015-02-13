@@ -13,6 +13,7 @@ use Text::ParseWords;
 use POSIX qw(strftime);
 use Exporter;
 use Sys::Syslog;
+use Net::Ping;
 
 use constant CHECK_OK => 0;
 use constant CHECK_FAIL => 8;
@@ -41,6 +42,7 @@ my %IntegerFields = (
 	Delayfirstnotification => 1,
 	Renotifyinterval =>1,
 );
+my $PINGFH;				# Ping file handle, for ifping.
 
 # Define fields.  Note that Autoload normalizes all field names to "first-upper rest lowercase".
 # Names with multiple uppercase characters are not settable from the service files.
@@ -48,10 +50,11 @@ use fields (
 	'FILE',				# File this definition came from
 	'LINE',				# Line in file this definition came from
 	'Name',				# Unique descriptor for status file - defaults to desc.
-	'Delayfirstnotification',	# Delay the first notification this much time.
+	'Delayfirstnotification',	# Delay the first notification this much time in minutes.
 	'Desc',				# Description of service, for messages.
 	'Host',				# Target host.
 	'Iftime',			# Only check on this date/time pattern.
+	'Ifping',			# Only check if this system is reachable.
 	'Target',			# Target of check (host:port, process pattern, etc.).
 	'Status',			# Current status (set by Check).
 	'StatusDetail',			# Additional detail
@@ -103,15 +106,45 @@ sub Report {
 	$Self->{PriorStatus} = CHECK_OK unless (exists($Self->{PriorStatus}));
 	$Self->{StatusDetail} = ''	unless (exists($Self->{StatusDetail}));
 	$Self->{Desc} = '(No desc)'	unless (exists($Self->{Desc}));
+	$Self->{FirstFail} = time()	unless (
+		   $Self->{FirstFail} 
+		or ($Self->{Status} eq CHECK_OK)
+		or ($Self->{Status} eq CHECK_NOT_TESTED)
+	);
 
 	# Return our status + status change information.
-	if ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_OK) {
-		# Still OK.
+	if ( 
+		     ($Self->{PriorStatus} eq CHECK_OK)
+		 and ($Self->{Status} eq CHECK_OK)
+	) {
+		# Was OK.  Still OK.
 		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::Options{verbose} && !$failonly);
 		return CHECK_STILL_OK;
 	}
-	elsif ($Self->{Status} eq CHECK_FAIL and $Self->{PriorStatus} eq CHECK_FAIL) {
-		# Still failing.
+	elsif (
+		    ($Self->{Status} eq CHECK_FAIL)
+		and $Self->{Delayfirstnotification}
+		and ($Self->{FirstFail}+60*$Self->{Delayfirstnotification} > time())
+	) {
+		# Pending failure, but notice is delayed for an interval.
+		$Self->{FirstFail} = $StartTime unless ($Self->{FirstFail});	# Remember when it first failed.
+		my $text = $Self->{Desc}
+			. " pending failure "
+			. ($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail};
+		printf "\t\t%s%s%s\n",
+			CHECK_HIGHLIGHT,
+			$text,
+			CHECK_RESET
+				if (!$main::Options{quiet});
+		syslog('WARNING','%s',$text)
+			if ($^O !~ /MSWin/);
+		return CHECK_PENDING;
+	}
+	elsif (
+		    ($Self->{PriorStatus} eq CHECK_FAIL)
+		and ($Self->{Status} eq CHECK_FAIL)
+	) {
+		# Was failing.  Still failing.
 		my $Since;
 		my $FirstFail = $Self->FirstFail;
 		if (time() - $FirstFail < 84200) {
@@ -134,8 +167,11 @@ sub Report {
 			if ($^O !~ /MSWin/);
 		return CHECK_STILL_FAILING;
 	}
-	elsif ($Self->{Status} eq CHECK_OK and $Self->{PriorStatus} eq CHECK_FAIL) {
-		# Now OK.
+	elsif (
+		    ($Self->{PriorStatus} eq CHECK_FAIL) 
+		and ($Self->{Status} eq CHECK_OK)
+	) {
+		# Was failing.  Now OK.
 		printf "\t%-${DescLen}.${DescLen}s OK\n", $Self->{Desc} if (!$main::Options{quiet} && !$failonly);
 		return CHECK_NOW_OK;
 	}
@@ -144,26 +180,8 @@ sub Report {
 		printf "\t%-${DescLen}.${DescLen}s not tested\n", $Self->{Desc} if (!$main::Options{quiet} && !$failonly);
 		return CHECK_NOT_TESTED;
 	}
-	elsif (
-		    ($Self->{Status} eq CHECK_FAIL)
-		and $Self->{Delayfirstnotification}
-		and ($Self->{FirstFail}+$Self->{Delayfirstnotification} < time())
-	) {
-		# Pending failure, but notice is delayed for an interval.
-		$Self->{FirstFail} = $StartTime unless ($Self->{FirstFail});	# Remember when it first failed.
-		my $text = $Self->{Desc}
-			. " pending failure "
-			. ($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail};
-		printf "\t\t%s%s%s\n",
-			CHECK_HIGHLIGHT,
-			$text,
-			CHECK_RESET
-				if (!$main::Options{quiet});
-		syslog('WARNING','%s',$text)
-			if ($^O !~ /MSWin/);
-		return CHECK_PENDING;
-	}
 	else {
+		# Wasn't failing before (or was pending), but it's failing now.
 		my $text = $Self->{Desc}
 			. " now FAILING "
 			. ($Self->{StatusDetail}?' -- ':'') . $Self->{StatusDetail};
@@ -263,6 +281,12 @@ sub Check {
 	if ($Self->{Iftime} and (! $main::Options{ignoretimes}) ) {
 		$Status = CheckTimePattern($Self, $File, $Line, $main::StartTime);
 		return "Status=$Status" if ($Status);
+	}
+	if ($Self->{Ifping}) {
+		$PINGFH=Net::Ping->new('tcp',3) unless ($PINGFH); # Get a handle if necessary.
+		$Self->{Ifping} = $Self->{Host} if ($Self->{Ifping} eq '1' and $Self->{Host});
+		return "Status=" . CHECK_NOT_TESTED
+			unless $PINGFH->ping($Self->{Ifping});
 	}
 
 	return undef;
@@ -393,7 +417,7 @@ not case sensitive.
 =item *
 
 Value is the value for the specified field.  The values are case sensitive.  As white-space is used
-to separate Field=Value items, values containing whitei space must either have the white space escaped
+to separate Field=Value items, values containing white space must either have the white space escaped
 using \, or be quoted.  Similarly, backslashes that are intended as part of the value must also
 either be quoted or escaped (i.e. \\).
 
@@ -412,38 +436,38 @@ fields:
 
 =item *
 
-Target:  This is target item to check.  Interpretation of the target is left to the derived module.
+B<Target>:  This is target item to check.  Interpretation of the target is left to the derived module.
 
 =item *
 
-Desc: This is the description of this item, used when reporting the status of the item.  The variable
+B<Desc>: This is the description of this item, used when reporting the status of the item.  The variable
 "%C" will be replaced with the value of Host, if specified and not "localhost", or else the name of
 the computer running checkall.
 
 =item *
 
-OnFail: A command to execute when the target is first discovered failing.
+B<OnFail>: A command to execute when the target is first discovered failing.
 
 =item *
 
-OnDown: Deprecated synonym for OnFail
+B<OnDown>: Deprecated synonym for OnFail
 
 =item *
 
-OnOK: A command to execute when a previously failing target is first discovered OK.
+B<OnOK>: A command to execute when a previously failing target is first discovered OK.
 
 =item *
 
-OnUp: Deprecated synonym for OnOK
+B<OnUp>: Deprecated synonym for OnOK
 
 =item *
 
-Verbose:  A diagnostic flag.  The derived process should provide additional divided messages
+B<Verbose>:  A diagnostic flag.  The derived process should provide additional divided messages
 when this is non-zero.
 
 =item *
 
-Name: A unique identification value used internally to track status across runs.  This is normally left to default, in which case it uses "modname=targetvalue".  The only known reason to set this would
+B<Name>: A unique identification value used internally to track status across runs.  This is normally left to default, in which case it uses "modname=targetvalue".  The only known reason to set this would
 be if two different checkall service lists monitored the same service with different target values
 (e.g. "localhost:80" in one list, and "127.0.0.1:80" in another), couldn't be changed to a common target, 
 but still needed to be tracked as a single service.
@@ -457,72 +481,78 @@ derived items, but cannot be set by a checkall service file.
 
 =item *
 
-FILE: The name of the service list file that defined this item.
+B<FILE>: The name of the service list file that defined this item.
 
 =item *
 
-LINE: The line number of the service list file that defined this item.
+B<LINE>: The line number of the service list file that defined this item.
 
 =item *
 
-Delayfirstnotification: Time in minutes before the first notification should be sent.  If the
+B<Delayfirstnotification>: Time in minutes before the first notification should be sent.  If the
 error clears during that interval, no notification is sent.  This can be used to suppress
 transient errors, at the risk of delaying notification.
 
 =item *
 
-FirstFail: The time at which the item was first detected failing.
+B<FirstFail>: The time at which the item was first detected failing.
 
 =item *
 
-PriorNotification: The time at which the most recent alert was sent about this item being
+B<PriorNotification>: The time at which the most recent alert was sent about this item being
 failing.  This is only applicable if notifications were requested with the checkall -P option.
 
 =item *
 
-PriorStatus: The previous status of this item (defaults to "OK" for new items).  This is used to
+B<PriorStatus>: The previous status of this item (defaults to "OK" for new items).  This is used to
 determine if an item is "now failing" (newly failing), "still failing", "now OK", or "still OK".
 
 =item *
 
-Renotifyinterval: The time in minutes after which another notification should be sent.  If not set,
+B<Renotifyinterval>: The time in minutes after which another notification should be sent.  If not set,
 this defaults to the current value of -R.
 
 =item *
 
-Status: The status of the service (OK or failing), as set by the Check method.
+B<Status>: The status of the service (OK or failing), as set by the Check method.
 
 =item *
 
-StatusDetail: Additional text information about the status.  This is typically used to indicate that
+B<StatusDetail>: Additional text information about the status.  This is typically used to indicate that
 a service was marked as "FAILING" for unusual reasons, such as a configuration error.
 
 =item *
 
-Timeout: The time in seconds to wait for this check to complete.  The effective value for this
+B<Timeout>: The time in seconds to wait for this check to complete.  The effective value for this
 is the greater of the specified value (if specified), or the main program -w value.  This value
 is not meaningful for all types of checks and is primarily used to with network connections.
 
 =item *
 
-Tries: The number of times to try a TCP connection or SSH connection (for remote commands)
+B<Tries>: The number of times to try a TCP connection or SSH connection (for remote commands)
 before considering it a failure.  
 
 =item *
 
-Iftime: Restricts when this test is run.  The parameter is
+B<Iftime>: Restricts when this test is run.  The parameter is
 formatted as "format,pattern".  "format" is a time format that is interpreted by strftime(3)
 using the current local time.  These are the same format symbols as used by date(1).  
 "pattern" is a Perl
 regular expression.  If the results of strftime match the pattern, the test is executed. 
 Otherwise, it is marked as "not tested".
 
-Examples:
+B<Examples>:
 
   Iftime=%d,/01/			# Test only on the first day of the month
   Iftime=%u,[1-5]			# Test only on Monday-Friday
   Iftime=%m-%d,/(01|04|07|10)-01/	# Test only on Jan 01, Apr 01, Sep 01, Oct 01
   Iftime=%H-%u,/(09|1[0-7])-[1-5]/	# Test 9AM-5:59PM (09:00-17:59), Monday-Friday.
+
+=item *
+
+B<Ifping>: Restricts this test to only run if the host is up.  The parameter
+is an IP address, DNS name, or the "1" to use the the value of the Host parameter.
+The test will be skipped if the host is not pingable.
 
 =back
 
@@ -534,18 +564,18 @@ CheckItem provides the following methods:
 
 =item *
 
-new: create a new item and set initial values.  Derived items don't typically need to override this.  It
+B<new>: create a new item and set initial values.  Derived items don't typically need to override this.  It
 calls the SetOptions method, passing any parameters it receives.  Derived items may override SetOptions if they need special set-up.
 
 =item *
 
-SetOptions: set object values.  Typically this is passed a (possibly empty) array of "Field=Value" strings
+B<SetOptions>: set object values.  Typically this is passed a (possibly empty) array of "Field=Value" strings
 that came from a service file or internal logic.  SetOptions validates the field names, and stores
 the values.  Derived items sometimes override this in order to provide custome set-up.
 
 =item *
 
-Report: Generates a single-line report of the status of this item in a standard format.  It is rare
+B<Report>: Generates a single-line report of the status of this item in a standard format.  It is rare
 for a derived class to replace this, with the exception of "heading", which has different formatting 
 requirements.
 

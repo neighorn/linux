@@ -476,7 +476,7 @@ sub ProcessServiceLine {
 	}
 
 	# Is there an "ifhost" prefix to this test?
-##### ifhost and ifcmd need quote processing on the second argument only.
+        #  ifhost and ifcmd need quote processing on the second argument only.
 	if ($Keyword eq 'ifhost') {
 		# Ifhost /pattern/ selection statement.
 		my $HostPattern;
