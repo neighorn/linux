@@ -14,4 +14,5 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd(\[\d+\])?:\s*\[\d+/\d+/\d+ \d+
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd(\[\d+\])?:\s*credentials chain check failed$"
 # The following two occur because we asked a client to give up its opportunistic lock and didn't hear back.  Client might be offline.
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba(\[\d+\])?:\s*\[\d+/\d+/\d+ \d+:\d+:\d+\.\d+,\s*\d+\] ../source3/smbd/oplock.c:\d+\(oplock_timeout_handler\)$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*\[\d+/\d+/\d+ \d+:\d+:\d+\.\d+,\s*\d+\] ../source3/smbd/oplock.c:\d+\(oplock_timeout_handler\)$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s+Oplock break failed for file *"
