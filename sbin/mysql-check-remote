@@ -60,10 +60,6 @@ foreach ($ConfigFile) {
 }
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 
-# Process the config file defaults if present.
-unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
-	if (defined($Config{'ALLJOBS'}));
-
 # Process the command line options, if any.
 if (@ARGV) {
 	# Process the command line arguments.
@@ -73,6 +69,11 @@ if (@ARGV) {
 	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
 		if (defined($Config{'DEFAULTJOB'}));
 }
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
 if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 	
 # Set up our logging and output filtering.
