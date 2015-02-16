@@ -119,6 +119,7 @@ RunDangerousCmd("df -h > $opt_o/df.out");
 # Capture installed packages.
 RunDangerousCmd("rpm -q -a | sort > $opt_o/rpm.out");
 RunDangerousCmd("yum list -q installed | sort > $opt_o/yum.out");
+RunDangerousCmd("dpkg -l | sort > $opt_o/dpkg.out");
 
 # Capture the normal security tables.
 RunDangerousCmd("iptables -nvL > $opt_o/iptables.out");
