@@ -307,13 +307,18 @@ sub CheckTimePattern {
 		$Self->{StatusDetail} = "Configuration error";
 		return CHECK_FAIL;		# Config error
 	}
-	elsif (strftime($TimeFormat,localtime($StartTime)) =~ $Regex) {
+	my $Time = strftime($TimeFormat,localtime($StartTime));
+	if ($Time =~ $Regex) {
 		# We're within the specified time.  Continue the test.
+		print "$File:$Line CheckTimePattern: $Time matches $Regex\n"
+				if ($Self->{'Verbose'});
 		return undef;
 	}
 	else {
 		# We're outside the specified time.  Skip the test.
 		$Self->{Status} = CHECK_NOT_TESTED;
+		print "$File:$Line CheckTimePattern: $Time does not match $Regex\n"
+				if ($Self->{'Verbose'});
 		return CHECK_NOT_TESTED;	# Skip test.
 	}
 }
