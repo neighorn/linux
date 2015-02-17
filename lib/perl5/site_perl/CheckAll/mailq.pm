@@ -51,6 +51,7 @@ sub Check {
 	# First, make sure we have the necessary config info.
 	my $Errors = 0;
 	$Self->{Desc} = 'mailq' unless ($Self->{Desc});
+	$Self->{Filter} = '/^[\dA-F]{10}\s/' unless ($Self->{Filter});
 	if (! $Self->{Target}) {
 		warn "$File:$Line: Target not specified.\n";
 		$Self->{StatusDetail} = "Configuration error: Target not specified";
@@ -181,7 +182,8 @@ prefixed with < or > to mean "less than or equal" or "greater than or equal" res
 =item *
 
 Filter is a regexp that is used to filter the output from mailq.  Use of single quotes is
-advised to preserve any backslashes in the filter pattern.
+advised to preserve any backslashes in the filter pattern.  If not specified, the default
+is: ^[\dA-F]{10}\s
 
 =item *
 
