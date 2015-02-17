@@ -59,24 +59,32 @@ my $OptSpec='e=l h m=l O=s p=l P=l r=s s=s t v z';
 LoadConfigFile($ConfigFile);
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 
-# Process the command line options, if any.
+# Use the DefaultJob if no command line args.
+unshift @ARGV, quotewords(" ",0,$Config{'DEFAULTJOB'})
+	if ( ( @ARGV == 0) and defined($Config{'DEFAULTJOB'}));
+
+# Prepend the default settings.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if ( defined($Config{'ALLJOBS'}));
+
 if (@ARGV) {
 	# Process the command line arguments.
 	ProcessOptions($OptSpec);
-} else {
-	# No command line options.  Run the default job.
-	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
-		if (defined($Config{'DEFAULTJOB'}));
 }
-
-# Process the config file defaults if present.
-unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
-	if (defined($Config{'ALLJOBS'}));
 
 if ($Errors) {exit $ExitCode;}      # Exit if errors were detected.
 	
 # Set up our logging and output filtering.
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput({
+        SYSLOG_FACILITY         => $Syslog,
+        MAIL_FILE_PERMS         => 0644,
+        ALWAYS_MAIL_LIST        => $opt_m,
+        ERROR_MAIL_LIST         => $opt_e,
+        ALWAYS_PAGE_LIST        => $opt_p,
+        ERROR_PAGE_LIST         => $opt_P,
+        MAIL_SUBJECT            => $Subject,
+        VERBOSE                 => $opt_v,
+});
 
 @Servers = @Parms if (@Parms);
 @Servers = split(/\s+/,$Config{SERVERS}) if (! @Servers and $Config{SERVERS});
