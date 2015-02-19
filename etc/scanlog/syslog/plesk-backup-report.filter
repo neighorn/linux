@@ -1,0 +1,1 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ plesk-backup-report(\[\d+\])?:\s*All backups report normal exit codes$"
