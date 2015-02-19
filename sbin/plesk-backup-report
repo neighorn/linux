@@ -172,10 +172,14 @@ sub RunRemote {
 	my @HostList;
 	my $Errors = 0;
 	foreach my $RemoteItem (@{$Options{'remote-host'}}) {
-		foreach (split(/\s+|\s*,\s*/,$RemoteItem)) {
+		$RemoteItem =~ s/,+/ /g;
+		foreach (split(/\s+/,$RemoteItem)) {
 		        if (exists($Config{uc($_)})) {
 		                # This is a name from the config file.  Push it's list.
-		                push @HostList, split(/(\s+|\s*,\s*)/,$Config{uc($_)});
+		                my $ConfigItem = $Config{uc($_)};
+				$ConfigItem =~ s/,+/ /g;
+				my @SplitList = split(/\s+/,$Config{uc($_)});
+		                push @HostList, @SplitList;
 		        }
 		        else {
 		                push @HostList, $_;
