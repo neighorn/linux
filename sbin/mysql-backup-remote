@@ -82,7 +82,6 @@ LogOutput({
         ERROR_MAIL_LIST         => $opt_e,
         ALWAYS_PAGE_LIST        => $opt_p,
         ERROR_PAGE_LIST         => $opt_P,
-        MAIL_SUBJECT            => $Subject,
         VERBOSE                 => $opt_v,
 });
 
