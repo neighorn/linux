@@ -487,7 +487,8 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 LOGONLY "^\s*(\S+:\s+)?\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-LOGONLY "^\s*(\S+:\s+)?Command: "
+LOGONLY "^\s*Command: "
+IGNORE	"^\s*(\S+:\s+)?Command: "
 SHOW	"^\s*?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 IGNORE	"^\s*\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 LOGONLY	"^\s*\S+ ended normally with status 0 and signal 0"
