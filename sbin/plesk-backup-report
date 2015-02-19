@@ -101,7 +101,7 @@ LogOutput({
 
 # Are we in remote-host mode, in which case we don't run locally.
 if ($Options{'remote-host'}) {
-	$Errors = RunRemoteHost();
+	$Errors = RunRemote();
 }
 else {
 	$Errors = RunLocally();
@@ -171,29 +171,35 @@ sub RunRemote {
 
 	my @HostList;
 	my $Errors = 0;
-	foreach (@{$Options{'remote-host'}}) {
-	        if (exists($Config{uc($_)})) {
-	                # This is a name from the config file.  Push it's list.
-	                push @HostList, split(/(\s+|\s*,\s*)/,$Config{uc($_)});
-	        }
-	        else {
-	                push @HostList, split(/(\s+|\s*,\s*)/,$_);
+	foreach my $RemoteItem (@{$Options{'remote-host'}}) {
+		foreach (split(/\s+|\s*,\s*/,$RemoteItem)) {
+		        if (exists($Config{uc($_)})) {
+		                # This is a name from the config file.  Push it's list.
+		                push @HostList, split(/(\s+|\s*,\s*)/,$Config{uc($_)});
+		        }
+		        else {
+		                push @HostList, $_;
+		        }
 	        }
 	}
 
 	die "No remote hosts specified on the command line or in the configuration file.\n" unless (@HostList);
 
 	foreach my $Host (@HostList) {
-		my $Cmd = "ssh $Host $Prog -F /usr/local/etc/filter-accept-all.filter";
+		my $Cmd =   "ssh $Host $Prog "
+			  . '-F /usr/local/etc/filter-accept-all.filter '
+			  . ($Options{verbose} > 1?'-v ':'')
+			  . ($Options{test}?'-t ':'')
+			  ;
 		my $FH;
-		print "Verbose: Running $Cmd\n" if ($Options{verbose});
+		print "Verbose: Running $Cmd\n" if ($Options{verbose} or $Options{test});
 		if (open($FH, "$Cmd |")) {
 			while (<$FH>) {
 				print "$Host: $_";
 			}
 			close $FH;
-			my $ExitCode = $?;
-			print "$Host exited with return code $ExitCode\n";
+			my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
+			print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
 			$Errors++ if ($ExitCode);
 		}
 		else {
@@ -476,13 +482,19 @@ __END__
 #       1) The "Type" parameter may be specified in upper, lower, or mixed case.
 #       2) All messages go to the syslog, regardless of this filter.
 #
-LOGONLY "^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
-LOGONLY "^\s*Command: "
-SHOW    "^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-SHOW    "^\s*\S+ ended normally with status 0 and signal 0 - run time:"
-SHOW    "^\s*Test:"
-SHOW    "^\s*Executing:"
-SHOW    "^\s*Verbose:"
-SHOW    "^\s*debug:"
-SHOW    "^\s*$"
+LOGONLY "^\s*(\S+:\s+)?\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*(\S+:\s+)?Command: "
+SHOW	"^\s*?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+LOGONLY	"^\s*\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
+LOGONLY	"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+IGNORE	"^\s*\S+:\s+\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+SHOW	"^\s*\S+:\s+\S+ exited with return code 0$"
+SHOW	"^\s*(\S+:\s+)?Test:"
+SHOW	"^\s*(\S+:\s+)?Executing:"
+SHOW	"^\s*(\S+:\s+)?Verbose:"
+SHOW	"^\s*(\S+:\s+)?debug:"
+IGNORE  "^\s*(\S+:\s+)?$"
 SHOW	"^\s*(\S+:\s+)?All backups report normal exit codes$"
+IGNORE	"^\s*(\S+:\s+)?Remote job exited with return code 0 and signal 0$"
