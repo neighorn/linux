@@ -56,6 +56,7 @@ our %OptionSpecifications=(
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'exclude-file=s'	=>	\&opt_Array,
 		'exclude-vm=s'		=>	\&opt_Hash,
+		'include-file=s'	=>	\&opt_Array,
 );
 #
 
@@ -292,6 +293,55 @@ sub ProcessBackup {
 	# Remember if it's running.
 	my $WasRunning=IsRunning($Machine);
 
+	# Disk image files may be scattered in multiple places around the system.
+	# Try to back them up without their paths by using symbolic links.
+	my $TmpDir = tempdir(CLEANUP => 1);
+
+	# Write the XML to the temporary directory.
+	my $XMLFile = "$TmpDir/0-$Machine.xml"; # 0- sorts small file before big ones.
+	my $XMLFH;
+	if (open($XMLFH,'>',$XMLFile)) {
+		print $XMLFH @XML;
+		close $XMLFH;
+	}
+	else {
+		warn "Unable to write to $XMLFH: $@\n";
+		close $XMLFH;
+		$BackupErrors++;
+	}
+
+	# Populate the temporary directory with symbolic links to the source files.
+	my $FileCount = 0;
+	LINE: foreach my $Line (@XML) {
+		chomp $Line;
+		next unless ($Line =~ /source file\s*=\s*'(.*?)'/i);
+		my $SourcePath = $1;
+		# Found a file.  Is it excluded?
+		foreach my $Exclude (@{$Options{"exclude-file"}}) {
+			next LINE if (fnmatch("$Exclude",$SourcePath));
+		}
+		# If we have an include list, exclude everything else.
+		my $Match = 0;
+		foreach my $Include (@{$Options{'include-file'}}) {
+			if (fnmatch("$Include",$SourcePath)) {
+				$Match++;
+				last;
+			}
+		}
+		next if (@{$Options{'include-file'}} and ! $Match);	# No match.
+		$FileCount++;		# We have a file to back up.
+		$SourcePath =~ m"^(.*)/(.*?)$";
+		my($SourceDir,$SourceFile) = ($1,$2);
+
+		# Place a symbolic link to it in our tmp directory.
+		RunDangerousCmd(qq<ln -s "$SourcePath" "$TmpDir/$SourceFile">);
+	}  
+	if ($FileCount == 0) {
+		warn "No $Machine disks remain after include/exclude processing - backup skipped\n";
+		$BackupErrors++;
+		return $BackupErrors;
+	}
+
 	# If it's running, shut it down.
 	if ( $WasRunning ) {
 		# It's running.
@@ -318,39 +368,6 @@ sub ProcessBackup {
 			if ($Options{'after-state'} =~ /^(same|up)$/);
 		return 18;
 	}
-
-	# Disk image files may be scattered in multiple places around the system.
-	# Try to back them up without their paths by using symbolic links.
-	my $TmpDir = tempdir(CLEANUP => 1);
-
-	# Write the XML to the temporary directory.
-	my $XMLFile = "$TmpDir/0-$Machine.xml"; # 0- sorts small file before big ones.
-	my $XMLFH;
-	if (open($XMLFH,'>',$XMLFile)) {
-		print $XMLFH @XML;
-		close $XMLFH;
-	}
-	else {
-		warn "Unable to write to $XMLFH: $@\n";
-		close $XMLFH;
-		$BackupErrors++;
-	}
-
-	# Populate the temporary directory with symbolic links to the source files.
-	LINE: foreach my $Line (@XML) {
-		chomp $Line;
-		next unless ($Line =~ /source file\s*=\s*'(.*?)'/i);
-		my $SourcePath = $1;
-		# Found a file.  Is it excluded?
-		foreach my $Exclude (@{$Options{"exclude-file"}}) {
-			next LINE if (fnmatch("$Exclude",$SourcePath));
-		}
-		$SourcePath =~ m"^(.*)/(.*?)$";
-		my($SourceDir,$SourceFile) = ($1,$2);
-
-		# Place a symbolic link to it in our tmp directory.
-		RunDangerousCmd(qq<ln -s "$SourcePath" "$TmpDir/$SourceFile">);
-	}  
 
 	# Run the backup.
 	
@@ -491,7 +508,11 @@ sub opt_O {
 	my(undef,$Value) = @_;
 	$Value = uc($Value);
 	if (exists($Config{$Value})) {
-		$Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
+		$Errors ++ unless GetOptionsFromString(
+			$Config{$Value},
+			%OptionSpecifications,
+			'<>' => sub{push @ARGV, shift;}		# Need to save any stray paramters.
+		);
 	}
 	else {
 		warn qq<Warning: "$Value" not found in configuration file\n>;
@@ -534,8 +555,12 @@ Options:
 					Example:
 						--exclude-file=/var/lib/libvirt/images/test.img
 						--exclude-file=\*-swap.img
-					Note that the directory is not 
-					specified.  May be repeated.
+						--exclude-file='*-swap.img'
+					May be repeated.  An error is generated if 
+					no files are selected for backup.
+	--include-file=name:		Include: same as exclude-file, except that only
+					files that match one of the included names
+					are backed up.  May be repeated.
 	--exclude-vm=name:		Do not back up this virtual machine.
 	--(no)gzip|-z:			Gzip the tar file.  Default is --nogzip.
 	--always-mail=mailid|-m mailid:	Mail: Send an execution report to this
@@ -615,6 +640,7 @@ Notes:
                 after-state
                 cd, -C
 		exclude-file
+		include-file
                 gzip, -z
                 test, -t
                 timeout, -T
