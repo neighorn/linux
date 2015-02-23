@@ -2,9 +2,10 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*(sd \d+:\d+:\d+:\d+:\s+)?qdep
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*EXT4-fs \(\S+\): mounted filesystem with"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*generic-usb \S+"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*usb( \d+-\d+\.\d+(\.\d+)?)?:\s+configuration #\d+ chosen from \d+ choices?$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*usb( \d+-\d+\.\d+(\.\d+)?)?:\s+New full speed USB device "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*usb( \d+-\d+\.\d+(\.\d+)?)?:\s+New \S+ speed USB device "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*usb( \d+-\d+\.\d+(\.\d+)?)?:\s+New USB device found, idVendor=\S+, idProduct=\S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*usb( \d+-\d+\.\d+(\.\d+)?)?:\s+Product: "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*usb( \d+-\d+\.\d+(\.\d+)?)?:\s+reset \S+ speed USB device "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*usb( \d+-\d+\.\d+(\.\d+)?)?:\s+USB disconnect, device number \d+$"
 # Following occur as part of auto updates.
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+SGI XFS with ACLs,"
