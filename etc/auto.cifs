@@ -9,6 +9,11 @@ key="$1"
 #          password=*****
 #       Please don't use blank spaces to separate the equal sign from the
 #       user account name or password.
+
+function GetGroup {
+	grep -q nobody /etc/group && echo nobody || echo nogroup
+}
+
 credfile=""
 [[ -f "/usr/local/etc/auto.cifs.d/$key" ]] && credfile="/usr/local/etc/auto.cifs.d/$key"
 [[ -z "$credfile" && -f "/usr/local/etc/auto.cifs.d/DEFAULT" ]] && credfile="/usr/local/etc/auto.cifs.d/DEFAULT"
@@ -16,7 +21,9 @@ credfile=""
 [[ -z "$credfile" ]] && credfile="/usr/local/etc/auto.master.d/cifs.credentials/$key" # backwards compatibility
 
 # Note: Use cifs instead of smbfs:
-mountopts="-fstype=cifs,file_mode=0644,dir_mode=0755,uid=nobody,gid=nobody"
+group=`GetGroup`
+mountopts="-fstype=cifs,file_mode=0644,dir_mode=0755,uid=nobody,gid=$group" 
+
 smbclientopts=""
 echo "Attempting to mount $key" | /usr/bin/logger -t auto.cifs
 for P in /usr/local/samba/bin /usr/local/bin /bin /sbin /usr/bin /usr/sbin
@@ -44,5 +51,6 @@ $SMBCLIENT $smbclientopts -gL $key 2>/dev/null |
 		  sub(/\$/, "\\$", $2);
 		  print " \\\n\t /" $2, "://" key "/" $2 }
         END     { if (!first) print "\n"; else exit 1 }
-        '
+        ' 2>&1 |
+   tee -a /tmp/auto.cifs.log
 exit 0
