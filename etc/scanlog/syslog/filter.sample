@@ -1,0 +1,1 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sample(\[\d+\])?:\s*your long and complicated message here$"
