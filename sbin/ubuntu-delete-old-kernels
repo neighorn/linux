@@ -200,6 +200,7 @@ sub RunRemote {
 	foreach my $Host (@HostList) {
 		my $Cmd =   "ssh $Host $Prog "
 			  . '-F /usr/local/etc/filter-accept-all.filter '
+			  . '--always-mail= '
 			  . ($Options{verbose} > 1?'-v ':'')
 			  . ($Options{test}?'-t ':'')
 			  . '2\>\&1 '
