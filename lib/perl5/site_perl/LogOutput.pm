@@ -1,4 +1,4 @@
-# Copyright (c) 2005-2009, Martin Consulting Services, Inc.
+# Copyright (c) 2005-2015, Martin Consulting Services, Inc.
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.20;
+our $Version	= 3.21;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -574,12 +574,10 @@ sub _LoadFilters {
 			print "LogOutput: \tread $PatternNum: $_\n"
 				if ($Options{VERBOSE} >= 2);
 			chomp;
+			next if (/^\s*$/ or /^\s*#/);	# Skip comments and blank lines.
 	
 			# Split out the type from the pattern.
 			($Type,$Pattern)=split('\s+',$_,2);
-	
-			# Skip comments and strip white space.
-			next if ($Type =~ /^\s*#/);	# Comment.
 			$Pattern=~s/\s+$//;		# Strip trailing whitespace.
 	
 			# Check for syntax errors.
