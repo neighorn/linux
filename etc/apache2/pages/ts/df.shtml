@@ -9,8 +9,8 @@
         <!--#exec cmd="hostname -s" -->
 	disk space as of <!--#echo var="DATE_LOCAL" -->
 </H2>
-<table style="font-family:monospace" size=4 CELLSPACING=5>
-<!--#exec cmd="df -hlP | sed 's/^/<tr><td>/;s@  *@</td><td align=\"right\">@g;s/right/left/5;s/Mounted.*on/Mounted on/;s@$@</td></tr>@'" -->
+<table style="font-family:monospace" size=4>
+<!--#exec cmd="df -hlP | sed 's/^/<tr><td>/;s@  *@\&nbsp;</td><td align=\"right\">@g;s/right/left/5;s/Mounted.*on/Mounted on/;s@$@</td></tr>@;/100%\|9[5-9]%/s/<tr>/<tr style=\"BACKGROUND-COLOR: yellow\">/'" -->
 </table>
 </BODY>
 <HTML>
