@@ -744,6 +744,8 @@ IGNORE	"^\s*WARNING: gnome-keyring:: couldn't connect to:"
 SHOW	"^\s*error: Requested operation is not valid: USB device \S* is in use"
 SHOW	"^\s*error: failed to start domain \S+$"
 SHOW	"^\s*Backup of \S+ completed normally at ....-..-.. ..:..:..$"
+IGNORE	"^\s*error: Failed to shutdown domain \S+$"
+IGNORE	"^\s*error: Unable to read from monitor: Connection reset by peer$"
 # 
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
