@@ -5,6 +5,7 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/cleanup(\[\d+\])?:\s*[\dA-F]+:
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/pickup(\[\d+\])?:\s*[\dA-F]+: uid=\d+ from="
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/qmgr(\[\d+\])?:\s*[\dA-F]+: from=<\S+>, size=\d+, nrcpt=\d+ \(queue active\)\s*$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/qmgr(\[\d+\])?:\s*[\dA-F]+: removed$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/postfix-script(\[\d+\])?:\s*the Postfix mail system is running: PID: \d+$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtp(\[\d+\])?:\s*[\dA-F]+: to=\S+, relay=\S+, delay=\S+, delays=\S+, dsn=\S+, status=sent"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*[\dA-F]+: client=\S+\[192.168.23.\d+\]$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*[\dA-F]+: client=localhost\[127.0.0.1\]$"
