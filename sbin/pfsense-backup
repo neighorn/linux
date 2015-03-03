@@ -185,7 +185,7 @@ sub ProcessBackup {
 			GetOptionsFromString($HostConfig,%OptionSpecifications)
 		);
 	}
-	$Options{username} = 'admin' unless ($Options{username});
+	$Options{username} = 'root' unless ($Options{username});
 	$Options{port} = '22' unless ($Options{port});
 	print Dumper(\%Options) if ($Options{verbose} >=3);
 
@@ -387,7 +387,7 @@ Options:
 	--port=n			Port: set the SCP port option.  Defaults to
 					22.
 	--username=name|--user=name|-U name	User: SCP using this login.  Defaults
-					to "admin".
+					to "root".
 	--always-mail=mailid|-m mailid:	Mail: Send an execution report to this
 					e-mail address.
 
@@ -433,7 +433,7 @@ Notes:
        create an ssh key if one one doesn't already exist.  Then paste the
        public version of the user's key into the "Authorized keys" box for
        in the PFSense "User Manager" entry for the user.  The user name
-       defaults to "admin" unless --username|--user|-U is specified.
+       defaults to "root" unless --username|--user|-U is specified.
     2) CONFIGURATION FILE
        $Prog reads /usr/local/etc/$Prog.cfg if present for additional options.  
        Additional options may be specified in this file in three ways:
