@@ -1,0 +1,535 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use LogOutput;
+use Getopt::Long 2.38 qw(GetOptionsFromString :config gnu_compat permute bundling);
+use Text::ParseWords;
+use File::Find;
+use File::FnMatch qw(:fnmatch);
+use File::Path;
+use File::Temp qw(tempdir);
+use Fcntl qw(:flock :mode :DEFAULT);
+use POSIX qw(strftime);
+use IO::Socket;
+use Data::Dumper::Simple;
+$Data::Dumper::Pad = "Verbose:\t\t";
+
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
+
+# Initialize variables.
+our $Prog=$0;                           # Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+my $Errors=0;   	                # No errors so far.
+my $BaseDir="/usr/local/etc";		# Set our base directory.
+my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+my $Syslog = 'user';			# Log to the syslog.
+our %Config;				# Data from the config file.
+our %Options;				# Options settings.
+our @Parms;				# List of non-option arguments.
+our @RecoveryRestart;			# List of machines that failed to
+					# shutdown.
+
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+our %OptionSpecifications=(
+		'cycles|C=i'		=>	\&opt_Value,
+		'debug|d'		=>	sub {$DB::AutoTrace=1;},
+		'help|h|?!'		=>	\&opt_h,
+		'always-mail|m=s'	=>	\&opt_Array,
+		'error-mail|M=s'	=>	\&opt_Array,
+		'option-set|O=s'	=>	\&opt_O,
+		'output|o=s'		=>	\&opt_Value,
+		'always-page|p=s'	=>	\&opt_Array,
+		'error-page|P=s'	=>	\&opt_Array,
+		'subject=s'		=>	\&opt_Value,
+		'test|t!'		=>	\&opt_Value,
+		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+		'<>'			=>	sub {push @Parms,shift;},
+);
+#
+
+# Load the config file.
+if (-e $ConfigFile) {
+	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+	# Build a hash of settings found in the config file.
+	while (<CONFIG>) {
+		next if (/^\s*#/);      # Comment.
+		next if (/^\s*$/);      # Blank line.
+		chomp;
+		my ($name,$settings)=split(/:?\s+/,$_,2);
+		$name=uc($name);	# Name is not case sensitive.
+		$settings=~s/\s+$//;	# Trim trailing spaces.
+		$Config{$name}.=$settings . ',' ;
+	}
+	close CONFIG;
+	foreach (keys(%Config)) {
+		$Config{$_} =~ s/,$//;	# Remove trailing comma
+	}
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+	if (!@ARGV && defined($Config{DEFAULTJOB}));
+
+# Pre-process our command line, to get the options we need for LogOutput.
+my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
+%Options=(verbose => 0);	# Initialize Options.
+$Errors ++ unless (GetOptions(%OptionSpecifications));
+if ($Errors) {
+	print STDERR "Invalid command line options. Aborting\n";
+	exit 15;
+}
+
+die "No pfsense firewalls specified to back up\n" unless (@Parms);
+print Dumper(\%Config) if ($Options{verbose} >=3);
+
+@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+	
+# Set up our logging and output filtering.
+my $RunDate=`date +%m/%d`;
+chomp $RunDate;
+my $Subject;
+if ($Options{subject}) {
+	$Subject="$Options{subject}" ;
+} elsif (@Parms >= 1) {
+	$Subject=
+		  "%* %m/%d %C %N "
+		. ($Options{test}?' - test -':'')
+		. join(', ',@Parms)
+		. " %E %*%*%*" ;
+} else {
+	$Subject="%* %m/%d %C %N %E %*%*%*" ;
+};
+
+# Make sure some key items exist;
+foreach (qw(always-mail error-mail always-page error-page)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
+$Options{verbose} = 0 unless (exists($Options{verbose}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
+my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
+
+LogOutput({
+	SYSLOG_FACILITY		=> $Syslog,
+	MAIL_FILE		=> $Options{logfile},
+	MAIL_FILE_PERMS		=> 0644,
+	ALWAYS_MAIL_LIST	=> \@{$Options{"always-mail"}},
+	ERROR_MAIL_LIST		=> \@{$Options{"error-mail"}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{"always-page"}},
+	ERROR_PAGE_LIST		=> \@{$Options{"error-page"}},
+	MAIL_SUBJECT		=> $Subject,
+	VERBOSE			=> $LogOutputVerbose,
+});
+
+# Make another pass through the parm list.  This time, actually
+# run backups when we come across parms via <>.  Doing it this way lets
+# the user turn options on and off for each kind of backup (e.g.
+# change the exclude list per backup).
+%Options = (
+		test => $Options{test},
+		verbose => $Options{verbose},
+);			# Reset Options to defaults for reprocessing.
+$Errors ++ unless (GetOptions(%OptionSpecifications,'<>'=>\&ProcessBackup));
+
+
+#
+# Wrap up.
+#
+if ($Errors) {
+	warn "$Prog failed.\n";
+} else {
+	print "$Prog ended normally.\n";
+}
+
+exit( ($Errors?10:0) );
+
+
+#
+# ProcessBackup - Back-up the config file for a machine
+#
+sub ProcessBackup {
+
+	my $Host = shift;
+
+	my $TestPrefix = ($Options{test}?'Test: ':'');
+
+	print strftime("${TestPrefix}Backing up $Host at %Y-%m-%d %T\n",localtime());
+	my $BackupErrors = 0;
+
+	# Validate options.  These can change from backup to backup.
+	if ($Options{output} and $Options{output} !~ m<^[a-zA-Z0-9_:.,%= *?/{}[\]-]+$>) {
+		print STDERR "\tInvalid value \"$Options{output}\" for --output. Skipping backup\n";
+		return 1;
+	}
+	if ($Options{cycles} and $Options{cycles} !~ /^[1-9]\d*$/) {
+		print STDERR "\tInvalid value for --cycles. Skipping backup.\n";
+		return 1;
+	}
+
+	# Load and machine-specific configuration data.
+	local %Options = %::Options;
+	my $ConfigKey = uc("name=$Host");
+	if (my $HostConfig = $Config{$ConfigKey}) {
+		$Errors ++ unless (
+			GetOptionsFromString($HostConfig,%OptionSpecifications)
+		);
+	}
+	print Dumper(\%Options) if ($Options{verbose} >=3);
+
+	# Figure out our output file name.
+	die "No output directory named for $Host backups\n"
+		unless $Options{output};
+	my $Output = $Options{output};
+	$Output =~ s/%C/$Host/g;
+	my $BackupPattern = $Output;
+	$Output = strftime($Output,localtime())
+		if ($Output =~ /%[^p]/);
+	$Output =~ s"/+$"";				# Remove trailing slashes.
+	$Output =~ m"^(.*)/([^/]*)$";			# Split path from file name.
+	my ($OutputDir,$OutputFile) = ($1, $2);
+	if ($OutputDir =~ /[?*{}[\]]/) {
+		# Contains wild cards.
+		my $OutputDirTest = glob $OutputDir;
+		$OutputDir = $OutputDirTest if ($OutputDirTest and -d $OutputDirTest);
+		$Output = "$OutputDir/$OutputFile";
+	}
+	if ( ! -d $OutputDir and ! $Options{test}) {
+		# OutputDir doesn't exist.
+		if (! mkpath($OutputDir,,0600)) {
+			print STDERR "Unable to create $OutputDir: $@\n";
+			$Errors++;
+			return 9;
+		}
+	}
+
+	# Delete a prior version of our output file if present.  This would happen 
+	# in case of a rerun on the same day.
+	if (	    -f ($Output) 
+		and (RunDangerousCmd(qq<rm -rf "$Output">) != 0)
+	) {
+		warn qq<Unable to delete prior "$Output": $@\n>;
+		$BackupErrors++;
+	}
+
+	# Clean up old tmp files.  Clean up old backups if cycles=x specified.
+	$BackupPattern =~ s"^.*/"";		# Remove leading path.
+	$BackupPattern =~ s/%[ymdHMSgGI]/../g;	# Two digit patterns.
+	$BackupPattern =~ s/%[Y]/..../g;	# Four digit patterns.
+	$BackupPattern = "^$BackupPattern(\.tmp|\.bad)?\$";
+	if (open(my $FHLS,"ls -t $OutputDir 2>/dev/null |")) {
+        	my $Count=0;
+        	while (<$FHLS>) {
+			chomp;
+			next unless (m<$BackupPattern>);
+			if (/(.tmp|.bad)$/) {
+				# Temporary or failed backup.  Just delete it.
+				RunDangerousCmd(qq<rm "$OutputDir/$_">);
+			}
+			elsif ($Options{cycles} and m<$BackupPattern>) {
+				# Valid backup and we're deleting old cycles.
+                		$Count++;
+                		RunDangerousCmd(qq<rm "$OutputDir/$_">) if ($Count >= $Options{cycles});
+			}
+        	}
+        	close $FHLS;
+        }
+	else {
+		warn "Unable to open ls command: $! -- old or temporary backups may not be deleted.\n";
+	}
+
+	# Run the backup.
+	
+	print "    ${TestPrefix}Starting backup\n" if ($Options{verbose});
+	my $OutputTmp = "$Output.tmp";		# Create work file name.
+	my $Status = RunDangerousCmd(qq<scp -p $Host:/cf/config/config.xml "$OutputTmp">);
+	if ( $Status != 0 ) {
+		print STDERR "    Tar failed with status $Status\n";
+		$Errors++;
+		RunDangerousCmd(qq<rm "$OutputTmp">);
+	}
+	elsif ( RunDangerousCmd(qq<mv "$OutputTmp" "$Output">) == 0) {
+		print strftime(
+			 "    ${TestPrefix}Backup of $Host completed normally at %Y-%m-%d %H:%M:%S\n"
+			, localtime()
+		);
+	}
+	else {
+		print STDERR "    Unable to rename $OutputTmp to $Output.\n";
+		$BackupErrors++;
+	}
+
+	return $BackupErrors;
+}
+
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($Options{test}) {
+		print "    Test: $Cmd\n";
+		return 0;
+	} else {
+		print "    Executing: $Cmd\n" if ($Options{verbose} > 1);
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# opt_Value - generic single-value option processing
+#
+sub opt_Value {
+	my($Name,$Value) = @_;
+	$Options{$Name} = $Value;
+}
+
+
+#
+# opt_Array - generic multi-value option processing
+#
+sub opt_Array {
+
+	my($Name,$Value,undef) = @_;
+	if (defined($Value) and length($Value)) {
+		# Add this value to the array.
+		push @{$Options{$Name}},$Value;
+	}
+	else {
+		# Received "--opt=".  Empty this array.
+		@{$Options{$Name}}=();
+	}
+}
+
+
+#
+# opt_Hash - generic multi-value option processing
+#
+sub opt_Hash {
+
+	my($Name,$Value,undef) = @_;
+	if (defined($Value) and length($Value)) {
+		# Add this value to the hash.
+		$Options{$Name}{$Value}=1;
+	}
+	else {
+		# Received "--opt=".  Empty this array.
+		%{$Options{$Name}}=();
+	}
+}
+
+
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString(
+			$Config{$Value},
+			%OptionSpecifications,
+			'<>' => sub{push @ARGV, shift;}		# Need to save any stray paramters.
+		);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n>;
+	}
+}
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
+	print PAGENATER <<"ENDUSAGE";
+$Prog - desc
+
+Usage:  $Prog [options] [host...]
+	$Prog -h
+
+Options:
+
+	--cycles=n|-C n:		Cycles: keep n backups.
+	--output="name":		Output: Path and file name of the output file.
+					This may include % variables, which are 
+					substituted as follows:
+						%C - name of the virtual machine
+						All others - as per strftime.
+	--always-mail=mailid|-m mailid:	Mail: Send an execution report to this
+					e-mail address.
+
+	--error-mail=mailid|-M mailid: 	Mail on error: Send an execution report
+					to this e-mail address only if errors
+					are detected.
+
+	--after-state=(up|down|same):	Once the backup is complete, bring
+					the machine up, leave it down, or
+					return it to the same state it was
+					in before the backup started (default).
+	--always-page=mailid|-p mailid:	Page: Send a very brief message
+					(suitable for a pager or text message)
+					to this e-mail address when this job
+					completes.
+
+	--error-page=mailid|-P mailid:	Page on error: Send a very brief message
+					to this e-mail address if errors are
+					detected in this job.
+
+	--help|-h|-?:			Help: display this panel
+
+	--(no)test|-t:			Test: echo commands instead of running
+					them.
+
+	--verbose|-v:			Verbose: echo commands before running
+					them.  May be repeated to increase
+					verbosity.  --test overrides --verbose.
+
+					See "-s" above for unit specifications.
+
+Parameters:
+	host				One or more PFSense host names to backup.
+
+Example:
+
+	$Prog --output=/backup/%C-%Y-%m-%d firewall
+
+Notes:
+    1) CONFIGURATION FILE
+       $Prog reads /usr/local/etc/$Prog.cfg if present for additional options.  
+       Additional options may be specified in this file in three ways:
+       a) A line beginning with "ALLJOBS: " (case-insensitive) is prepended
+          to the comamnd line for all jobs.  For example:
+		Alljobs: -m sysadmin\@example.com --cycles=5
+       b) A line beginning with NAME=host: (case insensitive) will apply
+          the following options to backups of the machine named "host".
+          For example:
+             Alljobs: --cycles=6
+             name=devfw: --cycles=4
+          would cause all backups to keep 6 cycles, except that backups of
+          "devfw" would only keep 4 cycles.
+       c) Additional option sets can be included by adding a line of the format
+             OPTIONSET: options
+          to the file, and then specifying to load that option set using -O on the
+          command line.  For example:
+             Alljobs: -m sysadmin\@example.com --cycles=6
+             Offsites: --cycles=3
+          In this example, most backups would keep 6 cycles, except those that
+          include "-O offsites" on the command line.  Option set names are case
+          insensitive.
+     2) Options may be interspersed with host names.  Some options are only
+	relevant to the entire job (e.g. mail notifications), and apply to the
+	entire job regardless of where they appear in the command line.  Other
+	options are processed in the order that they appear, and apply to all
+	subsequent host names until changed.  These options are:
+                test, -t
+                verbose, -v
+	Example:
+		pfsense-backup --cycles=4 host1 --cycles=5 host2 host3 -m john\@example.com
+	In the above example, host1 will keep 4 cycles, host2 and host3 will keep
+	5 cycles.  "john\@example.com" will receive an execution report of the
+	entire backup job, because -m applies to an entire job regardless of position.
+
+Bugs:
+
+    1) The "--cycles" option creates a file name pattern to find prior backups.  
+       This pattern has three limitations:
+
+       a) When using % variables used by strftime to insert date/time information
+          $Prog only knows how to make patterns for Y,y,m,d,H,M,S,G,g,I.  Backup files
+          using other % specifications will not be deleted when they should.
+       b) It's possible that non-backup files might match this pattern and be
+          deleted.  For example, if your output specification is "--output=%H-%M"
+          (hour, dash, minute), the pattern will be ??-??.tar.  If you have
+          a file called "x9-y2.tar" in the output directory, it will match the
+          pattern and be deleted when it is the oldest backup and too many cycles
+          are present.  This can be avoided by using a dedicated output directory
+          to hold backups.
+
+    2) name=host option specifications in the config file override conflicting command
+       line options.
+
+Return codes:
+	0       :       Normal termination
+	1       :       Help panel displayed.
+	2       :       Invalid or unrecognized command line options.
+	3       :       Invalid or unrecognized command line option value.
+	4       :       Incorrect command line parameters.
+	5       :       Unexpected message found in output.
+	10      :       Some delete's failed.
+ENDUSAGE
+close PAGENATER;
+exit 1;
+}
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:        Ignore - Don't display this message, it's not interesting.
+#               LogOnly - Write this message to the syslog and log file, but
+#                       don't display it on STDOUT.
+#               Show - Display this message, but it's not an error condition.
+#               # - This is a comment, ignore it.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given score
+#               are joined by logical OR conditions.
+#
+#  Notes:
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#       2) All messages go to the syslog, regardless of this filter.
+#
+#
+# The following are normal messages we don't need to see.
+#
+#
+# These are normal messages that we want to see in the e-mail log only.
+#
+LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
+LOGONLY /^Command: /
+#
+# These are normal messages that we want to see.
+#
+IGNORE	"^\s*$"
+IGNORE	"^\s*mkdir /\S+$"
+IGNORE	"^\s*tar: \.: file changed as we read it$"
+SHOW	"^\s*\S+ started at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
+SHOW	"^\s*Backing up \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d$"
+SHOW	"^\s*Backup of \S+ completed normally at ....-..-.. ..:..:..$"
+SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*Starting backup"
+SHOW	"^\s*$"
+SHOW	"^\s*debug:"
+SHOW    "^\s*\S+ ended normally.$"
+SHOW    "^\s*\S+ ended normally with status 0 and signal 0 - run time:"
+SHOW    "^\s*Executing:"
+SHOW    "^\s*Test:"
+SHOW    "^\s*Verbose:"
+# 
+# Anything that doesn't match one of these three sets of patterns is considered
+# an error.
