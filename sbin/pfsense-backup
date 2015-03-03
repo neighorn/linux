@@ -6,12 +6,12 @@ use LogOutput;
 use Getopt::Long 2.38 qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use File::Find;
-use File::FnMatch qw(:fnmatch);
+#use File::FnMatch qw(:fnmatch);
 use File::Path;
-use File::Temp qw(tempdir);
-use Fcntl qw(:flock :mode :DEFAULT);
+#use File::Temp qw(tempdir);
+#use Fcntl qw(:flock :mode :DEFAULT);
 use POSIX qw(strftime);
-use IO::Socket;
+#use IO::Socket;
 use Data::Dumper::Simple;
 $Data::Dumper::Pad = "Verbose:\t\t";
 
@@ -43,10 +43,12 @@ our %OptionSpecifications=(
 		'error-mail|M=s'	=>	\&opt_Array,
 		'option-set|O=s'	=>	\&opt_O,
 		'output|o=s'		=>	\&opt_Value,
+		'port=s'		=>	\&opt_Value,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'subject=s'		=>	\&opt_Value,
 		'test|t!'		=>	\&opt_Value,
+		'username|user|U=s'	=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'<>'			=>	sub {push @Parms,shift;},
 );
@@ -184,6 +186,8 @@ sub ProcessBackup {
 			GetOptionsFromString($HostConfig,%OptionSpecifications)
 		);
 	}
+	$Options{username} = 'admin' unless ($Options{username});
+	$Options{port} = '22' unless ($Options{port});
 	print Dumper(\%Options) if ($Options{verbose} >=3);
 
 	# Figure out our output file name.
@@ -197,12 +201,6 @@ sub ProcessBackup {
 	$Output =~ s"/+$"";				# Remove trailing slashes.
 	$Output =~ m"^(.*)/([^/]*)$";			# Split path from file name.
 	my ($OutputDir,$OutputFile) = ($1, $2);
-	if ($OutputDir =~ /[?*{}[\]]/) {
-		# Contains wild cards.
-		my $OutputDirTest = glob $OutputDir;
-		$OutputDir = $OutputDirTest if ($OutputDirTest and -d $OutputDirTest);
-		$Output = "$OutputDir/$OutputFile";
-	}
 	if ( ! -d $OutputDir and ! $Options{test}) {
 		# OutputDir doesn't exist.
 		if (! mkpath($OutputDir,,0600)) {
@@ -251,7 +249,12 @@ sub ProcessBackup {
 	
 	print "    ${TestPrefix}Starting backup\n" if ($Options{verbose});
 	my $OutputTmp = "$Output.tmp";		# Create work file name.
-	my $Status = RunDangerousCmd(qq<scp -p $Host:/cf/config/config.xml "$OutputTmp">);
+	my $Cmd = "scp -B -p "
+		  . "-P $Options{port} "
+		  . (exists($Options{username})?"$Options{username}@":'')
+		  . "$Host:/cf/conf/config.xml "
+		  . qq<"$OutputTmp">;
+	my $Status = RunDangerousCmd($Cmd);
 	if ( $Status != 0 ) {
 		print STDERR "    Tar failed with status $Status\n";
 		$Errors++;
@@ -382,6 +385,10 @@ Options:
 					substituted as follows:
 						%C - name of the virtual machine
 						All others - as per strftime.
+	--port=n			Port: set the SCP port option.  Defaults to
+					22.
+	--username=name|--user=name|-U name	User: SCP using this login.  Defaults
+					to "admin".
 	--always-mail=mailid|-m mailid:	Mail: Send an execution report to this
 					e-mail address.
 
@@ -421,7 +428,14 @@ Example:
 	$Prog --output=/backup/%C-%Y-%m-%d firewall
 
 Notes:
-    1) CONFIGURATION FILE
+    1) Authentication:
+       pfsense-backup assumes that the current user has been permitted to
+       login to the PFSense machine using an SSH key.  Use ssh-keygen to 
+       create an ssh key if one one doesn't already exist.  Then paste the
+       public version of the user's key into the "Authorized keys" box for
+       in the PFSense "User Manager" entry for the user.  The user name
+       defaults to "admin" unless --username|--user|-U is specified.
+    2) CONFIGURATION FILE
        $Prog reads /usr/local/etc/$Prog.cfg if present for additional options.  
        Additional options may be specified in this file in three ways:
        a) A line beginning with "ALLJOBS: " (case-insensitive) is prepended
