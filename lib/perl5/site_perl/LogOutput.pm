@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.21;
+our $Version	= 3.22;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -222,7 +222,7 @@ $RunTime = "$RunDay day" . ($RunDay == 1?'':'s') . ", $RunTime"
 	if ($RunDay);
 $RawRunTime="$RunDay:$RunHour:$RunMin:$RunSec";
 $Options{MAIL_FILE_PREFIX}='';		# Don't prefix wrap-up messages.
-$ErrorsDetected += _FilterMessage("   Job ended on $TimeStamp - run time: $RunTime");
+$ErrorsDetected += _FilterMessage("   $Options{PROGRAM_NAME} ended on $TimeStamp - run time: $RunTime");
 
 # Force an error if the job exited with a bad status code or signal.
 $ErrorsDetected++ if ($SignalCode != 0);
@@ -241,11 +241,11 @@ if ($ErrorsDetected == 0) {
 if ($ErrorsDetected > 0) {
 	# Force a non-zero exit if there was an error the child didn't detect.
 	$ExitCode = 5 if ($ExitCode == 0);
-	$ErrorsDetected += _FilterMessage("Job failed with status $ExitCode and signal $SignalCode");
+	$ErrorsDetected += _FilterMessage("$Options{PROGRAM_NAME} failed with status $ExitCode and signal $SignalCode");
 	close($WRITEMAILFILE_FH) if ($Options{MAIL_FILE});
 } else {
 	$ErrorsDetected += _FilterMessage(
-		"Job ended normally with status $ExitCode and signal $SignalCode");
+		"$Options{PROGRAM_NAME} ended normally with status $ExitCode and signal $SignalCode");
 	close($WRITEMAILFILE_FH) if ($Options{MAIL_FILE});
 }
 
@@ -610,8 +610,8 @@ sub _LoadFilters {
 	# get flagged as errors.  Note that ignore patterns take precedence, so
 	# the caller can still choose to ignore them.
 	push @MailOnlyPatterns, '"^\s*\S+ started on \S+ on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d$"';
-	push @MailOnlyPatterns, '"^Job ended normally with status \d and signal \d+"';
-	push @MailOnlyPatterns, '"^\s*Job ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d - run time:"';
+	push @MailOnlyPatterns, '"^\S+ ended normally with status \d and signal \d+"';
+	push @MailOnlyPatterns, '"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d - run time:"';
 
 	# Now turn them in to patterns within three anonymous subroutines.  This
 	# means the patterns only get compiled once, making our pattern
