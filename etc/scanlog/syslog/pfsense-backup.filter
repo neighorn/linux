@@ -1,0 +1,5 @@
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ pfsense-backup(\[\d+\])?:\s*Backing up \S+ at \S+ \S+$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ pfsense-backup(\[\d+\])?:\s*Backup of \S+ completed normally at \S+ \S+$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ pfsense-backup(\[\d+\])?:\s*pfsense-backup ended normally.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ pfsense-backup(\[\d+\])?:\s*pfsense-backup ended on"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ pfsense-backup(\[\d+\])?:\s*pfsense-backup ended normally with status 0 and signal 0$"
