@@ -266,16 +266,16 @@ sub ExpandSize {
         if ($Value =~ /^(\d+)$/i) {
                 return $1;
         }
-        elsif ($Value =~ /^(\d+)K$/i) {
+        elsif ($Value =~ /^(\d+(\.\d+)?)K$/i) {
                 return $1*1024;
         }
-        elsif ($Value =~ /^(\d+)M$/i) {
+        elsif ($Value =~ /^(\d+(\.\d+)?)M$/i) {
                 return $1*1024*1024;
         }
-        elsif ($Value =~ /^(\d+)G$/i) {
+        elsif ($Value =~ /^(\d+(\.\d+)?)G$/i) {
                 return $1*1024*1024*1024;
         }
-        elsif ($Value =~ /^(\d+)T$/i) {
+        elsif ($Value =~ /^(\d+(\.\d+)?)T$/i) {
                 return $1*1024*1024*1024*1024;
         }
         else {
