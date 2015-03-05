@@ -10,7 +10,8 @@
 	disk space as of <!--#echo var="DATE_LOCAL" -->
 </H2>
 <table style="font-family:monospace" size=4>
-<!--#exec cmd="df -hlP | sed 's/^/<tr><td>/;s@  *@\&nbsp;</td><td align=\"right\">@g;s/right/left/5;s/Mounted.*on/Mounted on/;s@$@</td></tr>@;/100%\|9[5-9]%/s/<tr>/<tr style=\"BACKGROUND-COLOR: yellow\">/'" -->
+<tr><td>Filesystem</td><td>Size</td><td>Used</td><td>Avail</td><td>Use%</td><td>Mounted on</td></tr>
+<!--#exec cmd="df -hlP | sed '/^Filesystem/d;s/^/<tr><td>/;s@  *@\&nbsp;</td><td align=\"right\">@g;s/right/left/5;s/Mounted.*on/Mounted on/;s@$@</td></tr>@;/100%\|9[5-9]%/s/<tr>/<tr style=\"BACKGROUND-COLOR: yellow\">/' | sort -k6" -->
 </table>
 </BODY>
 <HTML>
