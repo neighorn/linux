@@ -1171,16 +1171,16 @@ sub FormatStorage {
 
     my $Bytes = shift;
     $Bytes = int($Bytes+0.5);
-    if ($Bytes > 10*1024*1024*1024*1024) {
+    if ($Bytes > 1024*1024*1024*1024) {
         return Commify(int($Bytes/1024/1024/1024/1024)) . 'T';
     }
-    elsif ($Bytes > 10*1024*1024*1024) {
+    elsif ($Bytes > 1024*1024*1024) {
         return Commify(int($Bytes/1024/1024/1024)) . 'G';
     }
-    elsif ($Bytes > 10*1024*1024) {
+    elsif ($Bytes > 1024*1024) {
         return Commify(int($Bytes/1024/1024)) . 'M';
     }
-    elsif ($Bytes > 10*1024) {
+    elsif ($Bytes > 1024) {
         return Commify(int($Bytes/1024)) . 'K';
     }
     else {
