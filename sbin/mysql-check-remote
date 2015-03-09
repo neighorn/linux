@@ -282,7 +282,7 @@ SHOW	"^\s*-{30} \S+\s+-{30}$"
 SHOW	"^\s*-+$"
 IGNORE	"^\s*Command: /usr/local/sbin/mysql-check"
 IGNORE	"^\s*$"
-SHOW	"^\s?\s?\s?\S+ ended on( \S+,)? \d+[-/]\d+[-/]\d+ at ..:..:.. - run time: "
+IGNORE	"^\s?\s?\s?\S+ ended on( \S+,)? \d+[-/]\d+[-/]\d+ at ..:..:.. - run time: "
 SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
 # The following are normal messages we don't need to see.
 #
@@ -307,9 +307,6 @@ LOGONLY /^Command: /
 #
 # These are normal messages that we want to see.
 #
-SHOW    "^\s*Test:"
-SHOW    "^\s*Executing:"
-SHOW	"^\s*debug:"
 # The log files always throw an error about locks.  mysqlcheck should be smarter.
 # Always show the log names, so that if another error comes up we know which
 # table it applies to.
