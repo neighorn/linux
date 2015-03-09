@@ -95,9 +95,7 @@ while (<$FDISK>) {
 	$OutputName .= ".info";		# ... fail and overwrite sector0 file.
 	RunDangerousCmd("smartctl -i $InputName > $OutputName");
 	$OutputName =~ s/.info$/.parted/;
-	RunDangerousCmd("parted $InputName p > $OutputName");
-	$OutputName =~ s/.parted$/.gdisk/;
-	RunDangerousCmd("parted $InputName p > $OutputName");
+	RunDangerousCmd("parted $InputName p > $OutputName < /dev/null");
 	my @partitions = glob("$InputName*");
 	foreach my $partition (@partitions) {
 		($OutputName = "${partition}.mdadm") =~ s"^/dev/"$opt_o/";
