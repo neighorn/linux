@@ -179,7 +179,11 @@ if (open(my $FHLS,"ls -t $BaseDir 2> /dev/null |")) {
 # Create the output directory if necessary.
 #
 RunDangerousCmd("mkdir -p --mode=750 $OutputDir") unless (-e $OutputDir);
-RunDangerousCmd("chgrp sys $OutputDir") &&
+my $ParentDir = $OutputDir;
+$ParentDir =~ s"/[^/]+$"";
+my $ParentGroup = (stat($ParentDir))[5];
+$ParentGroup = 'sys' unless ($ParentGroup < 100);
+RunDangerousCmd("chgrp $ParentGroup $OutputDir") &&
 	die "Unable to set group for $OutputDir: $!\n";
 if (! $opt_t ) {
 	chdir $OutputDir || die "Unable to change directories to $OutputDir: $!\n";
