@@ -1,4 +1,5 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dbus\[\d+\]: \[system\] Activating service name="
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dbus\[\d+\]: \[system\] AppArmor D-Bus mediation is "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dbus\[\d+\]: \[system\] Successfully activated "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dnsmasq-dhcp\[\d+\]: DHCP, IP range \d+.\d+.\d+.\d+ -- \d+.\d+.\d+.\d+, lease time \d+h$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dnsmasq\[\d+\]: compile time options: IPv\d+ GNU-getopt DBus i\d+n DHCP TFTP conntrack IDN$"
