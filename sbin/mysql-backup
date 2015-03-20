@@ -190,8 +190,8 @@ sub BackupDatabase {
 	# manually isn't very difficult or time-consuming.
 	# Use a .tmp file and rename when we're done, so some separate process knows this file isn't complete.
 		RunDangerousCmd(
-			  "mysqldump -u $Options{username} --opt --add-drop-table "
-			. "--allow-keywords --quote-names $eventsopt "
+			  "mysqldump -u $Options{username} --opt --add-drop-table --routines --events "
+			. "--single-transaction --allow-keywords --quote-names $eventsopt "
 			. qq<-r "$OutPath.tmp" >
 			. $Database
 		);
