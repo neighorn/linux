@@ -8,7 +8,8 @@ no strict 'refs';
 use warnings;
 package filestat;
 use base 'CheckItem';
-use fields qw(Port User Dev Ino Mode Nlink Uid Gid Rdev Size Atime Mtime Ctime Blksize Blocks);
+use fields qw(Port User Dev Ino Mode Nlink Uid Gid Rdev Size Atime Mtime Ctime Blksize Blocks Type Perm);
+use Fcntl qw(:mode);
 
 my %Attributes = (
 	Dev =>		'integer,keep-operator',
@@ -27,6 +28,8 @@ my %Attributes = (
 	Atime =>	'pasttime,keep-operator',
 	Mtime =>	'pasttime,keep-operator',
 	Ctime =>	'pasttime,keep-operator',
+	Type =>		'string,keep-operator',
+	Perm =>		'string,keep-operator',
 );
 my $ComparisonOperators = qr/=[<>]?|!=|<[=>]?|>[<=]?/;	# =, !=, <, <=, =<, >, >=, =>, <>, ><
 my %Operators = (
@@ -46,6 +49,8 @@ my %Operators = (
 	Atime =>	$ComparisonOperators,
 	Mtime =>	$ComparisonOperators,
 	Ctime =>	$ComparisonOperators,
+	Type =>		qr/!?=/,
+	Perm =>		qr/!?=/,
 );
 
 #================================= Data Accessors ===============================
@@ -158,8 +163,10 @@ sub Check {
 	}
 
 	# Check attributes.
-	my @AttrList = qw(Dev Ino Mode Nlink Uid Gid Rdev Size Absatime Absmtime Absctime Blksize Blocks Atime Mtime Ctime);
+	my @AttrList = qw(Dev Ino Mode Nlink Uid Gid Rdev Size Absatime Absmtime Absctime Blksize Blocks Atime Mtime Ctime Type Perm);
 	$StatData[2] = hex($StatData[2]);	# Convert file mode to hex.
+	$StatData[16] = sprintf('%o',S_IFMT($StatData[2])>>122);	# Strip out file format (dir, file, socket, etc.) for easy ref.
+	$StatData[17] = sprintf('%o',S_IMODE($StatData[2]));	# Strip out file mode (rwxr-xr-x, etc.) for easy ref.
 	foreach (0..$#AttrList) {
 		my $AttrName = $AttrList[$_];
 		my $TargetValue;
@@ -338,6 +345,22 @@ blksize: The preferred block size for the file system I/O is compared to the pro
 =item -
 
 blocks: The actual number of blocks allocated is compared to the provided value.
+
+=item -
+
+type: The type of the entity (file, directory, link, etc.), as one of the follow values:
+
+     14	socket
+     12	symbolic link
+     10	regular file
+      6	block device
+      4	directory
+      2	character device
+      1	FIFO
+
+=item -
+
+perm: The permission bits, in octal (e.g. "644" for "rw-r--r--").
 
 =back
 
