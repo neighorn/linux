@@ -102,7 +102,7 @@ $SendingHost=lc($SendingHost);
 
 if (! $Options{'filter-file'}) {
 	# No filter file explicitly set.  See if we can find a customized filter file.
-	foreach my $dir ("/usr/local/etc/$Prog","/usr/local/etc") {
+	foreach my $dir ("/usr/local/etc/${Prog}.d","/usr/local/etc") {
 		next unless (-d $dir);
 		foreach my $name ("$JobName","$SendingHost.$JobName") {
 			if (-r "$dir/$name.filter") {
@@ -113,7 +113,8 @@ if (! $Options{'filter-file'}) {
 		last if ($Options{'filter-file'});
 	}
 }
-print "debug: SendingHost=$SendingHost, JobName=$JobName, From=$From, Filter=$Options{'filter-file'}\n";
+$Options{'filter-file'} = "/usr/local/etc/${Prog}.d/DEFAULT.filter"
+	if (! $Options{'filter-file'} and -e "/usr/local/etc/$Prog.d/DEFAULT.filter");
 	
 # Set up our logging and output filtering.
 my $RunDate=`date +%m/%d`;
