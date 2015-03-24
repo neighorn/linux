@@ -1,0 +1,414 @@
+#!/usr/bin/perl
+
+# Read and filter e-mail reports.  This is used to post-process e-mails from
+# other utilities that don't provide filtering natively.
+
+use strict;
+use warnings;
+use LogOutput;
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
+use Text::ParseWords;
+use POSIX qw(strftime);
+use FindBin qw($Bin $Script);
+
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
+
+# Initialize variables.
+our $Prog=$0;                           # Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+my $Errors=0;   	                # No errors so far.
+my $Syslog='user';                      # Name of Syslog facility.  '' for none.
+my $BaseDir="/usr/local/etc";		# Set our base directory.
+my @ConfigFiles=("$BaseDir/${Prog}.cfg");	# Name of config files.
+our %Config;				# Data from the config file.
+our %Options;				# Options settings.
+our @Parms;				# List of non-option arguments.
+
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+our %OptionSpecifications=(
+		'<>'			=>	sub {push @Parms,shift;},
+		'debug|d'		=>	sub {$DB::AutoTrace=1;},
+		'help|h|?!'		=>	\&opt_h,
+		'always-mail|m=s'	=>	\&opt_Array,
+		'error-mail|M=s'	=>	\&opt_Array,
+		'option-set|O=s'	=>	\&opt_O,
+		'always-page|p=s'	=>	\&opt_Array,
+		'error-page|P=s'	=>	\&opt_Array,
+		'filter-file|F=s'	=>	\&opt_Value,
+		'test|t'		=>	\&opt_Value,
+		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+		'input-file|i=s'	=>	sub {push @Parms,shift;},
+);
+#
+
+# Load the config file.
+foreach (@ConfigFiles) {
+	LoadConfigFile($_);
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+	if (!@ARGV && defined($Config{DEFAULTJOB}));
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Pre-process our command line, to get the options we need for LogOutput.
+my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
+%Options=(verbose => 0);	# Initialize Options.
+$Errors ++ unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+
+# Get the e-mail, so we can retrieve the From and Subject line
+my @lines;
+if (@Parms) {
+	my $FH;
+	open($FH,'<',$Parms[0]) || die "Unable to open " . $Parms[0] . ": $!\n";
+	@lines = <$FH>;
+	close $FH;
+}
+else {
+	print "Reading from STDIN...\n";
+	@lines = <STDIN>;
+}
+
+my $SendingHost='';
+my $From='';
+my $InputSubject='';
+my $JobName;
+foreach (@lines) {
+	chomp;
+	last if (/^\s*$/);		# Blank line means end of headers.
+	$SendingHost = $1 if (/^Received: from (\S+)/i and ! $SendingHost);
+	#$From = $_ if (/^From /i and ! $From);
+	$InputSubject = $_ if (/^Subject: /i and ! $InputSubject);
+	last if ($From and $InputSubject);	# Found all we wanted.
+}
+$InputSubject =~ s/^Subject:\s*//i;
+$From =~ s/^From\s+//i;		# Strip prefix.
+$From =~ s/\s.*$//;		# Strip any trailing data.
+$From = getlogin() unless ($From !~ /^\s*$/);
+($JobName = $InputSubject) =~ s/^\s*(\S+)\b.*$/$1/;
+$JobName =~ s/[^a-zA-Z0-9:_-]//g;
+$SendingHost = "(unknown host)" unless ($SendingHost);
+$SendingHost=lc($SendingHost);
+
+if (! $Options{'filter-file'}) {
+	# No filter file explicitly set.  See if we can find a customized filter file.
+	foreach my $dir ("/usr/local/etc/$Prog","/usr/local/etc") {
+		next unless (-d $dir);
+		foreach my $name ("$JobName","$SendingHost.$JobName") {
+			if (-r "$dir/$name.filter") {
+				$Options{'filter-file'}="$dir/$name.filter";
+				last;
+			}
+		}
+		last if ($Options{'filter-file'});
+	}
+}
+print "debug: SendingHost=$SendingHost, JobName=$JobName, From=$From, Filter=$Options{'filter-file'}\n";
+	
+# Set up our logging and output filtering.
+my $RunDate=`date +%m/%d`;
+chomp $RunDate;
+my $OutputSubject;
+if ($Options{subject}) {
+	$OutputSubject="$Options{subject}" ;
+}
+elsif ($InputSubject) {
+	$OutputSubject=$InputSubject
+}
+else {
+	$OutputSubject="%* %m/%d %C %N %E %*%*%*" ;
+};
+
+# Make sure some key items exist;
+foreach (qw(always-mail error-mail always-page error-page)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
+$Options{verbose} = 0 unless (exists($Options{verbose}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
+my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
+
+LogOutput({
+	SYSLOG_FACILITY		=> $Syslog,
+	MAIL_FILE		=> $Options{logfile},
+	MAIL_FILE_PERMS		=> 0644,
+	ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
+	ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
+	ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
+	MAIL_SUBJECT		=> $OutputSubject,
+	FILTER_FILE		=> $Options{'filter-file'},
+	VERBOSE			=> $LogOutputVerbose,
+});
+
+
+
+# Open the copy file if requested.
+my $COPYFILE;
+if ($Options{'input-file'}) {
+	$Options{'input-file'} =~ s/%U/$ENV{LOGNAME}/g;
+	$Options{'input-file'} = strftime($Options{'input-file'},localtime());
+	warn "Unable to open $Options{'input-file'}: $!" 
+		unless open($COPYFILE,'>',$Options{'input-file'});
+}
+
+my $EndOfHeaders = 0;
+my $UULine='';
+foreach my $Line (@lines) {
+	chomp $Line;
+	if ($Line =~ /^[A-Za-z0-9=]+$/) {
+		# UU-encoded line.  Collect this for later
+		# decoding.
+		$UULine .= $Line;
+		next;
+	}
+	else {
+		# Standard line.  First, decode any uuencoded text.
+		if ($UULine) {
+			PrintLine($EndOfHeaders,$COPYFILE,decode_base64($UULine));
+			$UULine='';
+		}
+		# Now, print our current line.
+		PrintLine($EndOfHeaders,$COPYFILE,$Line);
+		$EndOfHeaders = 1 if ($Line =~ /^\s*$/);
+	}
+}
+warn "No end-of-headers line found\n" unless $EndOfHeaders;
+# Print any remaining, unprinted uu-encoded data.
+PrintLine($EndOfHeaders,$COPYFILE,decode_base64($UULine))
+	if ($UULine);
+
+# Wrap up.
+my $ExitCode=$Errors?10:0;
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+exit($ExitCode);
+
+
+#
+# PrintLine: print out text.
+#
+sub PrintLine {
+	my($EndOfHeaders,$COPYFILE,$Line) = @_;
+	print $COPYFILE "$Line\n" if ($COPYFILE);
+	print $Line . "\n"
+		if ($EndOfHeaders or $Line =~ /^\s*Subject:/i);
+}
+
+
+#
+# LoadConfigFile - load a configuration file
+#
+sub LoadConfigFile {
+	my $ConfigFile = shift;
+	if (-e $ConfigFile) {
+		my $CONFIGFH;
+                open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+                # Build a hash of settings found in the config file.
+                my @Lines;
+
+                # Read config file and assemble continuation lines into single items.
+                while (<$CONFIGFH>) {
+                        next if (/^\s*#/);                      # Comment.
+                        next if (/^\s*$/);                      # Blank line.
+                        chomp;
+                        if (/^\s+/ and @Lines > 0) {
+                                # Continuation line.  Append to prior line.
+                                $Lines[$#Lines] .= " $_";
+                        }
+                        else {
+                                push @Lines, $_;
+                        }
+                }
+                close $CONFIGFH;
+
+                # Process assembled lines.
+                foreach (@Lines) {
+                        my ($name,$settings)=split(/:?\s+/,$_,2);
+                        $name=uc($name);                        # Name is not case sensitive.
+                        $settings='' unless ($settings);        # Avoid undef warnings.
+                        $settings=~s/\s+$//;                    # Trim trailing spaces.
+			if ($name eq 'INCLUDE') {
+				LoadConfigFile($settings);
+			}
+			else {
+				$settings=~s/\s+$//;	# Trim trailing spaces.
+				$Config{$name}.=$settings . ',' ;
+			}
+                }
+		foreach (keys(%Config)) {
+			$Config{$_} =~ s/,$//;  # Remove trailing comma
+		}
+        }
+}
+
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($Options{test}) {
+		print "Test: $Cmd\n";
+		return 0;
+	} else {
+		print "Executing: $Cmd\n" if ($Options{verbose});
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# opt_Value - generic single-value option processing
+#
+sub opt_Value {
+	my($Name,$Value) = @_;
+	$Options{$Name} = $Value;
+}
+
+
+#
+# opt_Array - generic multi-value optoin  processing
+#
+sub opt_Array {
+
+	my($Name,$Value,undef) = @_;
+	if (defined($Value) and length($Value)) {
+		# Add this value to the array.
+		push @{$Options{$Name}},$Value;
+	}
+	else {
+		# Received "--opt=".  Empty this array.
+		@{$Options{$Name}}=();
+	}
+}
+
+
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n>;
+	}
+}
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+        my $Pagenater=$ENV{PAGENATER};
+        $Pagenater="more" unless ($Pagenater);
+        system("pod2text $Bin/$Script | $Pagenater");
+        exit(1);
+}
+=pod
+
+=head1 $Prog - post-process e-mail reports
+
+$Prog provides post-processing for e-mailed reports that don't provide native
+filtering.
+
+=head3 Usage:  
+        $Prog [options] [input-file]
+
+        $Prog -h
+
+=head3 Flags:
+        --error-mail|-M mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+        --filter|-F filter:     Filter: filter reports using this file.
+                                If not specified, $Prog will search
+                                to use the built-in error filter.
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
+        --option-set|-O config: Insert the "config" configuration options
+                                from $ConfigFiles[0]
+                                into the command line at this point.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+        --help|-h:              Help: display this panel
+
+=head3 Parameters:
+        (none)
+
+=head3 Configuration files
+
+Configuration data may be loaded from the configuration files.  These files
+form key-value pairs that $Prog may reference.  The syntax of the file is:
+
+	name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=back
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
+
+=cut
+
+__END__
