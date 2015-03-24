@@ -109,7 +109,7 @@ sub Check {
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
 
-        # Run overall checks.  Any defined response means set set the status and are done.
+        # Run overall checks.  Any defined response means set the status and are done.
         my $Status = $Self->SUPER::Check($Self);
         return $Status if (defined($Status));
 
@@ -165,7 +165,7 @@ sub Check {
 	# Check attributes.
 	my @AttrList = qw(Dev Ino Mode Nlink Uid Gid Rdev Size Absatime Absmtime Absctime Blksize Blocks Atime Mtime Ctime Type Perm);
 	$StatData[2] = hex($StatData[2]);	# Convert file mode to hex.
-	$StatData[16] = sprintf('%o',S_IFMT($StatData[2])>>122);	# Strip out file format (dir, file, socket, etc.) for easy ref.
+	$StatData[16] = sprintf('%o',S_IFMT($StatData[2]));	# Strip out file format (dir, file, socket, etc.) for easy ref.
 	$StatData[17] = sprintf('%o',S_IMODE($StatData[2]));	# Strip out file mode (rwxr-xr-x, etc.) for easy ref.
 	foreach (0..$#AttrList) {
 		my $AttrName = $AttrList[$_];
@@ -198,6 +198,8 @@ sub Check {
 			}
 			
 		        my $StatValue = $StatData[$_];
+			printf "\n%5d %s    Checking Actual(%s) %s Target(%s)\n", $$, __PACKAGE__, $StatValue, $Operator, $TargetValue
+				if ($Self->{Verbose} >= 2);
 			if (! eval "($StatValue $Operator $TargetValue);") {
 				$Self->{StatusDetail} = "$AttrName($StatValue) not $Operator $Value" . ($TargetValue eq $Value?'':"($TargetValue)");
 				return "Status=" . $Self->CHECK_FAIL
@@ -350,13 +352,13 @@ blocks: The actual number of blocks allocated is compared to the provided value.
 
 type: The type of the entity (file, directory, link, etc.), as one of the follow values:
 
-     14	socket
-     12	symbolic link
-     10	regular file
-      6	block device
-      4	directory
-      2	character device
-      1	FIFO
+     140000 socket
+     120000 symbolic link
+     100000 regular file
+      60000 block device
+      40000 directory
+      20000 character device
+      10000 FIFO
 
 =item -
 
