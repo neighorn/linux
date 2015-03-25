@@ -21,7 +21,7 @@ $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 my $Errors=0;   	                # No errors so far.
 my $Syslog='user';                      # Name of Syslog facility.  '' for none.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
-my @ConfigFiles=("$BaseDir/${Prog}.cfg");	# Name of config files.
+my @ConfigFiles=("$BaseDir/${Prog}.cfg","$BaseDir/${Prog}.d/${Prog}.cfg");	# Name of config files.
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
