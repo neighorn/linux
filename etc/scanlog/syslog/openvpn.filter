@@ -39,7 +39,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? TLS: new session incoming connection from "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? TLS: soft reset sec=\S+ bytes=\d+/0 pkts=\d+/0\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? TLS: tls_multi_process: untrusted session promoted to semi-trusted$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? TLS: tls_process: killed expiring key\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? TLS: tls_(multi_)?process: killed expiring key\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? VERIFY E?KU OK"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? VERIFY OK:"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+)? VERIFY SCRIPT OK: depth=\d+, "
