@@ -224,9 +224,11 @@ if (open(my $FHMOUNT,'mount |')) {
 		/\stype\s+(\S+)\s/;
 		next if ($TypeExclude{$1});
 
-
 		# Skip anything under /mnt as being temporary.
 		next if (m"^\S+ on /mnt/");
+
+		# Skip anything from "none" as not being a real file system
+		next if (m"^none on \S+");
 
 		# Skip our own output area.
 		my $BackupRoot = $BaseDir;
