@@ -11,6 +11,7 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Found memtest86\+ image: "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Generating grub.cfg ...$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Generating grub configuration ...$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Generating grub configuration file ...$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?linux-headers-"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?linux-image-"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?No old kernel packages need to be removed.$"
