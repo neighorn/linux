@@ -28,3 +28,10 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+JFS: nTxBlock 
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+NTFS driver \S+ \[Flags: R/O MODULE\].$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+QNX4 filesystem \S+ registered.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+Btrfs loaded$"
+# Filter out kvm-related messages.
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+br\d+: port \d+\(vnet\d+\) entered disabled state$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+br\d+: port \d+\(vnet\d+\) entered forwarding state$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+device vnet\d+ entered promiscuous mode $"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+device vnet\d+ left promiscuous mode $"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\d+\.\d+\]\s+kvm: zapping shadow pages for mmio generation wraparound$"
+
