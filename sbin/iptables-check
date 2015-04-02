@@ -145,7 +145,7 @@ foreach my $Host (@HostList) {
 	my $Cmd=
 		($Host ne 'localhost'?"ssh $Host ":'')
 		. "iptables-save > $OutFile"
-		. q< && sed -i '/^#/d;/^fail2ban-.*-j REJECT/d;/^:/s/\[[0-9]*:[0-9]*\]$// ' > . $OutFile 	# Strip comments, table counters, fail2ban
+		. q< && sed -i '/^#/d;/^... fail2ban-.*-j REJECT/d;/^:/s/\[[0-9]*:[0-9]*\]$// ' > . $OutFile 	# Strip comments, table counters, fail2ban
 		;
 	my $Status = RunDangerousCmd($Cmd);
 	if ($Status) {
