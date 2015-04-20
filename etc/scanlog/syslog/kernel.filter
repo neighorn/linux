@@ -1,6 +1,7 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*(sd \d+:\d+:\d+:\d+:\s+)?qdepth\(\d+\), tagged\(\d+\), simple\(\d+\), ordered\(\d+\), scsi_level\(\d+\), cmd_que(ue)?\(\d+\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*EXT4-fs \(\S+\): mounted filesystem with"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*generic-usb \S+"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*Info fld=0x0$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*NOHZ: local_softirq_pending 100$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*usb( \d+-\d+\.\d+(\.\d+)?)?:\s+configuration #\d+ chosen from \d+ choices?$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s*usb( \d+-\d+\.\d+(\.\d+)?)?:\s+New \S+ speed USB device "
