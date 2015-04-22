@@ -141,25 +141,30 @@ foreach my $Host (@HostList) {
 	my $TempFile = "$Options{refdir}/$Host.current";
 	die "Invalid reference file name" unless ($RefFile =~ m"^[a-zA-Z0-9/._-]+$"); # Careful what we write.
 	
-	my $OutFile = ($Options{save}?$RefFile:$TempFile);
+	my $OutFile = $TempFile;
 	my $Cmd=
 		($Host ne 'localhost'?"ssh $Host ":'')
 		. "iptables-save > $OutFile"
-		. q< && sed -i '/^#/d;/^-A fail2ban-.*-j REJECT/d;/^:/s/\[[0-9]*:[0-9]*\]$// ' > . $OutFile 	# Strip comments, table counters, fail2ban
+		. q< && sed -r -i '/^#/d;/^-A fail2ban-.*-j (REJECT|RETURN)/d;/^-A .* -j fail2ban-/d;/^:/s/\[[0-9]*:[0-9]*\]$// ' > . $OutFile 	# Strip comments, table counters, fail2ban
 		;
-	my $Status = RunDangerousCmd($Cmd);
+	my $Status = RunDangerousCmd($Cmd,test=>0,verbose=>$Options{test});
 	if ($Status) {
 		warn "Unable to gather IPTables data from $Host\n";
 	}
-	elsif ($Options{save}) {
-		# Saving.  We're done.
-		print "$Host saved\n";
-	}
 	else {
 		# Comparing.  Check the output with diff.
-		my $Status = RunDangerousCmd("diff -bB --unified=0 --label=Reference --label=Current -- $RefFile $TempFile");
-		print "$Host matches\n" if ($Status == 0);
-		RunDangerousCmd("rm -f $TempFile") unless ($Options{keep});
+		my $Status = RunDangerousCmd("diff -bB --unified=0 --label=Reference --label=Current -- $RefFile $TempFile",test=>0,verbose=>$Options{test});
+		if ($Status == 0) {
+			print "$Host matches\n";
+		}
+		elsif ($Options{save}) {
+			print "Save to $RefFile (Y/n)?\n";
+			my $Response = <STDIN>;
+			if ($Response =~ /^\s*[Yy]/) {
+				RunDangerousCmd("mv $TempFile $RefFile");
+			}
+		}
+		RunDangerousCmd("rm -f $TempFile") if (-f "$TempFile" and ( ! $Options{keep}));
 	}
 	
 }
@@ -172,14 +177,6 @@ if ($Errors) {
 }
 
 exit( ($Errors?10:0) );
-
-
-#
-# xxxxx
-#
-sub xxxxxx {
-
-}
 
 
 #
@@ -233,13 +230,17 @@ sub LoadConfigFile {
 # RunDangerousCmd - run a command, or suppress it if -t specified.
 #
 sub RunDangerousCmd {
-	my ($Cmd,$FH,$Line);
-	$Cmd=join(' ',@_);
-	if ($Options{test}) {
+	my ($Cmd,$FH,$Line,%Overrides);
+	($Cmd,%Overrides)=@_;
+	my %LocalOptions = %Options;
+	foreach (keys(%Overrides)) {
+		$LocalOptions{$_} = $Overrides{$_};
+	}
+	if ($LocalOptions{test}) {
 		print "Test: $Cmd\n";
 		return 0;
 	} else {
-		print "Executing: $Cmd\n" if ($Options{verbose});
+		print "Executing: $Cmd\n" if ($LocalOptions{verbose});
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
 				$Line=~s/[
@@ -428,4 +429,5 @@ SHOW	"^\s*--- Reference$"
 SHOW	"^\s*\+\+\+ Current$"
 SHOW	"^\s*\S+ matches$"
 SHOW	"^\s*\S+ saved$"
+SHOW	"^\s*Save to"
 IGNORE	"^\s*\@\@ -\d+(,\d+)? \+\d+(,\d+)? \@\@$"
