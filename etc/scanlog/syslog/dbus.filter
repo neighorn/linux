@@ -1,2 +1,2 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dbus-daemon(\[\d+\])?:\s*\[system\] Reloaded configuration$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dbus-daemon(\[\d+\])?:\s*\[system\] AppArmor D-Bus mediation is enabled"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dbus(-daemon)?(\[\d+\])?:\s*\[system\] Reloaded configuration$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dbus(-daemon)?(\[\d+\])?:\s*\[system\] AppArmor D-Bus mediation is enabled"
