@@ -1,0 +1,1 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (php5-common|php5-cli|libapache2-mod-php5|php5-ldap)(\[\d+\])?:\s*php5_invoke \S+: already enabled for cli \S+$"
