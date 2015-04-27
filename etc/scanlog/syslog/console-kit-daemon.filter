@@ -1,0 +1,2 @@
+# Known error.
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ console-kit-daemon(\[\d+\])?:\s*GLib-CRITICAL: Source ID \d+ was not found when attempting to remove it$"
