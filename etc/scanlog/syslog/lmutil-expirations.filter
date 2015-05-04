@@ -1,0 +1,5 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ lmutil-expirations(\[\d+\])?:\s+License report for"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ lmutil-expirations(\[\d+\])?:\s+Summary:"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ lmutil-expirations(\[\d+\])?:\s+License\s+Expires"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ lmutil-expirations(\[\d+\])?:\s+----"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ lmutil-expirations(\[\d+\])?:\s+\S+\s+\d\d\d\d-\d\d-\d\d\s+-?\d+"
