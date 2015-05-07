@@ -362,6 +362,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+sd.+:\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+sd.+\s*: very big device. try to use"
 IGNORE	'^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*md/raid:md\d+: raid level \d+ active with (\d+) out of \1 devices'
 IGNORE	'^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*md/raid:md\d+: resync of RAID array md\d+$'
+IGNORE	'^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*ata\d+(\.\d+)?: SATA link down \(SStatus 0 SControl 300\)$"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\s*\d+\.\d+\]\s+EXT4-fs \(sd\S+\): warning: maximal mount count reached, running"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\s*\d+\.\d+\]\s+sd \d+:\d+:\d+:\d+: \[sd.\] Attached SCSI disk$"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*\[\s*\d+\.\d+\]\s+type=\d+ audit.*operation=\"profile_load\""
