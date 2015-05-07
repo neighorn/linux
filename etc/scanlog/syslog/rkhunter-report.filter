@@ -1,5 +1,5 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*\[ Rootkit Hunter version \S+ \]$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*\S+*Checking rkhunter version\.\.\.\S+"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*.*Checking rkhunter version\.\.\."
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*\S+Checking rkhunter data files\.\.\.\S+"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*Checking file"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*File updated: searched for \d+ files, found \d+$"
