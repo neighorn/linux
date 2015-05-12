@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package tcpport;
 use base 'CheckItem';
-use fields qw(_TargetArray Send Expect Ssl Logfile);
+use fields qw(_TargetArray Send Expect Ssl Logfile Sslverify);
 use Fcntl;
 use POSIX qw(strftime);
 
@@ -124,7 +124,7 @@ sub Check {
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
 	if ($Self->{'Ssl'} and !exists($INC{"IO/Socket/SSL.pm"})) {
-               	eval qq[require IO::Socket::SSL;];
+               	eval 'require IO::Socket::SSL;';
                	if ($@) {
 			warn "$File:$Line: Unable to load IO::Socket:SSL: $@\n";
 			$Self->{'StatusDetail'} = 'Configuration error: missing required module';
@@ -201,12 +201,18 @@ sub _CheckPort {
 		# try to connect.
 		my $HostDone = 0;
 		TRY: for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
-		    printf REALSTDOUT "\r\%5d   Checking %s:%d (%s) try %d\n", $$,$host,$port,$Desc,$Try if ($Self->Verbose);  
+			printf REALSTDOUT "\r\%5d   Checking %s:%d (%s) try %d\n", $$,$host,$port,$Desc,$Try if ($Self->Verbose);  
 			if ($Self->{'Ssl'}) {
+				my $SSL_verify_mode = (
+					(exists($Self->{'Sslverify'}) and $Self->{'Sslverify'})
+						?1		# SSL_VERIFY_PEER
+						:0		# SSL_VERIFY_NONE
+					);
     				$socket=IO::Socket::SSL->new(
 					PeerAddr=>"$host:$port",
 					Timeout=>$Self->{'Timeout'},
 					SSL_hostname=>$host,
+					SSL_verify_mode=>$SSL_verify_mode,
 				);
 			}
 			else {
@@ -215,9 +221,9 @@ sub _CheckPort {
 					Timeout=>$Self->{'Timeout'}
 				);
 			}
-    			printf REALSTDOUT "\r%5d   %s:%d Connected - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
 			if ($socket) {
     				# Connected OK.  See if we're supposed to send a string.
+    				printf REALSTDOUT "\r%5d   %s:%d Connected - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
 				$HostDone = 1;		# Good or bad, we got an answer.
 				if ($Self->{'Send'}) {
 					# Looking for the right send/receive response.
@@ -252,8 +258,8 @@ sub _CheckPort {
 				close($socket);
 			}
 			else {
-				$Self->{'StatusDetail'} = "Connect error: $!";
-				printf REALSTDOUT "\r%5d  %s:%d Connect error: %s\n", $$, $host, $port, $!
+				$Self->{'StatusDetail'} = "Connect error: $@";
+				printf REALSTDOUT "\r%5d  %s:%d Connect error: %s\n", $$, $host, $port, $@
 					if ($Self->Verbose);
 			}
     			last TRY if ($HostDone);		# Don't need to try this host again
@@ -318,6 +324,11 @@ Expect: Compare the response returned as a result of the Send field to this patt
 =item
 
 SSL: If set to a true value (e.g. 1), use the SSL protocol.  The default is to use 
+unencrypted traffic.
+
+=item
+
+SSLVerify: Set to 1 to verify the SSL certificates, or 0 to not.  Zero is the default.
 unencrypted traffic.
 
 =back
