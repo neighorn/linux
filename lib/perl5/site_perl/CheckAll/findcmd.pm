@@ -9,6 +9,14 @@ use warnings;
 package findcmd;
 use base 'CheckItem';
 use fields qw(Port User Parms Verifyexist);
+my %Attributes = (
+        Target =>      'integer,keep-operator',
+);
+my $ComparisonOperators = qr/=[<>]?|!=|<[=>]?|>[<=]?/;  # =, ==, <, <=, =<, >, >=, =>, !=, <>, ><
+my %Operators = (
+        Target =>      $ComparisonOperators,
+);
+
 
 #================================= Data Accessors ===============================
 sub Target {
@@ -19,7 +27,7 @@ sub Target {
 	if (@_) {
 		# This is a set operation.
 		my $Target = shift;
-		if (defined($Target) and $Target =~ /^\d+$/ ) {
+		if (defined($Target) and $Target =~ /^[<>=!]*\s*\d+$/ ) {
 			$Self->{Target} = $Target;
 			return 1;
 		}
@@ -36,6 +44,12 @@ sub Target {
 }
 
 #================================= Public Methods ===============================
+sub SetOptions {
+	my $Self = shift;
+	my $OptionRef = shift;
+	return $Self->SUPER::SetOptions($OptionRef,\%Operators,\%Attributes);
+}
+
 
 sub Check {
 
@@ -122,29 +136,16 @@ sub Check {
 		$Self->{StatusDetail} = "Invalid count received";
 	        return "Status=" . $Self->CHECK_FAIL;
 	}
-	if ($Target =~ /^<(\d+)/) {
-		$Target = $1;
-		if ($Actual > $Target) {
-			$Status = $Self->CHECK_FAIL;
-			$Detail = "Actual $Actual > $Target";
-		}
+	my($Operator,$TargetValue) = ($Target =~ /^([!<=>]+) (.*)$/);
+	$Operator = '==' if ($Operator eq '=');
+	$Operator = '!=' if ($Operator eq '<>' or $Operator eq '><');
+	$Operator = '<=' if ($Operator eq '=<');
+	$Operator = '>=' if ($Operator eq '=>');
+	if (! eval "($Actual $Operator $TargetValue);") {
+		$Self->{StatusDetail} = "$Actual $Operator $TargetValue failed";
+		return "Status=" . $Self->CHECK_FAIL
 	}
-	elsif ($Target =~ /^\>(\d+)/) {
-		$Target = $1;
-		if ($Actual < $Target) {
-			$Status = $Self->CHECK_FAIL;
-			$Detail = "Actual $Actual < $Target";
-		}
-	}
-	else {
-		$Target = $Self->{Target};
-		if ($Actual != $Target) {
-			$Status = $Self->CHECK_FAIL;
-			$Detail = "Actual $Actual != $Target";
-		}
-	}
-			
-	$Self->{StatusDetail}=$Detail;
+
 	printf "\n%5d %s\tExiting with Status = %d and Detail = %s\n", $$, __PACKAGE__, $Status, ($Detail?$Detail:'""')
 		if ($Self->{Verbose} >= 3);
 	return "Status=" . $Status;
@@ -169,14 +170,16 @@ findcmd executes a Linux/Unix find command, and returns the count of found items
 
 findcmd is derived from CheckItem.pm.  It supports the same fields as CheckItem.  
 
-The Target field is required, and defines the expected number of lines of output from findcmd.
-It may be prefixed with a > symbol to indicate the specified value or larger; or with a < symbol
-to indicate the specified value or less.
-
-In addition, the following optional fields are supported:
-
 The Parms field is required, and defines the parameters passed to the find command.  The find command will be executed as
   find $Parms | wc -l
+
+The Target field is required, and defines the expected number of lines of output from findcmd.
+The Target syntax is "TargetOperatorValue", where:
+    Target is the keyword "Target"
+    Operator is one of <,<=,=<,=,==,>,>=,=>,<>, or !=
+    Value is an integer
+
+In addition, the following optional fields are supported:
 
 =over 4
 
