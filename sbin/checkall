@@ -93,6 +93,7 @@ GetOptions (
 	'w|waittime=i'	=> \$Options{waittime},
 	'maxwaittime=i'	=> \$Options{maxwaittime},
 	'ignoretimes|ignore-times!'	=> \$Options{ignoretimes},
+	'force|f=i'	=> \$Options{force},
 );
 
 eval "use CheckAll::CheckItem;"; # Do this late, to benefit from -L.
@@ -102,6 +103,26 @@ if ($Options{help}) {
 	system("pod2text $Bin/$Script");
 	exit 1;
 }
+
+# Allow scheduled checks to be disable during maintenance and such, unless -f/--force.
+if ($Config{DISABLEUNTIL} and not $Options{force}) {
+        if ($Config{DISABLEUNTIL} =~ m"^(\d\d\d\d)[/-](\d\d?)[/-](\d\d?)(?:\s+(\d\d?):(\d\d?)(?::(\d\d+))?)?") {
+                my($AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond) = ($1,$2,$3,$4,$5,$6);
+                $AHour = 8 unless (defined($AHour));
+                $AMinute = 0 unless (defined($AMinute));
+                $ASecond = 0 unless (defined($ASecond));
+                my $ADate = timelocal($ASecond,$AMinute,$AHour,$ADay,$AMonth-1,$AYear);
+                if (time() < $ADate) {
+                        printf "Checks disabled until %d/%.2d/%.2d %d:%.2d:%.2d per config file. Use -f to force execution.\n",
+                                $AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond;
+                        exit 0;
+                }
+        }
+        else {
+              print "Invalid DisableUntil date specified in config file: $Config{DISABLEUNTIL} -- ignored.\n";
+        }
+}
+
 
 openlog("$Prog");
 
@@ -778,6 +799,11 @@ to the "listname" standard (i.e. isn't located in /usr/local/etc).
 
 Fail -- only list failing items.
 
+=item --force, -f
+
+Force -- ignore "DISABLEDUNTIL" specification in config file.
+
+
 =item --all, --nofail, --nofailed
 
 All -- override prior --fail/--failed.  This is used primarily on the command
@@ -850,18 +876,45 @@ This causes checkall to ignore any time constraints when checking services.
 =head2 Configuration File
 
 Options may also be specified in an optional configuration file named /usr/local/etc/checkall.cfg.
-The file format is "Alljobs:" starting in column 1, followed optionally by white space,
-followed by a list of command line options.  For example:
+The generic format is:
 
-  Alljobs: -L /usr/mcsi-linux/lib/perl5/site-perl --waittime=30 --failed
+key: value...
 
-Lines beginning with white space are continuation lines.  For example:
+"key" must start in column one.
 
+Lines beginning with white space are continuation lines.
+
+"key" is case insensitive.  Values may or may not be case insensitive depending on their application.
+
+Blank lines and lines beginning with # are ignored.
+
+For example:
+
+  # Following are prepended to all command line parameters
   Alljobs: -L /usr/mcsi-linux/lib/perl5/site-perl
            --waittime=30
            --failed
 
-Blank lines and lines beginning with # are ignored.
+
+Recognized configuration keys are:
+
+=over 3
+
+=item Alljobs
+
+The Alljobs values are prepended to the command line.  This eliminates the need to 
+type locally standard options each time.
+
+=item DisableUntil
+
+This key provides a date and optionally a time in yyyy-mm-dd hh:mm:ss format.  If this key
+exists, checkall skips all checks and exits with a normal return code until the specified
+date and time (or midnight if no time is specified).  DisableUntil may be overridden using
+the -f or --force command line option.
+
+This item is primarily used to suppress checks during a known outage or downtime.
+
+=back
 
 =head2 Service List Files
 
