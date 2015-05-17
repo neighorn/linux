@@ -12,6 +12,7 @@ use POSIX qw(strftime :sys_wait_h);
 use Fcntl;
 use FindBin qw($Bin $Script);
 use Text::ParseWords;
+use Time::Local;
 
 my $HIGHLIGHT = "\e[33;40;1m";	# Yellow FG, Black BG, Bright.
 my $RESET = "\e[0m";
@@ -93,7 +94,7 @@ GetOptions (
 	'w|waittime=i'	=> \$Options{waittime},
 	'maxwaittime=i'	=> \$Options{maxwaittime},
 	'ignoretimes|ignore-times!'	=> \$Options{ignoretimes},
-	'force|f=i'	=> \$Options{force},
+	'force|f'	=> \$Options{force},
 );
 
 eval "use CheckAll::CheckItem;"; # Do this late, to benefit from -L.
@@ -113,7 +114,7 @@ if ($Config{DISABLEUNTIL} and not $Options{force}) {
                 $ASecond = 0 unless (defined($ASecond));
                 my $ADate = timelocal($ASecond,$AMinute,$AHour,$ADay,$AMonth-1,$AYear);
                 if (time() < $ADate) {
-                        printf "Checks disabled until %d/%.2d/%.2d %d:%.2d:%.2d per config file. Use -f to force execution.\n",
+                        printf "Checks disabled until %d/%.2d/%.2d %d:%.2d:%.2d per config file. Use --force or -f to force execution.\n",
                                 $AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond;
                         exit 0;
                 }
@@ -909,7 +910,8 @@ type locally standard options each time.
 
 This key provides a date and optionally a time in yyyy-mm-dd hh:mm:ss format.  If this key
 exists, checkall skips all checks and exits with a normal return code until the specified
-date and time (or midnight if no time is specified).  DisableUntil may be overridden using
+date and time (or midnight if no time is specified).  A message is displayed on STDOUT
+stating that checkall has been disabled.  DisableUntil may be overridden using
 the -f or --force command line option.
 
 This item is primarily used to suppress checks during a known outage or downtime.
