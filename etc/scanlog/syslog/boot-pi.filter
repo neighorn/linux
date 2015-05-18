@@ -9,7 +9,6 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?device=\
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?host=\S+, domain=\S+, nis-domain=\S+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?nameserver0=\S+, nameserver1=\S+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Normal zone: \d+ pages reserved$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?mmcblk\d+: (\p\d+\s*|<\s*|>\s*)+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?\[vc_sm_connected_init\]: end - returning 0$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?\[vc_sm_connected_init\]: start$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Architected cp15 timer\(s\) running at \S+MHz \(virt\).$"
