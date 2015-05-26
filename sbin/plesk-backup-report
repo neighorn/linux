@@ -38,6 +38,7 @@ our %OptionSpecifications=(
 		'filter-file|F=s'	=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'remote-host|R=s'	=>	\&opt_Array,
+		'min-backups|m=s'	=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -227,6 +228,13 @@ sub RunLocally {
 	my $LogDir = '/usr/local/psa/PMM/logs';
 	my $LOGDIRFH;
 	opendir($LOGDIRFH,$LogDir) or die "Unable to open $LogDir: $!";
+	$Options{'min-backups'} = 1 unless (
+		    exists($Options{'min-backup'})
+		and defined($Options{'min-backup'})
+		and $Options{'min-backup'} =~ /^\d+$/
+		);
+	my $LogCount = 0;
+	my $PMMCount = 0;
 	while (my $BackupDir = readdir($LOGDIRFH)) {
 		# Decide if this is something we should process.
 		print "Verbose: Considering $BackupDir\n" if ($Options{verbose});
@@ -256,6 +264,7 @@ sub RunLocally {
 		if (-r $BackupLog) {
 			my $FH;
 			if (open($FH,'<',$BackupLog)) {
+				$LogCount++;
 				my $Line = 0;
 				while (<$FH>) {
 					$Line++;
@@ -278,6 +287,7 @@ sub RunLocally {
 	
 		# Process the PMMcli log if it exists.
 		if (-r $PMMLog) {
+			$PMMCount++;
 			my $FH;
 			if (open($FH,'<',$PMMLog)) {
 				my $Line = 0;
@@ -303,6 +313,10 @@ sub RunLocally {
 	
 	print "All backups report normal exit codes\n"
 		if ($BackupOK and $PMMcliOK);
+	print "$LogCount logs found -- less than the minimum of " . $Options{'min-backups'}
+		unless ($LogCount lt $Options{'min-backups'});
+	print "$PMMCount PMMCli logs found -- less than the minimum of " . $Options{'min-backups'}
+		unless ($PMMCount lt $Options{'min-backups'});
 	return $Errors;
 }
 
@@ -393,11 +407,14 @@ sub opt_h {
 Check exit codes in recent Plesk backup logs.
 
 =head3 Usage:  
-        $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
+        $Prog [options...]
 
         $Prog -h
 
 =head3 Flags:
+	--min-backups|-m count:	Flag an error if less than "count" 
+				logs or PMM CLI logs are found.
+				Defaults to 1.
         --error-mail|-M mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
