@@ -1,0 +1,2 @@
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ in.tftpd(\[\d+\])?:\s*RRQ from \S+ filename"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ in.tftpd(\[\d+\])?:\s*sending NAC \(1, File not found\) to \S+$"
