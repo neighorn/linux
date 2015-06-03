@@ -65,8 +65,7 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 
 # Pre-process our command line, to get the options we need for LogOutput.
 my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
-%Options=(verbose => 0);	# Initialize Options.
-%Options=(days => 1);	# Initialize Options.
+%Options=();	# Initialize Options.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 	
@@ -254,27 +253,35 @@ sub RunLocally {
 		$BackupDir = "$LogDir/$BackupDir";	# Need a full path for most tests.
 		if ($BackupDir !~ m"/backup-[^/]+$") {
 			# Not a backup log.
-			print "Verbose:     Skipped -- not a backup directory\n" if ($Options{verbose});
+			print "Verbose:    Skipped -- not a backup directory\n" if ($Options{verbose});
 			next;
 		}
 		if (! -d $BackupDir) {
 			# Not a directory.
-			print "Verbose:     Skipped -- not a directory\n" if ($Options{verbose});
+			print "Verbose:    Skipped -- not a directory\n" if ($Options{verbose});
 			next;
 		}
-		if ((-M $BackupDir) gt $Options{days}) {
+		if ((-M $BackupDir) > $Options{days}) {
 			# Not current.
-			print "Verbose:     Skipped -- " . (-M $BackupDir) . " days old\n" if ($Options{verbose});
+			print "Verbose:    Skipped -- " . (-M $BackupDir) . " days old\n" if ($Options{verbose});
 			next;
 		}
 	
 		# This is a recent backup directory. Process it.
-		print "Verbose: Processing $BackupDir\n" if ($Options{verbose});
+		print "Verbose:    Processing $BackupDir\n" if ($Options{verbose});
 		my $BackupLog="$BackupDir/backup.log";
 		my $PMMLog="$BackupDir/pmmcli.log";
 	
 		# Process the backup log if it exists.
 		if (-r $BackupLog) {
+			# Check log size.
+			if ((-s $BackupLog) < $Options{'min-backup-log-size'}) {
+				# Too small (e.g. Plesk internal config backup).
+				print "Verbose:    Skipped -- " . (-s $BackupLog) . " bytes is too small\n" if ($Options{verbose});
+				next;
+			}
+
+			# Read the log file and check the return code.
 			my $FH;
 			if (open($FH,'<',$BackupLog)) {
 				$LogCount++;
@@ -283,7 +290,7 @@ sub RunLocally {
 					$Line++;
 					next unless (/INFO: pmm-ras finished. Exit code: (\d+)\s*$/);
 					my $ExitCode = $1;
-					print "Verbose: Found exit code $ExitCode in $BackupLog line $Line\n" if ($Options{verbose});
+					print "Verbose:    Found exit code $ExitCode in $BackupLog line $Line\n" if ($Options{verbose});
 					if ($ExitCode == 0) {
 						$BackupOK = 1;
 					}
@@ -299,9 +306,7 @@ sub RunLocally {
 			else {
 				warn "Unable to open $BackupLog: $!\n";
 			}
-			my $LogSize = -s $BackupLog;
-			warn "$BackupLog is too small ($LogSize < $Options{'min-backup-log-size'})\n" 
-				if (-s $BackupLog lt $Options{'min-backup-log-size'});
+
 		}
 	
 		# Process the PMMcli log if it exists.
@@ -314,7 +319,7 @@ sub RunLocally {
 					$Line++;
 					next unless (m"<errcode>(\d+)</errcode>$");
 					my $ExitCode = $1;
-					print "Verbose: Found exit code $ExitCode in $PMMLog line $Line\n" if ($Options{verbose});
+					print "Verbose:    Found exit code $ExitCode in $PMMLog line $Line\n" if ($Options{verbose});
 					if ($ExitCode == 0) {
 						$PMMcliOK = 1;
 					}
@@ -440,8 +445,10 @@ Check exit codes in recent Plesk backup logs.
 	--min-backups=count:	Flag an error if less than "count" 
 				logs or PMM CLI logs are found.
 				Defaults to 1.
-	--min-backup-log-size=bytes: Generates an error if the log file
-				is too small.  Default is 100,000 bytes.
+	--min-backup-log-size=bytes: Only review logs that are >= bytes
+				bytes long.  This filters out Plesk
+				internal config backups. Default is
+				100,000 bytes.
         --error-mail|-M mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
