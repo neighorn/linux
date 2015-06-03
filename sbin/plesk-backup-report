@@ -38,7 +38,9 @@ our %OptionSpecifications=(
 		'filter-file|F=s'	=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'remote-host|R=s'	=>	\&opt_Array,
+		'days=s'		=>	\&opt_Value,
 		'min-backups=s'		=>	\&opt_Value,
+		'min-backup-log-size=s'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -239,6 +241,11 @@ sub RunLocally {
 		and defined($Options{'min-backup'})
 		and $Options{'min-backup'} =~ /^\d+$/
 		);
+	$Options{'min-backup-log-size'} = 100000 unless (
+		    exists($Options{'min-backup'})
+		and defined($Options{'min-backup'})
+		and $Options{'min-backup'} =~ /^\d+$/
+		);
 	my $LogCount = 0;
 	my $PMMCount = 0;
 	while (my $BackupDir = readdir($LOGDIRFH)) {
@@ -292,6 +299,9 @@ sub RunLocally {
 			else {
 				warn "Unable to open $BackupLog: $!\n";
 			}
+			my $LogSize = -s $BackupLog;
+			warn "$BackupLog is too small ($LogSize < $Options{'min-backup-log-size'})\n" 
+				if (-s $BackupLog lt $Options{'min-backup-log-size'});
 		}
 	
 		# Process the PMMcli log if it exists.
@@ -430,6 +440,8 @@ Check exit codes in recent Plesk backup logs.
 	--min-backups=count:	Flag an error if less than "count" 
 				logs or PMM CLI logs are found.
 				Defaults to 1.
+	--min-backup-log-size=bytes: Generates an error if the log file
+				is too small.  Default is 100,000 bytes.
         --error-mail|-M mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
