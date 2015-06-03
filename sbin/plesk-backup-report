@@ -64,6 +64,7 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 # Pre-process our command line, to get the options we need for LogOutput.
 my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
 %Options=(verbose => 0);	# Initialize Options.
+%Options=(days => 1);	# Initialize Options.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 	
@@ -228,6 +229,11 @@ sub RunLocally {
 	my $LogDir = '/usr/local/psa/PMM/logs';
 	my $LOGDIRFH;
 	opendir($LOGDIRFH,$LogDir) or die "Unable to open $LogDir: $!";
+	$Options{'days'} = 1 unless (
+		    exists($Options{'days'})
+		and defined($Options{'days'})
+		and $Options{'days'} =~ /^\d+$/
+		);
 	$Options{'min-backups'} = 1 unless (
 		    exists($Options{'min-backup'})
 		and defined($Options{'min-backup'})
@@ -241,17 +247,17 @@ sub RunLocally {
 		$BackupDir = "$LogDir/$BackupDir";	# Need a full path for most tests.
 		if ($BackupDir !~ m"/backup-[^/]+$") {
 			# Not a backup log.
-			print "Verbose: Skipped -- not a backup directory\n" if ($Options{verbose});
+			print "Verbose:     Skipped -- not a backup directory\n" if ($Options{verbose});
 			next;
 		}
 		if (! -d $BackupDir) {
 			# Not a directory.
-			print "Verbose: Skipped -- not a directory\n" if ($Options{verbose});
+			print "Verbose:     Skipped -- not a directory\n" if ($Options{verbose});
 			next;
 		}
-		if ((-M $BackupDir) >= 1) {
+		if ((-M $BackupDir) gt $Options{days}) {
 			# Not current.
-			print "Verbose: Skipped -- " . (-M $BackupDir) . " days old\n" if ($Options{verbose});
+			print "Verbose:     Skipped -- " . (-M $BackupDir) . " days old\n" if ($Options{verbose});
 			next;
 		}
 	
@@ -283,6 +289,9 @@ sub RunLocally {
 				}
 				close $FH;
 			}
+			else {
+				warn "Unable to open $BackupLog: $!\n";
+			}
 		}
 	
 		# Process the PMMcli log if it exists.
@@ -307,6 +316,9 @@ sub RunLocally {
 					}
 				}
 				close $FH;
+			}
+			else {
+				warn "Unable to open $PMMLog: $!\n";
 			}
 		}
 	}
@@ -412,6 +424,9 @@ Check exit codes in recent Plesk backup logs.
         $Prog -h
 
 =head3 Flags:
+	--days=count:		Only review logs that are <= count days
+				old.  Default is to review logs that 
+				are no more than 1 day old.
 	--min-backups=count:	Flag an error if less than "count" 
 				logs or PMM CLI logs are found.
 				Defaults to 1.
