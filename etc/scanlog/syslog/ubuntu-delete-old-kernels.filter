@@ -5,6 +5,7 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Building dependency tree...$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Deleting old kernel packages...$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?done"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?error: superfluous RAID member \(\d+ found\).$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Examining "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Found initrd image: "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Found linux image: "
