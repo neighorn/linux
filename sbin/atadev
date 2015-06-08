@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Quick script to convert kernel "ataX" device numbers to "/dev/sdY" device names.
+
+if [[ $# -eq 0 ]]
+then
+	echo Usage: atadev ataX ...
+	exit 1
+fi
+
+for atanum in $*
+do
+	atanum=${atanum#ata}
+	hostid=$(grep "^$atanum\$" /sys/class/scsi_host/host*/unique_id | awk -F'/' '{print $5}')
+	dev=$(ls -l /sys/block/sd* | grep $hostid | sed 's"^.*/sys/block/"";s/ .*$//')
+	echo "ata$atanum = /dev/$dev"
+done
