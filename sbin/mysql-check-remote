@@ -282,9 +282,9 @@ SHOW	"^\s*-{30} \S+\s+-{30}$"
 SHOW	"^\s*-+$"
 IGNORE	"^\s*Command: /usr/local/sbin/mysql-check"
 IGNORE	"^\s*$"
-IGNORE	"^\s?\s?\s?\S+ ended on( \S+,)? \d+[-/]\d+[-/]\d+ at ..:..:.. - run time: "
-SHOW	"^\s*mysql-check-remote ended normally with status 0 and signal 0$"
-IGNORE	"^\s*mysql-check ended normally with status 0 and signal 0$"
+SHOW	"^\s*mysql-check-remote ended on( \S+,)? \d+[-/]\d+[-/]\d+ at ..:..:.. - run time: "
+IGNORE	"^\s*mysql-check ended on( \S+,)? \d+[-/]\d+[-/]\d+ at ..:..:.. - run time: "
+SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
 # The following are normal messages we don't need to see.
 #
 IGNORE  /^\s*$/
