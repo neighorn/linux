@@ -5,3 +5,5 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*(\S+:\s*)?
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*(\S+:\s*)?File updated: searched for \d+ files, found \d+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*(\S+:\s*)?Latest version: \S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*(\S+:\s*)?This version\s+: \S+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rkhunter-report(\[\d+\])?:\s*(\S+:\s*)?Remote job exited with return code 0 and signal 0$"
+
