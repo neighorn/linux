@@ -249,21 +249,21 @@ sub RunLocally {
 	my $PMMCount = 0;
 	while (my $BackupDir = readdir($LOGDIRFH)) {
 		# Decide if this is something we should process.
-		print "Verbose: Considering $BackupDir\n" if ($Options{verbose});
+		print "Verbose: Considering $BackupDir\n" if ($Options{verbose} >= 3);
 		$BackupDir = "$LogDir/$BackupDir";	# Need a full path for most tests.
 		if ($BackupDir !~ m"/backup-[^/]+$") {
 			# Not a backup log.
-			print "Verbose:    Skipped -- not a backup directory\n" if ($Options{verbose});
+			print "Verbose:    Skipped -- not a backup directory\n" if ($Options{verbose} >= 4);
 			next;
 		}
 		if (! -d $BackupDir) {
 			# Not a directory.
-			print "Verbose:    Skipped -- not a directory\n" if ($Options{verbose});
+			print "Verbose:    Skipped -- not a directory\n" if ($Options{verbose} >= 4);
 			next;
 		}
 		if ((-M $BackupDir) > $Options{days}) {
 			# Not current.
-			print "Verbose:    Skipped -- " . (-M $BackupDir) . " days old\n" if ($Options{verbose});
+			print "Verbose:    Skipped -- " . (-M $BackupDir) . " days old\n" if ($Options{verbose} >= 3);
 			next;
 		}
 	
@@ -277,34 +277,34 @@ sub RunLocally {
 			# Check log size.
 			if ((-s $BackupLog) < $Options{'min-backup-log-size'}) {
 				# Too small (e.g. Plesk internal config backup).
-				print "Verbose:    Skipped -- " . (-s $BackupLog) . " bytes is too small\n" if ($Options{verbose});
-				next;
-			}
-
-			# Read the log file and check the return code.
-			my $FH;
-			if (open($FH,'<',$BackupLog)) {
-				$LogCount++;
-				my $Line = 0;
-				while (<$FH>) {
-					$Line++;
-					next unless (/INFO: pmm-ras finished. Exit code: (\d+)\s*$/);
-					my $ExitCode = $1;
-					print "Verbose:    Found exit code $ExitCode in $BackupLog line $Line\n" if ($Options{verbose});
-					if ($ExitCode == 0) {
-						$BackupOK = 1;
-					}
-					else {
-						warn "$BackupLog reports a non-zero exit code $ExitCode\n";
-						$BackupOK = 0;
-						$Errors++;
-						last;
-					}
-				}
-				close $FH;
+				print "Verbose:        Skipped -- " . (-s $BackupLog) . " bytes is too small\n" if ($Options{verbose} >= 2);
 			}
 			else {
-				warn "Unable to open $BackupLog: $!\n";
+				# Read the log file and check the return code.
+				my $FH;
+				if (open($FH,'<',$BackupLog)) {
+					$LogCount++;
+					my $Line = 0;
+					while (<$FH>) {
+						$Line++;
+						next unless (/INFO: pmm-ras finished. Exit code: (\d+)\s*$/);
+						my $ExitCode = $1;
+						print "Verbose:        Found exit code $ExitCode in $BackupLog line $Line\n" if ($Options{verbose});
+						if ($ExitCode == 0) {
+							$BackupOK = 1;
+						}
+						else {
+							warn "$BackupLog reports a non-zero exit code $ExitCode\n";
+							$BackupOK = 0;
+							$Errors++;
+							last;
+						}
+					}
+					close $FH;
+				}
+				else {
+					warn "Unable to open $BackupLog: $!\n";
+				}
 			}
 
 		}
@@ -319,7 +319,7 @@ sub RunLocally {
 					$Line++;
 					next unless (m"<errcode>(\d+)</errcode>$");
 					my $ExitCode = $1;
-					print "Verbose:    Found exit code $ExitCode in $PMMLog line $Line\n" if ($Options{verbose});
+					print "Verbose:        Found exit code $ExitCode in $PMMLog line $Line\n" if ($Options{verbose});
 					if ($ExitCode == 0) {
 						$PMMcliOK = 1;
 					}
@@ -340,7 +340,7 @@ sub RunLocally {
 	
 	print "All backups report normal exit codes\n"
 		if ($BackupOK and $PMMcliOK);
-	warn "$LogCount logs found -- less than the minimum of " . $Options{'min-backups'} . "\n"
+	warn "$LogCount backup logs found -- less than the minimum of " . $Options{'min-backups'} . "\n"
 		unless ($LogCount ge $Options{'min-backups'});
 	warn "$PMMCount PMMCli logs found -- less than the minimum of " . $Options{'min-backups'} . "\n"
 		unless ($PMMCount ge $Options{'min-backups'});
