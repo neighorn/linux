@@ -1,1 +1,1 @@
-Alljobs: --cd /usr/local/vm --cycles=2 --m sysadmin
+Alljobs: --cd /usr/local/vm --m sysadmin
