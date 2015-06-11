@@ -1,0 +1,7 @@
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ plesk-backup-job(\[d+\])?:(\s*\S+:)?\s*-------------- End print backup log hire --------------$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ plesk-backup-job(\[d+\])?:(\s*\S+:)?\s*-------------- Start print backup log hire --------------$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ plesk-backup-job(\[d+\])?:(\s*\S+:)?\s*Accounts \[\d+/\d+\], Domains \[\d+/\d+\]$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ plesk-backup-job(\[d+\])?:(\s*\S+:)?\s*The backup finished successfully$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ plesk-backup-job(\[d+\])?:(\s*\S+:)?\s*You can view additional information in the log file located in "
+IGNORE  '^... [1-3 ]\d \d\d:\d\d:\d\d \S+ plesk-backup-job(\[d+\])?:(\s*\S+:)?\s*<\?xml version="1.0" encoding="UTF-8"\?>$'
+IGNORE  '^... [1-3 ]\d \d\d:\d\d:\d\d \S+ plesk-backup-job(\[d+\])?:(\s*\S+:)?\s*<execution-result status="success" log-location="/usr/local/psa/PMM/'
