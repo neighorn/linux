@@ -5,8 +5,7 @@
 	deny from all
 	allow from 127.0.0.1/8
 # Brian Martin
-        allow from 50.43.121.70/32
-        allow from 50.43.121.69/32
+        allow from 50.35.30.132/31
 # Password authentication for other locations.
 	AuthName "Tech Support Documents"
 	AuthType Basic
