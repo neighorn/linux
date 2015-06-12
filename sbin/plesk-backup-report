@@ -240,7 +240,7 @@ sub RunLocally {
 		and defined($Options{'min-backup'})
 		and $Options{'min-backup'} =~ /^\d+$/
 		);
-	$Options{'min-backup-log-size'} = 100000 unless (
+	$Options{'min-backup-log-size'} = 1 unless (
 		    exists($Options{'min-backup'})
 		and defined($Options{'min-backup'})
 		and $Options{'min-backup'} =~ /^\d+$/
@@ -446,9 +446,7 @@ Check exit codes in recent Plesk backup logs.
 				logs or PMM CLI logs are found.
 				Defaults to 1.
 	--min-backup-log-size=bytes: Only review logs that are >= bytes
-				bytes long.  This filters out Plesk
-				internal config backups. Default is
-				100,000 bytes.
+				bytes long.  Default is 1 byte.
         --error-mail|-M mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
