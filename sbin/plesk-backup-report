@@ -38,7 +38,7 @@ our %OptionSpecifications=(
 		'filter-file|F=s'	=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'remote-host|R=s'	=>	\&opt_Array,
-		'prefix=s'		=>	\&opt_Array,
+		'prefix=s'		=>	\&opt_Value,
 		'days=s'		=>	\&opt_Value,
 		'min-backups=s'		=>	\&opt_Value,
 		'min-backup-log-size=s'		=>	\&opt_Value,
@@ -229,6 +229,7 @@ sub RunLocally {
 	my $BackupOK;
 	my $PMMcliOK = 0;
 	my $LogDir = '/usr/local/psa/PMM/logs';
+
 	my $LOGDIRFH;
 	opendir($LOGDIRFH,$LogDir) or die "Unable to open $LogDir: $!";
 	$Options{'days'} = 1 unless (
@@ -248,7 +249,10 @@ sub RunLocally {
 		);
 	my $LogCount = 0;
 	my $PMMCount = 0;
-	while (my $BackupDir = readdir($LOGDIRFH)) {
+	my @BackupDirs = sort(readdir($LOGDIRFH));
+	closedir $LOGDIRFH;
+
+	foreach my $BackupDir (@BackupDirs) {
 		my $BackupLog="$BackupDir/backup.log";
 		my $PMMLog="$BackupDir/pmmcli.log";
 
@@ -270,10 +274,6 @@ sub RunLocally {
 			print "Verbose:    Skipped -- " . (-M $BackupDir) . " days old\n" if ($Options{verbose} >= 3);
 			next;
 		}
-		if (! -r $BackupLog) {
-			print "Verbose:    Skipped -- not readable\n" if ($Options{verbose} >= 3);
-			next;
-		}
 	
 		# This is a recent backup directory. Process it.
 		print "Verbose:    Processing $BackupDir\n" if ($Options{verbose});
@@ -285,7 +285,7 @@ sub RunLocally {
 			my $Line = 0;
 			while (<$FH>) {
 				$Line++;
-				if (/Get backup info from (\S+)/ and ($Options{prefix})) {
+				if (/Get backup info from (\S+)/ and $Options{prefix}) {
 					my $Prefix=$1;
 					if ($Prefix !~ /^$Options{prefix}/) {
 						print "Verbose:    Skipped -- incorrect prefix $Prefix\n";
