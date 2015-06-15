@@ -38,6 +38,7 @@ our %OptionSpecifications=(
 		'filter-file|F=s'	=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'remote-host|R=s'	=>	\&opt_Array,
+		'prefix=s'		=>	\&opt_Array,
 		'days=s'		=>	\&opt_Value,
 		'min-backups=s'		=>	\&opt_Value,
 		'min-backup-log-size=s'		=>	\&opt_Value,
@@ -248,6 +249,9 @@ sub RunLocally {
 	my $LogCount = 0;
 	my $PMMCount = 0;
 	while (my $BackupDir = readdir($LOGDIRFH)) {
+		my $BackupLog="$BackupDir/backup.log";
+		my $PMMLog="$BackupDir/pmmcli.log";
+
 		# Decide if this is something we should process.
 		print "Verbose: Considering $BackupDir\n" if ($Options{verbose} >= 3);
 		$BackupDir = "$LogDir/$BackupDir";	# Need a full path for most tests.
@@ -266,47 +270,47 @@ sub RunLocally {
 			print "Verbose:    Skipped -- " . (-M $BackupDir) . " days old\n" if ($Options{verbose} >= 3);
 			next;
 		}
+		if (! -r $BackupLog) {
+			print "Verbose:    Skipped -- not readable\n" if ($Options{verbose} >= 3);
+			next;
+		}
 	
 		# This is a recent backup directory. Process it.
 		print "Verbose:    Processing $BackupDir\n" if ($Options{verbose});
-		my $BackupLog="$BackupDir/backup.log";
-		my $PMMLog="$BackupDir/pmmcli.log";
 	
-		# Process the backup log if it exists.
-		if (-r $BackupLog) {
-			# Check log size.
-			if ((-s $BackupLog) < $Options{'min-backup-log-size'}) {
-				# Too small (e.g. Plesk internal config backup).
-				print "Verbose:        Skipped -- " . (-s $BackupLog) . " bytes is too small\n" if ($Options{verbose} >= 2);
-			}
-			else {
-				# Read the log file and check the return code.
-				my $FH;
-				if (open($FH,'<',$BackupLog)) {
-					$LogCount++;
-					my $Line = 0;
-					while (<$FH>) {
-						$Line++;
-						next unless (/INFO: pmm-ras finished. Exit code: (\d+)\s*$/);
-						my $ExitCode = $1;
-						print "Verbose:        Found exit code $ExitCode in $BackupLog line $Line\n" if ($Options{verbose});
-						if ($ExitCode == 0) {
-							$BackupOK = 1;
-						}
-						else {
-							warn "$BackupLog reports a non-zero exit code $ExitCode\n";
-							$BackupOK = 0;
-							$Errors++;
-							last;
-						}
+		# Read the log file and check the return code.
+		my $FH;
+		if (open($FH,'<',$BackupLog)) {
+			$LogCount++;
+			my $Line = 0;
+			while (<$FH>) {
+				$Line++;
+				if (/Get backup info from (\S+)/ and ($Options{prefix})) {
+					my $Prefix=$1;
+					if ($Prefix !~ /^$Options{prefix}/) {
+						print "Verbose:    Skipped -- incorrect prefix $Prefix\n";
+						close $FH;
+						last;
 					}
-					close $FH;
 				}
-				else {
-					warn "Unable to open $BackupLog: $!\n";
+				elsif (/INFO: pmm-ras finished. Exit code: (\d+)\s*$/) {
+					my $ExitCode = $1;
+					print "Verbose:        Found exit code $ExitCode in $BackupLog line $Line\n" if ($Options{verbose});
+					if ($ExitCode == 0) {
+						$BackupOK = 1;
+					}
+					else {
+						warn "$BackupLog reports a non-zero exit code $ExitCode\n";
+						$BackupOK = 0;
+						$Errors++;
+						last;
+					}
 				}
 			}
-
+			close $FH;
+		}
+		else {
+			warn "Unable to open $BackupLog: $!\n";
 		}
 	
 		# Process the PMMcli log if it exists.
@@ -447,6 +451,9 @@ Check exit codes in recent Plesk backup logs.
 				Defaults to 1.
 	--min-backup-log-size=bytes: Only review logs that are >= bytes
 				bytes long.  Default is 1 byte.
+	--prefix=prefix:	Prefix: Only select backups that have the
+				given prefix.  This matches the prefix
+				specified for the scheduled backup job.
         --error-mail|-M mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
