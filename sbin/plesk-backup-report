@@ -253,8 +253,8 @@ sub RunLocally {
 	closedir $LOGDIRFH;
 
 	foreach my $BackupDir (@BackupDirs) {
-		my $BackupLog="$BackupDir/backup.log";
-		my $PMMLog="$BackupDir/pmmcli.log";
+		my $BackupLog="$LogDir/$BackupDir/backup.log";
+		my $PMMLog="$LogDir/$BackupDir/pmmcli.log";
 
 		# Decide if this is something we should process.
 		print "Verbose: Considering $BackupDir\n" if ($Options{verbose} >= 3);
@@ -321,6 +321,14 @@ sub RunLocally {
 				my $Line = 0;
 				while (<$FH>) {
 					$Line++;
+					if (/backup-profile-name=(\S+)/ and $Options{prefix}) {
+						my $Prefix=$1;
+						if ($Prefix !~ /^$Options{prefix}/) {
+							print "Verbose:    Skipped -- incorrect prefix $Prefix\n";
+							close $FH;
+							last;
+						}
+					}
 					next unless (m"<errcode>(\d+)</errcode>$");
 					my $ExitCode = $1;
 					print "Verbose:        Found exit code $ExitCode in $PMMLog line $Line\n" if ($Options{verbose});
