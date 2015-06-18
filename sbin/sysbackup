@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# =====Description====
+# Backup critical system components and gather recovery information.
 #
 use strict;
 use warnings;
@@ -31,7 +31,7 @@ our %Options;			# Options settings.
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
 our %OptionSpecifications=(
-		'<>'			=>	sub {push @Parms,shift;},
+		'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'help|h|?!'		=>	\&opt_h,
 		'always-mail|m=s'	=>	\&opt_Array,
@@ -137,7 +137,7 @@ LogOutput({
 });
 
 # Verify the command line.
-die("Excess parameters on the command line.  See \"$Prog -h\" for usage.")
+die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
 	if (@Parms);
 $Options{cycles}=5 unless (exists($Options{cycles}));
 die("Invalid number \"$Options{cycles}\" for --cycles.  See \"$Prog -h\" for usage.")
