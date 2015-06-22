@@ -641,11 +641,10 @@ IGNORE	"^\s*(\s+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\
 LOGONLY	"^\s*(\s+:\s*)?\S+ ended normally with status 0 and signal 0"
 IGNORE	"^\s*(\s+:\s*)?\S+:\s+\S+ ended normally with status 0 and signal 0"
 LOGONLY	"^\s*(\s+:\s*)?\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+SHOW	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
 #
 # These are normal messages that we want to see.
 #
 SHOW    "^\s*(\S+:\s*)?Backing up "
 SHOW    /^\s*(\S+:\s*)?\S+ ended normally with status 0 and signal 0$/
-SHOW    /^\s*(\S+:\s*)?Test:/
-SHOW    /^\s*(\S+:\s*)?Executing:/
-SHOW	/^\s*(\S+:\s*)?debug:/
+SHOW    /^\s*(\S+:\s*)?(Test|Executing|Verbose|debug:/
