@@ -625,10 +625,10 @@ IGNORE	"^\s*(\S+:\s*)?tar: .*: file removed before we read it$"i
 IGNORE	"^\s*(\S+:\s*)?tar: .*: File shrank by \d+ bytes"
 IGNORE	"^\s*(\S+:\s*)?tar: .*: Cannot stat: No such file or directory$"
 IGNORE	"^\s*(\S+:\s*)?tar: Error exit delayed from previous errors$"
-IGNORE	"^\s*(\S+:\s*)?\s*512 bytes \(512 B\) copied, \d+.\d+ s(econds)?, \d+(\.\d+)? [kmgKMG]B$"
-IGNORE	"^\s*(\S+:\s*)?\s*512 bytes \(512 B\) copied, \d+(\.\d+)?(e-\d+)? s(econds)?, \d+(\.\d+)? [kmgKMG]B/s$"
-IGNORE	"^\s*(\S+:\s*)?\s*recovery-info started on "
-IGNORE  "^\s*(\S+:\s*)?\s*$"
+IGNORE	"^\s*(\S+:\s*)?512 bytes \(512 B\) copied, \d+.\d+ s(econds)?, \d+(\.\d+)? [kmgKMG]B$"
+IGNORE	"^\s*(\S+:\s*)?512 bytes \(512 B\) copied, \d+(\.\d+)?(e-\d+)? s(econds)?, \d+(\.\d+)? [kmgKMG]B/s$"
+IGNORE	"^\s*(\S+:\s*)?recovery-info started on "
+IGNORE  "^\s*(\S+:\s*)?$"
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
@@ -636,7 +636,7 @@ LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 IGNORE  "^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 LOGONLY "^\s*Command: "
 IGNORE	"^\s*\S+:\s+Command: "
-SHOW	"^\s*(\s+:\s*)??Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*(\s+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 IGNORE	"^\s*(\s+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 LOGONLY	"^\s*(\s+:\s*)?\S+ ended normally with status 0 and signal 0"
 IGNORE	"^\s*(\s+:\s*)?\S+:\s+\S+ ended normally with status 0 and signal 0"
@@ -644,8 +644,8 @@ LOGONLY	"^\s*(\s+:\s*)?\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
 #
 # These are normal messages that we want to see.
 #
-SHOW    "^\s*Backing up "
-SHOW    /^\s*\S+ ended normally with status 0 and signal 0$/
-SHOW    /^\s*Test:/
-SHOW    /^\s*Executing:/
-SHOW	/^\s*debug:/
+SHOW    "^\s*(\S+:\s*)?Backing up "
+SHOW    /^\s*(\S+:\s*)?\S+ ended normally with status 0 and signal 0$/
+SHOW    /^\s*(\S+:\s*)?Test:/
+SHOW    /^\s*(\S+:\s*)?Executing:/
+SHOW	/^\s*(\S+:\s*)?debug:/
