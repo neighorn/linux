@@ -55,14 +55,6 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+#\d+ Ok.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?(RAMDISK|DMA|DMA32|Normal|node\s+\d+):?\s+\[mem 0x[\da-f]+-0x[\da-f]+\]\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?....ready$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?acpi PNP0A\d+:\d+: host bridge window \[(io|mem) 0x[[:xdigit:]]+"
--> Jun 15 17:06:45 kettle kernel: [    0.108548] acpi PNP0A03:00: _OSC failed (AE_NOT_FOUND); disabling ASPM
--> Jun 15 17:06:45 kettle kernel: [    0.109466] acpi PNP0A03:00: host bridge window [io  0x0000-0x0cf7] (ignored)
--> Jun 15 17:06:45 kettle kernel: [    0.109469] acpi PNP0A03:00: host bridge window [io  0x0d00-0xffff] (ignored)
--> Jun 15 17:06:45 kettle kernel: [    0.109471] acpi PNP0A03:00: host bridge window [mem 0x000a0000-0x000bffff] (ignored)
--> Jun 15 17:06:45 kettle kernel: [    0.109473] acpi PNP0A03:00: host bridge window [mem 0x000e0000-0x000effff] (ignored)
--> Jun 15 17:06:45 kettle kernel: [    0.109475] acpi PNP0A03:00: host bridge window [mem 0xf8000000-0xfebfffff] (ignored)
--> Jun 15 17:06:45 kettle kernel: [    0.109478] acpi PNP0A03:00: host bridge window [mem 0xe0000000-0xf0000000] (ignored)
-
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?Adding \d+ swap on \S+\.  Priority:"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?BRK \[0x[[:xdigit:]]+, 0x[[:xdigit:]]+\] PGTABLE$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?generic_sse:\s*\d+\.\d+ MB/sec$"
