@@ -646,5 +646,5 @@ SHOW	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
 # These are normal messages that we want to see.
 #
 SHOW    "^\s*(\S+:\s*)?Backing up "
-SHOW    /^\s*(\S+:\s*)?\S+ ended normally with status 0 and signal 0$/
-SHOW    /^\s*(\S+:\s*)?(Test|Executing|Verbose|debug:/
+SHOW    "^\s*(\S+:\s*)?\S+ ended normally with status 0 and signal 0$"
+SHOW    "^\s*(\S+:\s*)?(Test|Executing|Verbose|debug):"
