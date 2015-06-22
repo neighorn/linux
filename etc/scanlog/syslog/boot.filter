@@ -741,7 +741,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?nr_irqs_
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?NX \(Execute Disable\) protection: active$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?ohci_hcd: USB 1.1 'Open' Host Controller \(OHCI\) Driver$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?ohci_hcd: USB 1.1 'Open' Host Controller \(OHCI\) Driver$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Offload RCU callbackups from"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Offload RCU callbacks from"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?On node \d+ totalpages: \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?original variable MTRRs$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?P\d+ P\d+ P\d+ P\d+ \]$"
