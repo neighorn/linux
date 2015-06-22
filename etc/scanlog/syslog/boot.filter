@@ -54,7 +54,15 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+#\d+ \[[[:xdigit:]]+ - [[:xdi
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+#\d+ Ok.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?(RAMDISK|DMA|DMA32|Normal|node\s+\d+):?\s+\[mem 0x[\da-f]+-0x[\da-f]+\]\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?....ready$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?acpi PNP0A\d+:\d+: host bridge window \[(io|mem) 0x[[:xdigit:]]+ \(ignored\)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?acpi PNP0A\d+:\d+: host bridge window \[(io|mem) 0x[[:xdigit:]]+"
+-> Jun 15 17:06:45 kettle kernel: [    0.108548] acpi PNP0A03:00: _OSC failed (AE_NOT_FOUND); disabling ASPM
+-> Jun 15 17:06:45 kettle kernel: [    0.109466] acpi PNP0A03:00: host bridge window [io  0x0000-0x0cf7] (ignored)
+-> Jun 15 17:06:45 kettle kernel: [    0.109469] acpi PNP0A03:00: host bridge window [io  0x0d00-0xffff] (ignored)
+-> Jun 15 17:06:45 kettle kernel: [    0.109471] acpi PNP0A03:00: host bridge window [mem 0x000a0000-0x000bffff] (ignored)
+-> Jun 15 17:06:45 kettle kernel: [    0.109473] acpi PNP0A03:00: host bridge window [mem 0x000e0000-0x000effff] (ignored)
+-> Jun 15 17:06:45 kettle kernel: [    0.109475] acpi PNP0A03:00: host bridge window [mem 0xf8000000-0xfebfffff] (ignored)
+-> Jun 15 17:06:45 kettle kernel: [    0.109478] acpi PNP0A03:00: host bridge window [mem 0xe0000000-0xf0000000] (ignored)
+
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?Adding \d+ swap on \S+\.  Priority:"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?BRK \[0x[[:xdigit:]]+, 0x[[:xdigit:]]+\] PGTABLE$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?generic_sse:\s*\d+\.\d+ MB/sec$"
@@ -667,8 +675,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?md: raid
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?md\d+: detected capacity change from \d+ to \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?md\d+: unknown partition table$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?md\d+:$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Memory: \d+k/\d+k available \(\d+k kernel code, \d+k absent, \d+k reserved, \d+k data, \d+k init\)$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Memory: \d+k/\d+k available \(\d+k kernel code, \d+k absent, \d+k reserved, \d+k data, \d+k init\)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Memory: \d+k/\d+k available \(\d+k kernel code, "i
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?mice: PS/2 mouse device common for all mice$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Microcode Update Driver: v2.00 <tigran\@aivazian.fsnet.co.uk>, Peter Oruba$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?microcode: CPU\d+ sig=0x[\da-f]+, pf=0x[\da-f]+, revision=0x[\da-f]+$"
@@ -726,7 +733,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?No AGP b
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?No AGP bridge found$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?No NUMA configuration found$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?No NUMA configuration found$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?NODE_DATA \[mem 0x\d+fffb\d+-0x\d+fffffff\]$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?NODE_DATA \[mem 0x[[:xdigit:]]+-0x[[:xdigit:]]+\]$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?nodes+\d+: \[mem 0x\d+-0x\d+efff\]$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?nodes+\d+: \[mem 0x\d+-0x\d+fffffff\]$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?nodes+\d+: \[mem 0x\d+-0xdfc\d+dfff\]$"
@@ -741,7 +748,8 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?NR_IRQS:
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?nr_irqs_gsi: \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?NX \(Execute Disable\) protection: active$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?ohci_hcd: USB 1.1 'Open' Host Controller \(OHCI\) Driver$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?ohci_hcd: USB \d+.\d+ 'Open' Host Controller \(OHCI\) Driver$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?ohci_hcd: USB 1.1 'Open' Host Controller \(OHCI\) Driver$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Offload RCU callbackups from"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?On node \d+ totalpages: \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?original variable MTRRs$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?P\d+ P\d+ P\d+ P\d+ \]$"
@@ -908,6 +916,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?rtc_cmos
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?rtc_cmos \d+:\d+: RTC can wake from S\d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?rtc_cmos \d+:\d+: rtc core: registered rtc_cmos as rtc\d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?rtc_cmos \d+:\d+: setting system clock to \d+-\d+-\d+ \d+:\d+:\d+ UTC \(\d+\)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?Scanning \d+ areas for low memory corruption$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?scsi 1:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     0.12 PQ: 0 ANSI: 5$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?scsi \d+:\d+:\d+:\d+: Attached scsi generic sg\d+ type \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?scsi \d+:\d+:\d+:\d+: CD-ROMs+LITE-ONs+DVDRW LH-\d+A\d+Ps+KL\d+G PQ: \d+ ANSI: \d+$"
@@ -929,7 +938,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?serial\d
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?serio: i\d+ AUX port at 0x\d+,0x\d+ irq \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?serio: i\d+ KBD port at 0x\d+,0x\d+ irq \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?setup_percpu: NR_CPUS:\d+ nr_cpumask_bits:\d+ nr_cpu_ids:\d+ nr_node_ids:\d+$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?SLUB: Genslabs=\d+, HWalign=\d+, Order=\d+-\d+, MinObjects=\d+, CPUs=\d+, Nodes=\d+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?SLUB: (Genslabs=\d+, )?HWalign=\d+, Order=\d+-\d+, MinObjects=\d+, CPUs=\d+, Nodes=\d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?SMBIOS \d+.\d+ present.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?SMBIOS version \S+ \@ 0x"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?smpboot: Allowing \d+ CPUs, \d+ hotplug CPUs$"
@@ -978,6 +987,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?usb usb\
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?usb usb\d+: Product: EHCI Host Controller$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?usb usb\d+: Product: UHCI Host Controller$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?usb usb\d+: SerialNumber: \d+:\d+:\d+d.\d+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?usb-storage \S+: USB Mass Storage device detected$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?usbcore: registered new device driver usb$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?usbcore: registered new interface driver hub$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?usbcore: registered new interface driver usb-storage$"
