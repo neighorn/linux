@@ -340,7 +340,7 @@ sub ProcessBackup {
 			       ($relative and time() > $StartTime+$hours*3600+$minutes*60)
 				or (!$relative and strftime("%H:%M",localtime()) gt sprintf("%02d:%02d",$hours,$minutes))
 			) {
-				print qq<Skipped $Target due to "--ifbefore" time constraints.\n>;
+				print qq<    $Target skipped -- outside "--ifbefore" time constraints.\n>;
 				return;
 			}
 		}
@@ -405,7 +405,7 @@ sub ProcessBackup {
 				close $SOCKET;
 			}
 			else {
-				print "Skipped $Target -- $Client is unreachable.\n";
+				print "    $Target skipped -- $Client is unreachable.\n";
 				return;
 			}
 		}
@@ -1092,9 +1092,9 @@ IGNORE	"^\s*rsync: open.* failed: No such file or directory"
 IGNORE	"^\s*(file|directory) has vanished: "
 IGNORE	"^\s*Status: warning \(24\) -- file vanished on sender$"
 IGNORE	"^\s*Status: success$"
-SHOW	"^\s*Skipped \S+ -- \S+ is unreachable.$"
+SHOW	"^\s*\S+ skipped -- \S+ is unreachable.$"
 SHOW	"^\s*Skipped \S+ -- .* is not accessible.$"
-SHOW	"^\s*Skipped \S+ due to \"--ifbefore\" time constraints"
+SHOW	"^\s*\S+ skipped -- outside \"--ifbefore\" time constraints"
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
