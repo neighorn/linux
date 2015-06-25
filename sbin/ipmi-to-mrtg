@@ -113,7 +113,7 @@ if (-d $DataDir ) {
 		die("Unable to clean out $DataDir: $!\n");
 }
 else {
-	RunDangerousCmd("mkdir -p 750 $DataDir/*") &&
+	RunDangerousCmd("mkdir -p 750 $DataDir") &&
 		die("Unable to create $DataDir: $!\n");
 }
 
