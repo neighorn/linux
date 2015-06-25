@@ -108,8 +108,14 @@ foreach ((@opt_r)) {
 
 # Clean out the data directory.  This prevents MRTG from rereading old data
 # if something doesn't get updated.
-RunDangerousCmd("rm -rf $DataDir/*") &&
-	die("Unable to clean out $DataDir: $!\n");
+if (-d $DataDir ) {
+	RunDangerousCmd("rm -rf $DataDir/*") &&
+		die("Unable to clean out $DataDir: $!\n");
+}
+else {
+	RunDangerousCmd("mkdir -p 750 $DataDir/*") &&
+		die("Unable to create $DataDir: $!\n");
+}
 
 umask(0022);
 
