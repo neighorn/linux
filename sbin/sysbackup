@@ -403,9 +403,10 @@ sub RunLocally {
 	#
 	RunDangerousCmd("recovery-info -o $OutputDir/recovery");
 	my $size = ($Options{test}
-		? 999999
+		? '999999 x'
 		: `du -s "$OutputDir"`
 	);
+	$size =~ s/^\s*(\d+)\s/$1/;
 	print commify($size)
 		. " bytes "
 		. ($size > 1024?'(' . CompressSize($size) . ') ':'')
