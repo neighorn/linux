@@ -406,7 +406,7 @@ sub RunLocally {
 		? '999999 x'
 		: `du -s "$OutputDir"`
 	);
-	$size =~ s/^\s*(\d+)\s/$1/;
+	$size =~ s/^\s*(\d+)\s.*$/$1/;
 	print commify($size)
 		. " bytes "
 		. ($size > 1024?'(' . CompressSize($size) . ') ':'')
