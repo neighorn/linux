@@ -46,6 +46,8 @@ our %OptionSpecifications=(
 		'remote-host|R=s'	=>	\&opt_Array,
 		'exclude|x=s'		=>	\&opt_Array,
 		'exclude-fs|X=s'	=>	\&opt_Array,
+		'min-size|s=s'		=>	\&opt_Value,
+		'max-size|S=s'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -400,7 +402,81 @@ sub RunLocally {
 	# Capture recovery information here, also.
 	#
 	RunDangerousCmd("recovery-info -o $OutputDir/recovery");
+	my $size = ($Options{test}
+		? 999999
+		: `du -s "$OutputDir"`
+	);
+	print commify($size)
+		. " bytes "
+		. ($size > 1024?'(' . CompressSize($size) . ') ':'')
+		. "written to $OutputDir\n";
+	warn "Warning: backup is less than the minimum expected size ("
+		. commify($Options{'min-size'}) ." bytes)\n"
+	    if ($Options{'min-size'} and $size < $Options{'min-size'});
+	warn "Warning: backup is more than the maximum expected size ("
+		. commify($Options{'max-size'}) . " bytes)\n"
+	    if ($Options{'max-size'} and $size > $Options{'max-size'});
 }
+
+
+
+# ---------------------------------------------------------
+#
+# commify - insert commas in numbers.
+#
+sub commify {
+	local $_ = shift;
+	1 while s/^(-?\d+)(\d{3})/$1,$2/;
+	return $_;
+}
+
+
+# ---------------------------------------------------------
+#
+# ExpandSize - convert various number formats to an integer.
+#
+sub ExpandSize {
+        my $Value = shift;
+        $Value =~ s/,//g;               # Ignore commas.
+        if ($Value =~ /^(\d+)$/i) {
+                return $1;
+        }
+        elsif ($Value =~ /^(\d+(\.\d+)?)K$/i) {
+                return $1*1024;
+        }
+        elsif ($Value =~ /^(\d+(\.\d+)?)M$/i) {
+                return $1*1024*1024;
+        }
+        elsif ($Value =~ /^(\d+(\.\d+)?)G$/i) {
+                return $1*1024*1024*1024;
+        }
+        elsif ($Value =~ /^(\d+(\.\d+)?)T$/i) {
+                return $1*1024*1024*1024*1024;
+        }
+        else {
+                return undef;
+        }
+}
+
+
+
+# ---------------------------------------------------------
+#
+# CompressSize - convert bytes to KMGT
+#
+sub CompressSize {
+        my $Value = shift;
+        $Value =~ s/,//g;               # Ignore commas.
+	my $Unit = ' bytes';
+	foreach (('K','M','G','T')) {
+		if ($Value >= 1024) {
+			$Unit = $_;
+			$Value /= 1024;
+		}
+	}
+	return sprintf('%.1f%s',$Value,$Unit);
+}
+
 
 
 
@@ -474,6 +550,37 @@ sub opt_Array {
 	}
 }
 
+
+
+# ---------------------------------------------------------
+#
+# opt_min_size - minimum size threshold
+#
+sub opt_min_size {
+        my(undef,$Value) = @_;
+	$Options{'min-size'} = ExpandSize($Value);
+        if (!defined($Options{'min-size'})) {
+                warn qq<Invalid minimum size (--min-size/-s) value: "$Value"\n>;
+		$Errors++;
+		$Options{'min-size'} = 0;
+        }
+}
+
+
+
+# ---------------------------------------------------------
+#
+# opt_max_size - max size threshold
+#
+sub opt_max_size {
+        my(undef,$Value) = @_;
+	$Options{'max-size'} = ExpandSize($Value);
+        if (!defined($Options{'max-size'})) {
+                warn qq<Invalid maximum size (-S) value: "$Value"\n>;
+		$Errors++;
+		$Options{'max-size'} = 0;
+        }
+}
 
 
 # ---------------------------------------------------------
@@ -648,3 +755,4 @@ SHOW	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
 SHOW    "^\s*(\S+:\s*)?Backing up "
 SHOW    "^\s*(\S+:\s*)?\S+ ended normally with status 0 and signal 0$"
 SHOW    "^\s*(\S+:\s*)?(Test|Executing|Verbose|debug):"
+SHOW    "^\s*(\S+:\s*)?[\d,]+ bytes \([\d.]+[KMGT]\) written to "
