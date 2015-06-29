@@ -39,6 +39,7 @@ our %OptionSpecifications=(
 		'filter-file|F=s'	=>	\&opt_Value,
 		'remote-host|R=s'	=>	\&opt_Array,
 		'test|t'		=>	\&opt_Value,
+		'pause'			=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -126,6 +127,10 @@ foreach (@HostList) {
 	else {
 		printf("%s %-*s %s\n", '-'x20, $MaxHostLen, $_, '-'x20);
 		RunDangerousCmd(qq<ssh $_ "> . join(' ',@ARGV) .  '"');
+	}
+	if ($Options{pause}) {
+		print "-------- $_ complete.  Press ENTER to continue: ";
+		<STDIN>;
 	}
 }
 
@@ -291,6 +296,8 @@ sub opt_h {
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
         --help|-h:              Help: display this panel
+	--pause:		Pause: pause after each host and wait for
+				the user to press ENTER.
 
 =head3 Parameters:
         (none)
@@ -362,5 +369,6 @@ SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW    "^\s*Verbose:"
 SHOW    "^\s*debug:"
+SHOW    "^\s*-+ \S+ complete.  Press ENTER to continue:"
 SHOW    "^\s*$"
 SHOW	"
