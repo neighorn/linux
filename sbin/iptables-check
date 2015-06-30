@@ -153,12 +153,29 @@ foreach my $Host (@HostList) {
 	}
 	else {
 		# Comparing.  Check the output with diff.
-		my $Status = RunDangerousCmd("diff -bB --unified=0 --label=Reference --label=Current -- $RefFile $TempFile",test=>0,verbose=>$Options{test});
-		if ($Status == 0) {
+		my $FH;
+		my $Cmd = "diff -bB --unified=0 --label=Reference --label=Current -- $RefFile $TempFile";
+		print "Executing: $Cmd\n" if ($Options{test} or $Options{verbose});	# Always run.
+		open($FH,"$Cmd |") || die "Unable to for diff: $!\n";
+		while (<$FH>) {
+			if (/^(---|\+\+\+|\@\@)/) {
+				# Header line.  Just print it.
+				print $_;
+			}
+			elsif ($Options{save}) {
+				# Save.  Prefix changes with text so we don't flag it as an error.
+				print "Changed: $_";
+			}
+			else {
+				print $_;
+			}
+		}
+		close $FH;
+		if ($? == 0) {
 			print "$Host matches\n";
 		}
 		elsif ($Options{save}) {
-			print "Save to $RefFile (Y/n)?\n";
+			print "\nSave changes to $RefFile (Y/n)?\n";
 			my $Response = <STDIN>;
 			if ($Response =~ /^\s*[Yy]/) {
 				RunDangerousCmd("mv $TempFile $RefFile");
@@ -427,7 +444,8 @@ SHOW    "^\s*$"
 SHOW    "^\s*-+ \S+\s+-+$"
 SHOW	"^\s*--- Reference$"
 SHOW	"^\s*\+\+\+ Current$"
+SHOW	"^\s*Changed:"
 SHOW	"^\s*\S+ matches$"
 SHOW	"^\s*\S+ saved$"
-SHOW	"^\s*Save to"
+SHOW	"^\s*Save changes to"
 IGNORE	"^\s*\@\@ -\d+(,\d+)? \+\d+(,\d+)? \@\@$"
