@@ -11,4 +11,4 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?sysba
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?tar: .+ file changed as we read it$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?tar: .+ socket ignored$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?tar: .+: File removed before we read it$"
-IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?[\d,]+ bytes \([\d.]+[KMGT]) written to "
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?[\d,]+ bytes ([\d.]+[KMGT]) written to "
