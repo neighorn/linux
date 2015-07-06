@@ -152,7 +152,6 @@ foreach (@{$Options{'exclude-fs'}}) {
 	$TypeExclude{$_}=1;
 }
 
-print "debug: remote-host=>" . $Options{'remote-host'} . "<\n";
 if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
 	$Errors = RunRemote(@ARGV);
 }
