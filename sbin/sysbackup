@@ -152,8 +152,9 @@ foreach (@{$Options{'exclude-fs'}}) {
 	$TypeExclude{$_}=1;
 }
 
-if ($Options{'remote-host'}) {
-	$Errors = RunRemote();
+print "debug: remote-host=>" . $Options{'remote-host'} . "<\n";
+if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
+	$Errors = RunRemote(@ARGV);
 }
 else {
 	$Errors = RunLocally();
@@ -231,6 +232,7 @@ sub LoadConfigFile {
 #
 sub RunRemote {
 
+	my @ARGV=@_;
 	my @HostList;
 	my $Errors = 0;
 	foreach my $RemoteItem (@{$Options{'remote-host'}}) {
@@ -253,13 +255,14 @@ sub RunRemote {
 	my $MaxLength = 0;
 	foreach (@HostList) { $MaxLength=($MaxLength < length($_)?length($_):$MaxLength); }
 	$MaxLength++;		# Allow for trailing colon.
+	@ARGV = map {qq<"$_">} @ARGV;
 
 	foreach my $Host (@HostList) {
 		my $Cmd =   "ssh $Host $Prog "
+			  . join(' ', @ARGV) . ' '
 			  . '-F /usr/local/etc/filter-accept-all.filter '
 			  . '--always-mail= '
-			  . ($Options{verbose} > 1?'-v ':'')
-			  . ($Options{test}?'-t ':'')
+			  . '--remote-host= '
 			  . '2\>\&1 '
 			  ;
 		my $FH;
