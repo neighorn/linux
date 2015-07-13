@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use LogOutput;
-use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling require_order);
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
 use FindBin qw($Bin $Script);
@@ -30,16 +30,13 @@ our %OptionSpecifications=(
 		'<>'			=>	sub {push @Parms,shift;},
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'help|h|?!'		=>	\&opt_h,
-#		'always-mail|m=s'	=>	\&opt_Array,
-#		'error-mail|M=s'	=>	\&opt_Array,
-#		'option-set|O=s'	=>	\&opt_O,
-#		'always-page|p=s'	=>	\&opt_Array,
-#		'error-page|P=s'	=>	\&opt_Array,
-		'config-file=s'		=>	sub {LoadConfigFile($_[1]);},
+		'always-mail|m=s'	=>	\&opt_Array,
+		'error-mail|M=s'	=>	\&opt_Array,
+		'option-set|O=s'	=>	\&opt_O,
+		'always-page|p=s'	=>	\&opt_Array,
+		'error-page|P=s'	=>	\&opt_Array,
 		'filter-file|F=s'	=>	\&opt_Value,
-		'remote-host|R=s'	=>	\&opt_Array,
 		'test|t'		=>	\&opt_Value,
-		'pause'			=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -66,73 +63,105 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
 %Options=(verbose => 0);	# Initialize Options.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
-#@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 	
 # Set up our logging and output filtering.
 my $RunDate=`date +%m/%d`;
 chomp $RunDate;
-#my $Subject;
-#if ($Options{subject}) {
-#	$Subject="$Options{subject}" ;
-#} elsif (@Parms >= 1) {
-#	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
-#} else {
-#	$Subject="%* %m/%d %C %N %E %*%*%*" ;
-#};
+my $Subject;
+if ($Options{subject}) {
+	$Subject="$Options{subject}" ;
+} elsif (@Parms >= 1) {
+	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
+} else {
+	$Subject="%* %m/%d %C %N %E %*%*%*" ;
+};
 
-## Make sure some key items exist;
-#foreach (qw(always-mail error-mail always-page error-page)) {
-#	@{$Options{$_}} = () unless (exists($Options{$_}));
-#}
+# Make sure some key items exist;
+foreach (qw(always-mail error-mail always-page error-page)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
 $Options{verbose} = 0 unless (exists($Options{verbose}));
-#$Options{logfile} = '' unless (exists($Options{logfile}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
 my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 
-#LogOutput({
-#	SYSLOG_FACILITY		=> $Syslog,
-#	MAIL_FILE		=> $Options{logfile},
-#	MAIL_FILE_PERMS		=> 0644,
-#	ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
-#	ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
-#	ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
-#	ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
-#	MAIL_SUBJECT		=> $Subject,
-#	FILTER_FILE		=> $Options{'filter-file'},
-#	VERBOSE			=> $LogOutputVerbose,
-#});
+LogOutput({
+	SYSLOG_FACILITY		=> $Syslog,
+	MAIL_FILE		=> $Options{logfile},
+	MAIL_FILE_PERMS		=> 0644,
+	ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
+	ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
+	ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
+	MAIL_SUBJECT		=> $Subject,
+	FILTER_FILE		=> $Options{'filter-file'},
+	VERBOSE			=> $LogOutputVerbose,
+});
 
-push @{$Options{'remote-host'}}, 'SERVERS' unless (exists($Options{'remote-host'}));
-my @HostList;
-foreach (@{$Options{'remote-host'}}) {
-	if (exists($Config{uc($_)})) {
-		# This is a name from the config file.  Push it's list.
-		push @HostList, split(/\s+/,$Config{uc($_)});
-	}
-	else {
-		push @HostList, $_;
-	}
-}
+
+@Parms = `ls /dev/md*` unless (@Parms);
+my %Devices;
+foreach my $MD (@Parms) {
+	chomp $MD;
+	$MD = "/dev/$MD" unless ($MD =~ m"^/dev/md");
+	my $Short = $MD;
+	$Short =~ s"/dev/"";
+	if (-b $MD) {
+		print "Configuring $MD...\n";
+
+
+		# Set Read-Ahead cache size
+		my $RA = `blockdev --getra $MD`;
+		chomp $RA;
+		if ($RA eq '65536') {
+			print "Verbose: $MD read-ahead is already set to 65536 - skipped\n"
+				if ($Options{verbose});
+		}
+		else {
+			RunDangerousCmd("blockdev --setra 65536 $MD") 
+		}
+
+		# Set Stripe cache size
+		my $StripeFile = "/sys/block/$Short/md/stripe_cache_size";
+		if (-e $StripeFile) {
+			my $Stripe = `cat $StripeFile`;
+			chomp $Stripe;
+			if ($Stripe eq '16384') {
+				print "Verbose: $MD stripe size is already set to 16384 - skipped\n"
+					if ($Options{verbose});
+			}
+			else {
+				RunDangerousCmd("echo 16384 > $StripeFile");
+			}
 	
-die "No command specified on command line\n" unless (@ARGV > 0);
-die "No servers specified in config file\n" unless (@HostList);
-my $MaxHostLen = 0;
-foreach (@HostList) {
-	$MaxHostLen = ($MaxHostLen < length($_)?length($_):$MaxHostLen);
-}
-
-foreach (@HostList) {
-	if (!/^[a-zA-Z0-9_-]+$/) {
-		warn qq<Invalid server name "$_" - skipped>;
+			# Gather information for NCQ work later.
+			foreach my $Disk (`ls /sys/block/$Short/slaves`) {
+				# Keep track of underlying disks so we can set NCQ.
+				chomp $Disk;
+				$Disk =~ s/\d+$//;
+				$Devices{$Disk} = 1;	
+			}
+		}
 	}
 	else {
-		printf("%s %-*s %s\n", '-'x20, $MaxHostLen, $_, '-'x20);
-		RunDangerousCmd(qq<ssh $_ "> . join(' ',@ARGV) .  '"');
-	}
-	if ($Options{pause}) {
-		print "-------- $_ complete.  Press ENTER to continue: ";
-		<STDIN>;
+		warn "$MD is not a block device -- skipped\n";
 	}
 }
+
+print "\nConfiguring NCQ...\n";
+foreach my $Disk (sort(keys(%Devices))) {
+	my $NCQFile = "/sys/block/$Disk/device/queue_depth";
+	my $NCQ = `cat $NCQFile`;
+	chomp $NCQ;
+	if ($NCQ eq '1') {
+		print "Verbose: $Disk NCQ size is already set to 1 - skipped\n"
+			if ($Options{verbose});
+	}
+	else {
+		RunDangerousCmd("echo 1 > NCQ");
+	}
+}
+
 
 if ($Errors) {
 	warn "$Prog failed.\n";
@@ -143,6 +172,12 @@ if ($Errors) {
 exit( ($Errors?10:0) );
 
 
+#
+# xxxxx
+#
+sub xxxxxx {
+
+}
 
 
 #
@@ -237,7 +272,7 @@ sub opt_Array {
 	my($Name,$Value,undef) = @_;
 	if (defined($Value) and length($Value)) {
 		# Add this value to the array.
-		push @{$Options{$Name}},split(/\s*,\s*/,$Value);
+		push @{$Options{$Name}},$Value;
 	}
 	else {
 		# Received "--opt=".  Empty this array.
@@ -273,34 +308,37 @@ sub opt_h {
 }
 =pod
 
-=head1 $Prog - 
-
-<<description>>
+=head1 $Prog - tune MD devices
 
 =head3 Usage:  
-        $Prog [-O config] [-R host] [-t|-v] 
+        $Prog [options] [md1 ...]
 
         $Prog -h
 
 =head3 Flags:
+        --error-mail|-M mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFiles[0]
                                 into the command line at this point.
-	--remote-host|-R host	Remote: Send this command to "host".  If 
-				host matches a label in a configuration file,
-				the list associated with that label will be
-				used.  Otherwise, "host" will be assumed to
-				be a real host name and used.  The default
-				host is "Servers", which should appear in 
-				a configuration file.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
         --help|-h:              Help: display this panel
-	--pause:		Pause: pause after each host and wait for
-				the user to press ENTER.
 
 =head3 Parameters:
-        (none)
+        md1 ...:		One or meta-devices.  Default is to tune
+				all meta-devices.
 
 =head3 Configuration files
 
@@ -364,11 +402,11 @@ __END__
 LOGONLY "^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY "^\s*Command: "
 SHOW    "^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-SHOW    "^\s*Job ended normally with status 0 and signal 0 - run time:"
+SHOW    "^\s*\S+ ended normally with status 0 and signal 0 - run time:"
 SHOW    "^\s*Test:"
 SHOW    "^\s*Executing:"
 SHOW    "^\s*Verbose:"
 SHOW    "^\s*debug:"
-SHOW    "^\s*-+ \S+ complete.  Press ENTER to continue:"
 SHOW    "^\s*$"
-SHOW	"
+SHOW	"^\s*Configuring \S+\.\.\.$"
+SHOW	"^\s*Configuring NCQ\.\.\.$"
