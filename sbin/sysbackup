@@ -97,7 +97,7 @@ foreach (keys(%Config)) { s/,$//;};     # Trim off trailing commas.
 push @ARGV,(shellwords($Config{DEFAULTJOB}))
         if (join(' ',@ARGV) =~ /^\s*(\b-[tv]+)*\s*$/ && defined($Config{DEFAULTJOB}));
 
-# Process the config file defaults if present.
+# Process the config file host defaults and general defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
         if (defined($Config{'ALLJOBS'}));
 
@@ -156,7 +156,7 @@ if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
 	$Errors = RunRemote(@ARGV);
 }
 else {
-	$Errors = RunLocally();
+	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
 
 # ---------------------------------------------------------
@@ -290,6 +290,15 @@ sub RunRemote {
 # RunLocally - run a sysbackup on this machine.
 #
 sub RunLocally {
+	# ---------------------------------------------------------
+	#
+	# Load any host-specific options
+	#
+	my $HostOptions = shift;
+	if ($HostOptions) {
+		die "Invalid options specified\n" unless (GetOptionsFromString($HostOptions,%OptionSpecifications));
+	}
+
 	# ---------------------------------------------------------
 	#
 	# Run any initialization commands
@@ -692,6 +701,42 @@ exit 1;
 
 =head3 Parameters:
         (none)
+
+=head3 Configuration files
+
+Configuration data may be loaded from the configuration files.  These files
+form key-value pairs that $Prog may reference.  The syntax of the file is:
+
+        name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Host=name: any values here are processed only when the machine 
+hostname matches "name".  Examples:
+
+	host=server1: -x /usr/local/data
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=back
 
 =head3 Return codes:
         0       :       Normal termination
