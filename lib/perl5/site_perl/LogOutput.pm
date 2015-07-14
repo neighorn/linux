@@ -388,8 +388,11 @@ sub _SetOptions {
 			$key = uc($key);
 			if ($ValidOptions{$key}) {
 				$Options{$key} = $$HashRef{$key};
-				print "LogOutput: Set $key to $$HashRef{$key} from calling arguments\n"
-					if ($Options{VERBOSE});
+				if ($Options{Verbose}) {
+					my $DisplayValue=(ref($Options{$key}) eq 'ARRAY'?join(', ',@{$Options{$key}}):$Options{$key});
+					$DisplayValue = '' unless defined($DisplayValue);
+					print "LogOutput: Set $key to $DisplayValue from calling arguments\n";
+				}
 			}
 			else {
 				$ErrorsDetected += _FilterMessage("LogOutput: Invalid option '$key' passed to LogOutput -- ignored.\n");
@@ -537,33 +540,43 @@ sub _LoadFilters {
 	my @IgnorePatterns;		# Collected patterns from FilterHandle.
 	my @NormalPatterns;		# Collected patterns from FilterHandle.
 	my @MailOnlyPatterns;		# Collected patterns from FilterHandle.
+	my $DataRead = 0;		# Don't read DATA twice.
 
 	# Get a list of our filter file(s).
 	my @FilterList;
 	if ($Options{FILTER_FILE} and ref($Options{FILTER_FILE}) eq 'ARRAY') {
 		# This is an array of globs (or simple file names).
 		foreach (@{$Options{FILTER_FILE}}) {
-			push @FilterList,bsd_glob($_);
+			my @TempList = bsd_glob($_);
+			print "LogOutput: Filter File specification $_ yields " . join(', ',@TempList) . "\n"
+				if ($Options{VERBOSE});
+			push @FilterList,@TempList;
 		}
 	}
 	elsif ($Options{FILTER_FILE}) {
 		# This is a single file glob or simple file name
 		@FilterList = <$Options{FILTER_FILE}>;
-		print "LogOutput: glob of $Options{FILTER_FILE} -> " . join(', ',@FilterList) . "\n"
+		print "LogOutput: Filter File specification $Options{FILTER_FILE} yields " . join(', ',@FilterList) . "\n"
 			if ($Options{VERBOSE});
 		die("Unable to find filter file $Options{FILTER_FILE}\n") unless (@FilterList);
 	}
 	else {
 		push @FilterList,'__DATA__';
+		print "LogOutput: Setting FilterList to __DATA__\n" if ($Options{VERBOSE});
 	}
 
 	# Process each filter file.
 	foreach my $FilterFile (@FilterList) {
 		# They provided us with a filter file.
-		if ($FilterFile eq '__DATA__') {
+		if ($FilterFile eq '__DATA__' and $DataRead) {
+			# Trying to read __DATA__ twice.  Ignore it.
+			next;
+		}
+		elsif ($FilterFile eq '__DATA__') {
 			# They didn't provide us with a filter file.  Use DATA.
 			$FilterHandle=*main::DATA{IO};
 			print "LogOutput: Loading filters from DATA\n" if $Options{VERBOSE};
+			$DataRead = 1;	# Remember we read this one, to avoid reads on closed file handle.
 		}
 		else {
 			print "LogOutput: Loading filters from $FilterFile\n" if $Options{VERBOSE};
