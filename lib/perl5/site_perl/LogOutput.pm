@@ -14,14 +14,14 @@ use Mail::Sendmail;
 use LogOutput_cfg;
 use POSIX qw(strftime);
 use Sys::Syslog;
-use File::Glob;
+use File::Glob qw(:bsd_glob);
 use File::Temp qw(tempfile);
 use Fcntl qw(:flock);
 
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.22;
+our $Version	= 3.23;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -540,7 +540,14 @@ sub _LoadFilters {
 
 	# Get a list of our filter file(s).
 	my @FilterList;
-	if ($Options{FILTER_FILE}) {
+	if ($Options{FILTER_FILE} and ref($Options{FILTER_FILE}) eq 'ARRAY') {
+		# This is an array of globs (or simple file names).
+		foreach (@{$Options{FILTER_FILE}}) {
+			push @FilterList,bsd_glob($_);
+		}
+	}
+	elsif ($Options{FILTER_FILE}) {
+		# This is a single file glob or simple file name
 		@FilterList = <$Options{FILTER_FILE}>;
 		print "LogOutput: glob of $Options{FILTER_FILE} -> " . join(', ',@FilterList) . "\n"
 			if ($Options{VERBOSE});
@@ -997,7 +1004,9 @@ For details on the overall implementation approach, see
 
 This option contains a file name of a file containing message
 filtering information.  Wildcards are allowed, in which case all
-files matching the pattern are loaded.  The default value is "__DATA__",
+files matching the pattern are loaded.  This can also be an array,
+in which case each element is is processed as a file name, possibly
+with wildcards.  The default value is "__DATA__",
 which is a reserve word instructing LogOutput to load the filter
 data from the built-in Perl <DATA> file handle.
 
@@ -1009,6 +1018,10 @@ See "Filtering and Error Detection" below for filter file syntax.
 Examples:
     FILTER_FILE => '/home/joeuser/jobname.filter'
     FILTER_FILE => '/home/joeuser/jobname.*.filter'
+    FILTER_FILE => (
+	'/home/joeuser/jobname*.filter',
+	'/home/joeuser/general.filter',
+	'__DATA__)
 
 =head2 SYSLOG_FACILITY
 

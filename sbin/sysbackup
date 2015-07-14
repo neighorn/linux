@@ -40,7 +40,7 @@ our %OptionSpecifications=(
 		'error-page|P=s'	=>	\&opt_Array,
 		'exclude-fs|X=s'	=>	\&opt_Array,
 		'exclude|x=s'		=>	\&opt_Array,
-		'filter-file|F=s'	=>	\&opt_Value,
+		'filter-file|F=s'	=>	\&opt_Array,
 		'help|h|?!'		=>	\&opt_h,
 		'precmd=s'		=>	\&opt_Array,
 		'postcmd=s'		=>	\&opt_Array,
@@ -97,7 +97,7 @@ foreach (keys(%Config)) { s/,$//;};     # Trim off trailing commas.
 push @ARGV,(shellwords($Config{DEFAULTJOB}))
         if (join(' ',@ARGV) =~ /^\s*(\b-[tv]+)*\s*$/ && defined($Config{DEFAULTJOB}));
 
-# Process the config file defaults if present.
+# Process the config file host defaults and general defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
         if (defined($Config{'ALLJOBS'}));
 
@@ -138,6 +138,8 @@ LogOutput({
 	ERROR_PAGE_LIST => $Options{'error-page'},
 	CLEAN_UP => \&Cleanup,
 	SYSLOG_FACILITY => 'user',
+	VERBOSE => ($Options{verbose} >= 5? $Options{verbose}-4:0),
+	FILTER_FILE => $Options{'filter-file'},
 });
 
 # Verify the command line.
@@ -156,7 +158,7 @@ if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
 	$Errors = RunRemote(@ARGV);
 }
 else {
-	$Errors = RunLocally();
+	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
 
 # ---------------------------------------------------------
@@ -292,6 +294,15 @@ sub RunRemote {
 sub RunLocally {
 	# ---------------------------------------------------------
 	#
+	# Load any host-specific options
+	#
+	my $HostOptions = shift;
+	if ($HostOptions) {
+		die "Invalid options specified\n" unless (GetOptionsFromString($HostOptions,%OptionSpecifications));
+	}
+
+	# ---------------------------------------------------------
+	#
 	# Run any initialization commands
 	#
 	foreach my $Cmd (@{$Options{precmd}}) {
@@ -302,11 +313,13 @@ sub RunLocally {
 		}
 		my $Status = RunDangerousCmd($Cmd);
 		if ($Status) {
+			my $Signal=$Status & 0xff;
+			my $Status=$Status >> 8;
 			if ($Required) {
-				die "--precmd command failed:\n$Cmd\nExit status = $Status\n";
+				die "--precmd command failed:\n\t$Cmd\n\tExit status = $Status and signal = $Signal\n";
 			}
 			else {
-				warn "--precmd command failed:\n$Cmd\nExit status = $Status\n";
+				warn "--precmd command failed:\n\t$Cmd\n\tExit status = $Status and signal = $Signal\n";
 			}
 		}
 	}
@@ -451,7 +464,9 @@ sub RunLocally {
 	foreach my $Cmd (@{$Options{postcmd}}) {
 		my $Status = RunDangerousCmd($Cmd);
 		if ($Status) {
-			warn "--postcmd command failed:\n$Cmd\nExit status = $Status\n";
+			my $Signal = $Status & 0xff;
+			$Status = $Status >> 8;
+			warn "--postcmd command failed:\n\t$Cmd\n\tExit status = $Status and signal = $Signal\n";
 		}
 	}
 }
@@ -692,6 +707,42 @@ exit 1;
 
 =head3 Parameters:
         (none)
+
+=head3 Configuration files
+
+Configuration data may be loaded from the configuration files.  These files
+form key-value pairs that $Prog may reference.  The syntax of the file is:
+
+        name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Host=name: any values here are processed only when the machine 
+hostname matches "name".  Examples:
+
+	host=server1: -x /usr/local/data
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=back
 
 =head3 Return codes:
         0       :       Normal termination
