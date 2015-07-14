@@ -40,7 +40,7 @@ our %OptionSpecifications=(
 		'error-page|P=s'	=>	\&opt_Array,
 		'exclude-fs|X=s'	=>	\&opt_Array,
 		'exclude|x=s'		=>	\&opt_Array,
-		'filter-file|F=s'	=>	\&opt_Value,
+		'filter-file|F=s'	=>	\&opt_Array,
 		'help|h|?!'		=>	\&opt_h,
 		'precmd=s'		=>	\&opt_Array,
 		'postcmd=s'		=>	\&opt_Array,
@@ -138,6 +138,8 @@ LogOutput({
 	ERROR_PAGE_LIST => $Options{'error-page'},
 	CLEAN_UP => \&Cleanup,
 	SYSLOG_FACILITY => 'user',
+	VERBOSE => ($Options{verbose} >= 5? $Options{verbose}-4:0),
+	FILTER_FILE => $Options{'filter-file'},
 });
 
 # Verify the command line.
@@ -311,11 +313,13 @@ sub RunLocally {
 		}
 		my $Status = RunDangerousCmd($Cmd);
 		if ($Status) {
+			my $Signal=$Status & 0xff;
+			my $Status=$Status >> 8;
 			if ($Required) {
-				die "--precmd command failed:\n$Cmd\nExit status = $Status\n";
+				die "--precmd command failed:\n\t$Cmd\n\tExit status = $Status and signal = $Signal\n";
 			}
 			else {
-				warn "--precmd command failed:\n$Cmd\nExit status = $Status\n";
+				warn "--precmd command failed:\n\t$Cmd\n\tExit status = $Status and signal = $Signal\n";
 			}
 		}
 	}
@@ -460,7 +464,9 @@ sub RunLocally {
 	foreach my $Cmd (@{$Options{postcmd}}) {
 		my $Status = RunDangerousCmd($Cmd);
 		if ($Status) {
-			warn "--postcmd command failed:\n$Cmd\nExit status = $Status\n";
+			my $Signal = $Status & 0xff;
+			$Status = $Status >> 8;
+			warn "--postcmd command failed:\n\t$Cmd\n\tExit status = $Status and signal = $Signal\n";
 		}
 	}
 }
