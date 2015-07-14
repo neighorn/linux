@@ -14,7 +14,7 @@ use Mail::Sendmail;
 use LogOutput_cfg;
 use POSIX qw(strftime);
 use Sys::Syslog;
-use File::Glob qw(:bsd_glob);
+use File::Glob qw(:glob);	# :bsd_glob not recognized on older systems
 use File::Temp qw(tempfile);
 use Fcntl qw(:flock);
 
