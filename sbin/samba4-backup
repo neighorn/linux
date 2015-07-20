@@ -287,7 +287,7 @@ __END__
 #
 IGNORE	"^\s*tar: .*: socket ignored$"
 # OK to ignore directory changes, as long as the files are stable.
-IGNORE	"^\s*tar: ./private: file changed as we read it$"
+IGNORE	"^\s*tar: ./private.*: file changed as we read it$"
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
@@ -303,7 +303,7 @@ SHOW    /^Executing:/
 SHOW    /^Verbose:/
 SHOW	/^\s*debug:/
 SHOW	/^\s*\++\s/
-SHOW  /^\s*$/
+SHOW	/^\s*$/
 # 
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
