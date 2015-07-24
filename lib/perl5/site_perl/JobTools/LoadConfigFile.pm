@@ -13,7 +13,7 @@ package	LoadConfigFile;
 require	Exporter;
 
 our @ISA	= qw(Exporter);
-our @EXPORT	= qw(xxx);
+our @EXPORT	= qw(LoadConfigFile %Config);
 #our @EXPORT_OK	= qw(LoadConfigFile);
 our $Version	= 3.1;
 
