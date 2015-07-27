@@ -31,6 +31,7 @@ our %OptionSpecifications=(
 		'<>'			=>	sub {push @Parms,shift;},
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'help|h|?!'		=>	\&opt_help,
+		'host|H=s'	=>	\&opt_Value,
 		'always-mail|m=s'	=>	\&opt_Array,
 		'error-mail|M=s'	=>	\&opt_Array,
 		'option-set|O=s'	=>	\&opt_O,
@@ -111,6 +112,7 @@ $Options{'output-directory'}="/usr/local/backup/mysql" unless ($Options{'output-
 $Options{cycles}=7 unless ($Options{cycles});
 $Options{username}=$ENV{LOGNAME} || $ENV{USER} || getpwuid($<)
 	unless ($Options{username}); # Default to our own user name.
+$Options{host} //= '';
 
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
@@ -144,7 +146,8 @@ exit( ($Errors?10:0) );
 #
 sub BackupDatabase {
 	my $Database = shift;
-	my $OutputPrefix = ($Database eq '--all-databases'?'':"$Database-");
+	my $OutputPrefix = ($Options{host}?$Options{host} . '-':'');
+	$OutputPrefix .= ($Database eq '--all-databases'?'':"$Database-");
 
 	# Build the backup file name.
 	my $DeletePattern;
@@ -192,6 +195,7 @@ sub BackupDatabase {
 		RunDangerousCmd(
 			  "mysqldump -u $Options{username} --opt --add-drop-table --routines --events "
 			. "--single-transaction --allow-keywords --quote-names $eventsopt "
+			. ($Options{host}?"--host=$Options{host} ":'') 
 			. qq<-r "$OutPath.tmp" >
 			. $Database
 		);
