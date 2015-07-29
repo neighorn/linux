@@ -10,7 +10,7 @@
 	/proc/mdstat as of <!--#echo var="DATE_LOCAL" -->
 </H2>
 <pre>
-<!--#exec cmd="cat /proc/mdstat" -->
+<!--#exec cmd="sed '/\[U*_U*\]/s/^.*$/<span style=\"BACKGROUND-COLOR: red\">&<\/span>/;/finish=/s/^.*$/<span style=\"BACKGROUND-COLOR: yellow\">&<\/span>/' /proc/mdstat" -->
 </pre>
 </BODY>
 <HTML>
