@@ -606,7 +606,7 @@ sub Summarize {
 		$LastLine =~ s/\s*Status:\s*//;
 		$LastLine =~ s/\s*$//;
 		if ($LastLine =~ /^success$|file vanished on sender/) {
-			print "$LastLine\n"
+			print "Status: $LastLine\n"
 		}
 		else {
 			print "Unexpected summary status: $LastLine\n"
