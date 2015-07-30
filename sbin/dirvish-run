@@ -602,14 +602,17 @@ sub Summarize {
 		while (<SUMMARY>) {
 			$LastLine = $_ if (!/^\s*$/);
 		}
+		close SUMMARY;
 		$LastLine =~ s/\s*Status:\s*//;
 		$LastLine =~ s/\s*$//;
-		print "Unexpected summary status: $LastLine\n"
-			unless ($LastLine =~ /^success$|file vanished on sender/);
+		if ($LastLine =~ /^success$|file vanished on sender/) {
+			print "$LastLine\n"
+		}
+		else {
+			print "Unexpected summary status: $LastLine\n"
+		}
 	}
 		
-	system("tail -1 $Directory/summary");
-
 	# Calculate totals.
 	$TotalItems=0;
 	$TotalSize=0;
