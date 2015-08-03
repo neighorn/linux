@@ -122,9 +122,14 @@ foreach (@HostList) {
 	$MaxHostLen = ($MaxHostLen < length($_)?length($_):$MaxHostLen);
 }
 
+my %HostDone;
 foreach my $Host (@HostList) {
 	if ($Host !~ /^[a-zA-Z0-9_-]+$/) {
 		warn qq<Invalid host name "$Host" - skipped>;
+	}
+	elsif ($HostDone{$Host}) {
+		print "$Host skipped - already processed\n" if ($Options{verbose});
+		next;
 	}
 	else {
 		printf("%s %-*s %s\n", '-'x20, $MaxHostLen, $Host, '-'x20);
@@ -132,6 +137,7 @@ foreach my $Host (@HostList) {
 		foreach (@ARGV[0..$#ARGV-1]) {$SourceList .= qq< "$_">;}
 		$SourceList =~ s/^\s+//;	# Strip leading space.
 		RunDangerousCmd(qq<scp -pr $SourceList "$Host:$ARGV[$#ARGV]">);
+		$HostDone{$Host}=1;
 	}
 }
 

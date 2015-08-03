@@ -120,13 +120,19 @@ foreach (@HostList) {
 	$MaxHostLen = ($MaxHostLen < length($_)?length($_):$MaxHostLen);
 }
 
+my %HostDone;
 foreach (@HostList) {
 	if (!/^[a-zA-Z0-9_-]+$/) {
 		warn qq<Invalid server name "$_" - skipped>;
 	}
+	elsif ($HostDone{$_}) {
+		print "$_ skipped - already processed\n" if ($Options{verbose});
+		next;
+	}
 	else {
 		printf("%s %-*s %s\n", '-'x20, $MaxHostLen, $_, '-'x20);
 		RunDangerousCmd(qq<ssh $_ "> . join(' ',@ARGV) .  '"');
+		$HostDone{$_}=1;
 	}
 	if ($Options{pause}) {
 		print "-------- $_ complete.  Press ENTER to continue: ";
