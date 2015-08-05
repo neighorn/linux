@@ -112,7 +112,7 @@ $Options{'output-directory'}="/usr/local/backup/mysql" unless ($Options{'output-
 $Options{cycles}=7 unless ($Options{cycles});
 $Options{username}=$ENV{LOGNAME} || $ENV{USER} || getpwuid($<)
 	unless ($Options{username}); # Default to our own user name.
-$Options{host} //= '';
+$Options{host} = '' unless (exists($Options{host}) and $Options{host});
 
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
