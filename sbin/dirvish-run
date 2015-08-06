@@ -58,6 +58,7 @@ our %OptionSpecifications=(
 		'dirvish|D=s'		=>	\&opt_Array,
 		'error-mail|M=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
+		'expire=s'		=>	\&opt_Value,
 		'help|h|?!'		=>	\&opt_h,
 		'ifup!'			=>	\&opt_Value,
 		'ifbefore=s'		=>	\&opt_Value,
@@ -458,16 +459,18 @@ sub ProcessBackup {
 	$Status = system('/bin/ls ./dirvish/*.hist > /dev/null 2>&1') if ($Status eq 0);
 	my $Init = ($Status eq 0?'':'--init "--expire=+3 months"');	# Add --init if no trees.
 
-	# Interpret imagename, if specified.
-	my $ImageName='';
-	if ($Options{imagename}) {
-		$ImageName = "--image="
-			. strftime($Options{imagename},localtime($StartTime));
-	}
+	# Manage pass-through and other options.
+	my $AdditionalOptions;
+	$AdditionalOptions .= " --image=" . strftime($Options{imagename},localtime($StartTime))
+		if ($Options{imagename});
+	$AdditionalOptions .= " --expire=$Options{expire}"
+		if ($Options{expire});
+	$AdditionalOptions .= ' ' . join(' ',@{$Options{dirvish}})
+		if (exists($Options{dirvish}));
+
 	# Run the back-up.
-	my $AdditionalOptions = (exists($Options{dirvish})?join(' ',@{$Options{dirvish}}):'');
 	my $TargetStartTime = time();
-	$Status = RunDangerousCmd("dirvish --vault $Target $Init $ImageName $AdditionalOptions");
+	$Status = RunDangerousCmd("dirvish --vault $Target $Init $AdditionalOptions");
 	if ($Status == 0) {
 		foreach (`ls -tr $MachineDirectory`) {
 			chomp;
@@ -664,9 +667,10 @@ sub FoundItem {
 	my($Size);			# Number of bytes.
 	my($Name)=$File::Find::name;	# Name of tile.
 	chomp;
-	($Links,$Size)=(lstat($Name))[3,7];
+	($Links,$Size)=(lstat($Name))[3,12];
+	$Size = (defined($Size)?$Size*512:0);
 	$TotalItems++;
-	$TotalSize+=$Size if (defined($Size) && $Size != 0);
+	$TotalSize+=$Size;
 	if (defined($Links) && $Links == 1) {
 		$NewItems++;
 		$NewSize+=$Size;
@@ -913,6 +917,8 @@ Vault Options:
 	-D|--dirvish=parms:		Dirvish: Pass the following parameters
 					and options directly to dirvish. 
 					Spaces need to be escaped or quoted.
+	--expire=value			Expire: pass "--expire=value" through
+					to the dirvish command.
 					
 	--ifbefore=[+]hh:mm:	Only run this backup if the 
 					current time is before hh:mm.  Prefix
@@ -929,8 +935,9 @@ Vault Options:
 					source directory tree exists, to support
 					automount access to remote systems.
 					--noifup cancels a prior --ifup.
+
 	--imagename=name		Interpret "name" with strftime and
-					the job start time, and then pass the
+	--image=name			the job start time, and then pass the
 					resulting value to dirvish as
 					--image=value.  This is used to 
 					specify image names with the dirvish-run
@@ -940,10 +947,12 @@ Vault Options:
 					a job unexpectedly runs across midnight.
 					Use "-D '--imagename=value' to use
 					dirvish job start times instead.
+
 	--ionice=class(/classdata):	Run the backup with in ionice class
 					"class", optionally specifying a
 					class data value of "classdata".
-					Ex: --ionice=2/4
+						Ex: --ionice=2/4
+
 	-O|--option-set=config:		Insert the "config" configuration
 					options from the configuration files.
 
