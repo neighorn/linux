@@ -14,6 +14,7 @@ use POSIX qw(strftime);
 use IO::Socket;
 use Sys::Virt;
 use Data::Dumper::Simple;
+use JSON;			# To save/restore the backup index file.
 $Data::Dumper::Pad = "Verbose:\t\t";
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
@@ -319,6 +320,20 @@ sub ProcessBackup {
 		warn "Unable to open ls command: $! -- old or temporary backups may not be deleted.\n";
 	}
 
+	# Load the backup index.  For future cycle management.
+	my %FullBackupIndex;
+	my $INDEXFH;
+	my $IndexFile = "$OutputDir/$Prog.index";
+	if (open($INDEXFH,'<',$IndexFile)) {
+		my $Index = <$INDEXFH>;
+		close $INDEXFH;
+		%FullBackupIndex = %{decode_json($Index)};
+	}
+	elsif (-f $IndexFile) {
+		warn "Unable to read $IndexFile: $!\n";
+	};	# Else file doesn't exist, and we don't need to do anything.
+	my %BackupIndex = %{$FullBackupIndex{$Machine}} if (exists($FullBackupIndex{$Machine}));
+	
 	# Remember if it's running.
 	my $WasRunning=IsRunning($Machine);
 
@@ -355,7 +370,7 @@ sub ProcessBackup {
 			if (fnmatch("$Include",$SourcePath)) {
 				$Match++;
 				last;
-			}
+				}
 		}
 		next if (@{$Options{'include-file'}} and ! $Match);	# No match.
 		$FileCount++;		# We have a file to back up.
@@ -404,7 +419,6 @@ sub ProcessBackup {
 	}
 
 	# Run the backup.
-	
 	print "    ${TestPrefix}Starting backup\n" if ($Options{verbose});
 	my $OutputTmp = "$Output.tmp";		# Create work file name.
 	my $GzipOpt = ($Options{gzip}?'-z':'');
@@ -424,6 +438,19 @@ sub ProcessBackup {
 	else {
 		print STDERR "    Unable to rename $OutputTmp to $Output.\n";
 		$BackupErrors++;
+	}
+
+	# Write the index back out.
+	$BackupIndex{$Output} = (stat($Output))[9];
+	%{$FullBackupIndex{$Machine}}=%BackupIndex;
+        if (! $Options{test}) {
+		if (open($INDEXFH,'>',$IndexFile)) {
+                	print $INDEXFH encode_json(\%FullBackupIndex) . "\n";
+                	close $INDEXFH;
+        	}
+        	else {
+              		 warn "Unable to write $IndexFile: $!\n";
+        	}
 	}
 
 	# Set the machine in the desired after-state.
