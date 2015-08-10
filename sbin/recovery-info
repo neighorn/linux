@@ -113,6 +113,7 @@ RunDangerousCmd("(lsscsi -H; lsscsi -d) > $opt_o/lsscsi.out");
 
 # Document the current mounts and sizes.
 RunDangerousCmd("df -h > $opt_o/df.out");
+RunDangerousCmd("mount > $opt_o/mount.out");
 
 # Capture installed packages.
 RunDangerousCmd("rpm -q -a | sort > $opt_o/rpm.out");
