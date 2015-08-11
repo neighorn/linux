@@ -204,24 +204,24 @@ exit( ($Errors?10:0) );
 #
 sub ProcessBackup {
 
-	my $Machine = shift;
-	if ($Machine eq '_ALL_') {					# Check for keyword
+	my $MachineName = shift;
+	if ($MachineName eq '_ALL_') {				# Check for keyword
 		foreach (sort(keys(%MachineNames))) {
-			ProcessBackup($_);		# Process all.
+			ProcessBackup($_);			# Process all.
 		}
 		return;
 	}
-	return if ($Options{"exclude-vm"}{$Machine});	# Excluded
-	if (! exists($MachineNames{$Machine})) {		# Unknown
-		warn "$Machine is an invalid machine name -- skipped\n";
+	return if ($Options{"exclude-vm"}{$MachineName});	# Excluded
+	if (! exists($MachineNames{$MachineName})) {		# Unknown
+		warn "$MachineName is an invalid machine name -- skipped\n";
 		$Errors++;
 		return;
 	}
-	return if ($BackedUp{$Machine});		# Already backed up.
+	return if ($BackedUp{$MachineName});			# Already backed up.
 
 	my $TestPrefix = ($Options{test}?'Test: ':'');
 
-	print strftime("${TestPrefix}Backing up $Machine at %Y-%m-%d %T\n",localtime());
+	print strftime("${TestPrefix}Backing up $MachineName at %Y-%m-%d %T\n",localtime());
 	my $BackupErrors = 0;
 
 	# Validate options.  These can change from backup to backup.
@@ -241,20 +241,22 @@ sub ProcessBackup {
 
 	# Capture the XML for later, and to determine if the machine exists.
 	my @XML;
-	eval "\@XML = `virsh dumpxml $Machine`;";
+	eval "\@XML = `virsh dumpxml $MachineName`;";
 	if ($@) {
-		print STDERR "    Unable to dump XML for $Machine: $@\n";
+		print STDERR "    Unable to dump XML for $MachineName: $@\n";
 		$Errors++;
 		return 8;
 	}
 
 	# Load and machine-specific configuration data.
 	local %Options = %::Options;
-	my $ConfigKey = uc("name=$Machine");
-	if (my $MachineConfig = $Config{$ConfigKey}) {
+	my $MachineConfig = $Config{uc("name=$MachineName")};
+	if ($MachineConfig) {
+		print "debug: about to call GetOptionsFromString for $MachineConfig, errors=$Errors\n";
 		$Errors ++ unless (
 			GetOptionsFromString($MachineConfig,%OptionSpecifications)
 		);
+		print "debug: completed call to GetOptionsFromString, errors=$Errors\n";
 	}
 	print Dumper(\%Options) if ($Options{verbose} >=3);
 
@@ -262,7 +264,7 @@ sub ProcessBackup {
 	$Options{output} = "$Options{cd}/%C-%Y%m%d"
 		unless $Options{output};
 	my $Output = $Options{output};
-	$Output =~ s/%C/$Machine/g;
+	$Output =~ s/%C/$MachineName/g;
 	my $BackupPattern = $Output;
 	$Output = strftime($Output,localtime())
 		if ($Output =~ /%[^p]/);
@@ -332,17 +334,17 @@ sub ProcessBackup {
 	elsif (-f $IndexFile) {
 		warn "Unable to read $IndexFile: $!\n";
 	};	# Else file doesn't exist, and we don't need to do anything.
-	my %BackupIndex = %{$FullBackupIndex{$Machine}} if (exists($FullBackupIndex{$Machine}));
+	my %BackupIndex = %{$FullBackupIndex{$MachineName}} if (exists($FullBackupIndex{$MachineName}));
 	
 	# Remember if it's running.
-	my $WasRunning=IsRunning($Machine);
+	my $WasRunning=IsRunning($MachineName);
 
 	# Disk image files may be scattered in multiple places around the system.
 	# Try to back them up without their paths by using symbolic links.
 	my $TmpDir = tempdir(CLEANUP => 1);
 
 	# Write the XML to the temporary directory.
-	my $XMLFile = "$TmpDir/0-$Machine.xml"; # 0- sorts small file before big ones.
+	my $XMLFile = "$TmpDir/0-$MachineName.xml"; # 0- sorts small file before big ones.
 	my $XMLFH;
 	if (open($XMLFH,'>',$XMLFile)) {
 		print $XMLFH @XML;
@@ -381,7 +383,7 @@ sub ProcessBackup {
 		RunDangerousCmd(qq<ln -s "$SourcePath" "$TmpDir/$SourceFile">);
 	}  
 	if ($FileCount == 0) {
-		warn "No $Machine disks remain after include/exclude processing - backup skipped\n";
+		warn "No $MachineName disks remain after include/exclude processing - backup skipped\n";
 		$BackupErrors++;
 		return $BackupErrors;
 	}
@@ -389,14 +391,14 @@ sub ProcessBackup {
 	# If it's running, shut it down.
 	if ( $WasRunning ) {
 		# It's running.
-		print "    ${TestPrefix}Shutting down $Machine\n" if ($Options{verbose});
+		print "    ${TestPrefix}Shutting down $MachineName\n" if ($Options{verbose});
 		my $Count = 2*$Options{timeout};	# Convert minutes -> 30 second cycles
 		if ($Options{test}) {
-			print "    Test: stopping $Machine\n";
+			print "    Test: stopping $MachineName\n";
 		}
 		else {
-			while (! $Options{test} and IsRunning($Machine) and $Count > 0) {
-				$Machines{$Machine}->shutdown()
+			while (! $Options{test} and IsRunning($MachineName) and $Count > 0) {
+				$Machines{$MachineName}->shutdown()
 					if ($Count % 2 == 0);	# Send shutdown once per minute.
 				$Count--;
 				sleep 30;
@@ -404,16 +406,16 @@ sub ProcessBackup {
 		}
 	}
 	else {
-		print "    $Machine is already down\n";
+		print "    $MachineName is already down\n";
 	}
-	if ($WasRunning and (!IsRunning($Machine))) {
-		print "    $Machine is down\n";		# Document that it is down.
+	if ($WasRunning and (!IsRunning($MachineName))) {
+		print "    $MachineName is down\n";		# Document that it is down.
 	}
-	elsif (IsRunning($Machine) and (!$Options{test})) {
-		print STDERR "    $Machine failed to shutdown -- backup skipped\n";
+	elsif (IsRunning($MachineName) and (!$Options{test})) {
+		print STDERR "    $MachineName failed to shutdown -- backup skipped\n";
 		# Check on this one later, to make sure it's still up and
 		# not just really slow shutting down.
-		push @RecoveryRestart, $Machine,
+		push @RecoveryRestart, $MachineName,
 			if ($Options{'after-state'} =~ /^(same|up)$/);
 		return 18;
 	}
@@ -430,10 +432,10 @@ sub ProcessBackup {
 	}
 	elsif ( RunDangerousCmd(qq<mv "$OutputTmp" "$Output">) == 0) {
 		print strftime(
-			 "    ${TestPrefix}Backup of $Machine completed normally at %Y-%m-%d %H:%M:%S\n"
+			 "    ${TestPrefix}Backup of $MachineName completed normally at %Y-%m-%d %H:%M:%S\n"
 			, localtime()
 		);
-		$BackedUp{$Machine} = 1;	# Don't do this one twice.
+		$BackedUp{$MachineName} = 1;	# Don't do this one twice.
 	}
 	else {
 		print STDERR "    Unable to rename $OutputTmp to $Output.\n";
@@ -442,7 +444,7 @@ sub ProcessBackup {
 
 	# Write the index back out.
 	$BackupIndex{$Output} = (stat($Output))[9];
-	%{$FullBackupIndex{$Machine}}=%BackupIndex;
+	%{$FullBackupIndex{$MachineName}}=%BackupIndex;
         if (! $Options{test}) {
 		if (open($INDEXFH,'>',$IndexFile)) {
                 	print $INDEXFH encode_json(\%FullBackupIndex) . "\n";
@@ -460,28 +462,28 @@ sub ProcessBackup {
 		or ($Options{'after-state'} eq 'same' and $WasRunning)
 	) {
 		print strftime(
-			  "    ${TestPrefix}Restarting $Machine at %Y-%m-%d %T\n"
+			  "    ${TestPrefix}Restarting $MachineName at %Y-%m-%d %T\n"
 				,localtime())
 			if ($Options{verbose});
 		foreach ((1,2,3)) {
 			if ($Options{test}) {
-				print "    Test: starting $Machine\n";
+				print "    Test: starting $MachineName\n";
 				last;
 			}
 			else {
-				$Machines{$Machine}->create();
+				$Machines{$MachineName}->create();
 				sleep 10;
 			}
-			last if (IsRunning($Machine));
+			last if (IsRunning($MachineName));
 		}
-		if (IsRunning($Machine) or $Options{test}) {
+		if (IsRunning($MachineName) or $Options{test}) {
 			print strftime(
-				"    ${TestPrefix}$Machine started at %Y-%m-%d %T\n"
+				"    ${TestPrefix}$MachineName started at %Y-%m-%d %T\n"
 				,localtime())
 				if ($Options{verbose});
 		}
 		else {
-			print STDERR "    $Machine failed to restart\n";
+			print STDERR "    $MachineName failed to restart\n";
 		}
 	}
 		return $BackupErrors;
