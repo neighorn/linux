@@ -425,10 +425,11 @@ sub RunLocally {
 			}
 				
 			print "  Backing up $MountPt\n";
-	                RunDangerousCmd("tar -cz --one-file-system " .
-				"-f $OutputDir/$OutputFile " .
-				"-C $MountPt " .
-	                        "$ExcludeFile ."
+	                RunDangerousCmd("tar -cz --one-file-system --sparse " 
+				. "-f $OutputDir/$OutputFile " 
+				. "-C $MountPt " 
+	                        . "$ExcludeFile "
+				. "."
 	                        );
 		}
 	} else {
