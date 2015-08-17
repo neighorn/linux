@@ -42,6 +42,7 @@ our %OptionSpecifications=(
 		'hosts|host|H=s'	=>	\&opt_Array,
 		'refdir|reference-dir=s'=>	\&opt_Value,
 		'save|s'		=>	\&opt_Value,
+		'dropok|dropsok'	=>	\&opt_Value,
 );
 #
 
@@ -165,6 +166,9 @@ foreach my $Host (@HostList) {
 			elsif ($Options{save}) {
 				# Save.  Prefix changes with text so we don't flag it as an error.
 				print "Changed: $_";
+			}
+			elsif (/^\+\+A.*-j DROP$/ and $Options{dropsok}) {
+				# They added a drop, but drops are OK.  No action required.
 			}
 			else {
 				print $_;
@@ -362,6 +366,8 @@ sub opt_h {
 				current iptables configuration to.  Each
 				host is compared to a file "hostname.ref"
 				file if present, or else to "DEFAULT.ref".
+	--dropok|--dropsOK:	Drops OK: ignore the addition of drop rules
+				when comparing rules.
 	--keep			Keep: Keep the current IPTables configuration
 				working file in the reference directory with
 				a suffix of ".current".  This doesn't
