@@ -195,12 +195,12 @@ sub LoadConfigFile {
 
                 # Read config file and assemble continuation lines into single items.
                 while (<$CONFIGFH>) {
+                        chomp;
                         next if (/^\s*#/);                      # Comment.
                         next if (/^\s*$/);                      # Blank line.
-                        chomp;
-                        if (/^\s+/ and @Lines > 0) {
+                        if (/^\s+(\S.*)$/ and @Lines > 0) {
                                 # Continuation line.  Append to prior line.
-                                $Lines[$#Lines] .= " $_";
+                                $Lines[$#Lines] .= " $1";
                         }
                         else {
                                 push @Lines, $_;
