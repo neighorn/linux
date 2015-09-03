@@ -35,7 +35,7 @@ our %OptionSpecifications=(
 		'option-set|O=s'	=>	\&opt_O,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
-		'filter-file|F=s'	=>	\&opt_Value,
+		'filter-file|F=s'	=>	\&opt_Array,
 		'keep|k'		=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
@@ -346,7 +346,11 @@ sub opt_h {
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
                                 filter file "filter".  The default is
-                                to use the built-in error filter.
+                                to use the built-in filter list.
+				This may be used multiple times to permit
+				filter files to be concatenated.  The
+				__DATA__ keyword may be specified to 
+				include the built-in filter list.
         --always-mail|-m addr:  Mailid: Send an execution report to
                                 this e-mail address.
         --always-page|-p addr:  Page: Send a very brief message
