@@ -179,10 +179,13 @@ foreach my $Host (@HostList) {
 			print "$Host matches\n";
 		}
 		elsif ($Options{save}) {
-			print "\nSave changes to $RefFile (Y/n)?\n";
-			my $Response = <STDIN>;
-			if ($Response =~ /^\s*[Yy]/) {
-				RunDangerousCmd("mv $TempFile $RefFile");
+			while (1) {
+				print "\nSave changes to $RefFile (Y/n)?\n";
+				next unless (<STDIN> =~ /^\s*([YyNn])/);
+				if (uc($1) eq 'Y') {
+					RunDangerousCmd("mv $TempFile $RefFile");
+				}
+				last;
 			}
 		}
 		RunDangerousCmd("rm -f $TempFile") if (-f "$TempFile" and ( ! $Options{keep}));
