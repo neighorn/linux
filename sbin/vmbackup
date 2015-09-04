@@ -398,8 +398,12 @@ sub ProcessBackup {
 		}
 		else {
 			while (! $Options{test} and IsRunning($MachineName) and $Count > 0) {
-				$Machines{$MachineName}->shutdown()
-					if ($Count % 2 == 0);	# Send shutdown once per minute.
+				if ($Count % 2 == 0) {
+					# Send shutdown once per minute.
+					print "debug: Initiating shutdown\n";
+					$Machines{$MachineName}->shutdown();
+					print "debug: Finished shutdown request\n";
+				}
 				$Count--;
 				sleep 30;
 			}
@@ -408,6 +412,7 @@ sub ProcessBackup {
 	else {
 		print "    $MachineName is already down\n";
 	}
+	print "debug: Shutdown initiation complete.\n";
 	if ($WasRunning and (!IsRunning($MachineName))) {
 		print "    $MachineName is down\n";		# Document that it is down.
 	}
@@ -496,7 +501,10 @@ sub ProcessBackup {
 sub IsRunning {
 	my $Name = shift;
 	my $Object = $Machines{$Name};
-	return ($Object->get_info->{state} == Sys::Virt::Domain::STATE_SHUTOFF?0:1);
+	print "debug: IsRunning start\n";
+	my $Status = ($Object->get_info->{state} == Sys::Virt::Domain::STATE_SHUTOFF?0:1);
+	print "debug: IsRunning finish, status=$Status\n";
+	return $Status;
 }
 
 
