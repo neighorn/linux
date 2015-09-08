@@ -45,6 +45,7 @@ my $SECTIONLOCK;			# File handle for a section lock file, if used.
 our $StartTime = time();		# Primarily for ifbefore, imagename.
 our $MaxVaultLength=0;			# Length of longest vault name, for formatting.
 our @Banks;				# List of banks, from the config file.
+our %MachinesDone;			# List of machines we did, so we don't try them twice.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -322,6 +323,10 @@ sub ProcessBackup {
 
 	return unless($MachineDirectory=GetMachineDirectory($Target,0));
 
+	if (exists($MachinesDone{$MachineDirectory})) {
+		print qq<    $Target skipped -- already backed once in this job.\n>;
+		return;
+	}
 
 	# Document that we're starting a new target.
 	print strftime("Starting $Target at %H:%M:%S on %A, %Y-%m-%d...\n",localtime());
@@ -498,6 +503,9 @@ sub ProcessBackup {
 
 	# Clean up the lock file.
 	unlink($LockFile);
+
+	# Remember we did this one.
+	$MachinesDone{$MachineDirectory} = 1;
 	
 	# Remember this file system device for our space report.
 	my $fs=`df -P $MachineDirectory | tail -1`;
@@ -1104,9 +1112,8 @@ IGNORE	"^\s*rsync: open.* failed: No such file or directory"
 IGNORE	"^\s*(file|directory) has vanished: "
 IGNORE	"^\s*Status: warning \(24\) -- file vanished on sender$"
 IGNORE	"^\s*Status: success$"
-SHOW	"^\s*\S+ skipped -- \S+ is unreachable.$"
 SHOW	"^\s*Skipped \S+ -- .* is not accessible.$"
-SHOW	"^\s*\S+ skipped -- outside \"--ifbefore\" time constraints"
+SHOW	"^\s*\S+ skipped -- "
 SHOW	"^\s*Running:"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
