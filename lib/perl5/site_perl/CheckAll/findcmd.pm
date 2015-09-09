@@ -123,10 +123,6 @@ sub Check {
     			eval("\@Data = `$Cmd`;");
     			last unless ($@ or $? != 0);
 		}
-		if (@Data == 0) {
-		        $Self->{StatusDetail} = "Unable to gather data";
-		        return "Status=" . $Self->CHECK_FAIL;
-		}
 	}
 	else {
 		@Data = `$BaseCmd 2> /dev/null`;
@@ -148,8 +144,12 @@ sub Check {
 			# They want the files found.
 			$LastIndex = ($LastIndex > @Data? @Data - 1 : $LastIndex - 1);
 			chomp @Data;
-			$Self->{StatusDetail} = "Found: " 
-				. join(', ',@Data[0..$LastIndex]);
+			if ($LastIndex < 0) {
+				$Self->{StatusDetail} = "None found" 
+			}
+			else {
+				$Self->{StatusDetail} = "Found: " . join(', ',@Data[0..$LastIndex]);
+			}
 		}
 		else {
 			# They just need the basic count.
