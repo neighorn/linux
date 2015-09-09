@@ -8,9 +8,10 @@ no strict 'refs';
 use warnings;
 package findcmd;
 use base 'CheckItem';
-use fields qw(Port User Parms Verifyexist);
+use fields qw(Port User Parms Verifyexist Listfiles);
 my %Attributes = (
         Target =>      'integer,keep-operator',
+        Listfiles =>   'integer',
 );
 my $ComparisonOperators = qr/=[<>]?|!=|<[=>]?|>[<=]?/;  # =, ==, <, <=, =<, >, >=, =>, !=, <>, ><
 my %Operators = (
@@ -73,7 +74,14 @@ sub Check {
 		$Self->{StatusDetail} = "Configuration error: Parms not specified";
 		$Errors++;
 	}
+	if (exists($Self->{Listfiles})) {
+		if ($Self->{Listfiles} !~ /^\d+$/) {
+			$Self->{StatusDetail} = "Configuration error: ListFiles is not numeric";
+			$Errors++;
+		}
+	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
+
 
         # Run overall checks.  Any defined response means set set the status and are done.
         my $Status = $Self->SUPER::Check($Self);
@@ -98,7 +106,7 @@ sub Check {
 		if ($Self->{Verbose} >= 3);
 
 	my @Data;
-	my $BaseCmd = "find " . $Self->{Parms} . " | wc -l";
+	my $BaseCmd = "find " . $Self->{Parms} . " ";
 	if ($Self->{Host} and $Self->{Host} ne "localhost") {
 		# On a remote host.
 		my $Cmd = 
@@ -128,21 +136,25 @@ sub Check {
 
 	$Status = $Self->CHECK_OK;		# Assume no errors.
 	my $Detail = '';
-	my $Actual = $Data[0];
-	if ( $Actual =~ /^\s*\d+\s*$/) {
-		$Actual = 0+$Actual;
-	}
-	else {
-		$Self->{StatusDetail} = "Invalid count received";
-	        return "Status=" . $Self->CHECK_FAIL;
-	}
+	my $Actual = @Data;
 	my($Operator,$TargetValue) = ($Target =~ /^([!<=>]+) (.*)$/);
 	$Operator = '==' if ($Operator eq '=');
 	$Operator = '!=' if ($Operator eq '<>' or $Operator eq '><');
 	$Operator = '<=' if ($Operator eq '=<');
 	$Operator = '>=' if ($Operator eq '=>');
 	if (! eval "($Actual $Operator $TargetValue);") {
-		$Self->{StatusDetail} = "$Actual $Operator $TargetValue failed";
+		my $LastIndex = $Self->{Listfiles};
+		if ($LastIndex) {
+			# They want the files found.
+			$LastIndex = ($LastIndex > @Data? @Data - 1 : $LastIndex - 1);
+			chomp @Data;
+			$Self->{StatusDetail} = "Found: " 
+				. join(', ',@Data[0..$LastIndex]);
+		}
+		else {
+			# They just need the basic count.
+			$Self->{StatusDetail} = qq<"$Actual $Operator $TargetValue" failed>;
+		}
 		return "Status=" . $Self->CHECK_FAIL
 	}
 
@@ -205,6 +217,10 @@ specified find command.  If the specified item doesn't exist, the module will sl
 seconds and try again "Tries" times (typically 3).  This is primarily used for auto-mounted
 directories that may not mount instantly.
 
+=item *
+ListFiles = X.  Zero is the default.  If a mismatch is found and X > 0 ,
+	then the standard detail message is replaced with a list of the first X files 
+	found.
 =back
 
 =head2 Notes
