@@ -1,4 +1,5 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*.*kern kernel time sync enabled$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+c016 06 restart$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ clock_step"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ clock_sync$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ freq_mode$"
