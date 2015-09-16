@@ -518,6 +518,7 @@ __END__
 #
 IGNORE  /^\s*$/
 IGNORE	"^\s*/dev/md\S+ excluded.$"
+IGNORE	"^\s*\d+ blocks super \S+ level.*\[U+\]$"
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
