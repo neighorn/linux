@@ -45,9 +45,9 @@ our %OptionSpecifications=(
 		'subject=s'		=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
-                'force|f'               =>      \&opt_Value,
-                'week|n=i'              =>      \&opt_Value,
-                'exclude|x=s'             =>      \&opt_Array,
+                'force|f'		=>	\&opt_Value,
+                'week|n=i'		=>	\&opt_Value,
+                'exclude|x=s'		=>	\&opt_Array,
 );
 #
 our $ExitCode;
@@ -105,6 +105,14 @@ LogOutput({
 });
 
 # Verify the command line.
+if (exists($Options{week})) {
+	die "Invalid value for -n ($Options{week}): must be 1-5\n" unless ($Options{week} =~ /^[1-5]$/);
+	my $weeknum = int(((localtime())[3] + 6) / 7);
+	if ($weeknum != $Options{week}) {
+		print "Skipping run.  Week number is $weeknum, not $Options{week}\n";
+		exit 0;
+	}
+}
 
 if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
 	$Errors = RunRemote(@ARGV);
