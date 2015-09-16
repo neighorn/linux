@@ -300,8 +300,9 @@ sub RunLocally {
 			if ($Status eq 'idle') {
 				system('grep -Eq "\[=*>" /proc/mdstat');
 				if ($? == 0 and ! $Options{force}) {
+					warn "Aborting $Prog - another RAID is rebuilding\n";
 					system('cat /proc/mdstat');
-					die "Aborting $Prog - another RAID is rebuilding\n";
+					die "\n";
 				}
 				print strftime(
 					"Beginning check of /dev/$device at %T on %Y-%m-%d"
@@ -518,7 +519,9 @@ __END__
 #
 IGNORE  /^\s*$/
 IGNORE	"^\s*/dev/md\S+ excluded.$"
-IGNORE	"^\s*\d+ blocks super \S+ level.*\[U+\]$"
+IGNORE	"^\s*\d+ blocks .*\[U+\]$"
+IGNORE	"^\s*Personalities : \["
+IGNORE	"^\s*unused devices: "
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
@@ -535,6 +538,8 @@ SHOW	"^\s*Beginning check of /dev/"
 SHOW	"^\s*Ignoring /dev/"
 SHOW	"^\s*Completed check of /dev/"
 SHOW	"^\s*/dev/\S+ is already being verified.  Waiting for completion...$"
+SHOW	"^\s*md\d+\s+: active "
+
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
