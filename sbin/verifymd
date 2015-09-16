@@ -547,6 +547,7 @@ SHOW	"^\s*Ignoring /dev/"
 SHOW	"^\s*Completed check of /dev/"
 SHOW	"^\s*/dev/\S+ is already being verified.  Waiting for completion...$"
 SHOW	"^\s*md\d+\s+: active "
+SHOW	"^\s*Skipping run.  Week number is \d, not \d$"
 
 #
 # Anything that doesn't match one of these three sets of patterns is considered
