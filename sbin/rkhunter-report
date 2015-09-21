@@ -226,6 +226,7 @@ sub RunLocally {
 	RunDangerousCmd("rkhunter --update");
 	RunDangerousCmd("rkhunter --propupd");
 	RunDangerousCmd("rkhunter --cronjob --rwo");
+	return 0;		# Don't return an arbitrary return code.
 
 }
 
