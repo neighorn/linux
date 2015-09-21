@@ -287,7 +287,8 @@ __END__
 #
 IGNORE	"^\s*tar: .*: socket ignored$"
 # OK to ignore directory changes, as long as the files are stable.
-IGNORE	"^\s*tar: ./private.*: file changed as we read it$"
+IGNORE	"^\s*tar: \./private/.*: file changed as we read iti\s*$"
+IGNORE	"^\s*tar: \./private/.*: File removed before we read it\s*$"
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
