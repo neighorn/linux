@@ -1,0 +1,7 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+/usr/bin/x2gomountdirs: WARNING: mounting of .* failed$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+/usr/bin/x2goresume-session: client \S+ has successfully resumed session with ID \S+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+/usr/bin/x2goruncommand: launching session with Xsession-x2go mechanism, using STARTUP=\"/usr/bin/gnome-session\"$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+/usr/bin/x2gosetkeyboard: \S+ did not appear within 30s after agent startup$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+/usr/bin/x2gosetkeyboard: Setting X keyboard according to \S+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+/usr/bin/x2gostartagent: successfully started X2Go agent session with ID \S+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+/usr/bin/x2gosuspend-session: session with ID \S+ has been suspended successfully$"
