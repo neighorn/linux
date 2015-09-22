@@ -252,11 +252,9 @@ sub ProcessBackup {
 	local %Options = %::Options;
 	my $MachineConfig = $Config{uc("name=$MachineName")};
 	if ($MachineConfig) {
-		print "debug: about to call GetOptionsFromString for $MachineConfig, errors=$Errors\n";
 		$Errors ++ unless (
 			GetOptionsFromString($MachineConfig,%OptionSpecifications)
 		);
-		print "debug: completed call to GetOptionsFromString, errors=$Errors\n";
 	}
 	print Dumper(\%Options) if ($Options{verbose} >=3);
 
@@ -401,8 +399,9 @@ sub ProcessBackup {
 				if ($Count % 2 == 0) {
 					# Send shutdown once per minute.
 					print "debug: Initiating shutdown\n";
-					$Machines{$MachineName}->shutdown();
+					eval {$Machines{$MachineName}->shutdown();};
 					print "debug: Finished shutdown request\n";
+					warn "$MachineName shutdown generated $@\n" if ($@);
 				}
 				$Count--;
 				sleep 30;
@@ -412,7 +411,6 @@ sub ProcessBackup {
 	else {
 		print "    $MachineName is already down\n";
 	}
-	print "debug: Shutdown initiation complete.\n";
 	if ($WasRunning and (!IsRunning($MachineName))) {
 		print "    $MachineName is down\n";		# Document that it is down.
 	}
@@ -501,9 +499,7 @@ sub ProcessBackup {
 sub IsRunning {
 	my $Name = shift;
 	my $Object = $Machines{$Name};
-	print "debug: IsRunning start\n";
 	my $Status = ($Object->get_info->{state} == Sys::Virt::Domain::STATE_SHUTOFF?0:1);
-	print "debug: IsRunning finish, status=$Status\n";
 	return $Status;
 }
 
