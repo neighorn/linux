@@ -542,7 +542,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?gpio_ich
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?gran_size: \d+.\s+chunk_size: \d+.\s+num_reg: \d+\s+lose cover RAM: \d+.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?gran_size:"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?gran_size:\s+\d+K\s+chunk_size:\s+\d+M\s+num_reg:\s+\d+\s+lose cover RAM:\s+\d+G$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?HDA Intel [\d:.]+ .* -> IRQ 22$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?HDA Intel [\da-f:.]+ .* -> IRQ \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?hda_codec: ALC1200: BIOS auto-probing.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?HEST: Table not found.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s+\d+\.\d+\]\s+)?HEST: Table parsing has been initialized.$"
