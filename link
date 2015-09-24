@@ -1,5 +1,11 @@
-#! /bin/bash -xv
+#! /bin/bash
 for name in $@
 do
+	if [[ -e "/usr/local/$name" ]]
+	then
+		[[ -L "/usr/local/$name" ]] || echo File /usr/local/$name exists and is not a symbolic link
+		diff -q $PWD/$name /usr/local/$name # Report if they differ
+		continue
+	fi
 	ln -s $PWD/$name /usr/local/$name
 done
