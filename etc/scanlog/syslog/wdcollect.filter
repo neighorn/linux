@@ -1,3 +1,5 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ wdcollect(\[\d+\])?:\s*Connection to server has been established.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ wdcollect(\[\d+\])?:\s*Connection to SMTP server has been closed.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ wdcollect(\[\d+\])?:\s*Database server connection has been established.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ wdcollect(\[\d+\])?:\s*Failed to connect to database server during the startup."
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ wdcollect(\[\d+\])?:\s*Language -en-US is used for sending e-mail messages.$"
