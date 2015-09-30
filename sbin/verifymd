@@ -305,12 +305,12 @@ sub RunLocally {
 				close $FH;
 				print "Verbose: $device is in $Status status\n" if ($Options{verbose});
 				if ($Status eq 'check') {
-					if (RunDangerousCmd("echo idle > $StatusFile")) {
+					if (my $RDCStat = RunDangerousCmd("echo idle > $StatusFile") == 0) {
 						print "\t$device returned to idle state\n";
 						$Count++;
 					}
 					else {
-						warn "\tUnable to set $device to idle state\n";
+						warn "\tUnable to set $device to idle state (return status $RDCStat)\n";
 						$Errors++;
 					}
 				}
