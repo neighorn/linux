@@ -34,6 +34,7 @@ our %OptionSpecifications=(
 		'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
 		'always-mail|m=s'	=>	\&opt_Array,
 		'always-page|p=s'	=>	\&opt_Array,
+		'cancel'		=>	\&opt_Value,
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'error-mail|M=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
@@ -91,6 +92,19 @@ $Options{subject}='%* %m/%d %C %N %E %*%*%*' unless (exists($Options{subject}) a
 
 # ---------------------------------------------------------
 #
+# Check the week number.  Do this before we turn on logging, so we don't generate a bunch of 
+# "not-this-week" e-mails.
+if (exists($Options{week}) and ($Options{week} =~ /^[1-5]$/)) {
+	my $weeknum = int(((localtime())[3] + 6) / 7);
+	if ($weeknum != $Options{week}) {
+		print "Skipping run.  Week number is $weeknum, not $Options{week}\n";
+		exit 0;
+	}
+}
+
+
+# ---------------------------------------------------------
+#
 # Set up our logging and output filtering.
 #
 LogOutput({
@@ -107,11 +121,6 @@ LogOutput({
 # Verify the command line.
 if (exists($Options{week})) {
 	die "Invalid value for -n ($Options{week}): must be 1-5\n" unless ($Options{week} =~ /^[1-5]$/);
-	my $weeknum = int(((localtime())[3] + 6) / 7);
-	if ($weeknum != $Options{week}) {
-		print "Skipping run.  Week number is $weeknum, not $Options{week}\n";
-		exit 0;
-	}
 }
 
 if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
@@ -281,6 +290,46 @@ sub RunLocally {
 	die("No devices found.  See \"$Prog -h\" for usage.")
 		unless (@Parms > 0);
 	
+
+	# Check for cancel request
+	if ($Options{cancel}) {
+		my $Count = 0;
+		foreach my $device (@Parms) {
+			my $ShortDevice;
+			($ShortDevice = $device) =~ s"/dev/"";
+			my $FH;
+			my $StatusFile = "/sys/block/$ShortDevice/md/sync_action";
+			if (open($FH,'<',$StatusFile)) {
+				my $Status = <$FH>;
+				chomp $Status;
+				close $FH;
+				print "Verbose: $device is in $Status status\n" if ($Options{verbose});
+				if ($Status eq 'check') {
+					if (RunDangerousCmd("echo idle > $StatusFile")) {
+						print "\t$device returned to idle state\n";
+						$Count++;
+					}
+					else {
+						warn "\tUnable to set $device to idle state\n";
+						$Errors++;
+					}
+				}
+				elsif ($Status eq 'idle') {
+					# No action required.
+				}
+				else {
+					warn "\t$device is in $Status state - no action taken\n";
+						$Errors++;
+				}
+			}
+			else {
+				warn "Unable to open $StatusFile: $!\n";
+			}
+		}
+		print "$Count device" . ($Count == 1?'':'s') . " switched to idle state\n";
+		return $Errors;
+	}
+					
 	# Turn @Options{exclude} into a hash.
 	my %Exclude;
 	foreach (@{$Options{exclude}}) {
@@ -486,6 +535,7 @@ exit 1;
         --help|-h:              Help: display this panel
 	--force|-f		Force: Run verify even if another RAID is resyncing
 				or rebuilding.
+	--cancel:		Cancel: Cancel an existing check
 	--ignore-missing|-i:	Ignore: Don't treat missing devices as errors.
 	--week|-n weeknum:	weekNum: Only run on the "weeknum" (1-5) week of the 
 				month.  Used to work around limitations of some crons.
@@ -548,7 +598,9 @@ SHOW	"^\s*Completed check of /dev/"
 SHOW	"^\s*/dev/\S+ is already being verified.  Waiting for completion...$"
 SHOW	"^\s*md\d+\s+: active "
 SHOW	"^\s*Skipping run.  Week number is \d, not \d$"
-
+SHOW	"^\s*\S+ returned to idle state$"
+SHOW	"^\s*\d+ devices? switched to idle state$"
+SHOW	"^\s*Verbose:"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
