@@ -8,6 +8,7 @@ use Text::ParseWords;
 use POSIX qw(strftime);
 use FindBin qw($Bin $Script);
 use Fcntl qw(:flock :mode :DEFAULT);
+use Linux::Inotify2;
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -31,7 +32,9 @@ our %OptionSpecifications=(
 		'<>'			=>	sub {push @Parms,shift;},
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'help|h|?!'		=>	\&opt_h,
+		'after|A=s'		=>	\&opt_Array,
 		'always-mail|m=s'	=>	\&opt_Array,
+		'before|B=s'		=>	\&opt_Array,
 		'error-mail|M=s'	=>	\&opt_Array,
 		'option-set|O=s'	=>	\&opt_O,
 		'always-page|p=s'	=>	\&opt_Array,
@@ -40,6 +43,7 @@ our %OptionSpecifications=(
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'wait|w=i'		=>	\&opt_Value,
+		'watch'			=>	\&opt_Value,
 );
 #
 
@@ -126,32 +130,42 @@ if (!$Options{test} and !flock($JOBLOCKFH, LOCK_EX | LOCK_NB)) {
 	exit 11;
 }
 
-my $Source = shift(@Parms);
-my $Cmd = 'rsync -i -XAavz --delete-after '
-	. ($Options{test}?' --dry-run ':'')
-	. "$Source ";
-	;
+if ($Options{watch}) {
+	# We're going to loop, watching for changes and syncing them.
+	my $inotify = new Linux::Inotify2
+		or die("Unable to create inotify object: $!\n");
+	
+	print "Verbose: Running initial synchronization\n" if ($Options{verbose});
+	my $HoldWait = $Options{wait};	# Skip wait on initial sync.
+	$Options{wait} = 0;
+	RunSync(@Parms);
+	$Options{wait} = $HoldWait;	# Restore wait time for subsequent syncs.
 
-# ---------------------------------------------------------
-#
-# Wait for things to settle, if requested.
-#
-sleep($Options{wait}) if ($Options{wait});
+	$inotify->watch($Parms[0], IN_CREATE|IN_DELETE|IN_MODIFY|IN_MOVE)
+		or die("Unable to create watch on $Parms[0]: $!\n");
 
-# ---------------------------------------------------------
-#
-# Run the command.  Convert test to verbose unless verbose is already set, and ignore test,
-# because this is handled by the --dry-run option.
-#
-foreach my $Target (@Parms) {
-	#. '/usr/local/lxc/dc1/sysvol/'
-	RunDangerousCmd(
-		  $Cmd . $Target
-		, verbose => ($Options{verbose}?$Options{verbose}:$Options{test})
-		, test => 0
-	);
-};
+	while () {
+		print "\nVerbose: waiting for events...\n" if ($Options{verbose});
+		my @events = $inotify->read;		# Wait for events
+		if ($Options{verbose}) {
+			my $Timestamp = strftime("%Y-%m-%d %H:%M:%S: ", localtime());
+			foreach (@events) {
+				printf "Verbose: $Timestamp: " 
+					. $_->fullname
+					. "\n";
+			}
+		}
 
+		RunSync(@Parms);			# Something happened.  Resync.
+	}
+	die "Infinite loop exited!";
+} 
+else {
+	# Just a single run.
+	my $Status = RunSync(@Parms);
+}
+
+	
 # ---------------------------------------------------------
 #
 # Release the job lock.
@@ -176,6 +190,76 @@ exit( ($Errors?10:0) );
 #
 sub xxxxxx {
 
+}
+
+
+#
+# RunSync - syncronize the source to the target(s).
+#
+sub RunSync {
+
+	# ---------------------------------------------------------
+	#
+	# Wait for things to settle, if requested.
+	#
+	if (exists($Options{wait}) and $Options{wait}) {
+		print "Verbose: Waiting $Options{wait} seconds before syncing...\n"
+			if ($Options{verbose});
+		sleep ($Options{wait})
+	}
+
+	# ---------------------------------------------------------
+	#
+	# Run any before processes.
+	#
+	RunPrePostCmds (@{$Options{before}}) if (exists($Options{before}));
+
+	my $Source = shift(@_);
+	my $Cmd = 'rsync -i -XAavz --delete-after '
+		. ($Options{test}?' --dry-run ':'')
+		. "$Source ";
+		;
+
+	# ---------------------------------------------------------
+	#
+	# Run the command.  Convert test to verbose unless verbose is already set, and ignore test,
+	# because this is handled by the --dry-run option.
+	#
+	my $Errors = 0;
+	foreach my $Target (@_) {
+		print "Verbose: Syncing to $Target\n" if ($Options{verbose});
+		my $Status = RunDangerousCmd(
+			  $Cmd . $Target
+			, verbose => ($Options{verbose}?$Options{verbose}:$Options{test})
+			, test => 0
+		);
+		$Errors++ unless ($Status == 0);
+	};
+
+	# ---------------------------------------------------------
+	#
+	# Run any "after" processes.
+	#
+	RunPrePostCmds (@{$Options{after}}) if (exists($Options{after}));
+
+	return($Errors);
+}
+
+
+#
+# RunPrePostCmds - run any before/after commands
+#
+sub RunPrePostCmds {
+	$ENV{SYSVOL_SOURCE} = $Parms[0];
+	$ENV{SYSVOL_TARGETS} = join(' ',@Parms[1..$#Parms]);
+	foreach (@_) {
+		my $Cmd = $_; # join(' ', ($_, @Parms));
+		print "Verbose: Running after command: $Cmd\n"
+			if ($Options{verbose});
+		my $RDCStat = RunDangerousCmd($Cmd);
+		print "Verbose: after command ended with status $RDCStat\n"
+			if ($Options{verbose});
+	}
 }
 
 
@@ -339,6 +423,10 @@ other domain controllers.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
         --help|-h:              Help: display this panel
+	--after|A command	After: Run "command" after the completion
+				of each synchronization. May be repeated.
+	--before|b command	Before: Run "command" before the completion
+				of each synchronization. May be repeated.
 	--wait|-w sec:		Wait: wait "sec" seconds before the initial
 				copy.  This is primarily intended for when
 				this script is triggered automatically 
@@ -434,11 +522,13 @@ SHOW    "^\s*Verbose:"
 SHOW    "^\s*debug:"
 IGNORE	"^\s*$"
 SHOW	"^\s*cd\+\+\+\+\+\+\+\+\+ "
-SHOW	"^\s*\>f\+\+\+\+\+\+\+\+\+ "
-IGNORE	"^\s*\.[df]\.+x? "
+SHOW	"^\s*\[<>.]f\+\+\+\+\+\+\+\+\+ "
+IGNORE	"^\s*\[<>.][df]\.\.t\.+x? "
 IGNORE	"^\s*sent \d+ bytes\s+received \d+ bytes\s+\d+\.\d+ bytes/sec$"
 IGNORE	"^\s*total size is \d+\s+speedup is \d+\.\d+"
 IGNORE	"^\s*receiving file list ... done$"
 SHOW	"^\s*created directory "
-IGNORE	'^\s*rsync: rsync_xal_set: lremovexattr\("".*"","security.selinux"\) failed: Permission denied \(13\)$'
-IGNORE	"^\s*rsync error: some files/attrs were not transferred \(see previous errors\) \(code 23\) at main.c\(\d+\) \[generator=\S+\]$"
+IGNORE	'^\s*rsync: rsync_xal_set: (lremovexattr|lsetxattr)\("".*"","security.selinux"\) failed: Permission denied \(13\)$'
+IGNORE	'^\s*rsync: rsync_xal_set: (lremovexattr|lsetxattr)\("".*"","security.selinux"\) failed: Invalid argument \(22\)$'
+IGNORE	"^\s*rsync error: some files/attrs were not transferred \(see previous errors\) \(code 23\) at main.c\(\d+\) "
+IGNORE	"^\s*building file list ... done$"
