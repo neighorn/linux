@@ -40,6 +40,7 @@ our %OptionSpecifications=(
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'filter-file|F=s'	=>	\&opt_Value,
+		'library|libraries|L=s'	=>	\&opt_Array,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'wait|w=i'		=>	\&opt_Value,
@@ -70,6 +71,10 @@ my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
 %Options=(verbose => 0);	# Initialize Options.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+
+# Load any libraries we might need.
+push @INC, @{$Options{library}}
+	if (exists($Options{library}) and @{$Options{library}});
 	
 # Set up our logging and output filtering.
 my $RunDate=`date +%m/%d`;
@@ -420,6 +425,8 @@ other domain controllers.
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFiles[0]
                                 into the command line at this point.
+	--library|-L library	Library: include these additional Perl 
+				libraries in @INC.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
         --help|-h:              Help: display this panel
