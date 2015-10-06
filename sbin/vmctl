@@ -42,7 +42,7 @@ our %OptionSpecifications=(
 		'filter-file|F=s'	=>	\&opt_Value,
 		'start'			=>	sub {$Options{operation}='start';},
 		'stop|shutdown'		=>	sub {$Options{operation}='stop';},
-		'bounce'		=>	sub {$Options{operation}='bounce';},
+		'bounce|restart|reboot'	=>	sub {$Options{operation}='bounce';},
 		'status'		=>	sub {$Options{operation}='status';},
 		'waittime=i'		=>	\&opt_Value,
 		'all|a'			=>	\&opt_Value,
@@ -132,6 +132,7 @@ print "Verbose: Valid domains = " . join(', ',sort(keys(%Domains))) . "\n"
 $Options{operation}='status';		# This is safe, if they didn't tell us what to do.
 $Options{waittime}=5;			# Wait up to 5 minutes unless they tell us otherwise.
 $Options{verbose}=0;			# Wait up to 5 minutes unless they tell us otherwise.
+$ARGV[0] = "--$ARGV[0]" if ($ARGV[0] =~ /^(bounce|reboot|restart|start|stop|shutdown)$/);
 $OptionSpecifications{'<>'}=\&ProcessMachine;
 $Errors++ unless (GetOptions(%OptionSpecifications));
 
