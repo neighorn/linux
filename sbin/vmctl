@@ -132,7 +132,7 @@ print "Verbose: Valid domains = " . join(', ',sort(keys(%Domains))) . "\n"
 $Options{operation}='status';		# This is safe, if they didn't tell us what to do.
 $Options{waittime}=5;			# Wait up to 5 minutes unless they tell us otherwise.
 $Options{verbose}=0;			# Wait up to 5 minutes unless they tell us otherwise.
-$ARGV[0] = "--$ARGV[0]" if ($ARGV[0] =~ /^(bounce|reboot|restart|start|stop|shutdown)$/);
+$ARGV[0] = "--$ARGV[0]" if ($ARGV[0] =~ /^(bounce|reboot|restart|start|stop|shutdown|status)$/);
 $OptionSpecifications{'<>'}=\&ProcessMachine;
 $Errors++ unless (GetOptions(%OptionSpecifications));
 
