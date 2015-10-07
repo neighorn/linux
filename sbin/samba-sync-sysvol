@@ -40,7 +40,7 @@ our %OptionSpecifications=(
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'filter-file|F=s'	=>	\&opt_Value,
-		'library|libraries|L=s'	=>	\&opt_Array,
+		'reverse-first'		=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'wait|w=i'		=>	\&opt_Value,
@@ -72,10 +72,6 @@ my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
 $Errors ++ unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 
-# Load any libraries we might need.
-push @INC, @{$Options{library}}
-	if (exists($Options{library}) and @{$Options{library}});
-	
 # Set up our logging and output filtering.
 my $RunDate=`date +%m/%d`;
 chomp $RunDate;
@@ -111,6 +107,11 @@ LogOutput({
 die "Insufficient parameters.  A source path and at least one target path are required.\n"
 	unless (@Parms >= 2);
 
+# Set the default for reverse-first if they didn't specify it.  The default is true if
+# we're watching, or false if this is a one-off copy.
+$Options{'reverse-first'} = $Options{watch}
+	unless (exists($Options{'reverse-first'}));
+
 # ---------------------------------------------------------
 #
 # Check for conflicting jobs.
@@ -135,14 +136,30 @@ if (!$Options{test} and !flock($JOBLOCKFH, LOCK_EX | LOCK_NB)) {
 	exit 11;
 }
 
+# ---------------------------------------------------------
+#
+# Update ourselves first from the other side if requested. Typically,
+# if we're just starting up, the other side may have updates we need.
+#
+
+if ($Options{'reverse-first'}) {
+	print "Verbose: Running reverse synchronization\n" if ($Options{verbose});
+	RunSync($Parms[1],$Parms[0]);
+}
+	
+
+# ---------------------------------------------------------
+#
+# Set up a watch if requested.
+# 
 if ($Options{watch}) {
 	# We're going to loop, watching for changes and syncing them.
 	my $inotify = new Linux::Inotify2
 		or die("Unable to create inotify object: $!\n");
 	
-	print "Verbose: Running initial synchronization\n" if ($Options{verbose});
 	my $HoldWait = $Options{wait};	# Skip wait on initial sync.
 	$Options{wait} = 0;
+	print "Verbose: Running forward synchronization\n" if ($Options{verbose});
 	RunSync(@Parms);
 	$Options{wait} = $HoldWait;	# Restore wait time for subsequent syncs.
 
@@ -530,7 +547,7 @@ SHOW    "^\s*debug:"
 IGNORE	"^\s*$"
 SHOW	"^\s*cd\+\+\+\+\+\+\+\+\+ "
 SHOW	"^\s*\[<>.]f\+\+\+\+\+\+\+\+\+ "
-IGNORE	"^\s*\[<>.][df]\.\.t\.+x? "
+SHOW	"^\s*\[<>.][df]\.\.t\S+? "
 IGNORE	"^\s*sent \d+ bytes\s+received \d+ bytes\s+\d+\.\d+ bytes/sec$"
 IGNORE	"^\s*total size is \d+\s+speedup is \d+\.\d+"
 IGNORE	"^\s*receiving file list ... done$"
