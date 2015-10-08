@@ -1,2 +1,2 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba-sync-sysvol(\[\d+\])?:\s*: [<.>][fd]......... "
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba-sync-sysvol(\[\d+\])?:\s*: building file list ... done$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba-sync-sysvol(\[\d+\])?:\s*[<.>][fd]......... "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba-sync-sysvol(\[\d+\])?:\s*building file list ... done$"
