@@ -34,7 +34,7 @@ sub Check {
 
 	# See if we've gathered the process information for this host yet.
 	my @Data;
-	my $BaseCmd = 'net ads testjoin 2>&1 < /dev/null';	# Our core command, whether local or remote.
+	my $BaseCmd = 'net ads testjoin 2>&1 < /dev/null ';	# Our core command, whether local or remote.
 	if ($Self->{Host} and $Self->{Host} ne 'localhost') {
 		# On a remote host.
 		my $Cmd = 
@@ -42,7 +42,7 @@ sub Check {
 			. '-o "NumberOfPasswordPrompts 0" '
 			. ($Self->{Port}?"-oPort=$Self->{Port} ":'')
 			. ($Self->{User}?"$Self->{User}@":'')
-			. $Self->{Host}
+			. $Self->{Host} . ' '
 			. $BaseCmd
 			;
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
