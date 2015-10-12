@@ -1,0 +1,2 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mtp-probe(\[\d+\])?:\s*checking bus \d+, device \d+: "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mtp-probe(\[\d+\])?:\s*bus: \d+, device: \d+ was not an MTP device$"
