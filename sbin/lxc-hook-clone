@@ -1,0 +1,21 @@
+#!/bin/bash
+
+echo Running $0 on $LXC_NAME
+
+# Fix up fstab.
+sed -i.clone "s/$LXC_SRC_NAME/$LXC_NAME/g" $LXC_ROOTFS_PATH/../fstab
+
+# Re-enable /var/log/lastlog.  Disabled in model to avoid clone errors.
+if [[ -L $LXC_ROOTFS_PATH/var/log/lastlog ]] 
+then
+	rm $LXC_ROOTFS_PATH/var/log/lastlog
+fi
+
+# Delete old samba data, so we establish our own identity.
+uppername=`echo $LXC_SRC_NAME | tr '[a-z]' '[A-Z]'`
+tdbtool $LXC_ROOTFS_PATH/var/lib/samba/private/secrets.tdb <<ENDTDB
+delete SECRETS/SID/$uppername
+quit
+ENDTDB
+
+
