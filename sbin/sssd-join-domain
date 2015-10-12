@@ -1,0 +1,28 @@
+#!/usr/bin/bash
+#
+# Conditionally join the domain, assuming:
+#    1) We haven't already done so
+#    2) We're not a docker ephemeral machine, or -f is specified
+#
+# Docker ephemeral machines are identified by the host name.
+# If the host name is a docker hash (exactly 12 characters from
+# [a-f0-9]), we'll need force to register it so we don't
+# clutter up A/D with ephemeral machine names.
+
+if net ads testjoin < /dev/null > /dev/null 2>&1
+then
+	# Already joined.
+	echo System is already joined to the domain
+	exit 0
+fi
+
+hostname=`hostname`
+[[ ( "$hostname" = [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f] ) && ( "$1" != "-f" ) ]] && exit 1  # Ephemeral
+
+username=`grep '^ldap_default_bind_dn' /etc/sssd/sssd.conf`
+username=${username##*= }
+
+password=`grep '^ldap_default_authtok' /etc/sssd/sssd.conf`
+password=${password##*= }
+
+echo $password | net ads join -U $username
