@@ -43,6 +43,7 @@ our %OptionSpecifications=(
 		'reverse-first'		=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+		'name=s'		=>	\&opt_Value,
 		'wait|w=i'		=>	\&opt_Value,
 		'watch'			=>	\&opt_Value,
 );
@@ -103,6 +104,8 @@ LogOutput({
 	MAIL_SUBJECT		=> $Subject,
 	FILTER_FILE		=> $Options{'filter-file'},
 	VERBOSE			=> $LogOutputVerbose,
+	PROGRAM_NAME		=> 
+		$Prog . ($Options{name}?".$Options{name}":''),
 });
 die "Insufficient parameters.  A source path and at least one target path are required.\n"
 	unless (@Parms >= 2);
@@ -117,7 +120,9 @@ $Options{'reverse-first'} = $Options{watch}
 # Check for conflicting jobs.
 #
 my $JOBLOCKFH;					# Lock file handle.
-my $JobLockFile = "/var/lock/$Prog.lock";	# Lock file name.
+my $JobLockFile = "/var/lock/$Prog."		# Lock file name.
+	. ($Options{name}?"$Options{name}.":'')
+	. 'lock';
 if (!$Options{test} and !open($JOBLOCKFH,'>>',$JobLockFile)) {
 	print "Unable to create/open $JobLockFile: $!\n";
 	exit 11;
@@ -450,6 +455,9 @@ Sync the files or directories to or from other systems.
 				of each synchronization. May be repeated.
 	--before|b command	Before: Run "command" before the completion
 				of each synchronization. May be repeated.
+	--name=name:		Name: name of this job.  This name is used
+				in the system log and in the lock file to
+				distinguish different jobs.
 	--wait|-w sec:		Wait: wait "sec" seconds before the initial
 				copy.  This is primarily intended for when
 				this script is triggered automatically 
@@ -562,8 +570,7 @@ SHOW    "^\s*Verbose:"
 SHOW    "^\s*debug:"
 IGNORE	"^\s*$"
 SHOW	"^\s*cd\+\+\+\+\+\+\+\+\+ "
-SHOW	"^\s*\[<>.]f\+\+\+\+\+\+\+\+\+ "
-SHOW	"^\s*\[<>.][df]\.\.t\S+? "
+SHOW	"^\s*[<>.][df]......... "
 IGNORE	"^\s*sent \d+ bytes\s+received \d+ bytes\s+\d+\.\d+ bytes/sec$"
 IGNORE	"^\s*total size is \d+\s+speedup is \d+\.\d+"
 IGNORE	"^\s*receiving file list ... done$"
