@@ -112,6 +112,6 @@ do
     find $subtree -xdev $ModTime -type d -print | 
 	TotalDirectory  |
 	sort -k 2,2nr |
-	awk '{printf "%-40s %14d\n", $1, $2}' |
+	awk '{printf "%'"'"'17d %-40s\n", $2, $1}' |
 	head -20
 done
