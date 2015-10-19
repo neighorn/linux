@@ -48,7 +48,7 @@ our %OptionSpecifications=(
 		'min-size|s=s'		=>	\&opt_Value,
 		'option-set|O=s'	=>	\&opt_O,
 		'output-dir|D=s'	=>	\&opt_Value,
-		'remote-host|R=s'	=>	\&opt_Array,
+		'remote-host|R=s'	=>	\&opt_remote_host,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
@@ -234,23 +234,8 @@ sub LoadConfigFile {
 sub RunRemote {
 
 	my @ARGV=@_;
-	my @HostList;
+	my @HostList = @{$Options{'remote-host'}};
 	my $Errors = 0;
-	foreach my $RemoteItem (@{$Options{'remote-host'}}) {
-		$RemoteItem =~ s/,+/ /g;
-		foreach (split(/\s+/,$RemoteItem)) {
-		        if (exists($Config{uc($_)})) {
-		                # This is a name from the config file.  Push it's list.
-		                my $ConfigItem = $Config{uc($_)};
-				$ConfigItem =~ s/,+/ /g;
-				my @SplitList = split(/\s+/,$Config{uc($_)});
-		                push @HostList, @SplitList;
-		        }
-		        else {
-		                push @HostList, $_;
-		        }
-	        }
-	}
 	die "No remote hosts specified on the command line or in the configuration file.\n" unless (@HostList);
 
 	my $MaxLength = 0;
@@ -637,6 +622,54 @@ sub opt_max_size {
 }
 
 
+
+# ---------------------------------------------------------
+#
+# opt_remote_host - Manage the remote host list
+#
+sub opt_remote_host {
+	my(undef,$Value) = @_;
+	my @RemoteList = split(/[\s,]+/,$Value);	# Split on white space and commas.
+	REMOTE_ITEM: while (@RemoteList) {
+		my $RemoteItem = shift(@RemoteList);
+
+		# Are we adding this item or removing it?
+		my $AddOperation=1;			# Assume we're adding to the list.
+		if ($RemoteItem =~ /^!(\S+)/) {
+			$AddOperation=0;		# No, we're removing.
+			$RemoteItem = $1;		# Name without the !
+		}
+
+		# Is this a host name or a list name?
+		if (exists($Config{uc($RemoteItem)})) {
+			# It's a list name, turn it into host names.
+			my @TempList = split(/[\s,]+/,$Config{uc($RemoteItem)});
+			if (! $AddOperation) {
+				# Remember that we're removing these.  Prefix each host with !.
+				foreach (@TempList) { $_="!$_";};
+			}
+			push @RemoteList, @TempList;
+			next REMOTE_ITEM;
+		}
+
+		if ($AddOperation) {
+			# Make sure this item isn't already in the list.
+			next REMOTE_ITEM 
+				if grep { $_ eq $RemoteItem } @{$Options{'remote-host'}};
+			push @{$Options{'remote-host'}},$RemoteItem;
+		}
+		else {
+			# Remote this item from the list if present.
+			@{$Options{'remote-host'}} = grep { $_ ne $RemoteItem } @{$Options{'remote-host'}};
+		}
+	}
+}
+	
+		
+
+
+
+
 # ---------------------------------------------------------
 #
 # opt_h: Usage
@@ -693,7 +726,11 @@ exit 1;
 				IP address, a configuration file entry
 				name, or a comma or space separated list of
 				any mix of these.  This option may also be
-				repeated to append to the list.
+				repeated to append to the list.  Host names
+				preceeded by ! are removed from the list.
+				This is primarily to allow a configuration
+				file list to be included, but some of the
+				hosts in the list excluded.
 	--precmd=cmd		PreCmd: Run this command before starting the
 				backup.  May be repeated to execute multiple
 				commands.  Prefix with ! if job should be
