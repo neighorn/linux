@@ -1331,6 +1331,13 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: \[origin software=\"rsyslogd\
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: \[origin software=\"rsyslogd\" swVersion=\"\d+.\d+.\d+\" x-pid=\"\d+\" x-info=\"http://www.rsyslog.com\"\] exiting on signal \d+.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ snmpd\[\d+\]: iquerySecName has not been configured - internal queries will fail$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?\s*ACPI: (XSDT|FACP|DSDT|APIC|WDDT|MCFG|ASF!|SSDT) [\da-f]+ [\dA-F]+ \(v"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?acpi PNP0A\d+:\d+: _OSC: OS now controls "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?acpi PNP0A\d+:\d+: _OSC: platform does not support "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ACPI: \_SB_.\S+: notify handler is installed
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ACPI: PCI Root Bridge \[\S+\] \(domain 
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?PCI host bridge to bus 
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?pci_bus \S+: on NUMA node "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?pci_bus \S+: root bus resource "
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?Linux version \s+"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+\[\s+\d+.\d+\]\s*Linux version \d+.\d+.\d+-\d+-\S+ \(\S+\) "
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+Command line: "
