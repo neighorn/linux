@@ -1,0 +1,4 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sync-remote(\.\S+)?(\[\d+\])?:\s*[<.>c][fd]......... "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sync-remote(\.\S+)?(\[\d+\])?:\s*building file list ... done$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sync-remote(\.\S+)?(\[\d+\])?:\s*sent \d+ bytes\s+received \d+ bytes\s+[\d.]+ bytes/sec$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sync-remote(\.\S+)?(\[\d+\])?:\s*total size is \d+\s+speedup is [\d.]+$"
