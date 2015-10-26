@@ -41,7 +41,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Sending on\s+LPF/S/[
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Sending on\s+Socket/fallback/fallback-net$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*submitting bug reports and requests for help.\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*the README file.\s*$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*uid lease \S+ for \S+ for client \S+ is duplicate on \S+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*uid lease \S+ (for \S+ )?for client \S+ is duplicate on \S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Wrote 0 deleted host decls to leases file.\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Wrote \d+ leases to leases file.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Wrote \d+ new dynamic host decls to leases file.$"
