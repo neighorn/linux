@@ -1,0 +1,1 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sealert-report(\[\d+\])?:\s*found 0 alerts in /var/log/audit/\S*$"
