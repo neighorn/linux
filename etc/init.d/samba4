@@ -30,7 +30,7 @@ if [[ $DISTRIB_ID = Ubuntu ]]
 then
 	. /lib/lsb/init-functions
 	START=''
-	STOP='start-stop-daemon --stop --retry=5 -x'
+	STOP='start-stop-daemon --stop --retry=5 --oknodo -x'
 fi
 
 # Source function library (?)
