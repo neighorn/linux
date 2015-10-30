@@ -265,7 +265,6 @@ sub RunRemote {
 			  . join(' ', @ARGV) . ' '
 			  . '-F /usr/local/etc/filter-accept-all.filter '
 			  . '--always-mail= '
-			  . '--remote-host= '
 			  . '2\>\&1 '
 			  ;
 		my $FH;
