@@ -401,7 +401,10 @@ sub ProcessBackup {
 					print "debug: Initiating shutdown\n";
 					eval {$Machines{$MachineName}->shutdown();};
 					print "debug: Finished shutdown request\n";
-					warn "$MachineName shutdown generated $@\n" if ($@);
+					if ($@) {
+						warn "$MachineName shutdown generated $@\n";
+						RunDangerousCmd("virsh list --all | grep '$MachineName'");
+					}
 				}
 				$Count--;
 				sleep 30;
