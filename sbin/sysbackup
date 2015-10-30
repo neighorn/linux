@@ -48,8 +48,8 @@ our %OptionSpecifications=(
 		'min-size|s=s'		=>	\&opt_Value,
 		'option-set|O=s'	=>	\&opt_O,
 		'output-dir|D=s'	=>	\&opt_Value,
-		'remote-host|R=s'	=>	\&opt_Array,
-		'test|t'		=>	\&opt_Value,
+		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
+		'test|t'		=>	sub {$Options{test} = (exists($Options{test})?$Options{test}+1:1)},
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -154,7 +154,7 @@ foreach (@{$Options{'exclude-fs'}}) {
 	$TypeExclude{$_}=1;
 }
 
-if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
+if (exists($Options{'remote-host'})) {
 	$Errors = RunRemote(@ARGV);
 }
 else {
@@ -234,28 +234,30 @@ sub LoadConfigFile {
 sub RunRemote {
 
 	my @ARGV=@_;
-	my @HostList;
 	my $Errors = 0;
-	foreach my $RemoteItem (@{$Options{'remote-host'}}) {
-		$RemoteItem =~ s/,+/ /g;
-		foreach (split(/\s+/,$RemoteItem)) {
-		        if (exists($Config{uc($_)})) {
-		                # This is a name from the config file.  Push it's list.
-		                my $ConfigItem = $Config{uc($_)};
-				$ConfigItem =~ s/,+/ /g;
-				my @SplitList = split(/\s+/,$Config{uc($_)});
-		                push @HostList, @SplitList;
-		        }
-		        else {
-		                push @HostList, $_;
-		        }
-	        }
-	}
+
+	# Analyze the remote-host list, ignoring duplicates and handling !-deletions.
+	my @HostList = @{$Options{'remote-host'}};
 	die "No remote hosts specified on the command line or in the configuration file.\n" unless (@HostList);
 
 	my $MaxLength = 0;
 	foreach (@HostList) { $MaxLength=($MaxLength < length($_)?length($_):$MaxLength); }
 	$MaxLength++;		# Allow for trailing colon.
+	my $DeleteNext=0;
+	foreach (@ARGV) {
+		if ($DeleteNext) {
+			$_ = '';
+			$DeleteNext=0;
+		}
+		elsif (/^--remote-host=/) {
+			$_ = '';		# Delete this for remote systems.
+		}
+		elsif (/^-R/) {
+			$_ = '';
+			$DeleteNext=1;
+		}
+	}
+	@ARGV = grep { $_ ne '' } @ARGV;
 	@ARGV = map {qq<"$_">} @ARGV;
 
 	foreach my $Host (@HostList) {
@@ -267,6 +269,13 @@ sub RunRemote {
 			  . '2\>\&1 '
 			  ;
 		my $FH;
+
+		# Don't even go to remote hosts if test level 2 (-tt).
+		if($Options{test} and $Options{test} >= 2) {
+			print "Test: $Cmd\n";
+			next;
+		}
+
 		print "Verbose: Running $Cmd\n" if ($Options{verbose} or $Options{test});
 		if (open($FH, "$Cmd |")) {
 			while (<$FH>) {
@@ -589,18 +598,86 @@ sub opt_Value {
 
 # ---------------------------------------------------------
 #
-# opt_Array - generic multi-value optoin  processing
+# opt_Array - generic multi-value option  processing
 #
 sub opt_Array {
 
-	my($Name,$Value,undef) = @_;
-	if (defined($Value) and length($Value)) {
-		# Add this value to the array.
-		push @{$Options{$Name}},$Value;
-	}
-	else {
+	my($Name,$Value,%ArrayOpt) = @_;
+
+	# Possible array processing options:
+	#	preserve-lists:	0, don't split on embedded spaces or commas
+	#			1 (default), split on embedded spaces or commas
+	#	allow-delete:	0 (default), leading ! on value has no meaning
+	#			1, leading ! on value means delete value from
+	#				current list.
+	#	force-delete:	0 (default), assume add unless ! and allow-delete=1
+	#			1 delete this item regardless of leading !
+
+
+	# Set a recursion limit if we don't already have one.  This helps
+	# us detect list loops (listA points to listA, or A->B->A, etc.).
+	$ArrayOpt{'recursion-limit'} = 64 unless ($ArrayOpt{'recursion-limit'});
+
+	# Is the value empty, meaning to wipe any entries to this point.
+	if (!$Value) {
 		# Received "--opt=".  Empty this array.
 		@{$Options{$Name}}=();
+		return;
+	}
+
+	# Split out lists by default, unless embedded-lists are preserved.
+	my @ValueList;
+	if ($ArrayOpt{'preserve-lists'}) {
+		# Preserve commas and embedded spaces.  Just leave value as is.
+		@ValueList = ($Value);
+	}
+	else {
+		$Value =~ s/[\s,]+$//;	# Trailing separators make no sense.
+		$Value =~ s/^\s+//;	# Ignore leading whitespace.
+		@ValueList = split(/[,\s]+/,$Value);
+	}
+
+	# Now process each list item individually.
+	while ($Value = shift(@ValueList)) {
+		
+		# Are we adding or deleting this item.
+		my $AddItem = 1;	# Assume we're adding.
+		my $Prefix;
+		if ($ArrayOpt{'force-delete'}) {
+			# We've been told, flat-out, to delete this item.
+			$AddItem = 0;
+			$Value =~ s/^!+// if ($ArrayOpt{'allow-delete'});
+		}
+		elsif ($ArrayOpt{'allow-delete'} and $Value =~ /^!+(.*)$/) {
+			# Delete is allowed, and ! is present.
+			$AddItem = 0;
+			$Value = $1;
+		}
+		
+		# If config lists are permitted, see if this is a config list.
+		if ($ArrayOpt{'expand-config'} and exists($Config{uc($Value)})) {
+			# This is a reference to a config file list. Recurse
+			# through this, in case the list contains more lists.
+			die "List loop detected in --$Name=$Value"
+				if ($ArrayOpt{'recursion-limit'} <= 0);
+			opt_Array(
+				$Name,
+				$Config{uc($Value)},
+				%ArrayOpt,'recursion-limit'=>($ArrayOpt{'recursion-limit'}-1),
+				'force-delete'=> (1-$AddItem),
+			);
+			next;
+		}
+
+		# If we got here, we have a value to either add or delete.
+		if ($AddItem) {
+			push @{$Options{$Name}},$Value
+				unless grep { $_ eq $Value } @{$Options{$Name}};
+		}
+		else {
+			# Remove this item from the list if present.
+			@{$Options{$Name}} = grep { $_ ne $Value } @{$Options{$Name}};
+		}
 	}
 }
 
@@ -635,6 +712,7 @@ sub opt_max_size {
 		$Options{'max-size'} = 0;
         }
 }
+
 
 
 # ---------------------------------------------------------
@@ -693,7 +771,11 @@ exit 1;
 				IP address, a configuration file entry
 				name, or a comma or space separated list of
 				any mix of these.  This option may also be
-				repeated to append to the list.
+				repeated to append to the list.  Host names
+				preceeded by ! are removed from the list.
+				This is primarily to allow a configuration
+				file list to be included, but some of the
+				hosts in the list to subsequently be excluded.
 	--precmd=cmd		PreCmd: Run this command before starting the
 				backup.  May be repeated to execute multiple
 				commands.  Prefix with ! if job should be
