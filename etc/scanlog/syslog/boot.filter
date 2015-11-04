@@ -683,16 +683,16 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?IPMI Sys
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?IPMI System Interface driver.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi: Found new BMC \(man_id: 0x00b980,  prod_id: 0xaabb, dev_id: 0x20\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si [[:xdigit]]+:[[:xdigit]]+: \[io  0x[[:xdigit:]]+\] regsize \d+ spacing \d+ irq \d+$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si [[:xdigit]]+:[[:xdigit]]+: Found new BMC 
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si [[:xdigit]]+:[[:xdigit]]+: Found new BMC"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si [[:xdigit]]+:[[:xdigit]]+: IPMI kcs interface initialized$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si \d+:\d+:\d+.\d+: \[mem 0xe\d+a\d+-0xe\d+a\d+fff\] regsize \d+ spacing \d+ irq \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si \d+:\d+:\d+.\d+: probing via PCI$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: Adding \S+-specified \S+ state machine$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: Interface detection failed$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: probing via ACPI
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: probing via SPMI
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: SMBIOS: mem 0x0 regsize 1 spacing 1 irq 0
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: SPMI: io 0xca2 regsize 1 spacing 1 irq 0
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: probing via ACPI"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: probing via SPMI"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: SMBIOS: mem 0x[[:xdigit:]]+ regsize \d+ spacing \d+ irq \d+"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: SPMI: io 0x[[:xdigit:]]+ regsize \d+ spacing \d+ irq \d+"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: There appears to be no BMC at this location$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: Trying default-specified \S+ state machine at "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ipmi_si: Trying PCI-specified kcs state machine at mem address 0xe\d+a\d+, slave address 0x\d+, irq \d+$"
@@ -1219,6 +1219,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s*)?usb \d+-
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s*)?usb \d+-\d+\.\d+:\s+New USB device strings: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s*)?usb \d+-\d+\.\d+:\s+Product: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s*)?usb \d+-\d+\.\d+:\s+SerialNumber: "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?\s*ACPI: (XSDT|FACP|DSDT|APIC|WDDT|MCFG|ASF!|SSDT) [\da-f]+ [\dA-F]+ \(v"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\s*sd.\d+)+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+- User ID: CentOS \(Kernel Module GPG key\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+..TIMER: vector=0x30 apic1=0 pin1=2 apic2=-1 pin2=-1$"
@@ -1337,8 +1338,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ rpcbind: rpcbind terminating on signal.
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: \[origin software=\"rsyslogd\" swVersion="
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: \[origin software=\"rsyslogd\" swVersion=\"\d+.\d+.\d+\" x-pid=\"\d+\" x-info=\"http://www.rsyslog.com\"\] exiting on signal \d+.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ snmpd\[\d+\]: iquerySecName has not been configured - internal queries will fail$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ statd-pre-start: virtual-filesystems started
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?\s*ACPI: (XSDT|FACP|DSDT|APIC|WDDT|MCFG|ASF!|SSDT) [\da-f]+ [\dA-F]+ \(v"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ statd-pre-start: virtual-filesystems started"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?acpi PNP0A\d+:\d+: _OSC: OS now controls "
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?acpi PNP0A\d+:\d+: _OSC: platform does not support "
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ACPI: \_SB_.\S+: notify handler is installed"
