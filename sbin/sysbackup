@@ -5,7 +5,7 @@
 use strict;
 use warnings;
 use LogOutput;
-use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
+use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
@@ -42,8 +42,8 @@ our %OptionSpecifications=(
 		'exclude|x=s'		=>	\&opt_Array,
 		'filter-file|F=s'	=>	\&opt_Array,
 		'help|h|?!'		=>	\&opt_h,
-		'precmd=s'		=>	\&opt_Array,
-		'postcmd=s'		=>	\&opt_Array,
+		'precmd=s'		=>	sub { opt_Array(@_,'preserve-lists'=>1);},
+		'postcmd=s'		=>	sub { opt_Array(@_,'preserve-lists'=>1);},
 		'max-size|S=s'		=>	\&opt_Value,
 		'min-size|s=s'		=>	\&opt_Value,
 		'option-set|O=s'	=>	\&opt_O,
@@ -306,7 +306,8 @@ sub RunLocally {
 	#
 	my $HostOptions = shift;
 	if ($HostOptions) {
-		die "Invalid options specified\n" unless (GetOptionsFromString($HostOptions,%OptionSpecifications));
+		my @Array = quotewords(" ",0,$HostOptions);
+		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
 	}
 
 	# ---------------------------------------------------------
@@ -604,13 +605,13 @@ sub opt_Array {
 	my($Name,$Value,%ArrayOpt) = @_;
 
 	# Possible array processing options:
-	#	preserve-lists:	0, don't split on embedded spaces or commas
-	#			1 (default), split on embedded spaces or commas
+	#	preserve-lists:	0 (default), split on embedded spaces or commas
+	#			1, don't split on embedded spaces or commas
 	#	allow-delete:	0 (default), leading ! on value has no meaning
 	#			1, leading ! on value means delete value from
 	#				current list.
 	#	force-delete:	0 (default), assume add unless ! and allow-delete=1
-	#			1 delete this item regardless of leading !
+	#			1, delete this item regardless of leading !
 
 
 	# Set a recursion limit if we don't already have one.  This helps
