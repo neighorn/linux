@@ -1,0 +1,4 @@
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ imapd\[\d+\]: imaps SSL service init from 127.0.0.1$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ imapd\[\d+\]: imaps SSL service init from 172.27.2.\d+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ imapd\[\d+\]: Login user=.* host=localhost \[127.0.0.1\]$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ imapd\[\d+\]: Logout user=.* host=localhost \[127.0.0.1\]$"

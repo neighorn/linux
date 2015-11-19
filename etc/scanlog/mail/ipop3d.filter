@@ -1,0 +1,5 @@
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: Login user=\S+"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: Logout user=\S+"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: pop3s SSL service init from 172.27.2."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: pop3s SSL service init from 172.27.2."
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ipop3d\[\d+\]: pop3s SSL service init from 216.9.24[89]."
