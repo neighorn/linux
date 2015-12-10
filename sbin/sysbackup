@@ -401,7 +401,9 @@ sub RunLocally {
 			# Skip transient file systems based on type.
 			/\stype\s+(\S+)\s/;
 			next if ($TypeExclude{$1});
-	
+
+			# Skip anything with a source device of "none"
+			next if (/^\s*none\s/);
 	
 			# Skip anything under /mnt as being temporary.
 			next if (m"^\S+ on /mnt/");
