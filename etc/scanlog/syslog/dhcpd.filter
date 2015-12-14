@@ -39,6 +39,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*requesting help.\s*$
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*send them to the appropriate mailing list as described in\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Sending on\s+LPF/S/[0-9a-f:]+/\d+\.\d+\.\d+\/\d+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Sending on\s+Socket/fallback/fallback-net$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Sending updates to \S+\.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*submitting bug reports and requests for help.\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*the README file.\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*uid lease \S+ (for \S+ )?for client \S+ is duplicate on \S+$"
