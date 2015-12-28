@@ -194,9 +194,10 @@ sub opt_h {
 
 	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
 	print PAGENATER <<"ENDUSAGE";
-$Prog - Zip selected shared folders onto the snap server.
+$Prog - scan a log file for unusual messages
+199c202
 
-Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] files
+Usage:  $Prog [options] files
 	$Prog -h
 
 Flags:
