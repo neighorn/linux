@@ -398,11 +398,10 @@ sub ProcessBackup {
 			while (! $Options{test} and IsRunning($MachineName) and $Count > 0) {
 				if ($Count % 2 == 0) {
 					# Send shutdown once per minute.
-					print "debug: Initiating shutdown\n";
 					eval {$Machines{$MachineName}->shutdown();};
-					print "debug: Finished shutdown request\n";
 					if ($@) {
-						warn "$MachineName shutdown generated $@\n";
+						my $message = chomp($@);
+						warn "$MachineName shutdown generated $message\n";
 						RunDangerousCmd("virsh list --all | grep '$MachineName'");
 					}
 				}
@@ -830,6 +829,7 @@ SHOW	"^\s*error: failed to start domain \S+$"
 SHOW	"^\s*Backup of \S+ completed normally at ....-..-.. ..:..:..$"
 IGNORE	"^\s*error: Failed to shutdown domain \S+$"
 IGNORE	"^\s*error: Unable to read from monitor: Connection reset by peer$"
+IGNORE	"^\s*\S+ shutdown generated libvirt error code: 38, message: Unable to read from monitor: Connection reset by peer"
 # 
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
