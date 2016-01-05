@@ -1,0 +1,81 @@
+#! /usr/bin/perl
+#
+# Quick script to count outbound mail by sender
+#
+# "mail-senders" to count entries in mailq
+#    -or-
+# "mail-senders file1..." to count Postfix mail queue additions
+
+
+if (@ARGV) {
+	maillog(@ARGV);
+}
+else {
+	mailq();
+}
+
+sub maillog {
+
+	my %Senders;
+	my $Count=0;
+	my $MaxLen=0;
+	foreach my $mailfile (@_) {
+		my $FH;
+		if (!open ($FH,'<',$mailfile)) {
+			warn "Unable to open $mailfile: $!\n";
+			next;
+		}
+		
+		# Jan  5 10:04:00 11b011 postfix/qmgr[2095]: AC40322E74: from=<admin_eliassen@eliassen.com>, size=10508, nrcpt=1 (queue active)
+		while (<$FH>) {
+			next unless (/^... .. ..:..:.. (\S+) postfix\/\S+: ([[:xdigit:]]+): from=<(\S+)>, size=\d+/);
+			$Count++;
+			my($host,$queueid,$sender) = ($1,$2,$3);
+			if (exists($Senders{$sender})) {
+				$Senders{$sender}++;
+			}
+			else {
+				$Senders{$sender}=1;
+				$MaxLen=($MaxLen > length($sender)?$MaxLen:length($sender));
+			}
+		}
+		close $FH;
+	}
+	
+	print "Senders in mail log(s):\n";
+	foreach (sort {$Senders{$b} <=> $Senders{$a}} (keys(%Senders))) {
+		printf "%-*s %5d\n", $MaxLen ,$_, $Senders{$_};
+	}
+	
+	printf "\n%-*s %5d\n", $MaxLen,"Total",$Count;
+}
+
+
+sub mailq {
+
+	#### Note: this script is buggy.  It undercounts for unknown reasons.
+
+	# 84A27630FE    25278 Mon Jun 22 15:15:28  admin_premier@premier-homehealth.com
+	open (my $FH,q<mailq | awk --posix '/^[0-9A-F]{10} /{print $1, " ", $7}' | >) || die "Unable to open pipe: $!\n";
+	my %Senders;
+	
+	my $Count=0;
+	while (<$FH>) {
+		$Count++;
+		chomp;
+		my($queueid,$sender) = split(/\s+/);
+		if (exists($Senders{$sender})) {
+			$Senders{$sender}++;
+		}
+		else {
+			$Senders{$sender}=1;
+		}
+	}
+	
+	print "Mail Queue senders:\n";
+	foreach (sort {$Senders{$b} <=> $Senders{$a}} (keys(%Senders))) {
+		printf "%-40s %5d\n", $_, $Senders{$_};
+	}
+	
+	printf "\n%-40s %5d\n", "Total",$Count;
+}
