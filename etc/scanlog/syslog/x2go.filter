@@ -11,3 +11,4 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ /usr/bin/x2gosuspend-session(\[\d+\])?:
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ /usr/bin/x2gosuspend-session(\[\d+\])?: session with ID \S+ is not in running state$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ /usr/bin/x2goterminate-session(\[\d+\])?: ERROR: failed to terminate session with ID"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ /usr/bin/x2goterminate-session(\[\d+\])?: session with ID \S+ has been terminated successfully$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ /usr/lib(64)?/x2go/x2gogetagentstat \S+: state file for this session does not exists: \S+ \(this can be ignored during session startups\)$"
