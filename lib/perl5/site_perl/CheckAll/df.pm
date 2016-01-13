@@ -8,7 +8,7 @@ no strict 'refs';
 use warnings;
 package df;
 use base 'CheckItem';
-use fields qw(Port User Maxpercent Exclude Posix Localonly);	
+use fields qw(Port User Maxpercent Minpercent Exclude Posix Localonly);	
 
 my %HostHash;	# Hash of lists of df data.
 
@@ -34,6 +34,30 @@ sub Maxpercent {
 	else {
 		# This is a read operation.
 		return $Self->{Maxpercent};
+	}
+}
+
+sub Minpercent {
+
+	# Retrieve or validate and save the target.
+	my $Self = shift;
+
+	if (@_) {
+		# This is a set operation.
+		my $Minpercent = shift;
+		if ($Minpercent =~ /^\s*(\d{1,2}|100)%?\s*$/) {
+			$Self->{Minpercent} = $1;
+			return 1;
+		}
+		else {
+			print "$Self->{FILE}:$Self->{LINE}: " .
+				qq[Invalid Minpercent value "$Minpercent"\n];
+			return undef();
+		}
+	}
+	else {
+		# This is a read operation.
+		return $Self->{Minpercent};
 	}
 }
 
@@ -79,8 +103,11 @@ sub Check {
 		$Self->{StatusDetail} = "Configuration error: Target not specified";
 		$Errors++;
 	}
-	if (! $Self->{Maxpercent}) {
-		$Self->{StatusDetail} = "Configuration error: MaxPercent not specified";
+	if (
+		    (! defined($Self->{Maxpercent}))
+		and (! defined($Self->{Minpercent}))
+	) {
+		$Self->{StatusDetail} = "Configuration error: Neither MinPercent nor MaxPercent are specified";
 		$Errors++;
 	}
 	return "Status=" . $Self->CHECK_FAIL if ($Errors);
@@ -255,8 +282,12 @@ sub _Check {
 		my $percent = $HostHash{$Host}{$Target}{percent};
 		printf REALSTDOUT "\r\%5d   Checking %s at %d%%\n", $$, $Target, $percent
 			if ($Self->{Verbose});
-		if ($percent > $Self->{Maxpercent}) {
-			$Detail .= ", $Target at $percent%";
+		if (defined($Self->{Minpercent}) && $percent < $Self->{Minpercent}) {
+			$Detail .= ", $Target at $percent%, below $Self->{Minpercent}%";
+			$Status = $Self->CHECK_FAIL;
+		}
+		if (defined($Self->{Maxpercent}) && $percent > $Self->{Maxpercent}) {
+			$Detail .= ", $Target at $percent%, above $Self->{Maxpercent}%";
 			$Status = $Self->CHECK_FAIL;
 		}
 	}
@@ -279,6 +310,7 @@ df checks on the output from a df -Pk command.
 =head2 Syntax
 
   df Target=/var MaxPercent=90
+  df Target=/var MinPercent=10
   df Target=/opt Host=hostname MaxPercent=90
   df Target=ALL MaxPercent=80 Exclude=/var,/opt
   
@@ -298,6 +330,10 @@ In addition, the following optional fields are supported:
 Exclude = a comma separated list of files systems (mount points) to ignore.  This
 is primarily intended for use with a target of "ALL" to test all but a fixed
 set of file systems.
+
+=item *
+
+MinPercent = the minimum percent df may report before an alert is issued.
 
 =item *
 
@@ -333,6 +369,10 @@ work on some embedded systems that don't support the -l option by specifying Loc
 =head2 Notes
 
 =over 4
+
+=item *
+
+Either MinPercent or MaxPercent must be specified.
 
 =item *
 
