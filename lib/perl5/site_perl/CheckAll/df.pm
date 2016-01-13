@@ -267,7 +267,7 @@ sub _Check {
 		}
 	}
 	else {
-		@TargetList = ($Self->{Target});
+		@TargetList = (split(/\s*,\s*/,$Self->{Target}));
 	}
 	
 	my $Status = $Self->CHECK_OK;		# Assume no errors.
@@ -311,7 +311,7 @@ df checks on the output from a df -Pk command.
 
   df Target=/var MaxPercent=90
   df Target=/var MinPercent=10
-  df Target=/opt Host=hostname MaxPercent=90
+  df Target=/opt,/var Host=hostname MaxPercent=90
   df Target=ALL MaxPercent=80 Exclude=/var,/opt
   
 
@@ -319,7 +319,7 @@ df checks on the output from a df -Pk command.
 
 df is derived from CheckItem.pm.  It supports the same fields as CheckItem.  
 
-The target field specifies a mount point to check.
+The target field specifies a comma-separated list of mount points to check, or ALL to check all mounted file systems.
 
 In addition, the following optional fields are supported:
 
@@ -372,16 +372,21 @@ work on some embedded systems that don't support the -l option by specifying Loc
 
 =item *
 
+The target of "ALL" may be specified to check all items reported by df, except ones using a device of "none".
+
+=item *
+
 Either MinPercent or MaxPercent must be specified.
+
+=item *
+
+Specifying "MinPercent=0" can be used to test whether a file system is mounted.  In this case
+"Target=ALL" can't be used, since it only checks mounted file systems.
 
 =item *
 
 This module ignores df-reported items with a device name of "none", as these are not real 
 file systems.
-
-=item *
-
-The target of "ALL" may be specified to check all items reported by df, except ones using a device of "none".
 
 =back
 
