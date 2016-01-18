@@ -44,6 +44,7 @@ sub Check {
 			. ($Self->{User}?"$Self->{User}@":'')
 			. $Self->{Host} . ' '
 			. $BaseCmd
+			. ' 2>&1'
 			;
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
     			printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
