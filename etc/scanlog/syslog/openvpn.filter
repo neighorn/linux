@@ -60,6 +60,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?LZO compression initialized"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?mode = 1$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?MULTI: bad source address from client \[\S+\], packet dropped\s*\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?MULTI: internal route \S+ -> \S+:\d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?MULTI: Learn: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?MULTI: multi_create_instance called\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?MULTI: multi_init called, r=\d+ v=\d+$"
