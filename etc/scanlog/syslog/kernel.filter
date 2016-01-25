@@ -1,4 +1,3 @@
-
 IGNORE	"^... [ 1-3]\d 00:0\d:\d\d \S+ kernel:\s*Kernel logging \(proc\) stopped.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*  Type:   Direct-Access                      ANSI SCSI revision: \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*  Vendor: "
@@ -303,6 +302,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?Total sw
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?Total swap = \d+kB$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?Total swap\s+= \d+kB$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?type=\S+ audit\(\S+\): audit_pid=\d+ old=\d+ auid=\d+ ses=\d+ res=\d+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?type=\S+ audit\(\S+\): apparmor=\"(ALLOWED|STATUS)\""
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?UDF-fs: INFO UDF"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?UDF-fs: Partition marked readonly; forcing readonly mount$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?udf: registering filesystem$"
