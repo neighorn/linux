@@ -95,7 +95,7 @@ die(qq<Incorrect number of parameters.  See "$Prog -h" for usage.\n">)
 
 # Set up our logging and output filtering.
 my $BaseFileName;
-($BaseFileName=$Parms[0]) =~ s"^(.*/)?([^-]+)(-.+)?$"$2";
+($BaseFileName=$Parms[0]) =~ s"^(.*/)?([^.-]+)([.-].+)?$"$2";
 if (!$opt_f) {
 	# No filter file name specified.  Can we find a directory for this log file?
 	if (-d "$FilterDir/$BaseFileName") {
