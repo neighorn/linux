@@ -254,7 +254,7 @@ sub RunRemote {
 			}
 			close $FH;
 			my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
-			print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
+			printf "%-*s:  Remote job exited with return code %d and signal %d\n", $MaxLength, $Host, $ExitCode, $Signal;
 			$Errors++ if ($ExitCode);
 		}
 		else {
@@ -660,7 +660,7 @@ IGNORE	"^\s*(\S+:\s+)?/dev/md\S+ excluded.$"
 IGNORE	"^\s*(\S+:\s+)?\d+ blocks .*\[U+\]$"
 IGNORE	"^\s*(\S+:\s+)?Personalities : \["
 IGNORE	"^\s*(\S+:\s+)?unused devices: "
-IGNORE	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
+SHOW	"^\s*\S+\s*:\s*Remote job exited with return code 0 and signal 0$"
 IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0$"
 IGNORE	"^\s*\S+:\s+Beginning check of /dev/"
 IGNORE	"^\s*\S+:\s+Completed check of /dev/"
@@ -668,9 +668,11 @@ IGNORE	"^\s*\S+:\s+Completed check of /dev/"
 # These are normal messages that we want to see in the e-mail log only.
 #
 
-LOGONLY "^\s*(\S+:\s+)?\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-LOGONLY /^\s*(\S+:\s+)?Command: /
-LOGONLY	"^\s*\S+:\s+\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+ - run time:"
+LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE "^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY /^\s*Command: /
+IGNORE /^\s*\S+:\s+Command: /
+IGNORE	"^\s*\S+:\s+\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+ - run time:"
 #
 # These are normal messages that we want to see.
 #
