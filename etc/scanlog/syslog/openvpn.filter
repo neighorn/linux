@@ -68,7 +68,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?MULTI: primary virtual IP for \S+ \S+\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?MULTI_sva: pool returned IPv4=\d+\.\d+\.\d+\.\d+, IPv6="
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?NOTE: --mute triggered...$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?OpenVPN \S+ x\S+\s+.*built on ... .. 2...$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?OpenVPN \S+ (x|i)\S+\s+.*built on ... .. 2...$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?OpenVPN STATISTICS$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?OPTIONS IMPORT:"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?Outgoing Control Channel Authentication: Using 160 bit message hash 'SHA1' for HMAC authentication$"
