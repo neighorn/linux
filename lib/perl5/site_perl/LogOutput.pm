@@ -16,12 +16,13 @@ use POSIX qw(strftime);
 use Sys::Syslog;
 use File::Glob qw(:glob);	# :bsd_glob not recognized on older systems
 use File::Temp qw(tempfile);
+use Fcntl;
 use Fcntl qw(:flock);
 
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.23;
+our $Version	= 3.25;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -540,7 +541,7 @@ sub _LoadFilters {
 	my @IgnorePatterns;		# Collected patterns from FilterHandle.
 	my @NormalPatterns;		# Collected patterns from FilterHandle.
 	my @MailOnlyPatterns;		# Collected patterns from FilterHandle.
-	my $DataRead = 0;		# Don't read DATA twice.
+	my %FilterFilesRead;		# Don't read a file twice.
 
 	# Get a list of our filter file(s).
 	my @FilterList;
@@ -567,64 +568,30 @@ sub _LoadFilters {
 
 	# Process each filter file.
 	foreach my $FilterFile (@FilterList) {
-		# They provided us with a filter file.
-		if ($FilterFile eq '__DATA__' and $DataRead) {
-			# Trying to read __DATA__ twice.  Ignore it.
-			next;
+		# See if we've already read this file, to prevent loops and unnecessary processing.
+		if ($FilterFile eq 'SHOWALL') {
+			@NormalPatterns = ('/.*/');
+			@IgnorePatterns = ();
+			print "LogOutput: FilterList includes SHOWALL -- any other filters discarded\n" if ($Options{VERBOSE});
+			last;
 		}
-		elsif ($FilterFile eq '__DATA__') {
-			# They didn't provide us with a filter file.  Use DATA.
-			$FilterHandle=*main::DATA{IO};
-			print "LogOutput: Loading filters from DATA\n" if $Options{VERBOSE};
-			$DataRead = 1;	# Remember we read this one, to avoid reads on closed file handle.
+		elsif ($FilterFile eq 'IGNOREALL') {
+			@NormalPatterns = ();
+			@IgnorePatterns = ('/.*/');
+			print "LogOutput: FilterList includes IGNOREALL -- any other filters discarded\n" if ($Options{VERBOSE});
+			last;
+		}
+		elsif ($FilterFile eq 'REJECTALL') {
+			@NormalPatterns = ();
+			@IgnorePatterns = ();
+			print "LogOutput: FilterList includes REJECTALL -- all filters discarded\n" if ($Options{VERBOSE});
+			last;
 		}
 		else {
-			print "LogOutput: Loading filters from $FilterFile\n" if $Options{VERBOSE};
-			if (!open($FilterHandle,$FilterFile)) {
-				$ErrorsDetected += _FilterMessage(qq<Unable to open "$FilterFile" $!\n>);
-				close $FilterHandle;
-				next;
-			}
+			_LoadFilterFile($FilterFile,\%FilterFilesRead,\@IgnorePatterns,\@NormalPatterns,\@MailOnlyPatterns);
 		}
-	
-		# Build arrays of our scoring patterns.
-		$PatternNum=0;
-		while (<$FilterHandle>) {
-			$PatternNum++;
-			print "LogOutput: \tread $PatternNum: $_\n"
-				if ($Options{VERBOSE} >= 2);
-			chomp;
-			next if (/^\s*$/ or /^\s*#/);	# Skip comments and blank lines.
-	
-			# Split out the type from the pattern.
-			($Type,$Pattern)=split('\s+',$_,2);
-			$Pattern=~s/\s+$//;		# Strip trailing whitespace.
-	
-			# Check for syntax errors.
-			eval "qr$Pattern;";		# Check pattern for syntax problems.
-			if ($@) {
-				print qq<LogOutput: \tSyntax error in $FilterFile line $PatternNum ("> 
-					. substr($Pattern,0,50)
-					. qq<"): $@\n>;
-				next;
-			}
-	
-			# Add to the appropriate pattern list.
-			if ($Type =~ /ignore/i) {
-				# Add it to this array.
-				push @IgnorePatterns, $Pattern;
-			} elsif ($Type =~ /show/i) {
-				# Add it to this array.
-				push @NormalPatterns, $Pattern;
-			} elsif ($Type =~ /mailonly|logonly/i) {
-				# Add it to this array.
-				push @MailOnlyPatterns, $Pattern;
-			} else {
-				$ErrorsDetected += _FilterMessage(qq<LogOutput: Invalid type "$Type" in pattern record $PatternNum -- ignored.\n>);
-			}
-		}
-		close ($FilterHandle);
 	}
+	
 
 	# Add our standard messages on the end of the normal list, so they don't
 	# get flagged as errors.  Note that ignore patterns take precedence, so
@@ -641,6 +608,82 @@ sub _LoadFilters {
 	$NormalTest = _CompilePatterns("Show",@NormalPatterns);
 	$MailOnlyTest = _CompilePatterns("MailOnly",@MailOnlyPatterns);
 
+}
+
+
+
+#
+# _LoadFilterFile - load an individual filter file.
+#
+sub _LoadFilterFile {
+	my $FilterHandle;		# Handle, in case they don't use DATA.
+	my $Type;			# Type of pattern from FilterHandle file
+	my $Pattern;			# Pattern from FilterHandle file.
+	my $PatternNum;			# Pattern record number.
+
+	my($FilterFile,$FilesReadRef,$IgnoreRef,$NormalRef,$MailOnlyRef) = @_;
+	if (exists($FilesReadRef->{$FilterFile})) {
+		# We already read this one.  Skip it.
+		print "LogOutput: Skipping filters from $FilterFile -- already read\n" if $Options{VERBOSE};
+		return;
+	}
+	else {
+		print "LogOutput: Loading filters from $FilterFile\n" if $Options{VERBOSE};
+		$FilesReadRef->{$FilterFile}=1;
+	}
+
+	if ($FilterFile eq '__DATA__') {
+		# Input is coming from the embedded data file.
+		$FilterHandle=*main::DATA{IO};
+	}
+	elsif (!sysopen($FilterHandle,$FilterFile,O_RDONLY)) {
+		$ErrorsDetected += _FilterMessage(qq<Unable to open "$FilterFile" $!\n>);
+		close $FilterHandle;
+		return;
+	}
+
+	# Build arrays of our scoring patterns.
+	$PatternNum=0;
+	while (<$FilterHandle>) {
+		$PatternNum++;
+		chomp;
+		print "LogOutput: \tread $PatternNum: $_\n"
+			if ($Options{VERBOSE} >= 2);
+		next if (/^\s*$/ or /^\s*#/);	# Skip comments and blank lines.
+
+		# Split out the type from the pattern.
+		($Type,$Pattern)=split('\s+',$_,2);
+		$Pattern=~s/\s+$//;		# Strip trailing whitespace.
+		if ($Type =~ /^include$/i) {
+			_LoadFilterFile($Pattern,$FilesReadRef,$IgnoreRef,$NormalRef,$MailOnlyRef);
+			print "LogOutput: Resuming $FilterFile\n" if $Options{VERBOSE};
+			next;
+		}
+
+		# Check for syntax errors.
+		eval "qr$Pattern;";		# Check pattern for syntax problems.
+		if ($@) {
+			print qq<LogOutput: \tSyntax error in $FilterFile line $PatternNum ("> 
+				. substr($Pattern,0,50)
+				. qq<"): $@\n>;
+			next;
+		}
+
+		# Add to the appropriate pattern list.
+		if ($Type =~ /ignore/i) {
+			# Add it to this array.
+			push @$IgnoreRef, $Pattern;
+		} elsif ($Type =~ /show/i) {
+			# Add it to this array.
+			push @$NormalRef, $Pattern;
+		} elsif ($Type =~ /mailonly|logonly/i) {
+			# Add it to this array.
+			push @$MailOnlyRef, $Pattern;
+		} else {
+			$ErrorsDetected += _FilterMessage(qq<LogOutput: Invalid type "$Type" in pattern record $PatternNum -- ignored.\n>);
+		}
+	}
+	close ($FilterHandle);
 }
 
 
@@ -1005,8 +1048,9 @@ for error terminations only.  These addresses will receive very short
 notifications when the job has terminated.  
 
 LogOutput's ability to review all output from the script allows it to 
-perform aggressive error checking.  See "Filtering and Error Detection" below
-for further information.
+perform aggressive error checking.  Normal messages are defined in advance
+using a list of message filters.  Any other messages are flagged as errors.
+See "Filtering and Error Detection" below for further information.
 
 For details on the overall implementation approach, see
 "Detailed Description" below.
@@ -1019,9 +1063,41 @@ This option contains a file name of a file containing message
 filtering information.  Wildcards are allowed, in which case all
 files matching the pattern are loaded.  This can also be an array,
 in which case each element is is processed as a file name, possibly
-with wildcards.  The default value is "__DATA__",
-which is a reserve word instructing LogOutput to load the filter
-data from the built-in Perl <DATA> file handle.
+with wildcards.  The following case-sensitive reserve words have special
+meanings:
+
+=over 4
+
+=item *
+__DATA__
+
+Load the filter data from the built-in Perl <DATA> file handle.
+
+=item *
+SHOWALL
+
+Ignore all other filters and treat every message as a normal message
+that should be displayed.  This filter is used primarily for diagnostic 
+purposes, and when a script is being executed by another script that
+will handle filtering and error detection.
+
+=item *
+IGNOREALL
+
+Ignore all other filters and treat every message as a normal
+message that should be ignored.  This filter is used primarily for
+diagnostic purposes.
+
+=item *
+REJECTALL
+
+Ignore all other filters and treat every message as an unexpected
+message.  This filter is used primarily for diagnostic purposes.
+
+=back
+
+
+The default value is "__DATA__".
 
 The message filters allow LogOutput to determine whether the 
 script generated any unexpected messages, and allows it to reduce the amount
@@ -1214,14 +1290,15 @@ is treated as an error condition.
 
 The format of the filter file is:   TYPE  PATTERN
 
-TYPE can be one of the following:
+TYPE can be one of the following case-insensitive words:
 
     SHOW	Show this message on all output media
     MAILONLY	Show this message on the syslog and e-mail reports
     LOGONLY	Same as MAILONLY, deprecated
     IGNORE	Show this message on the system log only
+    INCLUDE	PATTERN is an additional filter file to be loaded
 
-PATTERN is any valid PERL pattern.
+Except for "INCLUDE", PATTERN is any valid PERL pattern.
 
 For example:
 
