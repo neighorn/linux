@@ -30,6 +30,7 @@ our %OptionSpecifications=(
 		'<>'			=>	sub {push @Parms,shift;},
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'filter|F=s'		=>	\&opt_Value,
+		'host=s'		=>	\&opt_Value,
 		'help|h|?!'		=>	\&opt_h,
 		'always-mail|m=s'	=>	\&opt_Array,
 		'error-mail|M=s'	=>	\&opt_Array,
@@ -119,7 +120,11 @@ LogOutput({
 die("Unexpected parameters specified on the command line.  See \"$Prog -h\" for usage.")
 	unless (@Parms == 0);
 
-my $ExitCode = RunDangerousCmd('/usr/bin/mysqlcheck --all-databases');
+my $ExitCode = RunDangerousCmd(
+	  '/usr/bin/mysqlcheck '
+	. '--all-databases '
+	. ($Options{host}?"--host $Options{host} ":'')
+);
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {
@@ -239,6 +244,9 @@ a status of "OK", so that only error conditions are reported.
 	--filter|-F filter:	Filter: Use alternate error detection
 				filter file "filter".  The default is
 				to use the built-in error filter.
+	--host=host		Host: connect to "host" to run the check.
+				The default is to connect to the local 
+				host.
 	--always-mail|-m addr:	Mailid: Send an execution report to
 				this e-mail address.
 	--always-page|-p addr:	Page: Send a very brief message
