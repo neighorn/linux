@@ -1,0 +1,7 @@
+SHOW	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: sensord (started|stopped)$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: Chip: eeprom-i2c-0-50$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: Chip: eeprom-i2c-0-52$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: Adapter: SMBus I801 adapter at c400$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: Algorithm: Unavailable from sysfs$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord:   Memory type: DDR SDRAM DIMM SPD$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord:   Memory size \(MB\): Invalid 13 10 1 4$"

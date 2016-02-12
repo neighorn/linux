@@ -289,13 +289,6 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpdate\[\d+\]: step time server .* of
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ pam_userdb\[\d+\]: user '[a-z]+' granted acces$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ PAM-devperm\[\d+\]: opendir\(/dev/snd/\*\)"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ recovery-info: "
-SHOW	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: sensord (started|stopped)$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: Chip: eeprom-i2c-0-50$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: Chip: eeprom-i2c-0-52$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: Adapter: SMBus I801 adapter at c400$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord: Algorithm: Unavailable from sysfs$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord:   Memory type: DDR SDRAM DIMM SPD$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sensord:   Memory size \(MB\): Invalid 13 10 1 4$"
 SHOW    "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ shutdown\[\d+\]: shutting down"
 # Get these next two occasionally.  Assume users are browsing in the wrong place.
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd\[\d+\]:\s+[0-9.]+ \([0-9.]+\) couldn't find service "
