@@ -1,0 +1,6 @@
+#! /bin/bash
+for name in /sys/class/scsi_host/*/scan
+do
+	echo Rescanning ${name%%/scan}
+	echo "- - -" > $name
+done
