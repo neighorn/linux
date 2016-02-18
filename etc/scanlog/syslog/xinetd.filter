@@ -1,0 +1,2 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ xinetd(\[\d+\])?:\s*START: \S+ pid=\d+"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ xinetd(\[\d+\])?:\s*EXIT: \S+ status=\d+ pid=\d+ duration=\d+"
