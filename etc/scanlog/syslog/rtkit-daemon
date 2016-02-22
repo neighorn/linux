@@ -1,0 +1,8 @@
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Successfully called chroot.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Successfully dropped privileges.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Successfully limited resources.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Running.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Watchdog thread running.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Canary thread running.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Successfully made thread \d+ of process \d+ \(n/a\) owned by '\d+' high priority at nice level -\d+.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ rtkit-daemon(\[\d+\])?:\s*Supervising \d+ threads of \d+ processes of \d+ users.$"
