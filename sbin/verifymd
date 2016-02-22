@@ -254,7 +254,7 @@ sub RunRemote {
 			}
 			close $FH;
 			my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
-			printf "%-*s:  Remote job exited with return code %d and signal %d\n", $MaxLength, $Host, $ExitCode, $Signal;
+			printf "%-*s  Remote job exited with return code %d and signal %d\n", $MaxLength, "$Host:", $ExitCode, $Signal;
 			$Errors++ if ($ExitCode);
 		}
 		else {
