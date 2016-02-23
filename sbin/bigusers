@@ -94,14 +94,14 @@ do
 #   time a user name changes.  Sort the results backwards by total and print
 #   the worst 60.
     find $subtree -xdev -type f $ModTime -ls | \
-	/usr/bin/awk '{print $5, $7}' | \
+	awk '{print $5, $7}' | \
 	sort -k 1,1 | \
-	/usr/bin/awk 'BEGIN	{Prior="";Total=0} \
+	awk 'BEGIN	{Prior="";Total=0} \
 		$1 != Prior && Prior != "" \
 				{print Prior, Total;Total=0} \
 				{Prior=$1;Total+=$2} \
 		END		{print Prior, Total}' |
-	/usr/bin/sort -k 2,2nr |
-	/usr/bin/awk '{printf "%'"'"'17d %-8s\n", $2, $1}' |
-	/usr/bin/head -20
+	sort -k 2,2nr |
+	awk '{printf "%'"'"'17d %-8s\n", $2, $1}' |
+	head -20
 done
