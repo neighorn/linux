@@ -1,0 +1,503 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use LogOutput;
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
+use Text::ParseWords;
+use POSIX qw(strftime);
+use FindBin qw($Bin $Script);
+
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
+
+# Initialize variables.
+our $Prog=$0;                           # Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+my $Errors=0;   	                # No errors so far.
+my $Syslog='user';                      # Name of Syslog facility.  '' for none.
+my $BaseDir="/usr/local/etc";		# Set our base directory.
+my @ConfigFiles=("$BaseDir/${Prog}.cfg");	# Name of config files.
+our %Config;				# Data from the config file.
+our %Options;				# Options settings.
+our @Parms;				# List of non-option arguments.
+
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+our %OptionSpecifications=(
+		'<>'			=>	sub {push @Parms,shift;},
+		'debug|d'		=>	sub {$DB::AutoTrace=1;},
+		'help|h|?!'		=>	\&opt_h,
+		'always-mail|m=s'	=>	\&opt_Array,
+		'error-mail|M=s'	=>	\&opt_Array,
+		'option-set|O=s'	=>	\&opt_O,
+		'always-page|p=s'	=>	\&opt_Array,
+		'error-page|P=s'	=>	\&opt_Array,
+		'filter-file|F=s'	=>	\&opt_Value,
+		'test|t'		=>	\&opt_Value,
+		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+);
+#
+
+# Note: general purpose script - don't change current directory.
+#chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+
+# Load the config file.
+foreach (@ConfigFiles) {
+	LoadConfigFile($_);
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+	if (!@ARGV && defined($Config{DEFAULTJOB}));
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Pre-process our command line, to get the options we need for LogOutput.
+my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
+%Options=(verbose => 0);	# Initialize Options.
+$Errors ++ unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+	
+# Set up our logging and output filtering.
+my $RunDate=`date +%m/%d`;
+chomp $RunDate;
+my $Subject;
+if ($Options{subject}) {
+	$Subject="$Options{subject}" ;
+} elsif (@Parms >= 1) {
+	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
+} else {
+	$Subject="%* %m/%d %C %N %E %*%*%*" ;
+};
+
+# Make sure some key items exist;
+foreach (qw(always-mail error-mail always-page error-page)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
+$Options{verbose} = 0 unless (exists($Options{verbose}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
+my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
+
+LogOutput({
+	SYSLOG_FACILITY		=> $Syslog,
+	MAIL_FILE		=> $Options{logfile},
+	MAIL_FILE_PERMS		=> 0644,
+	ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
+	ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
+	ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
+	MAIL_SUBJECT		=> $Subject,
+	FILTER_FILE		=> $Options{'filter-file'},
+	VERBOSE			=> $LogOutputVerbose,
+});
+
+
+die "No disks specified\n" unless (@Parms);
+
+# Make sure all known RAID's are started.
+
+my @DiskList;
+my $Skipped = 0;
+foreach my $disk (@Parms) {
+	my $short_disk = $disk;
+	$short_disk =~ s"^.*/"";
+	if ( $disk !~ m"/dev/[sh]d[a-z]{1,2}$") {
+		print STDERR "$disk doesn't look like a disk device name -- skipped.\n";
+		$Skipped++;
+		next;
+	}
+	elsif ( ! -e $disk ) {
+		print STDERR "$disk doesn't exist -- skipped.\n";
+		$Skipped++;
+		next;
+	}
+	elsif ( ! -b $disk ) {
+		print STDERR "$disk isn't a block device -- skipped.\n";
+		$Skipped++;
+		next;
+	}
+	elsif (system("mount | grep -q '^$disk '") == 0) {
+		print STDERR "$disk is mounted -- skipped.\n";
+		$Skipped++;
+		next;
+	}
+	elsif (system("mdadm --examine $disk ${disk}[!a-z]* 2> /dev/null | grep -q Raid") == 0) {
+		print STDERR "$disk is a part of an MD raid -- skipped.\n";
+		$Skipped++;
+		next;
+	}
+	else {
+		push @DiskList,$disk;
+	}
+}
+
+$Errors += $Skipped;
+die "No remaining disks specified.  No action taken.\n" unless (@DiskList);
+
+print "Please confirm that the following disks should be immediately and permanently wiped of all data:\n";
+	printf "    %-12s  %-8s  %-8s  %-s\n", 'Disk', 'Serial #', 'Size', 'Erase Time';
+	printf "    %-12s  %-8s  %-8s  %-s\n", '-'x12, '-'x8, '-'x8, '-'x10;
+	foreach my $Disk (@DiskList) {
+		my ($Serial, $Size, $Time) = ('unknown','unknown','unknown');
+		if (open(my $FH, "hdparm -I $Disk |")) {
+			foreach (<$FH>) {
+				if (/^\s*Serial Number:\s*(\S+)$/) {
+					$Serial=substr($1,-8);
+				}
+				# device size with M = 1000*1000:      500107 MBytes (500 GB)
+				elsif (/^\s*device size with M = 1000\*1000:\s+\d+\s+\S+\s+\((.+)\)\s*$/) {
+					$Size=$1;
+				}
+				# 156min for SECURITY ERASE UNIT. 158min for ENHANCED SECURITY ERASE UNIT.
+				elsif (/(\S+)\s+for ENHANCED SECURITY ERASE /) {
+					$Time=$1;
+				}
+				elsif (/^\s*(\S+)\s+for SECURITY ERASE /) {
+					$Time=$1;
+				}
+			}
+			close $FH;
+		}
+		printf "    %-12s  %-8s  %-8s  %-s\n", $Disk,$Serial,$Size,$Time;
+	}
+	print "\n\nProceed (yes/NO)?\n";
+if (<STDIN> !~ /^yes$/i) {
+	print "No action taken.\n";
+	exit ($Errors?8:0);
+}
+
+foreach my $disk (@DiskList) {
+	$Errors+=EraseDisk($disk);
+}
+
+if ($Errors) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+exit( ($Errors?10:0) );
+
+
+#
+# EraseDisk - erase a disk
+#
+sub EraseDisk {
+
+	my $disk = shift;
+	print "Beginning $disk\n";
+
+	my $security =`hdparm -I $disk | grep "supported.*erase"`;
+	if ($security !~ /erase/) {
+		warn "$disk: doesn't support security erase -- skipped\n";
+		return 1;
+	}
+	my $Status = system("hdparm -I $disk | grep -q 'not[ 	]*frozen'");
+	if ($Status != 0) {
+		warn "$disk: frozen -- skipped\n";
+		return 1;
+	}
+
+	$Status = RunDangerousCmd("hdparm --user-master u --security-set-pass password $disk");
+	if ($Status != 0) {
+		warn "$disk: unable to set security password to 'password'.  Received status " . ($Status >> 8) . " -- skipped\n";
+		return 1;
+	}
+
+	$Status = system("hdparm -I $disk | grep -q '^[ 	]*enabled *\$'");
+	if ($Status != 0) {
+		warn "$disk: setting security password returned code 0, but didn't work.\n";
+		return 1;
+	}
+
+	my $command =
+		  "hdparm --user-master u --security-erase"
+		. ($security =~ /enhanced/?'-enhanced ':' ')
+		. "password $disk"
+		;
+
+	my $StartTime = time();
+	$Status = RunDangerousCmd($command);
+	my $RunTime = int((time() - $StartTime + 30)/60);
+	if ($Status != 0) {
+		warn "$disk: erase failed with status " . ($Status >> 8) . "\n";
+		return 1;
+	}
+	if ($RunTime > 120 && $RunTime < 130) {
+		warn "$disk: run time took $RunTime minutes, which may indicate it timed out" 
+			. "\nVerify that hdparm is at least version 9.31 to assure the drive was erased.\n";
+	}
+
+	$Status = system("hdparm -I $disk | grep -q '^ *not  *enabled *$'");
+	if ($Status != 0) {
+		warn "$disk: security password didn't clear.  Erase status is unknown.\n";
+		return 1;
+	}
+}
+
+
+#
+# LoadConfigFile - load a configuration file
+#
+sub LoadConfigFile {
+	my $ConfigFile = shift;
+	if (-e $ConfigFile) {
+		my $CONFIGFH;
+                open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+                # Build a hash of settings found in the config file.
+                my @Lines;
+
+                # Read config file and assemble continuation lines into single items.
+                while (<$CONFIGFH>) {
+                        next if (/^\s*#/);                      # Comment.
+                        next if (/^\s*$/);                      # Blank line.
+                        chomp;
+                        if (/^\s+/ and @Lines > 0) {
+                                # Continuation line.  Append to prior line.
+                                $Lines[$#Lines] .= " $_";
+                        }
+                        else {
+                                push @Lines, $_;
+                        }
+                }
+                close $CONFIGFH;
+
+                # Process assembled lines.
+                foreach (@Lines) {
+                        my ($name,$settings)=split(/:?\s+/,$_,2);
+                        $name=uc($name);                        # Name is not case sensitive.
+                        $settings='' unless ($settings);        # Avoid undef warnings.
+                        $settings=~s/\s+$//;                    # Trim trailing spaces.
+			if ($name eq 'INCLUDE') {
+				LoadConfigFile($settings);
+			}
+			else {
+				$settings=~s/\s+$//;	# Trim trailing spaces.
+				$Config{$name}.=$settings . ',' ;
+			}
+                }
+		foreach (keys(%Config)) {
+			$Config{$_} =~ s/,$//;  # Remove trailing comma
+		}
+        }
+}
+
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($Options{test}) {
+		print "Test: $Cmd\n";
+		return 0;
+	} else {
+		print "Executing: $Cmd\n" if ($Options{verbose});
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# opt_Value - generic single-value option processing
+#
+sub opt_Value {
+	my($Name,$Value) = @_;
+	$Options{$Name} = $Value;
+}
+
+
+#
+# opt_Array - generic multi-value optoin  processing
+#
+sub opt_Array {
+
+	my($Name,$Value,undef) = @_;
+	if (defined($Value) and length($Value)) {
+		# Add this value to the array.
+		push @{$Options{$Name}},$Value;
+	}
+	else {
+		# Received "--opt=".  Empty this array.
+		@{$Options{$Name}}=();
+	}
+}
+
+
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n>;
+	}
+}
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+        my $Pagenater=$ENV{PAGENATER};
+        $Pagenater="more" unless ($Pagenater);
+        system("pod2text $Bin/$Script | $Pagenater");
+        exit(1);
+}
+=pod
+
+=head1 secure-erase - 
+
+secure-erase uses the secure erase function found on most modern hard
+disks.  Where available, the "secure erase enhanced" feature will be used.
+Hard disk secure erase functions overwrite all available recording media
+with zeros.  This occurs using the disks on-board electronics, and requires
+no CPU resources or I/O bandwidth.  
+
+The secure-erase operation is irreversible, except perhaps by very 
+sophisticated data recovery techniques usually only available to disk drive
+vendors and large government organizations.
+
+=head3 Usage:  
+        secure-erase [options] /dev/sdx ...
+
+        secure-erase -h
+
+=head3 Options:
+        --error-mail|-M mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
+        --option-set|-O config: Insert the "config" configuration options
+                                from $ConfigFiles[0]
+                                into the command line at this point.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+        --help|-h:              Help: display this panel
+
+=head3 Parameters:
+       /dev/sdx ...		One or more disks to secure-erase.
+
+=head3 Example:
+
+       secure-erase /dev/sdj /dev/sdn      # Erase disks /dev/sdj and /dev/sdn
+
+	secure-erase -m sysadmin /dev/sdq  # Erase /dev/sdq and email a report
+
+=head3 Configuration files
+
+Configuration data may be loaded from the configuration files.  The default 
+configuration file is /usr/local/etc/secure-erase.cfg.  These files contain
+key-value pairs that secure-erase may reference.  The syntax of the file is:
+
+	name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+Example:
+
+Alljobs: -m sysadmin -P pager@exmaple.com
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=back
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
+
+=cut
+
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:        Ignore - Don't display this message, it's not interesting.
+#               LogOnly - Write this message to the syslog and log file, but
+#                       don't display it on STDOUT.
+#               Show - Display this message, but it's not an error condition.
+#               # - This is a comment, ignore it.
+#
+#               Everything else is flagged as an error.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given type
+#               are joined by logical OR conditions.
+#
+#  Notes:
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#       2) All messages go to the syslog, regardless of this filter.
+#
+LOGONLY "^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*Command: "
+SHOW    "^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW    "^\s*\S+ ended normally with status 0 and signal 0 - run time:"
+SHOW    "^\s*Test:"
+SHOW    "^\s*Executing:"
+SHOW    "^\s*Verbose:"
+SHOW    "^\s*debug:"
+SHOW    "^\s*$"
+SHOW	"^\s*Please confirm that the following disks should be immediately and permanently wiped of all data:$"
+SHOW	"^\s*(/dev/\S+\b)+$"
+SHOW	"^\s*Proceed \(yes/NO\)\?$"
+SHOW	"^\s*Beginning \S+$"
+IGNORE	/^\s*security_password="password"$/
+IGNORE	"/dev/\S+:$"
+SHOW	/^\s*Issuing SECURITY_SET_PASS command, password="password", user=user, mode=high$/
+SHOW	"^\s*Disk\s+Serial #\s+Size\s+Erase Time\s*$"
+SHOW	"^[-\s]+$"
+SHOW	"^\s*/dev/\S+\s+\S+\s+\S+\s+\S+\s+\S+\s*$"
