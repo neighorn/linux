@@ -95,7 +95,7 @@ do
 #   the worst 60.
     find $subtree -xdev -type f $ModTime -ls | \
 	/usr/bin/awk '{print $5, $7}' | \
-	/usr/bin/sort -k 1,1 | \
+	sort -k 1,1 | \
 	/usr/bin/awk 'BEGIN	{Prior="";Total=0} \
 		$1 != Prior && Prior != "" \
 				{print Prior, Total;Total=0} \
