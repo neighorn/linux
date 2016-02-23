@@ -141,33 +141,38 @@ foreach my $disk (@Parms) {
 $Errors += $Skipped;
 die "No remaining disks specified.  No action taken.\n" unless (@DiskList);
 
-print "Please confirm that the following disks should be immediately and permanently wiped of all data:\n";
-	printf "    %-12s  %-8s  %-8s  %-s\n", 'Disk', 'Serial #', 'Size', 'Erase Time';
-	printf "    %-12s  %-8s  %-8s  %-s\n", '-'x12, '-'x8, '-'x8, '-'x10;
-	foreach my $Disk (@DiskList) {
-		my ($Serial, $Size, $Time) = ('unknown','unknown','unknown');
-		if (open(my $FH, "hdparm -I $Disk |")) {
-			foreach (<$FH>) {
-				if (/^\s*Serial Number:\s*(\S+)$/) {
-					$Serial=substr($1,-8);
-				}
-				# device size with M = 1000*1000:      500107 MBytes (500 GB)
-				elsif (/^\s*device size with M = 1000\*1000:\s+\d+\s+\S+\s+\((.+)\)\s*$/) {
-					$Size=$1;
-				}
-				# 156min for SECURITY ERASE UNIT. 158min for ENHANCED SECURITY ERASE UNIT.
-				elsif (/(\S+)\s+for ENHANCED SECURITY ERASE /) {
-					$Time=$1;
-				}
-				elsif (/^\s*(\S+)\s+for SECURITY ERASE /) {
-					$Time=$1;
-				}
+print	''
+	. ($Options{test}?'Test: ':'')
+	. "Please confirm that the following disks should be immediately and permanently wiped of all data:\n"
+	;
+printf "    %-12s  %-8s  %-8s  %-s\n", 'Disk', 'Serial #', 'Size', 'Erase Time';
+printf "    %-12s  %-8s  %-8s  %-s\n", '-'x12, '-'x8, '-'x8, '-'x10;
+foreach my $Disk (@DiskList) {
+	my ($Serial, $Size, $Time) = ('unknown','unknown','unknown');
+	if (open(my $FH, "hdparm -I $Disk |")) {
+		foreach (<$FH>) {
+			if (/^\s*Serial Number:\s*(\S+)$/) {
+				$Serial=substr($1,-8);
 			}
-			close $FH;
+			# device size with M = 1000*1000:      500107 MBytes (500 GB)
+			elsif (/^\s*device size with M = 1000\*1000:\s+\d+\s+\S+\s+\((.+)\)\s*$/) {
+				$Size=$1;
+			}
+			# 156min for SECURITY ERASE UNIT. 158min for ENHANCED SECURITY ERASE UNIT.
+			elsif (/(\S+)\s+for ENHANCED SECURITY ERASE /) {
+				$Time=$1;
+			}
+			elsif (/^\s*(\S+)\s+for SECURITY ERASE /) {
+				$Time=$1;
+			}
 		}
-		printf "    %-12s  %-8s  %-8s  %-s\n", $Disk,$Serial,$Size,$Time;
+		close $FH;
 	}
-	print "\n\nProceed (yes/NO)?\n";
+printf "    %-12s  %-8s  %-8s  %-s\n", $Disk,$Serial,$Size,$Time;
+}
+print "\n"
+	. ($Options{test}?'Test: ':'')
+	. "Proceed (yes/NO)?\n";
 if (<STDIN> !~ /^yes$/i) {
 	print "No action taken.\n";
 	exit ($Errors?8:0);
@@ -192,7 +197,7 @@ exit( ($Errors?10:0) );
 sub EraseDisk {
 
 	my $disk = shift;
-	print "Beginning $disk\n";
+	print '' . ($Options{test}?'Test: ':'') . "Beginning $disk\n";
 
 	my $security =`hdparm -I $disk | grep "supported.*erase"`;
 	if ($security !~ /erase/) {
@@ -212,7 +217,7 @@ sub EraseDisk {
 	}
 
 	$Status = system("hdparm -I $disk | grep -q '^[ 	]*enabled *\$'");
-	if ($Status != 0) {
+	if ($Status != 0 && ! $Options{test}) {
 		warn "$disk: setting security password returned code 0, but didn't work.\n";
 		return 1;
 	}
@@ -235,11 +240,13 @@ sub EraseDisk {
 			. "\nVerify that hdparm is at least version 9.31 to assure the drive was erased.\n";
 	}
 
-	$Status = system("hdparm -I $disk | grep -q '^ *not  *enabled *$'");
+	$Status = system("hdparm -I $disk | grep -q '^[ 	]*not[ 	]*enabled *\$'");
 	if ($Status != 0) {
 		warn "$disk: security password didn't clear.  Erase status is unknown.\n";
 		return 1;
 	}
+	print '' . ($Options{test}?'Test: ':'') . "$disk security erasure ended normally.\n";
+	return 0;
 }
 
 
@@ -484,20 +491,21 @@ __END__
 #
 LOGONLY "^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY "^\s*Command: "
-SHOW    "^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-SHOW    "^\s*\S+ ended normally with status 0 and signal 0 - run time:"
-SHOW    "^\s*Test:"
-SHOW    "^\s*Executing:"
-SHOW    "^\s*Verbose:"
-SHOW    "^\s*debug:"
-SHOW    "^\s*$"
-SHOW	"^\s*Please confirm that the following disks should be immediately and permanently wiped of all data:$"
-SHOW	"^\s*(/dev/\S+\b)+$"
-SHOW	"^\s*Proceed \(yes/NO\)\?$"
-SHOW	"^\s*Beginning \S+$"
-IGNORE	/^\s*security_password="password"$/
 IGNORE	"/dev/\S+:$"
-SHOW	/^\s*Issuing SECURITY_SET_PASS command, password="password", user=user, mode=high$/
-SHOW	"^\s*Disk\s+Serial #\s+Size\s+Erase Time\s*$"
+IGNORE	"^\s*$"
+IGNORE	/^\s*security_password="password"$/
 SHOW	"^[-\s]+$"
+SHOW	"^\s*(/dev/\S+\b)+$"
 SHOW	"^\s*/dev/\S+\s+\S+\s+\S+\s+\S+\s+\S+\s*$"
+SHOW	"^\s*\S+ ended normally with status 0 and signal 0 - run time:"
+SHOW	"^\s*Beginning \S+$"
+SHOW	"^\s*debug:"
+SHOW	"^\s*Disk\s+Serial #\s+Size\s+Erase Time\s*$"
+SHOW	"^\s*Executing:"
+SHOW	"^\s*Please confirm that the following disks should be immediately and permanently wiped of all data:$"
+SHOW	"^\s*Proceed \(yes/NO\)\?$"
+SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*Test:"
+SHOW	"^\s*Verbose:"
+SHOW	/^\s*Issuing SECURITY_SET_PASS command, password="password", user=user, mode=high$/
+SHOW	"^\s*\S+ security erasure ended normally.$"
