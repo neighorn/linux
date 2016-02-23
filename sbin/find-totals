@@ -1,0 +1,100 @@
+#!/usr/bin/perl
+#
+# Quick code to total disk space from "find ... -ls" output.
+#
+# Example:  find /home -mtime -1 -ls | find-totals
+#
+use strict;
+use warnings;
+
+my $MINSIZE = 1000000000;	# don't reporting anything smaller than this.
+
+my %users;
+my %paths;
+my $Count=0;
+$|=1;
+while (<>) {
+	$Count++;
+	# print "Now processing record $Count\n" if ($Count%5000 == 0);
+	# 45482285 26372 -rw-r--r--   1 root     root     27003737 Feb 23 01:05 tree/usr/local/backup/mysql/2016-02-23.sql
+	my(undef,undef,$perms,$links,$user,$group,$size,undef,undef,undef,$path) = split(/\s+/);
+	if ($size !~ /^\d+$/) {
+		# Domain has a space in it.
+		(undef,undef,$perms,$links,$user,$group,undef,$size,undef,undef,undef,$path) = split(/\s+/);
+	}
+
+	# Total by user.
+	if (exists($users{$user})) {
+		$users{$user} += $size;
+	}
+	else {
+		$users{$user} = $size;
+	}
+	
+	# Total by path.
+	$path =~ s'/\s*$'';		# Avoid trailing slash, if any.
+	my $tmppath=$path;
+	while ($tmppath) {
+		if (exists($paths{$tmppath})) {
+			$paths{$tmppath} += $size;
+		}
+		else {
+			$paths{$tmppath} = $size;
+		}
+		if ($tmppath =~ m"/") {
+			$tmppath =~ s"^(.*)/[^/]+$"$1";	# Strip last node, so totals roll up.
+		}
+		else {
+			last;
+		}
+	}
+}
+
+# Delete anything below $MINSIZE;
+foreach (keys(%users)) {
+	delete $users{$_} if ($users{$_} < $MINSIZE);
+}
+foreach (keys(%paths)) {
+	delete $paths{$_} if ($paths{$_} < $MINSIZE);
+}
+
+# Print reports.
+print "Largest users:\n";
+foreach (sort {$users{$b} <=> $users{$a}} (keys %users)) {
+	printf "%15s = %6s  %-s\n", Commify($users{$_}), CompressByteSize($users{$_}),  $_;
+}
+
+print "\n\nLargest directory trees:\n";
+foreach (sort {$paths{$b} <=> $paths{$a} || length($b) <=> length($a)} (keys %paths)) {
+	printf "%15s = %6s  %-s\n", Commify($paths{$_}), CompressByteSize($paths{$_}),  $_;
+}
+
+
+#
+## commify - insert commas in numbers.
+##
+sub Commify {
+	local $_ = shift;
+	1 while s/^(-?\d+)(\d{3})/$1,$2/;
+	return $_;
+}
+
+# ---------------------------------------------------------
+# #
+# # CompressByteSize - convert integer bytes to KMGT...
+# #
+sub CompressByteSize {
+	my $Value = shift;
+	my $Conversion = shift;
+
+	$Value =~ s/,//g;               # Ignore commas.
+	my $Unit = ' bytes';
+	foreach (('K','M','G','T')) {
+	        if ($Value >= 1024) {
+			$Unit = $_;
+			$Value /= 1024;
+	        }
+	}
+	return sprintf('%.1f%s',$Value,$Unit);
+}
+
