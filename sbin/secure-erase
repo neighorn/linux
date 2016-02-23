@@ -507,5 +507,5 @@ SHOW	"^\s*Proceed \(yes/NO\)\?$"
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 SHOW	"^\s*Test:"
 SHOW	"^\s*Verbose:"
-SHOW	/^\s*Issuing SECURITY_SET_PASS command, password="password", user=user, mode=high$/
+IGNORE	/^\s*Issuing SECURITY_SET_PASS command, password="password", user=user, mode=high$/
 SHOW	"^\s*\S+ security erasure ended normally.$"
