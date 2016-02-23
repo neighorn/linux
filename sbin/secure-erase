@@ -197,7 +197,10 @@ exit( ($Errors?10:0) );
 sub EraseDisk {
 
 	my $disk = shift;
-	print '' . ($Options{test}?'Test: ':'') . "Beginning $disk\n";
+	print ''
+		. ($Options{test}?'Test: ':'')
+		. strftime("%Y-%m-%d %T: Beginning $disk\n",localtime())
+		;
 
 	my $security =`hdparm -I $disk | grep "supported.*erase"`;
 	if ($security !~ /erase/) {
@@ -210,7 +213,11 @@ sub EraseDisk {
 		return 1;
 	}
 
-	$Status = RunDangerousCmd("hdparm --user-master u --security-set-pass password $disk");
+	# If it's unlocked (normal), lock it.
+	my $Status = system("hdparm -I $disk | grep -q 'not[ 	]*locked'");
+	if ($Status == 0) {
+		$Status = RunDangerousCmd("hdparm --user-master u --security-set-pass password $disk");
+	}
 	if ($Status != 0) {
 		warn "$disk: unable to set security password to 'password'.  Received status " . ($Status >> 8) . " -- skipped\n";
 		return 1;
@@ -245,7 +252,10 @@ sub EraseDisk {
 		warn "$disk: security password didn't clear.  Erase status is unknown.\n";
 		return 1;
 	}
-	print '' . ($Options{test}?'Test: ':'') . "$disk security erasure ended normally.\n";
+	print ''
+		. ($Options{test}?'Test: ':'') .
+		strftime("%Y-%m-%d %T: $disk security erasure ended normally.\n",localtime())
+		;
 	return 0;
 }
 
@@ -498,7 +508,7 @@ SHOW	"^[-\s]+$"
 SHOW	"^\s*(/dev/\S+\b)+$"
 SHOW	"^\s*/dev/\S+\s+\S+\s+\S+\s+\S+\s+\S+\s*$"
 SHOW	"^\s*\S+ ended normally with status 0 and signal 0 - run time:"
-SHOW	"^\s*Beginning \S+$"
+SHOW	"^\s*\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d Beginning \S+$"
 SHOW	"^\s*debug:"
 SHOW	"^\s*Disk\s+Serial #\s+Size\s+Erase Time\s*$"
 SHOW	"^\s*Executing:"
@@ -508,4 +518,4 @@ SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 SHOW	"^\s*Test:"
 SHOW	"^\s*Verbose:"
 IGNORE	/^\s*Issuing SECURITY_SET_PASS command, password="password", user=user, mode=high$/
-SHOW	"^\s*\S+ security erasure ended normally.$"
+SHOW	"^\s*\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d \S+ security erasure ended normally.$"
