@@ -22,7 +22,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.25;
+our $Version	= 3.26;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -181,6 +181,7 @@ sub LogOutput {
 
 		# Run it through the filters, and log/print as appropriate.
 		$ErrorsDetected += _FilterMessage($_);
+		print "LogOutput: Errors detected so far: $ErrorsDetected\n" if $Options{VERBOSE} > 6;
 	}
 
 # The output is done.
