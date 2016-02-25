@@ -2,7 +2,6 @@
 
 use strict;
 use warnings;
-use LogOutput;
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
@@ -23,23 +22,33 @@ our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
 
+# Use LogOutput if it's available.
+my $HaveLogOutput = eval 'require LogOutput;';
+
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
-our %OptionSpecifications=(
+our %OptionSpecifications = (
 		'<>'			=>	sub {push @Parms,shift;},
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'help|h|?!'		=>	\&opt_h,
+		'test|t'		=>	\&opt_Value,
+		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+);
+
+if ($HaveLogOutput) {
+	# Support additional options available only if LogOutput is present.
+	my %Temp = (
 		'always-mail|m=s'	=>	\&opt_Array,
 		'error-mail|M=s'	=>	\&opt_Array,
 		'option-set|O=s'	=>	\&opt_O,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'filter-file|F=s'	=>	\&opt_Value,
-		'test|t'		=>	\&opt_Value,
-		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
-);
+	);
+	@OptionSpecifications{keys %Temp} = values %Temp;
+}
 #
 
 # Note: general purpose script - don't change current directory.
@@ -86,18 +95,21 @@ $Options{verbose} = 0 unless (exists($Options{verbose}));
 $Options{logfile} = '' unless (exists($Options{logfile}));
 my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 
-LogOutput({
-	SYSLOG_FACILITY		=> $Syslog,
-	MAIL_FILE		=> $Options{logfile},
-	MAIL_FILE_PERMS		=> 0644,
-	ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
-	ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
-	ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
-	ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
-	MAIL_SUBJECT		=> $Subject,
-	FILTER_FILE		=> $Options{'filter-file'},
-	VERBOSE			=> $LogOutputVerbose,
-});
+if ($HaveLogOutput) {
+	LogOutput->import;
+	LogOutput({
+		SYSLOG_FACILITY		=> $Syslog,
+		MAIL_FILE		=> $Options{logfile},
+		MAIL_FILE_PERMS		=> 0644,
+		ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
+		ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
+		ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
+		ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
+		MAIL_SUBJECT		=> $Subject,
+		FILTER_FILE		=> $Options{'filter-file'},
+		VERBOSE			=> $LogOutputVerbose,
+	});
+};
 
 
 die "No disks specified\n" unless (@Parms);
@@ -449,6 +461,12 @@ vendors and large government organizations.
         secure-erase -h
 
 =head3 Options:
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+        --help|-h:              Help: display this panel
+
+=head3 Additional options:
+The following options are available only if LogOutput.pm is available:
         --error-mail|-M mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
@@ -465,9 +483,6 @@ vendors and large government organizations.
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFiles[0]
                                 into the command line at this point.
-        --test|-t:              Test: echo commands instead of running them.
-        --verbose|-v:           Verbose: echo commands before running them.
-        --help|-h:              Help: display this panel
 
 =head3 Parameters:
        /dev/sdx ...		One or more disks to secure-erase.
