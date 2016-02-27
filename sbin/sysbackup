@@ -543,22 +543,6 @@ sub CompressSize {
 }
 
 
-
-
-# ---------------------------------------------------------
-#
-# Cleanup - runs at end of job.
-#
-sub Cleanup {
-	my ($ExitCode,$LogFile,$ErrorsDetected) = @_;
-	if ($ExitCode && $OutputDir) {
-		warn "Job failed with exit code $ExitCode -- moving $OutputDir to $OutputDir.bad\n";
-		RunDangerousCmd("mv $OutputDir $OutputDir.bad");
-	}
-	
-	return $ExitCode
-}
-
 # ---------------------------------------------------------
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
