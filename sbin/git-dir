@@ -302,4 +302,5 @@ IGNORE	"^\s*[a-f\d]+\.\.[a-f\d]+\s*\S+\s+->\s+.+$"
 IGNORE	"^\s*Fast-forward$"
 IGNORE	"^\s*create mode \d+ "
 IGNORE	"^\s*.+\s+\|\s+\d+\s+[+-]+$"
-SHOW	"^\s*\d+ files? changed(, \d+ insertions?\(\+\))?(, \d+ deletions\(\-\))?$"
+#              1 file changed, 1 insertion(+), 1 deletion(-)
+SHOW	"^\s*\d+ files? changed(,s\s+\d+ insertions?\(\+\))?(,\s+\d+ deletions?\(\-\))?$"
