@@ -112,23 +112,6 @@ die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
 
 # ---------------------------------------------------------
 #
-# Identify the output directory.  Do this early for Cleanup().
-#
-our $OutputDir;			# Name of directory we're creating.
-if ($Options{'output-dir'}) {
-	$OutputDir = $Options{'output-dir'};
-	$BaseDir = basename($OutputDir);
-}
-else {
-	$OutputDir="$BaseDir/%m-%d";
-}
-$OutputDir =~ s/%C/$HostName/g;			# Interpret %C.
-$OutputDir=strftime($OutputDir,localtime());	# Interpret other variables.
-
-chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin: $!\n";
-
-# ---------------------------------------------------------
-#
 # Set up our logging and output filtering.
 #
 LogOutput({
@@ -136,7 +119,6 @@ LogOutput({
 	ERROR_MAIL_LIST => $Options{'error-mail'},
 	ALWAYS_PAGE_LIST => $Options{'always-page'},
 	ERROR_PAGE_LIST => $Options{'error-page'},
-	CLEAN_UP => \&Cleanup,
 	SYSLOG_FACILITY => 'user',
 	VERBOSE => ($Options{verbose} >= 5? $Options{verbose}-4:0),
 	FILTER_FILE => $Options{'filter-file'},
@@ -310,6 +292,23 @@ sub RunLocally {
 		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
 	}
 
+	# ---------------------------------------------------------
+	#
+	# Identify the output directory.
+	#
+	our $OutputDir;			# Name of directory we're creating.
+	if ($Options{'output-dir'}) {
+		$OutputDir = $Options{'output-dir'};
+		$BaseDir = basename($OutputDir);
+	}
+	else {
+		$OutputDir="$BaseDir/%m-%d";
+	}
+	$OutputDir =~ s/%C/$HostName/g;			# Interpret %C.
+	$OutputDir=strftime($OutputDir,localtime());	# Interpret other variables.
+	
+	chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin: $!\n";
+	
 	# ---------------------------------------------------------
 	#
 	# Run any initialization commands
