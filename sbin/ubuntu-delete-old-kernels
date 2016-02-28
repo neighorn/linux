@@ -247,7 +247,7 @@ sub RunLocally {
 	my $CurVersion = `uname -r`;
 	chomp $CurVersion;
 	my $Current;
-	my $System =~ `uname -a`;
+	my $System = `uname -a`;
 	if ($System !~ /Ubuntu/i) {	
 		# We're not Ubuntu.  Just leave quietly.
 		print "Skipping $Prog -- this system isn't running Ubuntu.\n" if ($Options{verbose});
