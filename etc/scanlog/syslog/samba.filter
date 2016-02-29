@@ -30,3 +30,5 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd\[\d+\]:\s*\[20../../.. ..:..:.
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd\[\d+\]:\s*\[20../../.. ..:..:..(\.\d+)?,\s*\d+\]\s*../source3/winbindd/winbindd.c:\d+\(winbindd_sig_term_handler\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd\[\d+\]:\s*\[20../../.. ..:..:..(\.\d+)?,\s*\d+\]\s*../source3/winbindd/winbindd_cache.c:\d+\(initialize_winbindd_cache\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd\[\d+\]:\s*initialize_winbindd_cache: clearing cache and re-creating with version number 2$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd\[\d+\]:\s*\[20../../.. ..:..:..(\.\d+)?,\s*\d+\]\s*../lib/tdb_wrap/tdb_wrap.c:\d+\(tdb_wrap_log\)$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd\[\d+\]:\s*tdb\(/usr/local/samba/var/lock/gencache_notrans.tdb\): allrecord_lock == \d+$"
