@@ -9,6 +9,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+\s*:\s+Tota
 #IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+\s*:\s+Total Items:\s*[\d,]+ =\s*\d+\.\d"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+\S+\s+[\d.]+.\s+[\d.]+.\s+[\d.]+.\s+(\d|[0-8]\d|9[0-4])%\s+\S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+_+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+cannot expire \S+ No unexpired good images$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+dirvish \S+:\S+ error"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+dirvish error:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dirvish-run(\[\d+\])?:\s+dirvish failed with status \d+$"
