@@ -311,6 +311,7 @@ IGNORE	"^\s*find: .*: No such file or directory$"
 IGNORE	/^\s*Volume group "\S+" successfully backed up.$/
 IGNORE	"^\s*No volume groups found$"
 IGNORE	/^\s*File descriptor \d+ left open$/
+IGNORE	"^\s*mdadm: \S+ has been started with \d+ drives.$"
 #
 # Ignore some yum lock errors - believe this just delays execution until the lock is released.
 IGNORE	"^\s*Another app is currently holding the yum lock; waiting for it to exit...$"
