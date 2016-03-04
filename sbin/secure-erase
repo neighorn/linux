@@ -380,7 +380,6 @@ sub RunDangerousCmd {
 		print "Test: $Cmd\n";
 		return 0;
 	} else {
-		print "Executing: $Cmd\n";
 		print "Executing: $Cmd\n" if ($Options{verbose});
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
