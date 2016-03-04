@@ -162,9 +162,10 @@ foreach my $disk (@Parms) {
 			push @Skipped,$disk;
 			next;
 		}
-		my ($Serial, $Size, $Time, $Type, $Frozen, $EraseSupported, $Locked) =
+		my ($Serial, $Size, $Time, $Type, $Frozen, $EraseSupported, $Enabled) =
 			('unknown','unknown','unknown','unknown','unknown','unknown','unknown');
 		foreach (@HDParms) {
+			chomp;
 			if (/^\s*Serial Number:\s*(\S+)$/) {
 				if (length($1) > 9) {
 					$Serial='...' . substr($1,-6);
@@ -192,8 +193,8 @@ foreach my $disk (@Parms) {
 			elsif (/^\s*supported.*erase/) {
 				$EraseSupported="yes";
 			}
-			elsif (/^\s*(not)?[ 	]*locked'/) {
-				$Locked=$1;
+			elsif (/^\s*(not)?[ 	]*enabled/) {
+				$Enabled=$1;
 			}
 		}
 		if ($EraseSupported ne 'yes') {
@@ -213,7 +214,7 @@ foreach my $disk (@Parms) {
 			size => $Size,
 			type => $Type,
 			time => $Time,
-			locked => $Locked,
+			enabled => $Enabled,
 		};
 	}
 }
@@ -234,13 +235,17 @@ foreach my $disk (@DiskList) {
 		$DiskData{$disk}->{size},
 		$DiskData{$disk}->{time},
 }
-print "\n"
-	. ($Options{test}?'Test: ':'')
-	. "Proceed (yes/NO)?\n";
-if (<STDIN> !~ /^yes$/i) {
-	print "No action taken.\n";
-	exit ($Errors?8:0);
-}
+my $Response;
+do {
+	print "\n"
+		. ($Options{test}?'Test: ':'')
+		. "Proceed (yes/NO)?\n";
+	$Response = <STDIN>;
+	if ($Response =~ /^no$/i) {
+		print "No action taken.\n";
+		exit ($Errors?8:0);
+	}
+} until ($Response =~ /^yes$/i);
 
 foreach my $disk (@DiskList) {
 	$Errors+=EraseDisk($disk,%{$DiskData{$disk}});
@@ -270,7 +275,7 @@ sub EraseDisk {
 		;
 
 	# If it's unlocked (normal), lock it.
-	if ($DiskData{locked} eq 'not') {
+	if ($DiskData{enabled} eq 'not') {
 		my $Status = RunDangerousCmd("hdparm --user-master u --security-set-pass password $disk");
 		if ($Status != 0) {
 			warn "$disk: unable to set security password to 'password'.  Received status " . ($Status >> 8) . " -- skipped\n";
@@ -279,8 +284,11 @@ sub EraseDisk {
 	}
 
 	my $Status = system("hdparm -I $disk | grep -q '^[ 	]*enabled *\$'");
-	if ($Status != 0 && ! $Options{test}) {
-		warn "$disk: setting security password returned code 0, but didn't work.\n";
+	if (
+		   ($Status != 0)
+		&& (! $Options{test}))
+	{
+		warn "$disk: setting security password returned code 0, but didn't work. Grep returned $Status\n";
 		return 1;
 	}
 
@@ -372,6 +380,7 @@ sub RunDangerousCmd {
 		print "Test: $Cmd\n";
 		return 0;
 	} else {
+		print "Executing: $Cmd\n";
 		print "Executing: $Cmd\n" if ($Options{verbose});
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
@@ -578,3 +587,4 @@ SHOW	"^\s*Proceed \(yes/NO\)\?$"
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 SHOW	"^\s*Test:"
 SHOW	"^\s*Verbose:"
+SHOW	"^\s*No action taken.$"
