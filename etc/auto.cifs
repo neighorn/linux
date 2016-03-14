@@ -1,28 +1,83 @@
 #!/bin/bash
 # $Id$
 # This file must be executable to work! chmod 755!
-key="$1"
-# Note: create a cred file for each windows/Samba-Server in your network
-#       which requires password authentification.  The file should contain
-#       exactly two lines:
+#
+# This script is used with the auto-mounter to mount CIFS windows network 
+# shares.  It relies on a couple of data files, located in
+# /usr/local/etc/auto.cifs.d, as follows:
+#
+# 1) DEFAULT: default authentication credentials containing exactly two lines:
 #          username=user
 #          password=*****
-#       Please don't use blank spaces to separate the equal sign from the
-#       user account name or password.
+#    Don't insert spaces around the equal signs.
+#
+# 2) hostname: one file for each remote system we're connecting to, with
+# the actual file name matching the remote system host name, containing
+# authentication in the same format as above.  This file, if present, overrides
+# the credentials found in DEFAULT
+#
+# 3) mounttab: a list of mount options in the format of "hostname name=value name=value..."
+# Any options listed here override the defaults.  Possible options and default values are:
+#     dir_mode=0755
+#     file_mode=0644
+#     uid=nobody
+#     gid=[default primary group for user "nobody", typically "nobody" ]
+#
+# Individually, all three of the above files are optional, however for any specific host
+# we want to connect to, either the "hostname" or DEFAULT files must exist to provide
+# authentication credentials.
+#
+# Examples of each of the three files, assuming our remote host is called "winserver":
+# 
+# DEFAULT:
+# 
+# user=jsmith
+# password=secretpassword
+# 
+# winserver:
+# 
+# user=jsmith
+# password=secretpassword
+# 
+# mounttab:
+# winserver: file_mode=0770 dir_mode=0770
+# 
 
-function GetGroup {
-	grep -q nobody /etc/group && echo nobody || echo nogroup
-}
+key="$1"
 
+# Find our credential file, for backward compatibility as it has moved around some.
 credfile=""
 [[ -f "/usr/local/etc/auto.cifs.d/$key" ]] && credfile="/usr/local/etc/auto.cifs.d/$key"
 [[ -z "$credfile" && -f "/usr/local/etc/auto.cifs.d/DEFAULT" ]] && credfile="/usr/local/etc/auto.cifs.d/DEFAULT"
 [[ -z "$credfile" ]] && credfile="/usr/local/etc/cifs.credentials/$key" # backwards compatibility
 [[ -z "$credfile" ]] && credfile="/usr/local/etc/auto.master.d/cifs.credentials/$key" # backwards compatibility
 
-# Note: Use cifs instead of smbfs:
-group=`GetGroup`
-mountopts="-fstype=cifs,file_mode=0644,dir_mode=0755,uid=nobody,gid=$group" 
+# Set defaults
+export file_mode=0644
+export dir_mode=0755
+export uid=nobody
+export gid=$(getent passwd nobody | awk -F: '{print $4}')
+
+# See if we have any overrides for this host.
+if [[ -e "/usr/local/etc/auto.cifs.d/mounttab" ]]
+then
+    override=$(grep -i "^$key " /usr/local/etc/auto.cifs.d/mounttab)
+    override=${override#* }	# Remove host name to get just the options.
+    for name in $override
+    do
+        value=${name#*=}
+        name=${name%%=*}
+	case "$name" in
+		"file_mode")	file_mode="$value" ;;
+		"dir_mode")	dir_mode="$value" ;;
+		"uid")		uid="$value" ;;
+		"gid")		gid="$value" ;;
+		*) echo "Invalid value '$name' in mounttab -- ignored" >&2
+	esac
+    done
+fi
+
+mountopts="-fstype=cifs,file_mode=$file_mode,dir_mode=$dir_mode,uid=$uid,gid=$gid" 
 
 smbclientopts=""
 echo "Attempting to mount $key" | /usr/bin/logger -t auto.cifs
