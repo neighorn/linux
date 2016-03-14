@@ -123,6 +123,10 @@ foreach (@HostList) {
 }
 
 my %HostDone;
+
+# If there's only one argument, push it to the same name on the remote side.
+push @ARGV, $ARGV[0] if ($#ARGV == 0);
+
 foreach my $Host (@HostList) {
 	if ($Host !~ /^[a-zA-Z0-9_-]+$/) {
 		warn qq<Invalid host name "$Host" - skipped>;
