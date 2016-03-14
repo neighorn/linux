@@ -99,7 +99,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?show_digests = DISABLED$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?show_engines = DISABLED$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?show_tls_ciphers = DISABLED$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?SIGTERM[soft,remote-exit] received, client-instance exiting\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?SIGTERM\[soft,remote-exit\] received, client-instance exiting\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?SIGUSR1\[soft,ping-restart\] received, client-instance restarting\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?SIGUSR1\[soft,ping-restart\] received, process restarting"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ (ovpn-\S+|openvpn)\[\d+\]:\s*(\S+/)?(\d+\.\d+\.\d+\.\d+:\d+\s+)?SIGUSR1\[soft,tls-error\] received, client-instance restarting\s*$"
