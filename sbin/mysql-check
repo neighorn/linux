@@ -507,7 +507,7 @@ __END__
 # The following are normal messages we don't need to see.
 
 IGNORE  /^\s*\s*(\S+:\s*)?$/ 
-IGNORE  "^\s*(\S+:\s+)?\S+\s+OK$" 
+IGNORE  "^\s*(\S+:\s+)?.*\s+OK$" 
 
 # These are normal messages that we want to see in the e-mail log only. 
 # 
