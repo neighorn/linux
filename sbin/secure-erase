@@ -46,6 +46,7 @@ if ($HaveLogOutput) {
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'filter-file|F=s'	=>	\&opt_Value,
+		'force'			=>	\&opt_Value,
 	);
 	@OptionSpecifications{keys %Temp} = values %Temp;
 }
@@ -129,41 +130,75 @@ foreach my $disk (@Parms) {
 	my $short_disk = $disk;
 	$short_disk =~ s"^.*/"";
 	if ( $disk !~ m"/dev/[sh]d[a-z]{1,2}$") {
-		print STDERR "$disk doesn't look like a disk device name -- skipped.\n";
-		push @Skipped,$disk;
-		next;
+		if ($Options{force}) {
+			print STDERR "Warning: $disk doesn't look like a disk device name -- continuing anyway.\n";
+		}
+		else {
+			print STDERR "$disk doesn't look like a disk device name -- skipped.\n";
+			push @Skipped,$disk;
+			next;
+		}
 	}
 	elsif ( ! -e $disk ) {
-		print STDERR "$disk doesn't exist -- skipped.\n";
-		push @Skipped,$disk;
-		next;
+		if ($Options{force}) {
+			print STDERR "Warning: $disk doesn't exist -- continuing anyway.\n";
+		}
+		else {
+			print STDERR "$disk doesn't exist -- skipped.\n";
+			push @Skipped,$disk;
+			next;
+		}
 	}
 	elsif ( ! -b $disk ) {
-		print STDERR "$disk isn't a block device -- skipped.\n";
-		push @Skipped,$disk;
+		if ($Options{force}) {
+			print STDERR "Warning: $disk isn't a block device -- continuing anyway.\n";
+		}
+		else {
+			print STDERR "$disk isn't a block device -- skipped.\n";
+			push @Skipped,$disk;
+			next;
+		}
 		next;
 	}
 	elsif (system("mount | grep -q '^$disk '") == 0) {
-		print STDERR "$disk is mounted -- skipped.\n";
-		push @Skipped,$disk;
+		if ($Options{force}) {
+			print STDERR "Warning: $disk is mounted -- continuing anyway.\n";
+		}
+		else {
+			print STDERR "$disk is mounted -- skipped.\n";
+			push @Skipped,$disk;
+			next;
+		}
 		next;
 	}
 	elsif (system("mdadm --examine $disk ${disk}[!a-z]* 2> /dev/null | grep -q Raid") == 0) {
-		print STDERR "$disk is a part of an MD raid -- skipped.\n";
-		push @Skipped,$disk;
+		if ($Options{force}) {
+			print STDERR "Warning: $disk is a part of an MD raid -- continuing anyway.\n";
+		}
+		else {
+			print STDERR "$disk is a part of an MD raid -- skipped.\n";
+			push @Skipped,$disk;
+			next;
+		}
 		next;
 	}
-	else {
-		# Gather HDParm data.
-		my @HDParms = `hdparm -I $disk`;
-		my $Status = $?;
-		if ($Status) {
+
+	# Gather HDParm data.
+	my @HDParms = `hdparm -I $disk`;
+	my ($Serial, $Size, $Time, $Type, $Frozen, $EraseSupported, $Enabled) =
+		('unknown','unknown','unknown','','unknown','unknown','unknown');
+	my $Status = $?;
+	if ($Status) {
+		if ($Options{force}) {
+			print STDERR "Warning: Unable to gather hdparm data from $disk (status $Status) -- continuing anyway.\n";
+		}
+		else {
 			print STDERR "Unable to gather hdparm data form $disk (status $Status) -- skipped.\n";
 			push @Skipped,$disk;
 			next;
 		}
-		my ($Serial, $Size, $Time, $Type, $Frozen, $EraseSupported, $Enabled) =
-			('unknown','unknown','unknown','unknown','unknown','unknown','unknown');
+	}
+	else {
 		foreach (@HDParms) {
 			chomp;
 			if (/^\s*Serial Number:\s*(\S+)$/) {
@@ -198,14 +233,24 @@ foreach my $disk (@Parms) {
 			}
 		}
 		if ($EraseSupported ne 'yes') {
-			print STDERR "$disk does not support disk erasure -- skipped.\n";
-			push @Skipped,$disk;
-			next;
+			if ($Options{force}) {
+				print STDERR "$disk does not support disk erasure -- continuing.\n";
+			}
+			else {
+				print STDERR "$disk does not support disk erasure -- skipped.\n";
+				push @Skipped,$disk;
+				next;
+			}
 		}
 		if ($Frozen ne 'not') {
-			print STDERR "$disk is frozen -- skipped.\n";
-			push @Skipped,$disk;
-			next;
+			if ($Options{force}) {
+				print STDERR "$disk is frozen -- continuing.\n";
+			}
+			else {
+				print STDERR "$disk is frozen -- skipped.\n";
+				push @Skipped,$disk;
+				next;
+			}
 		}
 
 		push @DiskList,$disk;		# To maintain order.
@@ -275,7 +320,7 @@ sub EraseDisk {
 		;
 
 	# If it's unlocked (normal), lock it.
-	if ($DiskData{enabled} eq 'not') {
+	if ($DiskData{enabled} eq 'not' or $Options{force}) {
 		my $Status = RunDangerousCmd("hdparm --user-master u --security-set-pass password $disk");
 		if ($Status != 0) {
 			warn "$disk: unable to set security password to 'password'.  Received status " . ($Status >> 8) . " -- skipped\n";
@@ -288,8 +333,14 @@ sub EraseDisk {
 		   ($Status != 0)
 		&& (! $Options{test}))
 	{
-		warn "$disk: setting security password returned code 0, but didn't work. Grep returned $Status\n";
-		return 1;
+		print STDERR "$disk: setting security password returned code 0, but didn't work. Grep returned $Status";
+		if ($Options{force}) {
+			print STDERR " -- continuing\n";
+		}
+		else {
+			print STDERR " -- aborting this disk\n";
+			return 1;
+		}
 	}
 
 	my $command =
