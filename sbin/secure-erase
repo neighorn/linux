@@ -35,6 +35,7 @@ our %OptionSpecifications = (
 		'help|h|?!'		=>	\&opt_h,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+		'force'			=>	\&opt_Value,
 );
 
 if ($HaveLogOutput) {
@@ -46,7 +47,6 @@ if ($HaveLogOutput) {
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
 		'filter-file|F=s'	=>	\&opt_Value,
-		'force'			=>	\&opt_Value,
 	);
 	@OptionSpecifications{keys %Temp} = values %Temp;
 }
