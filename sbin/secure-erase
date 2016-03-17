@@ -115,8 +115,6 @@ if ($HaveLogOutput) {
 
 die "No disks specified\n" unless (@Parms);
 
-# Make sure all known RAID's are started.
-
 my @DiskList;
 my %DiskData;
 my @Skipped;
@@ -184,8 +182,8 @@ foreach my $disk (@Parms) {
 	}
 
 	# Gather HDParm data.
-	my @HDParms = `hdparm -I $disk`;
 	my ($Serial, $Size, $Time, $Type, $Frozen, $EraseSupported, $Enabled) =
+	my @HDParms = `hdparm -I $disk`;
 		('unknown','unknown','unknown','','unknown','unknown','unknown');
 	my $Status = $?;
 	if ($Status) {
@@ -218,30 +216,30 @@ foreach my $disk (@Parms) {
 				$Type='-enhanced';
 				$Time=$1;
 			}
-			elsif (/^\s*(\S+)\s+for SECURITY ERASE /) {
+			elsif (/^\s*(more than \S+|less than \S+|\S+)\s+for SECURITY ERASE /) {
 				$Type='';
 				$Time=$1;
 			}
 			elsif (/^\s*(not)?[ 	]*frozen/) {
 				$Frozen=$1;
 			}
-			elsif (/^\s*supported.*erase/) {
-				$EraseSupported="yes";
-			}
+	#		elsif (/^\s*supported.*erase/) {
+	#			$EraseSupported="yes";
+	#		}
 			elsif (/^\s*(not)?[ 	]*enabled/) {
 				$Enabled=$1;
 			}
 		}
-		if ($EraseSupported ne 'yes') {
-			if ($Options{force}) {
-				print STDERR "$disk does not support disk erasure -- continuing.\n";
-			}
-			else {
-				print STDERR "$disk does not support disk erasure -- skipped.\n";
-				push @Skipped,$disk;
-				next;
-			}
-		}
+	#	if ($EraseSupported ne 'yes') {
+	#		if ($Options{force}) {
+	#			print STDERR "$disk does not support disk erasure -- continuing.\n";
+	#		}
+	#		else {
+	#			print STDERR "$disk does not support disk erasure -- skipped.\n";
+	#			push @Skipped,$disk;
+	#			next;
+	#		}
+	#	}
 		if ($Frozen ne 'not') {
 			if ($Options{force}) {
 				print STDERR "$disk is frozen -- continuing.\n";
@@ -625,7 +623,7 @@ LOGONLY "^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY "^\s*Command: "
 SHOW	"^[-\s]+$"
 SHOW	"^\s*(/dev/\S+\b)+$"
-SHOW	"^\s*/dev/\S+\s+\S+\s+\S+\s+\S+\s+\S+\s*$"
+SHOW	"^\s*/dev/\S+\s+\S+\s+\S+\s+\S+\s+(\S+\s+than\s+)?\S+\s*$"
 SHOW	"^\s*\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d \S+ security erasure ended normally.$"
 SHOW	"^\s*\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d Beginning \S+.\s+Estimated run time ="
 SHOW	"^\s*\S+ ended normally with status 0 and signal 0 - run time:"
