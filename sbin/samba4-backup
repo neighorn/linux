@@ -15,7 +15,7 @@ use File::Basename;
 my $Prog=$0;			# Get our name, for messages.
 $Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";		# Trim off the path, if present.
-$ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+$ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/samba/bin';
 my @Args=@ARGV;			# Preserve orig command for ref.
 my $ErrorFlag=0;		# No errors so far.
 my @ConfigFiles=("/usr/local/etc/${Prog}.cfg");     # Name of config files.
@@ -45,26 +45,6 @@ our %OptionSpecifications=(
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
-my %TypeExclude = (	# Populate a default list of types to exclude.
-	'binfmt_misc' 		=> 1,
-	'cgroup' 		=> 1,
-	'debugfs' 		=> 1,
-	'devpts' 		=> 1,
-	'devtmpfs' 		=> 1,
-	'fusectl' 		=> 1,
-	'fuse.gvfs-fuse-daemon'	=> 1,
-	'nfs' 			=> 1,
-	'nfsd' 			=> 1,
-	'none' 			=> 1,
-	'proc' 			=> 1,
-	'rpc_pipefs' 		=> 1,
-	'securityfs' 		=> 1,
-	'subfs' 		=> 1,
-	'sysfs' 		=> 1,
-	'sysfs' 		=> 1,
-	'tmpfs' 		=> 1,
-	'usbfs' 		=> 1,
-);
 our $ExitCode;
 
 my $HostName = `hostname`;
@@ -448,7 +428,6 @@ sub opt_h {
 
 	use FindBin qw($RealScript);
 
-	my %ExcludeTypes = join(', ',sort(keys(%TypeExclude)));
 	system(qq<pod2text $RealScript | sed "s/%Prog/$Prog/g" | more>);
 exit 1;
 }
