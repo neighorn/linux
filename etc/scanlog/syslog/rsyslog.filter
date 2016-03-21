@@ -1,5 +1,4 @@
-IGNORE	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ last message repeated \d+ times"
-IGNORE	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ \S+(\d+)?:\s*message repeated \d times"
+IGNORE	"^... [ 0-3]\d \d\d:\d\d:\d\d(\s+\S+)?(\d+)?:?\s+last message repeated \d+ times"
 IGNORE	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd(-\d+)?:\s*-- MARK --$"
 IGNORE	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd(-\d+)?:\s*\S+$"
 IGNORE	"^... [ 0-3]\d \d\d:\d\d:\d\d \S+ rsyslogd(-\d+)?:\s*rsyslogd's groupid changed to \d+$"
