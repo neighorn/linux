@@ -1,0 +1,13 @@
+#! /bin/bash
+#
+# Relocate /usr/mcsi-linux to /usr/mcsi/linux to make room for other MCSI libraries
+#
+trap "Unexpected error at line __LINE__" ERR
+find / \( -wholename /usr/local/dirvish -prune -o -wholename /dev -prune -o -wholename /proc -prune -o -wholename /sys -prune \) -o -type l -print |
+while read line
+do  link=`readlink $line`
+   [[ "$link" = */mcsi-linux/* ]] || continue
+   newlink=`echo $link | sed 's/mcsi-linux/mcsi\/linux/'`
+   echo ln -sf $newlink $line
+done
+sed -i 's/mcsi-linux/mcsi\/linux/' /usr/local/etc/checkall.cfg
