@@ -103,6 +103,7 @@ LogOutput({
 die "No remote servers specified.  Enter '$Prog -h' for syntax.\n"
 	unless (@Parms > 0);
 
+my $Dir = ((-d '/usr/mcsi')?'/usr/mcsi':'/usr/mcsi-linux');
 foreach my $Item (@Parms) {
 	my($Server,$SSHParm);
 	if ($Item =~ /(\S+):(\S+)/) {
@@ -111,7 +112,7 @@ foreach my $Item (@Parms) {
 	else {
 		($Server,$SSHParm) = ($Item,'');
 	}
-	RunDangerousCmd("/usr/bin/rsync -aHq $SSHParm --delete /usr/mcsi-linux/ $Server:/usr/mcsi-linux/")
+	RunDangerousCmd("/usr/bin/rsync -aHq $SSHParm --delete $Dir/ $Server:$Dir/")
 		unless ($Hostname =~ /^$Server(\..+)/);	# Skip ourselves.
 }
 
