@@ -7,7 +7,7 @@ test=''
 trap "Unexpected error at line __LINE__" ERR
 
 # Relocate the actual directory.
-[[ -d /usr/mcsi-linux ]] && mkdir /usr/mcsi && mv /usr/mcsi-linux /usr/mcsi/linux
+[[ ! -d /usr/mcsi ]] && mkdir /usr/mcsi && mv /usr/mcsi-linux /usr/mcsi/linux
 
 # Find and fix any symbolic links.
 find / \( -wholename /usr/local/dirvish -prune -o -wholename /dev -prune -o -wholename /net -prune -o -wholename /proc -prune -o -wholename /sys -prune \) -o -type l -print |
@@ -19,4 +19,4 @@ do  link=`readlink $line`
 done
 
 # Fix up checkall's .cfg file reference.
-$test sed -i 's/mcsi-linux/mcsi\/linux/' /usr/local/etc/checkall.cfg
+[[ -f /usr/local/etc/checkall.cfg ]] && $test sed -i 's/mcsi-linux/mcsi\/linux/' /usr/local/etc/checkall.cfg
