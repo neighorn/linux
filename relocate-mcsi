@@ -10,7 +10,17 @@ trap "Unexpected error at line __LINE__" ERR
 [[ ! -d /usr/mcsi ]] && mkdir /usr/mcsi && mv /usr/mcsi-linux /usr/mcsi/linux
 
 # Find and fix any symbolic links.
-find / \( -wholename /usr/local/dirvish -prune -o -wholename /dev -prune -o -wholename /net -prune -o -wholename /proc -prune -o -wholename /sys -prune \) -o -type l -print |
+find / \
+	\( \
+		   -wholename /dev -prune \
+		-o -wholename /mnt -prune \
+		-o -wholename /net -prune \
+		-o -wholename /proc -prune \
+		-o -wholename /sys -prune \
+		-o -wholename /usr/local/dirvish -prune \
+		-o -wholename /usr/local/lxc -prune \
+	\) \
+	-o -type l -print |
 while read line
 do  link=`readlink $line`
    [[ "$link" = */mcsi-linux/* ]] || continue
