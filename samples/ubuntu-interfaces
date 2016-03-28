@@ -1,0 +1,16 @@
+# Ordinary DHCP configuration
+auto em1
+iface em1 inet dhcp
+
+# Ordinary static configuration
+auto em1
+iface em1 inet static
+address 192.168.xxx.xxx
+netmask 255.255.255.0
+gateway 192.168.xxx.1
+
+# Bridged DHCPconfiguration
+auto br1
+iface br1 inet dhcp
+bridge_ports em1
+pre-up iptables-restore < /usr/local/etc/iptables.rules
