@@ -13,6 +13,7 @@ trap "Unexpected error at line __LINE__" ERR
 find / \
 	\( \
 		   -wholename /dev -prune \
+		-o -wholename /home -prune \
 		-o -wholename /mnt -prune \
 		-o -wholename /net -prune \
 		-o -wholename /proc -prune \
