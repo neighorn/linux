@@ -194,7 +194,7 @@ foreach (@{$Options{jobinit}}) {
 	print "Running: $_\n";
 	PrintStatsFile(strftime("%D %T Running initialization scripts<br>",localtime()));
 	RunDangerousCmd($_) &&
-		die "$_ returned status $?: $!\n";
+		warn "$_ returned status $?: $!\n";
 }
 
 # Now we have to wipe the options (because we've collected things
