@@ -278,8 +278,8 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?agpgart:
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ahci [[:xdigit:].:]+: AHCI \d+\.\d+ \d+ slots \d+ ports [\d.]+ Gbps 0x[[:xdigit:]]+ impl SATA mode$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ahci [[:xdigit:].:]+: flags: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ahci [[:xdigit:].:]+: PCI INT ? -> GSI \d+ \(level, low\) -> IRQ \d+$"
-IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ahci [[:xdigit:].:]+: PCI INT ? -> Link\[LNKA\] -> GSI \d+ \(level, high\) -> IRQ \d+
-IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ahci [[:xdigit:].:]+: flags: ncq only
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ahci [[:xdigit:].:]+: PCI INT ? -> Link\[LNKA\] -> GSI \d+ \(level, high\) -> IRQ \d+"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ahci [[:xdigit:].:]+: flags: ncq only"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ahci: SSS flag set, parallel bus scan disabled$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?alg: No test for stdrng \(krng\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?allocated \d+ bytes of page_cgroup$"
