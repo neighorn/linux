@@ -142,7 +142,7 @@ while (<>) {
 	}
 }
 
-foreach (keys(%Items)) { PrintItem($_,$Items{$_}); }			# Print any outstanding items.
+foreach (keys(%Items)) { PrintItem($_,%{$Items{$_}}); }			# Print any outstanding items.
 
 if ($Errors) {
 	warn "$Prog failed.\n";
@@ -177,7 +177,7 @@ sub PrintItem {
 			from => '-' x 40,
 			to => '-' x 40,
 			status => '-' x 8,
-			detail => '-' x 20,
+			detail => '-' x 60,
 		);
 	}
 	else {
@@ -185,7 +185,7 @@ sub PrintItem {
 	}
 
 	foreach (qw(from lastupdate to status)) { $Item{$_} = '' unless ($Item{$_})};
-	my $line = sprintf "%-12s %-15s %-40s %-40s %-8s %-40.40s\n",$queueID,$Item{lastupdate},$Item{from},$Item{to},$Item{status},$Item{detail};
+	my $line = sprintf "%-12s %-15s %-40s %-40s %-8s %-60.60s\n",$queueID,$Item{lastupdate},$Item{from},$Item{to},$Item{status},$Item{detail};
 	print $line if ($line =~ $FilterRegex or $line =~ ('^Queue ID|^-----'));
 }
 
