@@ -45,6 +45,8 @@ my $SECTIONLOCK;			# File handle for a section lock file, if used.
 our $StartTime = time();		# Primarily for ifbefore, imagename.
 our $MaxVaultLength=0;			# Length of longest vault name, for formatting.
 our @Banks;				# List of banks, from the config file.
+our $CurrentMachine=0;			# nth machine being processed.
+our $TotalMachines=0;			# How many machines will we back up?
 our %MachinesDone;			# List of machines we did, so we don't try them twice.
 
 # Define our command-line options.  I use sub for everything, because
@@ -295,6 +297,7 @@ sub GetNameLengths {
 	my $Vault = shift;
 	my $length = length($Vault);
 	$MaxVaultLength = ($MaxVaultLength > $length?$MaxVaultLength:$length);
+	$TotalMachines++;		# Count how many machines we'll back up.
 }
 
 
@@ -331,7 +334,8 @@ sub ProcessBackup {
 	}
 
 	# Document that we're starting a new target.
-	print strftime("Starting $Target at %H:%M:%S on %A, %Y-%m-%d...\n",localtime());
+	$CurrentMachine++;
+	print strftime("Starting $Target ($CurrentMachine/$TotalMachines) at %H:%M:%S on %A, %Y-%m-%d...\n",localtime());
 
 	if (!chdir $MachineDirectory) {
 		warn "Unable to CD to $MachineDirectory: $!\n";
@@ -1094,7 +1098,7 @@ LOGONLY /^Command: /
 # These are normal messages that we want to see.
 #
 SHOW	"^\s*[-_]+\s*$"
-IGNORE	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*Starting \S+ \(\d+/\d+\) at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 SHOW	/^\s*Unable to lock (stat|mail) file "\S+": Resource temporarily unavailable/
 # Ignore dirvish-expire messages
 IGNORE	"^\s*Expiring\s"
