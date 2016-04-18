@@ -1,0 +1,3 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mail-summary(\[\d+\])?:\s*Queue ID"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mail-summary(\[\d+\])?:\s*[-\s]+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mail-summary(\[\d+\])?:\s*[[:xdigit:]]+\s+... .. ..:..:.."
