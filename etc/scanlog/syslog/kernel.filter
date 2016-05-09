@@ -51,6 +51,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?ata\d+(\
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?ata\d.\d+: configured for"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?bio: create slab \<bio-\d+\> at \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?BIOS EDD facility v.*, \d+ devices found"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?block sdb\d+: hash matches$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?bootsplash: status on console 0 changed to on$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?br\d+: port \d+\(\S+\) entering disabled state$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?br\d+: port \d+\(\S+\) entering forwarding state$"
