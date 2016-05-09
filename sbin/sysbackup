@@ -453,7 +453,7 @@ sub RunLocally {
 	RunDangerousCmd("recovery-info -o $OutputDir/recovery");
 	my $size = ($Options{test}
 		? '999999 x'
-		: `du -s "$OutputDir"`
+		: `du -sb "$OutputDir"`
 	);
 	chomp $size;
 	$size =~ s/^\s*(\d+)\s.*$/$1/;
