@@ -1,6 +1,6 @@
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhclient(\[\d+\])?:\s*$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhclient(\[\d+\])?:\s*Internet Systems Consortium DHCP Client \S+$"
-IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhclient(\[\d+\])?:\s*Copyright 2004-2010 Internet Systems Consortium.$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhclient(\[\d+\])?:\s*Copyright \d+-\d+ Internet Systems Consortium.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhclient(\[\d+\])?:\s*All rights reserved.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhclient(\[\d+\])?:\s*For info, please visit https://www.isc.org/software/dhcp/$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhclient(\[\d+\])?:\s*Listening on LPF/\S+/\S+$"
