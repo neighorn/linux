@@ -19,6 +19,8 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*ntpd exiting on signal 1
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*peers refreshed$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*precision ="
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*proto: precision = \S+ usec$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*restrict: error in address '::' on line \d+. Ignoring...$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*restrict: error in address '::1' on line \d+. Ignoring...$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*synchronized to \d+\.\d+\.\d+\.\d+, stratum \d+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*time reset"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*unable to bind to wildcard address 0.0.0.0 - another process may be running - EXITING$"

@@ -24,6 +24,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd\[\d+\]:\s*\[20../../.. ..:..:..(\.
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd\[\d+\]:\s*\[20../../.. ..:..:..(\.\d+)?,\s*\d+\]\s*../source3/rpc_server/srv_pipe.c:\d+\(process_request_pdu\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd\[\d+\]:\s*\[20../../.. ..:..:..(\.\d+)?,\s*\d+\]\s*../source3/smbd/server.c:\d+\(main\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd\[\d+\]:\s*standard input is not a socket, assuming -D option$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd\[\d+\]:\s*STATUS=daemon '\S+' finished starting up and ready to serve connections"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd\[\d+\]:\s*Got shutdown message$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd\[\d+\]:\s*Got sig\[15\] terminate \(is_parent=\d+\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ winbindd\[\d+\]:\s*\[20../../.. ..:..:..(\.\d+)?,\s*\d+\]\s*../source3/winbindd/winbindd.c:\d+\(msg_shutdown\)$"

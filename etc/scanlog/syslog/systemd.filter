@@ -15,6 +15,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*systemd-logind.ser
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*Unit systemd-logind.service entered failed state.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*Watching system buttons on /dev/input/$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-login(\[\d+\])?:\s*Failed to open \S+: No such file or directory$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-login(\[\d+\])?:\s*Failed to remove runtime directory \S+: Device or resource busy$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-login(\[\d+\])?:\s*Watching system buttons on \S+ \(Power Button\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-logind(\[\d+\])?:\s*New seat \S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-logind(\[\d+\])?:\s*New session \S+ of user \S+\.$"

@@ -115,7 +115,7 @@ sub Check {
 
 	# This host or remote?
 	my @StatData;
-	if (defined($Self->{Host})) {
+	if (defined($Self->{Host}) and $Self->{Host} and $Self->{Host} ne 'localhost') {
 		# On a remote host.
 		my $Cmd = 
 			'ssh '
