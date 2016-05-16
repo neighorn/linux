@@ -267,6 +267,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?PCI: MCF
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?PCI: Not using MMCONFIG.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?PCI: Not using MMCONFIG.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?PCI: Setting latency timer of device ....:..:..\.. to \d+$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?perf interrupt took too long \(\d+ > \d+\), lowering kernel.perf_event_max_sample_rate to \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?perf samples too long \(\d+ > \d+\), lowering kernel.perf_event_max_sample_rate to \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?perfectly reliable and the kernel is designed to handle that.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?Performance Events: PEBS fmt1\+, erratum AAJ80 worked around, Nehalem events, Intel PMU driver.$"
