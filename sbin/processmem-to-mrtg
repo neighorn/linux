@@ -4,6 +4,23 @@
 #
 #    Example: processmem-to-mrtg mysqld
 #
+#    Sample MRTG entry:
+#	Target[mongomem]: `/usr/local/sbin/processmem-to-mrtg mongod`
+#	Title[mongomem]: Mongo Memory Usage
+#	Options[mongomem]: growright,nopercent,gauge
+#	MaxBytes[mongomem]: 67108
+#	AbsMax[mongomem]: 134217
+#	Kilo[mongomem]: 1024
+#	kMG[mongomem]: ,,
+#	YLegend[mongomem]: Mb
+#	ShortLegend[mongomem]: Mb
+#	Legend1[mongomem]: Resident
+#	Legend2[mongomem]: Virtual
+#	LegendI[mongomem]: Resident
+#	LegendO[mongomem]: Virtual
+#	PageTop[mongomem]: <H1>Mongo Memory Usage</H1><a href="index.shtml">(Return to main page)</a><br>
+#	Unscaled[mongomem]: none
+
 function procmem
 {
 	pid=`pidof $1`
