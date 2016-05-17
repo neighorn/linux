@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# Document a process' memory consumption in Mb
+#
+#    Example: processmem-to-mrtg mysqld
+#
+function procmem
+{
+	pid=`pidof $1`
+	if [[ $? -eq 0 ]]
+	then
+		line=`echo $pid | xargs ps -o rss,vsz | sed '/RSS/d;s/^ *//;s/ *$//;'`
+		rss=${line%% *}
+		vsz=${line##* }
+		((rss=($rss+512)/1024))	# Convert to Mb
+		((vsz=($vsz+512)/1024))	# Convert to Mb
+		echo $rss $vsz
+	else
+		echo 0 0
+	fi
+}
+
+line=$(procmem $1)
+rss=${line%% *}
+vsz=${line##* }
+printf "$rss\n$vsz\n0\n0\n"
