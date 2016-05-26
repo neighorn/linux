@@ -183,8 +183,8 @@ foreach my $disk (@Parms) {
 
 	# Gather HDParm data.
 	my ($Serial, $Size, $Time, $Type, $Frozen, $EraseSupported, $Enabled) =
-	my @HDParms = `hdparm -I $disk`;
 		('unknown','unknown','unknown','','unknown','unknown','unknown');
+	my @HDParms = `hdparm -I $disk`;
 	my $Status = $?;
 	if ($Status) {
 		if ($Options{force}) {
