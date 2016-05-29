@@ -75,6 +75,7 @@ our %OptionSpecifications=(
 		'max-size|S=s'		=>	\&opt_S,
 		'max-fs-percent=i'	=>	\&opt_Value,
 		'option-set|O=s'	=>	\&opt_O,
+		'rename-vault=s'	=>	\&opt_Value,
 		'rerun|R:1'		=>	\&opt_Value,
 		'sectionlockfile=s'	=>	\&opt_SectionLockFile,
 		'subject|N=s'		=>	\&opt_Value,
@@ -307,7 +308,24 @@ sub GetNameLengths {
 sub ProcessBackup {
 
 	my $Target = shift;
+
+        # Is this really a machine name, or a list of names?
+	if ($Config{$Target}) {
+		foreach (split(/[\s,]+/,$Config{$Target})) {
+			ProcessBackup($_);
+		}
+		return;
+	}
+
 	my $VaultStartTime = time();
+
+	# Are we renaming the vault?
+	if ($Options{'rename-vault'}) {
+		# Yes.  Modify the target name.
+		my $NewName = $Options{'rename-vault'};
+		$NewName =~ s/%NAME%/$Target/g;
+		$Target = $NewName;
+	}
 
 	# Load any machine-specific options from the config files.
 	my %TmpOptions = %Options;
@@ -316,8 +334,8 @@ sub ProcessBackup {
 	%Options = %TmpOptions;
 	%OptionSpecifications = %TmpOptSpec;
 	$OptionSpecifications{'<>'} = '';	# No recursive loops.
-	if ($Config{$Target}) {
-		$Errors ++ unless GetOptionsFromString($Config{$Target},%OptionSpecifications);
+	if ($Config{"vault=$Target"}) {
+		$Errors ++ unless GetOptionsFromString($Config{"vault=$Target"},%OptionSpecifications);
 	}
 
 	if ($Options{verbose} >= 3) {
@@ -784,11 +802,11 @@ sub opt_O {
 	my(undef,$Value) = @_;
 	$Value = uc($Value);
 	if (exists($Config{$Value})) {
-		$Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
+	        $Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
 	}
 	else {
-		warn qq<Warning: "$Value" not found in configuration file\n>;
-	}
+	        warn qq<Warning: "$Value" not found in configuration file\n>;
+        }
 }
 
 
@@ -975,6 +993,20 @@ Vault Options:
 	-O|--option-set=config:		Insert the "config" configuration
 					options from the configuration files.
 
+	--rename-vault=string:		Replace the supplied vault name with
+					string.  Any occurrences of "%NAME%"
+					within the string are replace with the
+					originally supplied vault name.
+						Ex: --rename-vault=%NAME%-offsite
+					This is used primarily to allow a single
+					list of names to be reused in various
+					similarly named backup vaults.  For
+					example, a configuration file containing:
+						Servers: alpha beta 
+					and a command line using it:
+						dirvish-run -O servers --rename-vault=%NAME%-offsite -O servers
+					would back up alpha, beta, alpha-offsite, beta-offsite
+						
 	-R|--rerun=[days]:		Rerun: delete the most recent backup, 
 					provided that it is no more than "days"
 					days old.  Days is optional, and 
@@ -1044,8 +1076,8 @@ Reserved names are:
 			are specified.
 	Banks:		"data" is a list of directories containing dirvish 
 			backups.
-	<target>:	Any backup target may have specific command line
-			options by listing its name as a "name" value in
+	vault=<target>:	Any backup target may have specific command line
+			options by listing its name as a "vault=name" value in
 			a configuration file, and the options as the "data"
 			portion.  Note that any option is accepted, but 
 			only the vault options are effective.
@@ -1054,7 +1086,7 @@ Configuration File Example:
 Alljobs:	-m sysadmin --subject "dirvish-run job report"
 DefaultJob:	sys1 sys2 sys3
 Banks:		/usr/local/dirvish /mnt/offsite/dirvish
-sys1:		-vvv
+vault=sys1:	-vvv
 
 Return codes:
 	0       :       Normal termination
