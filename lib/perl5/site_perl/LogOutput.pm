@@ -22,7 +22,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.26;
+our $Version	= 3.27;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -116,7 +116,7 @@ sub LogOutput {
 
 	# Fork off child process to run the real job.  Parent will stay here
 	# to monitor child's sysout and exit code.
-	if ($ eq 'MSWin32') {
+	if ($^O eq 'MSWin32') {
 		# We're windows.  Don't have -|
 		pipe LOGREADHANDLE, LOGWRITEHANDLE or die;
 		$PID = fork();
@@ -157,7 +157,7 @@ sub LogOutput {
 		select STDOUT;
 
 		# Begin our log.
-		$TimeStamp=strftime("%A, %Y-%m-%d at %H:%M:%S",localtime($));
+		$TimeStamp=strftime("%A, %Y-%m-%d at %H:%M:%S",localtime($^T));
 		my @ArgList = @main::ARGV;
 		foreach (@ArgList) { 
 			$_ = '' unless defined($_)
@@ -207,7 +207,7 @@ print "LogOutput: Child ended with Status=$Status (Exit Code = $ExitCode, Signal
 
 $StopTime=time();
 $TimeStamp=strftime("%A, %Y-%m-%d at %H:%M:%S",localtime($StopTime));
-$RunTime=$StopTime-$;
+$RunTime=$StopTime-$^T;
 my($RunSec,$RunMin,$RunHour,$RunDay);
 $RunSec = $RunTime % 60;		# localtime($RunTime) gave weird results
 $RunTime=($RunTime - $RunSec)/60;
