@@ -19,5 +19,5 @@ then
 	delete SECRETS/SID/$uppername
 	quit
 ENDTDB
-
+fi
 
