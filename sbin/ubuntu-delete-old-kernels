@@ -257,7 +257,8 @@ sub RunLocally {
 	die "Unable to run uname -r: status=$?, error=$!" if ($?);
 	
 	if ($CurVersion =~ /^(\d+)\.(\d+)\.(\d+)-(\d+)?/) {
-		$Current=NumericVersion($1,$2,$3,$4);
+		my $suffix = ($4?$4:0);
+		$Current=NumericVersion($1,$2,$3,$suffix);
 	}
 	else {
 		die "Unable to interpret current version $CurVersion";
