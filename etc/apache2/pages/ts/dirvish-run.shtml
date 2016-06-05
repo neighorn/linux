@@ -11,7 +11,7 @@
 </H2>
 <!-- need three backslashes in sudoers file for the following -->
 <pre>
-<!--#exec cmd="sudo /bin/grep 'dirvish-run\[' /var/log/syslog /var/log/messages 2> /dev/null | tail -25 | sed 's/^.*dirvish-run\[/[/'" -->
+<!--#exec cmd="sudo /bin/grep 'dirvish-run\[' /var/log/syslog /var/log/messages 2> /dev/null | tail -40 | perl -n -e 'print qq[\$1 \$2\n] if (m%^/var/log/\S+:... .. (..:..:..) \S+ \S+:\s(.*)$%);'" -->
 <pre>
 </body>
 </html>
