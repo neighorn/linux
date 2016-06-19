@@ -709,8 +709,8 @@ sub opt_h {
 
 	use FindBin qw($RealScript);
 
-	my %ExcludeTypes = join(', ',sort(keys(%TypeExclude)));
-	system(qq<pod2text $RealScript | sed "s/%Prog/$Prog/g;s/%ExcludeTypes/%ExcludeTypes/g" | more>);
+	my $ExcludeTypes = join(', ',sort(keys(%TypeExclude)));
+	system(qq<pod2text $RealScript | sed "s/%Prog/$Prog/g;s/%ExcludeTypes/$ExcludeTypes/g" | more>);
 exit 1;
 }
 
