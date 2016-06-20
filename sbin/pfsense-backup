@@ -177,6 +177,10 @@ sub ProcessBackup {
 		print STDERR "\tInvalid value for --cycles. Skipping backup.\n";
 		return 1;
 	}
+	if ($Options{maxdays} and $Options{maxdays} !~ /^[1-9]\d*$/) {
+		print STDERR "\tInvalid value for --maxdays. Skipping backup.\n";
+		return 1;
+	}
 
 	# Load and machine-specific configuration data.
 	local %Options = %::Options;
@@ -233,11 +237,11 @@ sub ProcessBackup {
 				# Temporary or failed backup.  Just delete it.
 				RunDangerousCmd(qq<rm "$OutputDir/$_">);
 			}
-			elsif ( $Options{maxdays} and ($Options{maxdays} < -m "$OutputDir/$_")) {
+			elsif ( $Options{maxdays} and ($Options{maxdays} < (-M "$OutputDir/$_"))) {
 				# Exceeds maxdays.  Delete it.
-                		RunDangerousCmd(qq<rm "$OutputDir/$_">) if ($Count >= $Options{cycles});
+                		RunDangerousCmd(qq<rm "$OutputDir/$_">);
 			}
-			elsif ($Options{cycles} and (++$Count >= $Options{cycles})) {
+			elsif ($Options{cycles} and (++$Count > $Options{cycles})) {
 				# Too many cycles.  Delete it.
                 		RunDangerousCmd(qq<rm "$OutputDir/$_">);
 			}
