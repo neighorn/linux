@@ -49,6 +49,7 @@ our %OptionSpecifications=(
 		'subject=s'		=>	\&opt_Value,
 		'test|t!'		=>	\&opt_Value,
 		'username|user|U=s'	=>	\&opt_Value,
+		'maxdays=i'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 		'<>'			=>	sub {push @Parms,shift;},
 );
@@ -232,10 +233,13 @@ sub ProcessBackup {
 				# Temporary or failed backup.  Just delete it.
 				RunDangerousCmd(qq<rm "$OutputDir/$_">);
 			}
-			elsif ($Options{cycles} and m<$BackupPattern>) {
-				# Valid backup and we're deleting old cycles.
-                		$Count++;
+			elsif ( $Options{maxdays} and ($Options{maxdays} < -m "$OutputDir/$_")) {
+				# Exceeds maxdays.  Delete it.
                 		RunDangerousCmd(qq<rm "$OutputDir/$_">) if ($Count >= $Options{cycles});
+			}
+			elsif ($Options{cycles} and (++$Count >= $Options{cycles})) {
+				# Too many cycles.  Delete it.
+                		RunDangerousCmd(qq<rm "$OutputDir/$_">);
 			}
         	}
         	close $FHLS;
@@ -379,6 +383,7 @@ Usage:  $Prog [options] [host...]
 Options:
 
 	--cycles=n|-C n:		Cycles: keep n backups.
+	--maxdays=n:			MaxDays: delete backups older than n days.
 	--output="name":		Output: Path and file name of the output file.
 					This may include % variables, which are 
 					substituted as follows:
