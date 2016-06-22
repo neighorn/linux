@@ -118,8 +118,12 @@ die "No disks specified\n" unless (@Parms);
 my @DiskList;
 my %DiskData;
 my %Statuses;		# Summary statuses.
+my $NameLen = 0;	# Length of longest device name, for summary.
+my $MaxTime = 0;	# Longest erase time estimate.
+my $MaxTimeAtLeast = 0;	# Longest erase time estimate.
 foreach my $disk (@Parms) {
 	$disk = abs_path($disk);	# Handle any symbolic links (e.g. /dev/disk/by-path/...).
+	$NameLen = length($disk) if ($NameLen < length($disk));
 	if (exists($DiskData{$disk})) {
 		# Ignore duplicates.
 		print "Verbose: Ignoring duplicate item for $disk\n" if ($Options{verbose});
@@ -265,6 +269,12 @@ foreach my $disk (@Parms) {
 			time => $Time,
 			enabled => $Enabled,
 		};
+		if ($Time =~ /^\s*(\d+)min\s*$/) {
+			$MaxTime = $1 if ($MaxTime < $1);
+		}
+		else {
+			$MaxTimeAtLeast = 1;	# We can't understand this value.
+		}
 	}
 }
 
@@ -294,6 +304,11 @@ do {
 		exit ($Errors?8:0);
 	}
 } until ($Response =~ /^yes$/i);
+
+print strftime(
+	"Beginning disk erasures.  Estimated completion time is " . ($MaxTimeAtLeast?' after':'') . "%Y-%m-%d at %T.\n\n",
+	localtime(time()+$MaxTime*60)
+);
 
 my %Handles;		# Pipe handles.
 $SIG{PIPE}='IGNORE';
@@ -362,7 +377,7 @@ while (%Handles) {
 
 print "\n\nAll disks processed. Summary:\n\n";
 foreach my $key (sort(keys(%Statuses))) {
-	printf "%-9s: %s\n", $key, $Statuses{$key};
+	printf "%-*s: %s\n", $NameLen,$key, $Statuses{$key};
 }
 
 if ($Errors) {
@@ -456,6 +471,10 @@ sub EraseDisk {
 		$Statuses{$disk} = "unknown - password didn't clear";
 		$Errors++;
 		exit 1;
+	}
+	if ( -x '/sbin/parted') {
+		# Optionally, mark that we've wiped it.
+		RunDangerousCmd("parted $disk mklabel gpt mkpart wiped 64 80");
 	}
 	print ''
 		. ($Options{test}?'Test: ':'') .
@@ -708,10 +727,11 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 IGNORE	"/dev/\S+:$"
-IGNORE	"^\s*(/dev/\S+:\s*)?$"
+SHOW	"^\s*$"
 IGNORE	"^\s*(/dev/\S+:\s*)?Issuing SECURITY_ERASE command, password=\"password\", user=user$"
 IGNORE	"^\s*(/dev/\S+:\s*)?Issuing SECURITY_SET_PASS command, password=\"password\", user=user, mode=high$"
 IGNORE	"^\s*(/dev/\S+:\s*)?security_password=\"password\"$"
+IGNORE	"^\s*(/dev/\S+:\s*)?Information: You may need to update /etc/fstab.\s*$"
 LOGONLY "^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY "^\s*Command: "
 SHOW	"^[-\s]+$"
@@ -732,3 +752,4 @@ SHOW	"^\s*(/dev/\S+:\s*)?erase ended normally$"
 SHOW	"^\s*No action taken.$"
 SHOW	"^\s*All disks processed. Summary:"
 SHOW	"^\s*/dev/\S+\s*: erased$"
+SHOW	"^\s*Beginning disk erasures.  Estimated completion time is"
