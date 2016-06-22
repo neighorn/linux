@@ -117,7 +117,7 @@ die "No disks specified\n" unless (@Parms);
 
 my @DiskList;
 my %DiskData;
-my @Skipped;
+my %Statuses;		# Summary statuses.
 foreach my $disk (@Parms) {
 	$disk = abs_path($disk);	# Handle any symbolic links (e.g. /dev/disk/by-path/...).
 	if (exists($DiskData{$disk})) {
@@ -133,7 +133,8 @@ foreach my $disk (@Parms) {
 		}
 		else {
 			print STDERR "$disk doesn't look like a disk device name -- skipped.\n";
-			push @Skipped,$disk;
+			$Statuses{$disk} = "\tskipped - doesn't look like a disk device name";
+			$Errors++;
 			next;
 		}
 	}
@@ -143,7 +144,8 @@ foreach my $disk (@Parms) {
 		}
 		else {
 			print STDERR "$disk doesn't exist -- skipped.\n";
-			push @Skipped,$disk;
+			$Statuses{$disk} = "\tskipped - doesn't exist";
+			$Errors++;
 			next;
 		}
 	}
@@ -153,7 +155,8 @@ foreach my $disk (@Parms) {
 		}
 		else {
 			print STDERR "$disk isn't a block device -- skipped.\n";
-			push @Skipped,$disk;
+			$Statuses{$disk} = "\tskipped - isn't a block device";
+			$Errors++;
 			next;
 		}
 		next;
@@ -164,7 +167,8 @@ foreach my $disk (@Parms) {
 		}
 		else {
 			print STDERR "$disk is mounted -- skipped.\n";
-			push @Skipped,$disk;
+			$Statuses{$disk} = "\tskipped - is mounted";
+			$Errors++;
 			next;
 		}
 		next;
@@ -175,7 +179,8 @@ foreach my $disk (@Parms) {
 		}
 		else {
 			print STDERR "$disk is a part of an MD raid -- skipped.\n";
-			push @Skipped,$disk;
+			$Statuses{$disk} = "\tskipped - is part of an MD raid";
+			$Errors++;
 			next;
 		}
 		next;
@@ -192,7 +197,8 @@ foreach my $disk (@Parms) {
 		}
 		else {
 			print STDERR "Unable to gather hdparm data form $disk (status $Status) -- skipped.\n";
-			push @Skipped,$disk;
+			$Statuses{$disk} = "\tskipped - unable to gather hdparm data";
+			$Errors++;
 			next;
 		}
 	}
@@ -236,7 +242,6 @@ foreach my $disk (@Parms) {
 	#		}
 	#		else {
 	#			print STDERR "$disk does not support disk erasure -- skipped.\n";
-	#			push @Skipped,$disk;
 	#			next;
 	#		}
 	#	}
@@ -246,7 +251,8 @@ foreach my $disk (@Parms) {
 			}
 			else {
 				print STDERR "$disk is frozen -- skipped.\n";
-				push @Skipped,$disk;
+				$Statuses{$disk} = "\tskipped - is frozen";
+				$Errors++;
 				next;
 			}
 		}
@@ -262,7 +268,6 @@ foreach my $disk (@Parms) {
 	}
 }
 
-$Errors += 0+@Skipped;
 die "No remaining disks specified.  No action taken.\n" unless (@DiskList);
 
 print	''
@@ -290,8 +295,74 @@ do {
 	}
 } until ($Response =~ /^yes$/i);
 
+my %Handles;		# Pipe handles.
+$SIG{PIPE}='IGNORE';
 foreach my $disk (@DiskList) {
-	$Errors+=EraseDisk($disk,%{$DiskData{$disk}});
+	if ( my $PID = open(my $Handle, "-|")) {
+		# I'm the parent.
+		$Handle->autoflush(1);
+		$Handles{$disk} = $Handle;
+		print "Verbose: Disk $disk being processed by process $PID\n" if ($Options{verbose});
+	}
+	elsif (defined($PID)) {
+		# I'm the child.
+		open(STDERR, '>&STDOUT') || print "$disk\[$$]: Unable to redirect STDERR to STDOUT: $!\n";	# Merge STDERR into STDOUT
+		STDOUT->autoflush(1);
+		STDERR->autoflush(1);
+		$Errors+=EraseDisk($disk,%{$DiskData{$disk}});
+		close STDOUT;
+		close STDERR;
+		exit($Errors);
+	}
+	else {
+		warn "Unable to fork process for $disk -- not erased\n";
+		$Statuses{$disk} = "\tfailed";
+		next;
+	}
+}
+
+my $ReadVector = BuildReadVector(values(%Handles));
+
+# Read all input until they've all terminated.
+my $ReadyVector;	# File handle(s) ready to be read.
+while (%Handles) {
+	my $ReadyCount = select($ReadyVector=$ReadVector, undef, undef,undef);	# Undef timeout = wait until status changes.
+	if ($ReadyCount) {
+		# We have input.
+		foreach my $disk (keys(%Handles)) {
+			my $Handle = $Handles{$disk};
+			if (vec($ReadyVector,fileno($Handle),1)) {
+				if (eof($Handle)) {
+					print "Verbose: $disk: Received EOF\n" if ($Options{verbose});
+					if(close $Handle) {
+						print "$disk: erase ended normally\n";
+						$Statuses{$disk} = 'erased';
+					}
+					elsif ($!) {
+						warn "$disk: close failed.  Status unknown.\n";
+						$Statuses{$disk} = "\tunknown - close failed";
+					}
+					else {
+						my $Status = ($? >> 8);
+						my $Signal = ($? & 0xFF);
+						warn "$disk: child exited with status $Status and signal $Signal\n";
+						$Statuses{$disk} = "\tfailed - status $Status and signal $Signal";
+					}
+					delete $Handles{$disk};
+				} 
+				else {
+					my $Line = <$Handle>;
+					chomp $Line;
+					print "$disk: $Line\n";
+				}
+			}
+		}
+	}
+}
+
+print "\n\nAll disks processed. Summary:\n\n";
+foreach my $key (sort(keys(%Statuses))) {
+	printf "%-9s: %s\n", $key, $Statuses{$key};
 }
 
 if ($Errors) {
@@ -301,6 +372,20 @@ if ($Errors) {
 }
 
 exit( ($Errors?10:0) );
+
+
+#
+# BuildReadVector - build the vector of remaining handles to read.
+#
+sub BuildReadVector {
+
+	my $ReadVector = '';
+	foreach (@_) {
+		vec($ReadVector, fileno($_), 1) = 1;
+	}
+	return $ReadVector;
+}
+
 
 
 #
@@ -322,7 +407,9 @@ sub EraseDisk {
 		my $Status = RunDangerousCmd("hdparm --user-master u --security-set-pass password $disk");
 		if ($Status != 0) {
 			warn "$disk: unable to set security password to 'password'.  Received status " . ($Status >> 8) . " -- skipped\n";
-			return 1;
+			$Statuses{$disk} = "skipped - unable to set security password";
+			$Errors++;
+			exit 1;
 		}
 	}
 
@@ -336,8 +423,10 @@ sub EraseDisk {
 			print STDERR " -- continuing\n";
 		}
 		else {
-			print STDERR " -- aborting this disk\n";
-			return 1;
+			print STDERR "$disk skipped -  setting security password failed\n";
+			$Statuses{$disk} = "skipped - setting security password failed";
+			$Errors++;
+			exit 1;
 		}
 	}
 
@@ -352,7 +441,9 @@ sub EraseDisk {
 	my $RunTime = int((time() - $StartTime + 30)/60);
 	if ($Status != 0) {
 		warn "$disk: erase failed with status " . ($Status >> 8) . "\n";
-		return 1;
+		$Statuses{$disk} = "failed with status" . ($Status >> 8);
+		$Errors++;
+		exit 1;
 	}
 	if ($RunTime > 120 && $RunTime < 130) {
 		warn "$disk: run time took $RunTime minutes, which may indicate it timed out" 
@@ -362,13 +453,15 @@ sub EraseDisk {
 	$Status = system("hdparm -I $disk | grep -q '^[ 	]*not[ 	]*enabled *\$'");
 	if ($Status != 0) {
 		warn "$disk: security password didn't clear.  Erase status is unknown.\n";
-		return 1;
+		$Statuses{$disk} = "unknown - password didn't clear";
+		$Errors++;
+		exit 1;
 	}
 	print ''
 		. ($Options{test}?'Test: ':'') .
 		strftime("%Y-%m-%d %T $disk security erasure ended normally.\n",localtime())
 		;
-	return 0;
+	exit 0;
 }
 
 
@@ -615,24 +708,27 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 IGNORE	"/dev/\S+:$"
-IGNORE	"^\s*$"
-IGNORE	/^\s*Issuing SECURITY_ERASE command, password="password", user=user$/
-IGNORE	/^\s*Issuing SECURITY_SET_PASS command, password="password", user=user, mode=high$/
-IGNORE	/^\s*security_password="password"$/
+IGNORE	"^\s*(/dev/\S+:\s*)?$"
+IGNORE	"^\s*(/dev/\S+:\s*)?Issuing SECURITY_ERASE command, password=\"password\", user=user$"
+IGNORE	"^\s*(/dev/\S+:\s*)?Issuing SECURITY_SET_PASS command, password=\"password\", user=user, mode=high$"
+IGNORE	"^\s*(/dev/\S+:\s*)?security_password=\"password\"$"
 LOGONLY "^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY "^\s*Command: "
 SHOW	"^[-\s]+$"
 SHOW	"^\s*(/dev/\S+\b)+$"
-SHOW	"^\s*/dev/\S+\s+\S+\s+\S+\s+\S+\s+(\S+\s+than\s+)?\S+\s*$"
-SHOW	"^\s*\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d \S+ security erasure ended normally.$"
-SHOW	"^\s*\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d Beginning \S+.\s+Estimated run time ="
+SHOW	"^\s*(/dev/\S+:\s*)?/dev/\S+\s+\S+\s+\S+\s+\S+\s+(\S+\s+than\s+)?\S+\s*$"
+SHOW	"^\s*(/dev/\S+:\s*)?\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d \S+ security erasure ended normally.$"
+SHOW	"^\s*(/dev/\S+:\s*)?\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d Beginning \S+.\s+Estimated run time ="
 SHOW	"^\s*\S+ ended normally with status 0 and signal 0 - run time:"
 SHOW	"^\s*debug:"
-SHOW	"^\s*Disk\s+Serial #\s+Size\s+Erase Time\s*$"
-SHOW	"^\s*Executing:"
+SHOW	"^\s*(/dev/\S+:\s*)?Disk\s+Serial #\s+Size\s+Erase Time\s*$"
+SHOW	"^\s*(/dev/\S+:\s*)?Executing:"
 SHOW	"^\s*Please confirm that the following disks should be immediately and permanently wiped of all data:$"
 SHOW	"^\s*Proceed \(yes/NO\)\?$"
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-SHOW	"^\s*Test:"
-SHOW	"^\s*Verbose:"
+SHOW	"^\s*(/dev/\S+:\s*)?Test:"
+SHOW	"^\s*(/dev/\S+:\s*)?Verbose:"
+SHOW	"^\s*(/dev/\S+:\s*)?erase ended normally$"
 SHOW	"^\s*No action taken.$"
+SHOW	"^\s*All disks processed. Summary:"
+SHOW	"^\s*/dev/\S+\s*: erased$"
