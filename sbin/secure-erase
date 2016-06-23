@@ -236,8 +236,11 @@ foreach my $disk (@Parms) {
 	#		elsif (/^\s*supported.*erase/) {
 	#			$EraseSupported="yes";
 	#		}
-			elsif (/^\s*(not)?[ 	]*enabled/) {
-				$Enabled=$1;
+			elsif (/^\s*enabled/) {
+				$Enabled=1;
+			}
+			elsif (/^\s*not\s+enabled/) {
+				$Enabled=0;
 			}
 		}
 	#	if ($EraseSupported ne 'yes') {
@@ -418,7 +421,7 @@ sub EraseDisk {
 		;
 
 	# If it's unlocked (normal), lock it.
-	if ($DiskData{enabled} eq 'not' or $Options{force}) {
+	if (!$DiskData{enabled} or $Options{force}) {
 		my $Status = RunDangerousCmd("hdparm --user-master u --security-set-pass password $disk");
 		if ($Status != 0) {
 			warn "$disk: unable to set security password to 'password'.  Received status " . ($Status >> 8) . " -- skipped\n";
@@ -726,7 +729,7 @@ __END__
 #       1) The "Type" parameter may be specified in upper, lower, or mixed case.
 #       2) All messages go to the syslog, regardless of this filter.
 #
-IGNORE	"/dev/\S+:$"
+IGNORE	"/dev/\S+:\s*$"
 SHOW	"^\s*$"
 IGNORE	"^\s*(/dev/\S+:\s*)?Issuing SECURITY_ERASE command, password=\"password\", user=user$"
 IGNORE	"^\s*(/dev/\S+:\s*)?Issuing SECURITY_SET_PASS command, password=\"password\", user=user, mode=high$"
