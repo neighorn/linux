@@ -137,7 +137,7 @@ foreach (@{$Options{'exclude-fs'}}) {
 	$TypeExclude{$_}=1;
 }
 
-if (exists($Options{'remote-host'})) {
+if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
 	$Errors = RunRemote(@ARGV);
 }
 else {
@@ -227,6 +227,7 @@ sub RunRemote {
 	foreach (@HostList) { $MaxLength=($MaxLength < length($_)?length($_):$MaxLength); }
 	$MaxLength++;		# Allow for trailing colon.
 	my $DeleteNext=0;
+	# Remove -R/--remote-host from remote.  They don't need to know who else we're backing up.
 	foreach (@ARGV) {
 		if ($DeleteNext) {
 			$_ = '';
@@ -248,6 +249,7 @@ sub RunRemote {
 			  . join(' ', @ARGV) . ' '
 			  . '-F SHOWALL '
 			  . '--always-mail= '
+			  . '--remote-host= '	# Avoid --remote-host recursion from AllJobs in .cfg.
 			  . '2\>\&1 '
 			  ;
 		my $FH;
