@@ -259,6 +259,7 @@ sub _CheckPort {
 			}
 			else {
 				$Self->{'StatusDetail'} = "Connect error: $@";
+				$Self->{'StatusDetail'} =~ s/IO::Socket::INET: connect: //;	# Remove clutter.
 				printf REALSTDOUT "\r%5d  %s:%d Connect error: %s\n", $$, $host, $port, $@
 					if ($Self->Verbose);
 			}
