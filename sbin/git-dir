@@ -303,6 +303,8 @@ IGNORE	"^\s*Fast-forward$"
 IGNORE	"^\s*create mode \d+ "
 IGNORE	"^\s*.+\s+\|\s+\d+\s+[+-]+$"
 IGNORE  "^\s*.+\s+\|\s+.*->\s+\d+\s+bytes$"
+IGNORE  "^\s*delete mode \d+ "
+IGNORE  "^\s*rename "
 #              1 file changed, 1 insertion(+), 1 deletion(-)
 #              1 file changed, 12 insertions(+), 3 deletions(-)
 SHOW	"^\s*\d+ files? changed(,\s+\d+ insertions?\(\+\))?(,\s+\d+ deletions?\(\-\))?$"
