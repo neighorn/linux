@@ -318,15 +318,18 @@ $SIG{PIPE}='IGNORE';
 foreach my $disk (@DiskList) {
 	if ( my $PID = open(my $Handle, "-|")) {
 		# I'm the parent.
-		$Handle->autoflush(1);
+		$| = 1;
 		$Handles{$disk} = $Handle;
 		print "Verbose: Disk $disk being processed by process $PID\n" if ($Options{verbose});
 	}
 	elsif (defined($PID)) {
 		# I'm the child.
 		open(STDERR, '>&STDOUT') || print "$disk\[$$]: Unable to redirect STDERR to STDOUT: $!\n";	# Merge STDERR into STDOUT
-		STDOUT->autoflush(1);
-		STDERR->autoflush(1);
+		my $OldHandle = select STDOUT;
+		$| = 1;
+		select STDERR;
+		$| = 1;
+		select $OldHandle;
 		$Errors+=EraseDisk($disk,%{$DiskData{$disk}});
 		close STDOUT;
 		close STDERR;
