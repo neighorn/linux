@@ -5,7 +5,7 @@
 use strict;
 use warnings;
 use LogOutput;
-use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
+use Getopt::Long qw(GetOptionsFromArray GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
@@ -699,6 +699,26 @@ sub opt_max_size {
 		$Errors++;
 		$Options{'max-size'} = 0;
         }
+}
+
+
+
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString(
+			$Config{$Value},
+			%OptionSpecifications,
+			'<>' => sub{push @ARGV, shift;}         # Need to save any stray paramters.
+		);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n>;
+	}
 }
 
 
