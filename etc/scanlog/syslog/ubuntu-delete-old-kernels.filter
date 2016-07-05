@@ -36,6 +36,7 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?P: Installing debian theme... done.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?P: Updating /boot/extlinux/linux.cfg\.\.\.$
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?P: Writing config for /boot/\S+$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Processing triggers for"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Purging "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Reading package lists...$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Reading state information...$"
