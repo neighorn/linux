@@ -66,7 +66,7 @@ our %OptionSpecifications=(
 		'help|h|?!'		=>	\&opt_h,
 		'ifup!'			=>	\&opt_Value,
 		'ifbefore=s'		=>	\&opt_Value,
-		'imagename|image=s'		=>	\&opt_Value,
+		'imagename|image=s'	=>	\&opt_Value,
 		'ionice=s'		=>	\&opt_Value,
 		'jobinit|B=s'		=>	\&opt_Array,
 		'joblockfile=s'		=>	\&opt_Value,
@@ -296,6 +296,7 @@ sub LoadConfigFile {
 # GetNameLengths - get the length of the longest vault for formatting purposes.
 sub GetNameLengths {
 	my $Vault = shift;
+	$Vault = RenameVault($Vault);
 	my $length = length($Vault);
 	$MaxVaultLength = ($MaxVaultLength > $length?$MaxVaultLength:$length);
 	$TotalMachines++;		# Count how many machines we'll back up.
@@ -318,14 +319,10 @@ sub ProcessBackup {
 	}
 
 	my $VaultStartTime = time();
+	$CurrentMachine++;
 
 	# Are we renaming the vault?
-	if ($Options{'rename-vault'}) {
-		# Yes.  Modify the target name.
-		my $NewName = $Options{'rename-vault'};
-		$NewName =~ s/%NAME%/$Target/g;
-		$Target = $NewName;
-	}
+	$Target=RenameVault($Target);
 
 	# Load any machine-specific options from the config files.
 	my %TmpOptions = %Options;
@@ -352,7 +349,6 @@ sub ProcessBackup {
 	}
 
 	# Document that we're starting a new target.
-	$CurrentMachine++;
 	print strftime("Starting $Target [$CurrentMachine/$TotalMachines] at %H:%M:%S on %A, %Y-%m-%d...\n",localtime());
 
 	if (!chdir $MachineDirectory) {
@@ -536,6 +532,23 @@ sub ProcessBackup {
 	$fs =~ s/\s.*$//;	# Just need the device name.
 	chomp $fs;
 	$FileSystems{$fs}=1;
+}
+
+
+#
+# RenameVault - modify the vault name if desired
+#
+sub RenameVault {
+	my $Target = shift;
+	if ($Options{'rename-vault'}) {
+		# Yes.  Modify the target name.
+		my $NewName = $Options{'rename-vault'};
+		$NewName =~ s/%NAME%/$Target/g;
+		return $NewName;
+	}
+	else {
+		return $Target;
+	}
 }
 
 
