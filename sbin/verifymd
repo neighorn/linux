@@ -569,9 +569,9 @@ sub opt_Array {
 #
 sub opt_h {
 
-	use FindBin qw($RealScript);
+	use FindBin qw($Bin $Script);
 
-	system(qq<pod2text $RealScript | more>);
+	system(qq<pod2text $Bin/$Script | more>);
 exit 1;
 }
 

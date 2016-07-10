@@ -424,7 +424,7 @@ sub opt_Array {
 #
 sub opt_h {
 
-	use FindBin qw($RealScript);
+	use FindBin qw($Bin $Script);
 
 	my $Pager;
 	if ( $ENV{PAGER} ) {
@@ -436,7 +436,7 @@ sub opt_h {
 	else {
 		$Pager = 'more'
 	}
-	system(qq<pod2text $RealScript | $Pager>);
+	system(qq<pod2text $Bin/$Script | $Pager>);
 exit 1;
 }
 

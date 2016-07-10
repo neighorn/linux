@@ -729,10 +729,10 @@ sub opt_O {
 #
 sub opt_h {
 
-	use FindBin qw($RealScript);
+	use FindBin qw($Bin $Script);
 
 	my $ExcludeTypes = join(', ',sort(keys(%TypeExclude)));
-	system(qq<pod2text $RealScript | sed "s/%Prog/$Prog/g;s/%ExcludeTypes/$ExcludeTypes/g" | more>);
+	system(qq<pod2text $Bin/$Script | sed "s/%Prog/$Prog/g;s/%ExcludeTypes/$ExcludeTypes/g" | more>);
 exit 1;
 }
 
