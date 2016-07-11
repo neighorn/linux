@@ -12,6 +12,7 @@ my $MINSIZE = 1000000000;	# don't reporting anything smaller than this.
 my %users;
 my %paths;
 my $Count=0;
+my $GTotal=0;
 $|=1;
 while (<>) {
 	$Count++;
@@ -22,6 +23,8 @@ while (<>) {
 		# Domain has a space in it.
 		(undef,undef,$perms,$links,$user,$group,undef,$size,undef,undef,undef,$path) = split(/\s+/);
 	}
+
+	$GTotal += $size;
 
 	# Total by user.
 	if (exists($users{$user})) {
@@ -59,6 +62,8 @@ foreach (keys(%paths)) {
 }
 
 # Print reports.
+printf "\nTotal space reported:\n%-15s = %-6s\n\n", Commify($GTotal), CompressByteSize($GTotal);
+
 print "Largest users:\n";
 foreach (sort {$users{$b} <=> $users{$a}} (keys %users)) {
 	printf "%15s = %6s  %-s\n", Commify($users{$_}), CompressByteSize($users{$_}),  $_;
