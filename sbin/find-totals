@@ -62,7 +62,7 @@ foreach (keys(%paths)) {
 }
 
 # Print reports.
-printf "\nTotal space reported:\n%-15s = %-6s\n\n", Commify($GTotal), CompressByteSize($GTotal);
+printf "\nTotal items found:\t%15s\nTotal space reported:\t%15s = %-6s\n\n", Commify($Count),Commify($GTotal), CompressByteSize($GTotal);
 
 print "Largest users:\n";
 foreach (sort {$users{$b} <=> $users{$a}} (keys %users)) {
