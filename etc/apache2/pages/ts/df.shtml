@@ -11,7 +11,7 @@
 </H2>
 <table style="font-family:monospace" size=4>
 <tr><td>Filesystem&nbsp;</td><td>Size&nbsp;</td><td>Used&nbsp;</td><td>Avail&nbsp;</td><td>Use%&nbsp;</td><td>Mounted on&nbsp;</td></tr>
-<!--#exec cmd="/usr/bin/sudo -n df -hlP --all| sort -k6 | sed -r '/^Filesystem/d;/^[[:graph:]]+ +[0-] /d;s/^/<tr><td>/;s@  *@\&nbsp;</td><td align=\"right\">@g;s/right/left/5;s/Mounted.*on/Mounted on/;s@$@</td></tr>@;/100%\|9[5-9]%/s/<tr>/<tr style=\"BACKGROUND-COLOR: yellow\">/'" -->
+<!--#exec cmd="/usr/bin/sudo -n df -hlP | sort -k6 | sed -r '/^Filesystem/d;/^[[:graph:]]+ +[0-] /d;s/^/<tr><td>/;s@  *@\&nbsp;</td><td align=\"right\">@g;s/right/left/5;s/Mounted.*on/Mounted on/;s@$@</td></tr>@;/100%\|9[5-9]%/s/<tr>/<tr style=\"BACKGROUND-COLOR: yellow\">/'" -->
 </table>
 </BODY>
 <HTML>
