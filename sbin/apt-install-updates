@@ -279,11 +279,12 @@ sub RunLocally {
 	        exit 11;
 	}
 
-	RunDangerousCmd("apt-get autoremove -y");
 	RunDangerousCmd("apt-get update");
-	RunDangerousCmd("apt-get upgrade -y");
-	RunDangerousCmd("bash -c 'shutdown -r +1 & disown !1'")
-		if ($Options{reboot});
+	RunDangerousCmd("DEBIAN_FRONTEND=noninteractive apt-get upgrade -y");
+	if ($Options{reboot}) {
+		RunDangerousCmd("echo apt-get autoremove -y | at now + 30 minutes");
+		RunDangerousCmd("bash -c 'shutdown -r +1 & disown !1'")
+	}
 }
 
 
@@ -431,15 +432,15 @@ sub opt_Array {
 #
 sub opt_h {
 
-	use FindBin qw($RealScript);
+	use FindBin qw($Bin $Script);
 
-	system(qq<pod2text $RealScript | more>);
+	system(qq<pod2text $Bin/$Script | more>);
 exit 1;
 }
 
 =pod
 
-=head1 %Prog -   <<<<<<<<<<<<<Description>>>>>>>
+=head1 %Prog -   automatically install updates in Ubuntu
 
 =head3 Usage:  
         %Prog [flag1 ...]
@@ -473,6 +474,9 @@ exit 1;
 				This is primarily to allow a configuration
 				file list to be included, but some of the
 				hosts in the list to subsequently be excluded.
+        --reboot		Reboot: reboot after installing updates.  This
+                                also schedules an "apt-get autoremove" after
+				the reboot.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
 				May be used multiple times to increase verbosity.
@@ -552,23 +556,23 @@ __END__
 #
 # The following are normal messages we don't need to see.
 #
+###
+#SHOW	"^\s*The following packages have been kept back:$"
 IGNORE	"^\s*(\S+:\s*)?$"
 IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-IGNORE	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
+IGNORE	"^\s*-> warning: commands will be executed using /bin/sh$"
+IGNORE	"^\s*\(Reading database \.\.\. \d+ files and directories currently installed.\)$"
+IGNORE	"^\s*\* (Starting|Stopping) network management services:$"
+IGNORE	"^\s*\d+ upgraded, \d+ newly installed, \d+ to remove and 0 not upgraded.$"
+IGNORE	"^\s*\S+ start/running, process \d+$"
 IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0"
 IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
 IGNORE	"^\s*\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
-IGNORE	"^\s*\S+:\s+Command: "
+IGNORE	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
 IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-LOGONLY "^\s*Command: "
-LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-###
-IGNORE	"^\s*\* (Starting|Stopping) network management services:$"
-IGNORE	"^\s*\(Reading database ... \d_ files and directories currently installed.\)$"
-IGNORE	"^\s*\d+ upgraded, \d+ newly installed, \d+ to remove and 0 not upgraded.$"
+IGNORE	"^\s*\S+:\s+Command: "
 IGNORE	"^\s*Adding 'diversion of \S+ to \S+ by \S+'$"
-IGNORE	"^\s*After this operation, [\d.]+ [KMGT]?B of additional disk space will be used.$"
+IGNORE	"^\s*After this operation, [\d.]+ [KMGT]?B of additional disk space will be used.$"i
 IGNORE	"^\s*apport start/running$"
 IGNORE	"^\s*apport stop/waiting$"
 IGNORE	"^\s*Building dependency tree...$"
@@ -577,8 +581,9 @@ IGNORE	"^\s*Fetched [\d.,]+ [kMGT]B in \S+ \([\d,]+ kB/s\)$"
 IGNORE	"^\s*Get:\d+ http://"
 IGNORE	"^\s*Hit http://"
 IGNORE	"^\s*Ign http://"
+IGNORE	"^\s*job \d+ at ... ... .. ..:..:.. ....$"
 IGNORE	"^\s*Local time is now:"
-IGNORE	"^\s*Need to get [\d.]+ [KMGT]B of archives.$"
+IGNORE	"^\s*Need to get [\d.]+ [KMGT]B of archives.$"i
 IGNORE	"^\s*Preconfiguring packages ...$"
 IGNORE	"^\s*Preparing to unpack "
 IGNORE	"^\s*Processing triggers for "
@@ -587,11 +592,15 @@ IGNORE	"^\s*Reading state information...$"
 IGNORE	"^\s*Removing 'diversion of \S+ to \S+ by fake-udev'$"
 IGNORE	"^\s*Run 'dpkg-reconfigure tzdata' if you wish to change it.$"
 IGNORE	"^\s*Setting up "
-IGNORE	"^\s*\S+ start/running, process \d+$"
-#SHOW	"^\s*The following packages have been kept back:$"
 IGNORE	"^\s*The following packages will be upgraded:$"
 IGNORE	"^\s*Universal Time is now:"
 IGNORE	"^\s*Unpacking "
 IGNORE	"^\s*update-initramfs: deferring update \(trigger activated\)$"
 IGNORE	"^\s*update-initramfs: Generating "
 IGNORE	"^\s*ureadahead will be reprofiled on next reboot$"
+LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*Command: "
+SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*Executing:"
+SHOW	"^\s*Test:"
+SHOW	"^\s*Verbose:"
