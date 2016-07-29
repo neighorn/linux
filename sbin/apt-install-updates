@@ -279,12 +279,30 @@ sub RunLocally {
 	        exit 11;
 	}
 
+	RunDangerousCmd("apt-get autoremove -y");
 	RunDangerousCmd("apt-get update");
 	RunDangerousCmd("DEBIAN_FRONTEND=noninteractive apt-get upgrade -y");
 	if ($Options{reboot}) {
-		RunDangerousCmd("echo apt-get autoremove -y | at now + 30 minutes");
-		RunDangerousCmd("bash -c 'shutdown -r +1 & disown !1'")
+		my $pid = fork();
+		die "Cannot fork shutdown process: $!\n" unless defined($pid);
+		if ($pid == 0) {
+			# Child process.
+			my $Cmd = 'shutdown -r +1';
+			if ($Options{test}) {
+				print "Test: $Cmd\n";
+				exit(0);
+			}
+			else {
+				close STDOUT;
+				close STDERR;
+				exec("$Cmd")
+			}
+		}
+		else {
+			print strftime("Shutdown scheduled for %H:%M:%S\n",localtime(time()+60));
+		}
 	}
+	return 0;
 }
 
 
@@ -560,7 +578,6 @@ __END__
 #SHOW	"^\s*The following packages have been kept back:$"
 IGNORE	"^\s*(\S+:\s*)?$"
 IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-IGNORE	"^\s*-> warning: commands will be executed using /bin/sh$"
 IGNORE	"^\s*\(Reading database \.\.\. \d+ files and directories currently installed.\)$"
 IGNORE	"^\s*\* (Starting|Stopping) network management services:$"
 IGNORE	"^\s*\d+ upgraded, \d+ newly installed, \d+ to remove and 0 not upgraded.$"
@@ -581,7 +598,7 @@ IGNORE	"^\s*done$"
 IGNORE	"^\s*Fetched [\d.,]+ [kMGT]B in \S+ \([\d,]+ kB/s\)$"
 IGNORE	"^\s*Found \S+ image:"
 IGNORE	"^\s*Get:\d+ http://"
-IGNROE	"^\s*Generating grub configuration file ...
+IGNORE	"^\s*Generating grub configuration file ...$"
 IGNORE	"^\s*Hit http://"
 IGNORE	"^\s*Ign http://"
 IGNORE	"^\s*Installation finished. No error reported.$"
@@ -605,9 +622,14 @@ IGNORE	"^\s*update-initramfs: deferring update \(trigger activated\)$"
 IGNORE	"^\s*update-initramfs: Generating "
 IGNORE	"^\s*ureadahead will be reprofiled on next reboot$"
 IGNORE	"^\s*Use 'apt-get autoremove' to remove them.$"
+IGNORE	"^\s*warning: commands will be executed using /bin/sh$"
 LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 LOGONLY "^\s*Command: "
 SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 SHOW	"^\s*Executing:"
 SHOW	"^\s*Test:"
 SHOW	"^\s*Verbose:"
+SHOW	"^\s*Shutdown scheduled for \d\d:\d\d:\d\d$"
+SHOW	"^\s*\d+ upgraded, \d+ newly installed, \d+ to remove and 0 not upgraded.$"
+SHOW	"^\s*Installing new version of config file "
+SHOW	"^\s*Generating locales..$"
