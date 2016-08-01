@@ -281,9 +281,28 @@ sub RunLocally {
 
 	RunDangerousCmd("apt-get autoremove -y");
 	RunDangerousCmd("apt-get update");
-	RunDangerousCmd("apt-get upgrade -y");
-	RunDangerousCmd("bash -c 'shutdown -r +1 & disown !1'")
-		if ($Options{reboot});
+	RunDangerousCmd("DEBIAN_FRONTEND=noninteractive apt-get upgrade -y");
+	if ($Options{reboot}) {
+		my $pid = fork();
+		die "Cannot fork shutdown process: $!\n" unless defined($pid);
+		if ($pid == 0) {
+			# Child process.
+			my $Cmd = 'shutdown -r +1';
+			if ($Options{test}) {
+				print "Test: $Cmd\n";
+				exit(0);
+			}
+			else {
+				close STDOUT;
+				close STDERR;
+				exec("$Cmd")
+			}
+		}
+		else {
+			print strftime("Shutdown scheduled for %H:%M:%S\n",localtime(time()+60));
+		}
+	}
+	return 0;
 }
 
 
@@ -431,15 +450,15 @@ sub opt_Array {
 #
 sub opt_h {
 
-	use FindBin qw($RealScript);
+	use FindBin qw($Bin $Script);
 
-	system(qq<pod2text $RealScript | more>);
+	system(qq<pod2text $Bin/$Script | more>);
 exit 1;
 }
 
 =pod
 
-=head1 %Prog -   <<<<<<<<<<<<<Description>>>>>>>
+=head1 %Prog -   automatically install updates in Ubuntu
 
 =head3 Usage:  
         %Prog [flag1 ...]
@@ -473,6 +492,9 @@ exit 1;
 				This is primarily to allow a configuration
 				file list to be included, but some of the
 				hosts in the list to subsequently be excluded.
+        --reboot		Reboot: reboot after installing updates.  This
+                                also schedules an "apt-get autoremove" after
+				the reboot.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
 				May be used multiple times to increase verbosity.
@@ -552,46 +574,62 @@ __END__
 #
 # The following are normal messages we don't need to see.
 #
-IGNORE	"^\s*(\S+:\s*)?$"
-IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-IGNORE	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
-IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0"
-IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
-IGNORE	"^\s*\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
-IGNORE	"^\s*\S+:\s+Command: "
-IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-LOGONLY "^\s*Command: "
-LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 ###
-IGNORE	"^\s*\* (Starting|Stopping) network management services:$"
-IGNORE	"^\s*\(Reading database ... \d_ files and directories currently installed.\)$"
-IGNORE	"^\s*\d+ upgraded, \d+ newly installed, \d+ to remove and 0 not upgraded.$"
-IGNORE	"^\s*Adding 'diversion of \S+ to \S+ by \S+'$"
-IGNORE	"^\s*After this operation, [\d.]+ [KMGT]?B of additional disk space will be used.$"
-IGNORE	"^\s*apport start/running$"
-IGNORE	"^\s*apport stop/waiting$"
-IGNORE	"^\s*Building dependency tree...$"
-IGNORE	"^\s*Current default time zone: '\S+'$"
-IGNORE	"^\s*Fetched [\d.,]+ [kMGT]B in \S+ \([\d,]+ kB/s\)$"
-IGNORE	"^\s*Get:\d+ http://"
-IGNORE	"^\s*Hit http://"
-IGNORE	"^\s*Ign http://"
-IGNORE	"^\s*Local time is now:"
-IGNORE	"^\s*Need to get [\d.]+ [KMGT]B of archives.$"
-IGNORE	"^\s*Preconfiguring packages ...$"
-IGNORE	"^\s*Preparing to unpack "
-IGNORE	"^\s*Processing triggers for "
-IGNORE	"^\s*Reading package lists...$"
-IGNORE	"^\s*Reading state information...$"
-IGNORE	"^\s*Removing 'diversion of \S+ to \S+ by fake-udev'$"
-IGNORE	"^\s*Run 'dpkg-reconfigure tzdata' if you wish to change it.$"
-IGNORE	"^\s*Setting up "
-IGNORE	"^\s*\S+ start/running, process \d+$"
 #SHOW	"^\s*The following packages have been kept back:$"
-IGNORE	"^\s*The following packages will be upgraded:$"
-IGNORE	"^\s*Universal Time is now:"
-IGNORE	"^\s*Unpacking "
-IGNORE	"^\s*update-initramfs: deferring update \(trigger activated\)$"
-IGNORE	"^\s*update-initramfs: Generating "
-IGNORE	"^\s*ureadahead will be reprofiled on next reboot$"
+IGNORE	"^\s*(\S+:\s*)?$"
+IGNORE	"^\s*(\S+:\s*)?\(Reading database \.\.\. \d+ files and directories currently installed.\)$"
+IGNORE	"^\s*(\S+:\s*)?\* (Starting|Stopping) network management services:$"
+IGNORE	"^\s*(\S+:\s*)?\d+ upgraded, \d+ newly installed, \d+ to remove and 0 not upgraded.$"
+IGNORE	"^\s*(\S+:\s*)?\S+ start/running, process \d+$"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s*\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s*Remote job exited with return code 0 and signal 0$"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s+Command: "
+IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*(\S+:\s*)?Adding 'diversion of \S+ to \S+ by \S+'$"
+IGNORE	"^\s*(\S+:\s*)?After this operation, [\d,.]+ [KMGT]?B of additional disk space will be used.$"i
+IGNORE	"^\s*(\S+:\s*)?apport start/running$"
+IGNORE	"^\s*(\S+:\s*)?apport stop/waiting$"
+IGNORE	"^\s*(\S+:\s*)?Building dependency tree...$"
+IGNORE	"^\s*(\S+:\s*)?Current default time zone: '\S+'$"
+IGNORE	"^\s*(\S+:\s*)?done$"
+IGNORE	"^\s*(\S+:\s*)?Fetched [\d.,]+ [kMGT]B in \S+ \([\d,]+ kB/s\)$"
+IGNORE	"^\s*(\S+:\s*)?Found \S+ image:"
+IGNORE	"^\s*(\S+:\s*)?Generating grub configuration file ...$"
+IGNORE	"^\s*(\S+:\s*)?Get:\d+ http://"
+IGNORE	"^\s*(\S+:\s*)?Hit http://"
+IGNORE	"^\s*(\S+:\s*)?Ign http://"
+IGNORE	"^\s*(\S+:\s*)?Installation finished. No error reported.$"
+IGNORE	"^\s*(\S+:\s*)?Installing for i386-pc platform.$"
+IGNORE	"^\s*(\S+:\s*)?job \d+ at ... ... .. ..:..:.. ....$"
+IGNORE	"^\s*(\S+:\s*)?Local time is now:"
+IGNORE	"^\s*(\S+:\s*)?Need to get [\d,.]+ [KMGT]B of archives.$"i
+IGNORE	"^\s*(\S+:\s*)?Preconfiguring packages ...$"
+IGNORE	"^\s*(\S+:\s*)?Preparing to unpack "
+IGNORE	"^\s*(\S+:\s*)?Processing triggers for "
+IGNORE	"^\s*(\S+:\s*)?Reading package lists...$"
+IGNORE	"^\s*(\S+:\s*)?Reading state information...$"
+IGNORE	"^\s*(\S+:\s*)?Removing 'diversion of \S+ to \S+ by fake-udev'$"
+IGNORE	"^\s*(\S+:\s*)?Run 'dpkg-reconfigure tzdata' if you wish to change it.$"
+IGNORE	"^\s*(\S+:\s*)?Setting up "
+IGNORE	"^\s*(\S+:\s*)?The following packages were automatically installed and are no longer required:$"
+IGNORE	"^\s*(\S+:\s*)?The following packages will be upgraded:$"
+IGNORE	"^\s*(\S+:\s*)?Universal Time is now:"
+IGNORE	"^\s*(\S+:\s*)?Unpacking "
+IGNORE	"^\s*(\S+:\s*)?update-initramfs: deferring update \(trigger activated\)$"
+IGNORE	"^\s*(\S+:\s*)?update-initramfs: Generating "
+IGNORE	"^\s*(\S+:\s*)?ureadahead will be reprofiled on next reboot$"
+IGNORE	"^\s*(\S+:\s*)?Use 'apt-get autoremove' to remove them.$"
+IGNORE	"^\s*(\S+:\s*)?warning: commands will be executed using /bin/sh$"
+LOGONLY "^\s*(\S+:\s*)?\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*(\S+:\s*)?Command: "
+SHOW	"^\s*(\S+:\s*)?\d+ upgraded, \d+ newly installed, \d+ to remove and 0 not upgraded.$"
+SHOW	"^\s*(\S+:\s*)?Executing:"
+SHOW	"^\s*(\S+:\s*)?Generating locales..$"
+SHOW	"^\s*(\S+:\s*)?Installing new version of config file "
+SHOW	"^\s*(\S+:\s*)?Shutdown scheduled for \d\d:\d\d:\d\d$"
+SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*(\S+:\s*)?Test:"
+SHOW	"^\s*(\S+:\s*)?Verbose:"
