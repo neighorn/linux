@@ -11,6 +11,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: could not um
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: couldn't complete expire of "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: create_client: hostname lookup failed: Name or service not known$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: get_exports: lookup\(hosts\): exports lookup failed for \S+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: ghosting enabled$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: key \S+ not found in map source\(s\).$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: rmdir_path: lstat of \S+ failed$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ([\S+] )?automount\[\d+\]: umount_autofs_indirect: ask umount returned busy"
