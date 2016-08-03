@@ -45,6 +45,7 @@ our %OptionSpecifications=(
 		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'subject=s'		=>	\&opt_Value,
 		'username|user|U=s'	=>	\&opt_Value,
+                'option-set|O=s'        =>      \&opt_O,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
@@ -423,6 +424,26 @@ sub opt_Array {
 			# Remove this item from the list if present.
 			@{$Options{$Name}} = grep { $_ ne $Value } @{$Options{$Name}};
 		}
+	}
+}
+
+
+
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString(
+			$Config{$Value},
+			%OptionSpecifications,
+			'<>' => sub{push @ARGV, shift;}         # Need to save any stray paramters.
+		);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n>;
 	}
 }
 

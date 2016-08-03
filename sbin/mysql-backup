@@ -335,6 +335,26 @@ sub opt_Array {
 
 
 #
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString(
+			$Config{$Value},
+			%OptionSpecifications,
+			'<>' => sub{push @ARGV, shift;}         # Need to save any stray paramters.
+		);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n>;
+	}
+}
+
+
+
+#
 # opt_help: Usage
 #
 sub opt_help {
