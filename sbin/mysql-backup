@@ -44,7 +44,7 @@ our %OptionSpecifications=(
 		'min-size|s=s'		=>	\&opt_min_size,
 		'max-size|S=s'		=>	\&opt_max_size,
 		'output-directory|o=s'	=>	\&opt_Value,
-		'username|U=s'		=>	\&opt_Value,
+		'username|user|U=s'	=>	\&opt_Value,
 		'gzip|z'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
@@ -351,7 +351,7 @@ sub opt_help {
 
 =head3 Usage:  
 
-	$Prog [-o dir] [-U username] [-r days] [-l logfile] [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-v] [-t] [databasename...]
+	$Prog [options] [database...]
 	$Prog [-h]
 
 =head3 Flags:
@@ -393,6 +393,8 @@ sub opt_help {
 				bytes (before compression).
 	--max-size|-S size:	Size: issue an error if the output is more than "size"
 				bytes (before compression).
+	--hostname|-H hostname:	Host name: host name of the host containing the database
+				server.  Defaults to the local host.
 	--username|-U username:	User: Log into the database as "username".  Defaults
 				to current name.
 	--gzip|z		Zip: gzip the output files when going to disk.

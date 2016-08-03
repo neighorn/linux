@@ -10,6 +10,7 @@ use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
+use FindBin qw($Bin $Script);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -43,6 +44,7 @@ our %OptionSpecifications=(
                 'host=s'                =>      \&opt_Value,
 		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'subject=s'		=>	\&opt_Value,
+		'username|user|U=s'	=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
@@ -85,6 +87,9 @@ die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;              # Restore @ARGV for LogOutput and second GetOptions.
 
 $Options{subject}='%* %m/%d %C %N %E %*%*%*' unless (exists($Options{subject}) and $Options{subject});
+$Options{username}=$ENV{LOGNAME} || $ENV{USER} || getpwuid($<)
+	unless ($Options{username}); # Default to our own user name.
+$Options{host} = '' unless (exists($Options{host}) and $Options{host});
 
 # ---------------------------------------------------------
 #
@@ -269,6 +274,7 @@ sub RunLocally {
 	my $ExitCode = RunDangerousCmd(
 		  '/usr/bin/mysqlcheck '
 		. '--all-databases '
+		. ($Options{username}?"-u $Options{username} ":'')
 		. ($Options{host}?"--host $Options{host} ":'')
 	);
 
@@ -430,7 +436,7 @@ sub opt_h {
 
 	use FindBin qw($RealScript);
 
-	system(qq<pod2text $RealScript | more>);
+	system(qq<pod2text $Bin/$Script | more>);
 exit 1;
 }
 
@@ -460,6 +466,7 @@ exit 1;
         --option-set|-O config: Insert the "config" configuration options
                                 from /usr/local/etc/%Prog.cfg
                                 into the command line at this point.
+	--username|-U username: User: log in using "username".
         --host host:		Host:  Run mysqlcheck on the local machine
 				with the --host parameter to connect to 
                                 a MySQL server elsewhere on the network.
