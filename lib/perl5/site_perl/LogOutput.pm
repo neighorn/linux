@@ -22,7 +22,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.27;
+our $Version	= 3.28;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -43,7 +43,6 @@ my $HostName;			# Our host name.
 my($NormalTest) = sub{0;};		# Will reference an anonymous subroutine.
 my($IgnoreTest) = sub{0;};		# Will reference an anonymous subroutine.
 my($MailOnlyTest) = sub{0;};		# Will reference an anonymous subroutine.
-
 
 sub LogOutput {
 
@@ -252,6 +251,7 @@ if ($ErrorsDetected > 0) {
 }
 
 # Tweak up the subject line, now that we know how we ended.
+$Options{MAIL_SUBJECT} = '' unless $Options{MAIL_SUBJECT};
 $Options{MAIL_SUBJECT} = _MakeSubstitutions($Options{MAIL_SUBJECT}, $StartTime);
 $Options{MAIL_SUBJECT} =~ s/^\s*//;		# Strip leading blanks.
 $Options{MAIL_SUBJECT} =~ s/\s*$//;		# Strip trailing blanks.
@@ -337,7 +337,7 @@ sub _SetOptions {
 	$Options{PROGRAM_NAME}=(caller(1))[1];	# Get the caller's filename.
 	$Options{PROGRAM_NAME}=~ s"^.*[/\\]"";	# Strip path.
 	$Options{PROGRAM_NAME}=~ s"\..*?$"";	# Strip suffix.
-	$Options{MAIL_SUBJECT} = "%* %m/%d %C %N %E %*%*%*";
+	$Options{MAIL_SUBJECT} = '';		# Set in SetupMail if not set before.
 	$Options{VERBOSE}=0;
 
 	# Now load our site defaults.  May be overridden by calling args.
@@ -747,7 +747,7 @@ sub _CompilePatterns {
 sub _MakeSubstitutions {
 
 	my $Text = shift;
-	return $Text unless ($Text =~ /%/);	# Exit unless % variables present.
+	return $Text unless (defined($Text) and ($Text =~ /%/));	# Exit unless % variables present.
 	my $StartTime = shift;			# Optional time stamp.
 	$StartTime = time() unless ($StartTime);	
 
@@ -895,7 +895,10 @@ sub _SetupMail {
 	}
 	$Mail{To} =~ s/^\s+//;		# Strip leading space.
 	$Mail{Server}=$Options{MAIL_SERVER};
-	$Mail{Subject}=$Options{MAIL_SUBJECT};
+	$Mail{Subject}= ($Options{MAIL_SUBJECT}				# Did we ever get a subject?
+			? $Options{MAIL_SUBJECT}			#  We got something, use it.
+			: _MakeSubstitutions('%*%m/%d %C %N %E %*%*%*')	#  No, use a default.
+	);
 	$Mail{From}=_MakeSubstitutions($Options{MAIL_FROM});
 	$Mail{'X-JOBSUMMARY'}="Name=$Options{PROGRAM_NAME} Status=$ExitCode RunTime=$RawRunTime";
 	$Mail{'X-JOBEXIT'}="$ExitCode";	
@@ -992,7 +995,7 @@ Options and defaults are shown in the table below:
    MAIL_DOMAIN		| -none-	| Domain to append to unqualified
    			|		| e-mail addresses
    MAIL_SERVER		| 127.0.0.1	| Address of the SMTP server
-   MAIL_SUBJECT		| %*%*%* %m/%d %C %N %E %*%*%*	| Subject line used in
+   MAIL_SUBJECT		| %*%m/%d %C %N %E %*%*%*	| Subject line used in
    			|		| e-mail.  See % variables.
    NORMAL_RETURN_CODES	| (0)		| List of normal exit codes
    PROGRAM_NAME		| Name of caller| Program name for logs and e-mail
@@ -1219,7 +1222,7 @@ frequently specified in LogOutput_cfg.pm.
 =head2 MAIL_SUBJECT
 
 This option specifies the subject of any e-mails sent out.  By default, the
-subject line is specified as "%m/%d %C %N %E %*%*%*" (see SYMBOL SUBSTITUTION
+subject line is specified as "%*%m/%d %C %N %E %*%*%*" (see SYMBOL SUBSTITUTION
 below).  After symbol substitution is complete, a typical subject like might
 look like "07/01 SERVER1 MyScript ended normally".
 
