@@ -438,6 +438,26 @@ sub opt_h {
 	}
 	system(qq<pod2text $Bin/$Script | $Pager>);
 exit 1;
+
+
+
+}
+# ---------------------------------------------------------
+#
+# opt_O: Usage
+#
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+        my(undef,$Value) = @_;
+        $Value = uc($Value);
+        if (exists($Config{$Value})) {
+                $Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
+        }
+        else {
+                warn qq<Warning: "$Value" not found in configuration file\n>;
+        }
 }
 
 =pod
