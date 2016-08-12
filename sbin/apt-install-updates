@@ -577,7 +577,7 @@ __END__
 ###
 #SHOW	"^\s*The following packages have been kept back:$"
 IGNORE	"^\s*(\S+:\s*)?$"
-IGNORE	"^\s*(\S+:\s*)?\(Reading database \.\.\. \d+ files and directories currently installed.\)$"
+IGNORE	"^\s*(\S+:\s*)?\(Reading database \.\.\. "
 IGNORE	"^\s*(\S+:\s*)?\* (Starting|Stopping) network management services:$"
 IGNORE	"^\s*(\S+:\s*)?\d+ upgraded, \d+ newly installed, \d+ to remove and \d+ not upgraded.$"
 IGNORE	"^\s*(\S+:\s*)?\S+ start/running, process \d+$"
