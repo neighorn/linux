@@ -5,7 +5,7 @@
 use strict;
 use warnings;
 use LogOutput;
-use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
+use Getopt::Long qw(GetOptionsFromArray GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
@@ -200,10 +200,10 @@ sub RunRemote {
 			$_ = '';
 			$DeleteNext=0;
 		}
-		elsif (/^--remote-host=/) {
+		elsif (/^--(remote-host|option-set|subject)=/) {
 			$_ = '';		# Delete this for remote systems.
 		}
-		elsif (/^-R/) {
+		elsif (/^-[RO]/) {
 			$_ = '';
 			$DeleteNext=1;
 		}
@@ -444,6 +444,26 @@ sub opt_Array {
 			@{$Options{$Name}} = grep { $_ ne $Value } @{$Options{$Name}};
 		}
 	}
+}
+
+
+
+# ---------------------------------------------------------
+#
+# opt_O: Usage
+#
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+        my(undef,$Value) = @_;
+        $Value = uc($Value);
+        if (exists($Config{$Value})) {
+                $Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
+        }
+        else {
+                warn qq<Warning: "$Value" not found in configuration file\n>;
+        }
 }
 
 
