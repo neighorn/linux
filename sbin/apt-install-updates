@@ -42,6 +42,7 @@ our %OptionSpecifications=(
 		'option-set|O=s'	=>	\&opt_O,
 		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'reboot'		=>	\&opt_Value,
+		'subject=s'		=>	\&opt_Value,
 		'test|t'		=>	sub {$Options{test} = (exists($Options{test})?$Options{test}+1:1)},
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
@@ -79,7 +80,9 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 # Process the command line options.
 #
 my @ARGVSave = @ARGV;           # In case we need to reprocess the command line later.
-%Options=(verbose => 0);        # Initialize Options.
+%Options=(			# Initialize Options.
+	verbose => 0,
+	);
 die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;              # Restore @ARGV for LogOutput and second GetOptions.
 
@@ -92,6 +95,7 @@ LogOutput({
 	ERROR_MAIL_LIST => $Options{'error-mail'},
 	ALWAYS_PAGE_LIST => $Options{'always-page'},
 	ERROR_PAGE_LIST => $Options{'error-page'},
+	MAIL_SUBJECT => $Options{subject},
 	SYSLOG_FACILITY => 'user',
 	VERBOSE => ($Options{verbose} >= 5? $Options{verbose}-4:0),
 	FILTER_FILE => $Options{'filter-file'},
@@ -495,6 +499,11 @@ exit 1;
         --reboot		Reboot: reboot after installing updates.  This
                                 also schedules an "apt-get autoremove" after
 				the reboot.
+        --subject:		Subject: Set the e-mail subject line.  Default
+				is "%* %m/%d %C %N %E %*%*%*" (month/day,
+				computer name, program name, error status,
+				conditionally prefixed and suffixed with
+				asterisks if errors were detected).
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
 				May be used multiple times to increase verbosity.
