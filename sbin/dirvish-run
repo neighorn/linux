@@ -689,7 +689,7 @@ sub Summarize {
 	}
 	my $length = length($Directory);
 	printf "    %-*s : " . 
-		"Total Items: %9s =%7s, " .
+		"Total Items: %11s =%7s, " .
 		"New Items: %9s =%7s, " .
 		"Run Time: %8ss, " .
 		"%s\n",
