@@ -54,6 +54,7 @@ our %OptionSpecifications=(
 );
 #
 my %TypeExclude = (	# Populate a default list of types to exclude.
+	'autofs' 		=> 1,
 	'binfmt_misc' 		=> 1,
 	'cgroup' 		=> 1,
 	'debugfs' 		=> 1,
@@ -61,11 +62,13 @@ my %TypeExclude = (	# Populate a default list of types to exclude.
 	'devtmpfs' 		=> 1,
 	'fusectl' 		=> 1,
 	'fuse.gvfs-fuse-daemon'	=> 1,
+	'hugetlbfs'		=> 1,
 	'mqueue'		=> 1,
 	'nfs' 			=> 1,
 	'nfsd' 			=> 1,
 	'none' 			=> 1,
 	'proc' 			=> 1,
+	'pstore'		=> 1,
 	'rpc_pipefs' 		=> 1,
 	'securityfs' 		=> 1,
 	'simfs' 		=> 1,
@@ -885,8 +888,8 @@ IGNORE	"^\s*(\S+:\s*)?tar: .*: file removed before we read it$"i
 IGNORE	"^\s*(\S+:\s*)?tar: .*: File shrank by \d+ bytes"
 IGNORE	"^\s*(\S+:\s*)?tar: .*: Cannot stat: No such file or directory$"
 IGNORE	"^\s*(\S+:\s*)?tar: Error exit delayed from previous errors$"
-IGNORE	"^\s*(\S+:\s*)?512 bytes \(512 B\) copied, \d+.\d+ s(econds)?, \d+(\.\d+)? [kmgKMG]B$"
-IGNORE	"^\s*(\S+:\s*)?512 bytes \(512 B\) copied, \d+(\.\d+)?(e-\d+)? s(econds)?, \d+(\.\d+)? [kmgKMG]B/s$"
+IGNORE	"^\s*(\S+:\s*)?512 bytes (\(512 B\) )?copied, \d+.\d+ s(econds)?, \d+(\.\d+)? [kmgKMG]B(/s)?$"
+IGNORE	"^\s*(\S+:\s*)?512 bytes (\(512 B\) )?copied, \d+(\.\d+)?(e-\d+)? s(econds)?, \d+(\.\d+)? [kmgKMG]B/s$"
 IGNORE	"^\s*(\S+:\s*)?recovery-info started on "
 IGNORE	"^\s*(\S+:\s*)?$"
 #
