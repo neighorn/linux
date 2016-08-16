@@ -62,6 +62,7 @@ my %TypeExclude = (	# Populate a default list of types to exclude.
 	'devtmpfs' 		=> 1,
 	'fusectl' 		=> 1,
 	'fuse.gvfs-fuse-daemon'	=> 1,
+	'fuse.lxcfs'		=> 1,
 	'hugetlbfs'		=> 1,
 	'mqueue'		=> 1,
 	'nfs' 			=> 1,
