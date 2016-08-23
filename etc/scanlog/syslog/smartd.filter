@@ -12,6 +12,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+, SMART Usage Attribute: 3 Spin_Up_Time changed from "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+, SMART Usage Attribute: 9 Power_On_Hours changed from "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+ \[SAT\], found in smartd database:"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+ \[SAT\], is in STANDBY mode, suspending checks$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+ \[SAT\], opened$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/sd\S+ \[SAT\], \S+, S/N:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/sd\S+ \[SAT\], is SMART capable. Adding to \"monitor\" list.$"
