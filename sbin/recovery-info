@@ -91,11 +91,13 @@ while (<$FDISK>) {
 	RunDangerousCmd("mv $OutputName $OutputName.1")
 		if (-f $OutputName);
 	RunDangerousCmd("dd if=$InputName of=$OutputName bs=512 count=1");
-	$OutputName =~ s"\.sector0"";	# Two steps make sure we don't ...
-	$OutputName .= ".info";		# ... fail and overwrite sector0 file.
-	RunDangerousCmd("smartctl -i $InputName > $OutputName");
-	$OutputName =~ s/.info$/.parted/;
+	$OutputName =~ s/.sector0$/.parted/;
 	RunDangerousCmd("parted $InputName p > $OutputName < /dev/null");
+	system("grep -q 'Partition Table: gpt' $OutputName");
+	my $status = $?;
+	$OutputName =~ s"\.parted$"";	# Two steps make sure we don't ...
+	$OutputName .= ".info";		# ... fail and overwrite sector0 file.
+	RunDangerousCmd("smartctl -i $InputName > $OutputName") unless ( $status eq 0 );
 	my @partitions = glob("$InputName*");
 	foreach my $partition (@partitions) {
 		($OutputName = "${partition}.mdadm") =~ s"^/dev/"$opt_o/";
@@ -328,7 +330,7 @@ LOGONLY	/^Command: /
 # These are normal messages that we want to see.
 #
 SHOW	"^\S+ started on \S+ on \d\d/\d\d/\d\d\d\d at \d\d:\d\d:\d\d$"
-SHOW	"^512 bytes \(512 B\) copied,"
+IGNORE	"^\s*512 bytes (\(512 B\s*\))?copied,"
 SHOW	/^\S+ ended normally with status 0 and signal 0$/
 SHOW	/^Test:/
 SHOW	/^debug:/i
