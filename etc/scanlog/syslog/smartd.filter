@@ -4,6 +4,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/.*No such d
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/.*not capable of SMART Health Status check"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/.*state read from /var/lib/smartmontools/smartd"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/.*state written to /var/lib/smartmontools/smartd"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+(\s*\[SAT\])?, is back in ACTIVE or IDLE mode"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+(\s*\[SAT\])?, (SEAGATE|WDC|Hitachi) \S+, S/N:\S+,.*FW:\S+,\s+[\d.]+ (GB|TB)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+(\s*\[SAT\])?, SMART Prefailure Attribute: 1 Raw_Read_Error_Rate changed from ([5-9]\d|1\d\d) to ([5-9]\d|1\d\d)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+(\s*\[SAT\])?, SMART Prefailure Attribute: 3 Spin_Up_Time changed from \d+ to \d\d\d$"
