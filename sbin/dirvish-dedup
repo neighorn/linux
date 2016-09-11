@@ -328,6 +328,7 @@ sub ProcessOptions (@) {
 
     print "debug: options:" . Dumper(%Opt) if ($Opt{debug});
 
+    $Opt{maxlinks}=65500 unless ($Opt{maxlinks});
 
     # Manage the alarm clock.  Do this last so we don't start the timer before long processes.
     $Opt{cpinterval} = 600 unless ($Opt{cpinterval});
@@ -529,26 +530,29 @@ sub ProcessFile {
     my $first = KnownInodes(@candstat);		# Have we seen this inode before?
     if (defined($first) and !$first ) {
         # Case 1: we've seen this before and it stayed as-is.
-        print "debug:   $Candidate has same inode as $first -- leave as is\n"
+        print "debug:   Case 1: $Candidate has same inode as $first -- leave as is\n"
             if ($Opt{debug});
         return;			# Leave it as-is.
     }
     elsif (defined($first) and $first) {
         # Case 2: we've seen this before and it was replaced.
-        $match = 1;
-        print "debug:   $Candidate has same inode as prior item -- link to $first\n"
+        @firststat = stat($first);
+        print "debug:   Case 2: $Candidate has same inode as prior item -- link to $first (stat=" . join(', ',@firststat) . ")\n"
             if ($Opt{debug});
+        $match = 1;
     }
     elsif ($first = FindMatch($Candidate,\$md5,@candstat)) {
         # Case 3: We looked for and found a match.
         @firststat = stat($first);
+        print "debug:   Case 3: $Candidate contents match -- link to $first (stat=" . join(', ',@firststat) . ")\n"
+            if ($Opt{debug});
         $match = 1;
         RegisterInode($first,@candstat);	# Remember how we handle this inode.
-        print "debug:   $Candidate contents match -- link to $first\n"
-            if ($Opt{debug});
     }
     else {
         # Case 4: It didn't match anything.
+        print "debug:   Case 4: $Candidate is a new file\n"
+            if ($Opt{debug});
         $match = 0;
         RegisterFile( $md5, $Candidate, @candstat );	# Remember for future matches.
         RegisterInode('',@candstat);					# Remember this inode.
