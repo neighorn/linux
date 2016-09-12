@@ -889,7 +889,7 @@ IGNORE	"^\s*(\S+:\s*)?tar: .*: file removed before we read it$"i
 IGNORE	"^\s*(\S+:\s*)?tar: .*: File shrank by \d+ bytes"
 IGNORE	"^\s*(\S+:\s*)?tar: .*: Cannot stat: No such file or directory$"
 IGNORE	"^\s*(\S+:\s*)?tar: Error exit delayed from previous errors$"
-IGNORE  "^\s*(\S+:\s*)?512 bytes (\(512 B\s*\))?copied,"
+IGNORE  "^\s*(\S+:\s*)?512 bytes (\(512 B\)\s*)?copied,"
 IGNORE	"^\s*(\S+:\s*)?recovery-info started on "
 IGNORE	"^\s*(\S+:\s*)?$"
 #

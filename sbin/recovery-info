@@ -330,7 +330,7 @@ LOGONLY	/^Command: /
 # These are normal messages that we want to see.
 #
 SHOW	"^\S+ started on \S+ on \d\d/\d\d/\d\d\d\d at \d\d:\d\d:\d\d$"
-IGNORE	"^\s*512 bytes (\(512 B\s*\))?copied,"
+IGNORE	"^\s*512 bytes (\(512 B\)\s*)?copied,"
 SHOW	/^\S+ ended normally with status 0 and signal 0$/
 SHOW	/^Test:/
 SHOW	/^debug:/i
