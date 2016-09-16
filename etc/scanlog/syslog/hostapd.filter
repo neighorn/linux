@@ -1,2 +1,3 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ hostapd(\[\d+\])?:\s*\S+: STA ..:..:..:..:..:.. "
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ hostapd(\[\d+\])?:\s*\S+: WPA rekeying GTK"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ hostapd(\[\d+\])?:\s*\S+: WPA \S+ rekeyd$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ hostapd(\[\d+\])?:\s*\S+: WPA rekeying \S+$"
