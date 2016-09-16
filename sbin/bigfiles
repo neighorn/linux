@@ -94,7 +94,7 @@ do
 	# Sort based on size (field 2)
 	# Print the top 60.
     find $subtree -xdev -size "+${minimum}c" $ModTime -type f -ls | \
-	sed 's/domain admins/domain-admins/;s/domain users/domain-users/;' | \
+	sed 's/domain admins/domain-admins/i;s/domain users/domain-users/i;' | \
 	sort -k 2,2nr | \
 	while read trash1 trash2 trash3 trash4 owner trash6 size mon day year name
 	do
