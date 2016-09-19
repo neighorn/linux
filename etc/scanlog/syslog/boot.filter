@@ -1400,6 +1400,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ rpcbind: rpcbind terminating on signal.
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: \[origin software=\"rsyslogd\" swVersion="
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ rsyslogd: \[origin software=\"rsyslogd\" swVersion=\"\d+.\d+.\d+\" x-pid=\"\d+\" x-info=\"http://www.rsyslog.com\"\] exiting on signal \d+.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ snmpd\[\d+\]: iquerySecName has not been configured - internal queries will fail$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ sssd\[\d+\]: sssd\S*: Starting up$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ statd-pre-start:\s+virtual-filesystems started"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+#011Offload RCU callbacks from " 
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+#011RCU restricting CPUs from NR_CPUS=\d+ to nr_cpu_ids=\d+.$"
