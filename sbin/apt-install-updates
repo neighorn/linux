@@ -285,7 +285,7 @@ sub RunLocally {
 
 	RunDangerousCmd("apt-get autoremove -y");
 	RunDangerousCmd("apt-get update");
-	RunDangerousCmd("DEBIAN_FRONTEND=noninteractive apt-get upgrade -y");
+	RunDangerousCmd("DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq");
 	if ($Options{reboot}) {
 		my $pid = fork();
 		die "Cannot fork shutdown process: $!\n" unless defined($pid);
@@ -656,7 +656,7 @@ IGNORE	"^\s*(\S+:\s*)?The following packages were automatically installed and ar
 IGNORE	"^\s*(\S+:\s*)?The following packages will be REMOVED:$"
 IGNORE	"^\s*(\S+:\s*)?The following packages will be upgraded:$"
 IGNORE	"^\s*(\S+:\s*)?Universal Time is now:"
-IGNORE	"^\s*(\S+:\s*)?Unpacking "
+SHOW	"^\s*(\S+:\s*)?Unpacking "
 IGNORE	"^\s*(\S+:\s*)?update-initramfs: deferring update \(trigger activated\)$"
 IGNORE	"^\s*(\S+:\s*)?update-initramfs: Deleting"
 IGNORE	"^\s*(\S+:\s*)?update-initramfs: Generating "
