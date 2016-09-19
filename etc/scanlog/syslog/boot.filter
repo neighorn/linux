@@ -628,7 +628,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?HPET: \d
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?hpet\d+: \d+ comparators, \d+-bit \d+.\d+ MHz counter$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?hpet\d+: at MMIO 0xfed\d+, IRQs \d+, \d+, \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?hub [[:xdigit:]:.-]+: \d+ ports detected$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?hub [[:xdigit:]:--.]+: USB hub found$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?hub [[:xdigit:]:.-]+: USB hub found$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?HugeTLB registered 2 MB page size, pre-allocated 0 pages$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?HugeTLB registered \d+ MB page size, pre-allocated \d+ pages$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?hv_vmbus: child dev ice \S+ registered$"
