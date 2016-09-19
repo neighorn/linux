@@ -1,5 +1,0 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apache-logstats(\[\d+\])?:\s*Most common origin addresses$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apache-logstats(\[\d+\])?:\s*Top URIs$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apache-logstats(\[\d+\])?:\s*Most common return statuses$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apache-logstats(\[\d+\])?:\s*\d+\s+\S"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apache-logstats(\[\d+\])?:\s*[1-9]\d* lines read$"
