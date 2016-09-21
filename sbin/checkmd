@@ -304,6 +304,7 @@ IGNORE	/^\S+ ended normally with status 0 and signal 0$/
 SHOW	"^Device /dev/\S+:\s+S#"
 SHOW	"^\s*Verbose:"
 IGNORE	"^\s*\S+:\s+.*resync=DELAYED$"
+IGNORE	"^\s*bitmap:"
 #
 # Anything that doesn't match one of these three sets of patterns is considered
 # an error.
