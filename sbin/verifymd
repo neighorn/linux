@@ -658,6 +658,7 @@ __END__
 IGNORE	/^\s*(\S+:\s*)?$/
 IGNORE	"^\s*(\S+:\s+)?/dev/md\S+ excluded.$"
 IGNORE	"^\s*(\S+:\s+)?\d+ blocks .*\[U+\]$"
+IGNORE	"^\s*(\S+:\s+)?bitmap:"
 IGNORE	"^\s*(\S+:\s+)?Personalities : \["
 IGNORE	"^\s*(\S+:\s+)?unused devices: "
 SHOW	"^\s*\S+\s*:\s*Remote job exited with return code 0 and signal 0$"
