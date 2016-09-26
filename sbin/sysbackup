@@ -66,6 +66,7 @@ my %TypeExclude = (	# Populate a default list of types to exclude.
 	'hugetlbfs'		=> 1,
 	'mqueue'		=> 1,
 	'nfs' 			=> 1,
+	'nfs4' 			=> 1,
 	'nfsd' 			=> 1,
 	'none' 			=> 1,
 	'proc' 			=> 1,
