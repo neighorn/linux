@@ -1,7 +1,8 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/sbin/)crond?(\[\d+\])?:\s*(\(.*\) )?CMD \(.*\)\s*$"i
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/sbin/)crond?(\[\d+\])?:\s*(\(.*\) )?INFO "i
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/sbin/)crond?(\[\d+\])?:\s*(\(.*\) )?NUMBER OF HARD LINKS"i
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/sbin/)crond?(\[\d+\])?:\s*(\(.*\) )?STARTUP"i
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/sbin/)?crond?(\[\d+\])?:\s*(\(.*\) )?CMD \(.*\)\s*$"i
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/sbin/)?crond?(\[\d+\])?:\s*(\(.*\) )?RELOAD \(.*\)\s*$"i
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/sbin/)?crond?(\[\d+\])?:\s*(\(.*\) )?INFO "i
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/sbin/)?crond?(\[\d+\])?:\s*(\(.*\) )?NUMBER OF HARD LINKS"i
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/sbin/)?crond?(\[\d+\])?:\s*(\(.*\) )?STARTUP"i
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/bin/)?crontab(\[\d+\])?:\s*\(\S+\) BEGIN EDIT \(\S+\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/bin/)?crontab(\[\d+\])?:\s*\(\S+\) END EDIT \(\S+\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/bin/)?crontab(\[\d+\])?:\s*\(\S+\) LIST \(\S+\)$"
