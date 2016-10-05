@@ -23,6 +23,7 @@
 # over Samba 3.6 are support for the Active Directory logon protocols
 # used by Windows 2000 and above.
 # Default-Start: 3 5
+# Default-Stop: 0 1 2 6
 ### END INIT INFO
 
 . /etc/lsb-release
