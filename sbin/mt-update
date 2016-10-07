@@ -1,0 +1,456 @@
+#!/usr/bin/perl
+#
+# Run updates on all MT machines
+# 
+
+use strict;
+use warnings;
+use LogOutput;
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
+use Text::ParseWords;
+use POSIX qw(strftime);
+use FindBin qw($Bin $Script);
+
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
+
+# Initialize variables.
+our $Prog=$0;                           # Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+my $Errors=0;   	                # No errors so far.
+my $Syslog='user';                      # Name of Syslog facility.  '' for none.
+my $BaseDir="/usr/local/etc";		# Set our base directory.
+my @ConfigFiles=("$BaseDir/${Prog}.cfg");	# Name of config files.
+our %Config;				# Data from the config file.
+our %Options;				# Options settings.
+our @Parms;				# List of non-option arguments.
+
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+our %OptionSpecifications=(
+		'<>'			=>	sub {push @Parms,shift;},
+		'debug|d'		=>	sub {$DB::AutoTrace=1;},
+		'help|h|?!'		=>	\&opt_h,
+		'always-mail|m=s'	=>	\&opt_Array,
+		'error-mail|M=s'	=>	\&opt_Array,
+		'option-set|O=s'	=>	\&opt_O,
+		'always-page|p=s'	=>	\&opt_Array,
+		'error-page|P=s'	=>	\&opt_Array,
+		'filter-file|F=s'	=>	\&opt_Value,
+		'test|t'		=>	\&opt_Value,
+		'yum-only'		=>	\&opt_Value,
+		'plesk-only'		=>	\&opt_Value,
+                'remote-host|R=s'	=>	\&opt_Array,
+		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+);
+#
+
+# Note: general purpose script - don't change current directory.
+#chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+
+# Load the config file.
+foreach (@ConfigFiles) {
+	LoadConfigFile($_);
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+	if (!@ARGV && defined($Config{DEFAULTJOB}));
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Pre-process our command line, to get the options we need for LogOutput.
+my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
+%Options=(verbose => 0);	# Initialize Options.
+$Errors ++ unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+	
+# Set up our logging and output filtering.
+my $RunDate=`date +%m/%d`;
+chomp $RunDate;
+my $Subject;
+if ($Options{subject}) {
+	$Subject="$Options{subject}" ;
+} elsif (@Parms >= 1) {
+	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
+} else {
+	$Subject="%* %m/%d %C %N %E %*%*%*" ;
+};
+
+# Make sure some key items exist;
+foreach (qw(always-mail error-mail always-page error-page remote-host)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
+$Options{verbose} = 0 unless (exists($Options{verbose}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
+my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
+
+LogOutput({
+	SYSLOG_FACILITY		=> $Syslog,
+	MAIL_FILE		=> $Options{logfile},
+	MAIL_FILE_PERMS		=> 0644,
+	ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
+	ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
+	ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
+	MAIL_SUBJECT		=> $Subject,
+	FILTER_FILE		=> $Options{'filter-file'},
+	VERBOSE			=> $LogOutputVerbose,
+});
+
+my $RemoteHosts = join(',', @{$Options{'remote-host'}});
+if ($RemoteHosts) {
+	$RemoteHosts="-R $RemoteHosts"
+}
+else {
+	$RemoteHosts='';
+}
+
+print "Beginning yum upgrade process...\n";
+RunDangerousCmd("run-linux $RemoteHosts yum upgrade -y") unless ($Options{'plesk-only'});
+
+print "Beginning Plesk micro-update installation process...\n" unless ($Options{'yum-only'});
+RunDangerousCmd("run-linux $RemoteHosts 'mv /root/.my.cnf /root/.my.cnf.hold;/usr/local/psa/admin/sbin/autoinstaller --select-product-id plesk --select-release-current --reinstall-patch --install-component base;mv /root/.my.cnf.hold /root/.my.cnf'");
+
+print "Reboot remote systems (Y/n)?\n";
+my $Response = <STDIN>;
+
+if ($Response =~ /^\s*y(es)?\s*$/i) {
+	print "Rebooting systems...\n";
+	RunDangerousCmd("run-linux shutdown -r now");
+}
+else {
+	print "Not rebooting systems.\n";
+}
+
+if ($Errors) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+exit( ($Errors?10:0) );
+
+
+#
+# xxxxx
+#
+sub xxxxxx {
+
+}
+
+
+#
+# LoadConfigFile - load a configuration file
+#
+sub LoadConfigFile {
+	my $ConfigFile = shift;
+	if (-e $ConfigFile) {
+		my $CONFIGFH;
+                open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+                # Build a hash of settings found in the config file.
+                my @Lines;
+
+                # Read config file and assemble continuation lines into single items.
+                while (<$CONFIGFH>) {
+                        next if (/^\s*#/);                      # Comment.
+                        next if (/^\s*$/);                      # Blank line.
+                        chomp;
+                        if (/^\s+/ and @Lines > 0) {
+                                # Continuation line.  Append to prior line.
+                                $Lines[$#Lines] .= " $_";
+                        }
+                        else {
+                                push @Lines, $_;
+                        }
+                }
+                close $CONFIGFH;
+
+                # Process assembled lines.
+                foreach (@Lines) {
+                        my ($name,$settings)=split(/:?\s+/,$_,2);
+                        $name=uc($name);                        # Name is not case sensitive.
+                        $settings='' unless ($settings);        # Avoid undef warnings.
+                        $settings=~s/\s+$//;                    # Trim trailing spaces.
+			if ($name eq 'INCLUDE') {
+				LoadConfigFile($settings);
+			}
+			else {
+				$settings=~s/\s+$//;	# Trim trailing spaces.
+				$Config{$name}.=$settings . ',' ;
+			}
+                }
+		foreach (keys(%Config)) {
+			$Config{$_} =~ s/,$//;  # Remove trailing comma
+		}
+        }
+}
+
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($Options{test}) {
+		print "Test: $Cmd\n";
+		return 0;
+	} else {
+		print "Executing: $Cmd\n" if ($Options{verbose});
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# opt_Value - generic single-value option processing
+#
+sub opt_Value {
+	my($Name,$Value) = @_;
+	$Options{$Name} = $Value;
+}
+
+
+#
+# opt_Array - generic multi-value optoin  processing
+#
+sub opt_Array {
+
+	my($Name,$Value,undef) = @_;
+	if (defined($Value) and length($Value)) {
+		# Add this value to the array.
+		push @{$Options{$Name}},$Value;
+	}
+	else {
+		# Received "--opt=".  Empty this array.
+		@{$Options{$Name}}=();
+	}
+}
+
+
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n>;
+	}
+}
+
+
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+        my $Pagenater=$ENV{PAGENATER};
+        $Pagenater="more" unless ($Pagenater);
+        system("pod2text $Bin/$Script | $Pagenater");
+        exit(1);
+}
+=pod
+
+=head1 $Prog - 
+
+<<description>>
+
+=head3 Usage:  
+        $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
+
+        $Prog -h
+
+=head3 Flags:
+        --error-mail|-M mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
+        --option-set|-O config: Insert the "config" configuration options
+                                from $ConfigFiles[0]
+                                into the command line at this point.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+        --help|-h:              Help: display this panel
+
+=head3 Parameters:
+        (none)
+
+=head3 Configuration files
+
+Configuration data may be loaded from the configuration files.  These files
+form key-value pairs that $Prog may reference.  The syntax of the file is:
+
+	name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=back
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
+
+=cut
+
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:        Ignore - Don't display this message, it's not interesting.
+#               LogOnly - Write this message to the syslog and log file, but
+#                       don't display it on STDOUT.
+#               Show - Display this message, but it's not an error condition.
+#               # - This is a comment, ignore it.
+#
+#               Everything else is flagged as an error.
+#
+#  Pattern:     an ordinary perl pattern.  All patterns for a given type
+#               are joined by logical OR conditions.
+#
+#  Notes:
+#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#       2) All messages go to the syslog, regardless of this filter.
+#
+#            atomic | 2.2 kB     00:00
+# ---------- plesk update
+#SHOW	"^\s*\S+\.(x86_64|i686|noarch)\s+.*el[567]\S*\s*$"
+IGNORE	"^\s* Trying to establish test connection... connected\s*$"
+IGNORE	"^\s*$"
+IGNORE	"^\s*(-->\s*)?Processing Dependency:"
+IGNORE	"^\s*(Cleanup|Updating|Verifying)\s*:\s*\S+\s*\d+/\d+\s*$"
+IGNORE	"^\s*(Downgrade|Reinstall|Remove)\s+\d+ Package\(s\)$"
+IGNORE	"^\s*(Install|Upgrade)\s+\d+\s+(Packages?|Package\(s\))$"i
+IGNORE	"^\s*-+$"
+IGNORE	"^\s*---> Package .+ (set to|will) be (erased|installed|an update|updated)$"
+IGNORE	"^\s*--> Finished Dependency Resolution$"
+IGNORE	"^\s*--> Running transaction check$"
+IGNORE	"^\s*=+$"
+IGNORE	"^\s*\* (atomic|base|epel|extras|updates): \S+$"
+IGNORE	"^\s*\S+\s+\|\s+[\d.]+\s*[kmg]?B\s+\d+:\d\d\s*$"
+IGNORE	"^\s*Checking for installed packages...$"
+IGNORE	"^\s*Checking for installed packages...\s*$"
+IGNORE	"^\s*Complete!$"
+IGNORE	"^\s*Delta RPMs reduced"
+IGNORE	"^\s*Dependencies Resolved$"
+IGNORE	"^\s*Detecting installed product components.$"
+IGNORE	"^\s*Detecting installed product components.\s*$"
+IGNORE	"^\s*Determining fastest mirrors$"
+IGNORE	"^\s*Doing restart of Plesk Installer...$"
+IGNORE	"^\s*done\s*$"
+IGNORE	"^\s*Downloading extension catalog feed...$"
+IGNORE	"^\s*Downloading extension catalog feed...\s*$"
+IGNORE	"^\s*Downloading Packages:$"i
+IGNORE	"^\s*File downloading "
+IGNORE	"^\s*Finished Transaction Test$"
+IGNORE	"^\s*Gathering information about installed license key...$"
+IGNORE	"^\s*Gathering information about installed license key...\s*$"
+IGNORE	"^\s*gpg-pubkey-"
+IGNORE	"^\s*gpg-pubkey-\S+-\S+ gpg\s*$"
+IGNORE	"^\s*Install(ed|ing)\s*:"
+IGNORE	"^\s*Install\s+\( \d+ Dependent packages\)$"
+IGNORE	"^\s*Installing for dependencies:$"
+IGNORE	"^\s*Installing patches...\s*$"
+IGNORE	"^\s*Loaded plugins: fastestmirror$"
+IGNORE	"^\s*Loading mirror speeds from cached hostfile$"
+IGNORE	"^\s*No Presto metadata available for \S+$"
+IGNORE	"^\s*Not downloading deltainfo for updates,"
+IGNORE	"^\s*Package\s+\S+ set to be (installed|erased)$"
+IGNORE	"^\s*Package\s+\S+ will be (installed|erased)$"
+IGNORE	"^\s*Package\s+Arch\s+Version\s+Repository\s+Size\s*$"
+IGNORE	"^\s*Patches were installed successfully.\s*$"
+IGNORE	"^\s*Removed:$"
+IGNORE	"^\s*Resolving Dependencies$"
+IGNORE	"^\s*Running rpm_check_debug$"
+IGNORE	"^\s*Running transaction check$"i
+IGNORE	"^\s*Running Transaction Test$"i
+IGNORE	"^\s*Running Transaction$"i
+IGNORE	"^\s*Setting up Upgrade Process$"
+IGNORE	"^\s*STOP update_history\s*$"
+IGNORE	"^\s*Total download size: "
+IGNORE	"^\s*Total\s+[\d.]+ [kM]B/s \| "
+IGNORE	"^\s*Transaction Summary$"i
+IGNORE	"^\s*Transaction Test Succeeded$"i
+IGNORE	"^\s*Trying to (re)?start service \S+\.\.\. .*(active|is running\.\.\.)$"
+IGNORE	"^\s*Updated:\s*$"
+IGNORE	"^\s*Updating:"
+IGNORE	"^\s*Updating\s*:"
+IGNORE	"^\s*Upgrade\s+\d+\s+Package\(s\)$"
+IGNORE	"^\s*warning:    erase unlink of .d* failed: No such file or directory$"
+IGNORE	"^\s*yum-plugin-fastestmirror\s*$"
+LOGONLY	"^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
+LOGONLY	"^\s*Command: "
+SHOW	"^\s* installed. Installation will not continue.$"
+SHOW	"^\s*(\S+\s+)?(x86_64|i686|noarch)\s+\S+\s+\S+\s+[\d.]+\s+[kmg]$"i
+SHOW	"^\s*\S+\.(x86_64|i686|noarch)(_\d+)?\s+\S+\s*$"
+SHOW	"^\s*-+ 11b\S+ -+$"
+SHOW	"^\s*\S+ ended normally with status 0 and signal 0 - run time:"
+SHOW	"^\s*Beginning Plesk micro-update installation process\.\.\.$"
+SHOW	"^\s*Beginning yum upgrade process\.\.\.$"
+SHOW	"^\s*Connection to \S+ closed by remote host.$"
+SHOW	"^\s*debug:"
+SHOW	"^\s*Executing:"
+SHOW	"^\s*Installed$"
+SHOW	"^\s*No Packages marked for Update$"i
+SHOW	"^\s*Not rebooting systems.$"
+SHOW	"^\s*Reboot remote systems \(Y/n\)\?$"
+SHOW	"^\s*Rebooting systems...$"
+SHOW	"^\s*Removing:$"
+SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*Test:"
+SHOW	"^\s*Verbose:"
+SHOW	"^\s*You already have the latest version of product\(s\) and all selected components$"
