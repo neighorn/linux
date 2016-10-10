@@ -26,7 +26,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*\[20../../.. ..:..:..
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*\[20../../.. ..:..:..(\.\d+)?,\s*\d+\]\s*../source3/rpc_server/srv_pipe.c:\d+\(process_request_pdu\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*\[20../../.. ..:..:..(\.\d+)?,\s*\d+\]\s*../source3/smbd/server.c:\d+\(main\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*\[20../../.. ..:..:..\.\d+,\s*0, pid=\d*, effective\(0, 0\), real\(0, 0\)\] ../source3/smbd/server.c:\d+\(main\)$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*Reloading \S+ smbd$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s\* Reloading \S+ smbd$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*\.\.\.done.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*standard input is not a socket, assuming -D option$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*STATUS=daemon '\S+' finished starting up and ready to serve connections"
