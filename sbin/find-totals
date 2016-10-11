@@ -18,13 +18,14 @@ while (<>) {
 	$Count++;
 	# print "Now processing record $Count\n" if ($Count%5000 == 0);
 	# 45482285 26372 -rw-r--r--   1 root     root     27003737 Feb 23 01:05 tree/usr/local/backup/mysql/2016-02-23.sql
-	my(undef,undef,$perms,$links,$user,$group,$size,undef,undef,undef,$path) = split(/\s+/);
-	if ($size !~ /^\d+$/) {
-		# Domain has a space in it.
-		(undef,undef,$perms,$links,$user,$group,undef,$size,undef,undef,undef,$path) = split(/\s+/);
-	}
+        s/^\s*//g;
+        my($inode,$blocks,$perms,$links,$user,$group,$size,undef,undef,undef,$path) = split(/\s+/);
+        if ($size !~ /^\d+$/) {
+                # Domain has a space in it.
+                ($inode,$blocks,$perms,$links,$user,$group,undef,$size,undef,undef,undef,$path) = split(/\s+/);
+        }
 
-	$GTotal += $size;
+        $GTotal += $size;
 
 	# Total by user.
 	if (exists($users{$user})) {
