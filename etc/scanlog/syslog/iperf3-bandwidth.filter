@@ -1,0 +1,1 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ iperf3-bandwidth(\[\d+\])?:\s*Measured Send Rate=\d+ mb/sec, Receive Rate=\d+ mb/sec$"
