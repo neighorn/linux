@@ -436,7 +436,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?usb usb.
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?usb usb.: Product: UHCI Host Controller$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?usb usb.: SerialNumber: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?usb( \d+-\d+\.\d+(\.\d+)?)?:\s+configuration #\d+ chosen from \d+ choices?$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?usb( \d+-\d+\.\d+(\.\d+)?)?:\sep 0x[[:xdigit:]]+ - rounding interval to \d+ microframes, ep desc says \d+ microframes$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?usb( \d+-\d+(\.\d+)?)?:\s+ep 0x[[:xdigit:]]+ - rounding interval to \d+ microframes, ep desc says \d+ microframes$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?usb( \d+-\d+\.\d+(\.\d+)?)?:\s+New \S+ speed USB device "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?usb( \d+-\d+\.\d+(\.\d+)?)?:\s+New USB device found, idVendor=\S+, idProduct=\S+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?usb( \d+-\d+\.\d+(\.\d+)?)?:\s+Product: "
