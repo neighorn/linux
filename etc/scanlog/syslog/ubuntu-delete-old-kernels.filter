@@ -8,6 +8,7 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?-+$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?-------- Uninstall Beginning --------$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?.*Reading database ... "
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?/usr/sbin/grub-probe: warning: Couldn't find physical volume `\(null\)'. Some modules may be missing from core image..$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?0 upgraded, 0 newly installed, \d+ to remove and \d+ not upgraded.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?After this operation, \S+ \S+ disk space will be freed.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?After this operation, \S+ \S+ of additional disk space will be used.$"
