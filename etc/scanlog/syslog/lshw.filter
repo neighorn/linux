@@ -1,9 +1,10 @@
 # lshw generates these messages when probing devices
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?>>>WARNING<<< Wrong ufstype may corrupt your filesystem, default is ufstype=old$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?EXT4-fs \(\S+\): VFS: Can't find ext4 filesystem$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?FAT-fs \(\S+\): bogus number of reserved sectors$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?FAT-fs \(\S+\): Can't find a valid FAT filesystem$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?hfs: can't find a HFS filesystem on dev \S+$"
-IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?hfsplus: unable to find HFS+ superblock$"
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?hfsplus: unable to find HFS\+ superblock$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mount -t ufs -o ufstype=sun\|sunx86\|44bsd\|ufs2\|5xbsd\|old\|hp\|nextstep\|nextstep-cd\|openstep ...$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?qnx4: no qnx4 filesystem \(no root dir\).$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?squashfs: SQUASHFS error: Can't find a SQUASHFS superblock on \S+$"
