@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 #
 # Send a test mail to one or more addresses.
 #
