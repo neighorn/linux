@@ -1,7 +1,7 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Creating image file (done )?\*\*\*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Generating early-microcode cpio image \*\*\*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Hardlinking files (done )?\*\*\*$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Including module: \S+ \*\*\*$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Including module: \S+ "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Installing kernel module dependencies and firmware (done )?\*\*\*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Store current command line parameters \*\*\*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Stripping files (done )?\*\*\*$"
