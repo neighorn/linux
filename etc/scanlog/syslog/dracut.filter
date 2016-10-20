@@ -1,10 +1,56 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Creating image file (done )?\*\*\*$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Generating early-microcode cpio image \*\*\*$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Hardlinking files (done )?\*\*\*$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Including module: \S+ "
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Installing kernel module dependencies and firmware (done )?\*\*\*$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Store current command line parameters \*\*\*$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*\*\*\* Stripping files (done )?\*\*\*$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*dracut module '\S+' will not be installed, because command '\S+' could not be found!$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*dracut-$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dracut(\[d+\])?:\s*Skipping udev rule: "
+-> Jun 27 08:11:51 ida dracut: dracut-
+-> Jun 27 08:11:53 ida dracut: dracut module 'busybox' will not be installed, because command 'busybox' could not be found!
+-> Jun 27 08:11:53 ida dracut: dracut module 'dmraid' will not be installed, because command 'dmraid' could not be found!
+-> Jun 27 08:11:53 ida dracut: dracut module 'multipath' will not be installed, because command 'multipath' could not be found!
+-> Jun 27 08:11:53 ida dracut: dracut module 'cifs' will not be installed, because command 'mount.cifs' could not be found!
+-> Jun 27 08:11:53 ida dracut: dracut module 'fcoe' will not be installed, because command 'dcbtool' could not be found!
+-> Jun 27 08:11:53 ida dracut: dracut module 'fcoe' will not be installed, because command 'fipvlan' could not be found!
+-> Jun 27 08:11:53 ida dracut: dracut module 'fcoe' will not be installed, because command 'lldpad' could not be found!
+-> Jun 27 08:11:53 ida dracut: dracut module 'fcoe' will not be installed, because command 'fcoemon' could not be found!
+-> Jun 27 08:11:53 ida dracut: dracut module 'fcoe' will not be installed, because command 'fcoeadm' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'nbd' will not be installed, because command 'nbd-client' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'busybox' will not be installed, because command 'busybox' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'dmraid' will not be installed, because command 'dmraid' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'multipath' will not be installed, because command 'multipath' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'cifs' will not be installed, because command 'mount.cifs' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'fcoe' will not be installed, because command 'dcbtool' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'fcoe' will not be installed, because command 'fipvlan' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'fcoe' will not be installed, because command 'lldpad' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'fcoe' will not be installed, because command 'fcoemon' could not be found!
+-> Jun 27 08:11:54 ida dracut: dracut module 'fcoe' will not be installed, because command 'fcoeadm' could not be found!
+-> Jun 27 08:11:55 ida dracut: dracut module 'nbd' will not be installed, because command 'nbd-client' could not be found!
+-> Jun 27 08:11:55 ida dracut: *** Including module: bash ***
+-> Jun 27 08:11:55 ida dracut: *** Including module: nss-softokn ***
+-> Jun 27 08:11:55 ida dracut: *** Including module: i18n ***
+-> Jun 27 08:11:55 ida dracut: *** Including module: network ***
+-> Jun 27 08:11:56 ida dracut: *** Including module: ifcfg ***
+-> Jun 27 08:11:56 ida dracut: *** Including module: drm ***
+-> Jun 27 08:11:57 ida dracut: *** Including module: plymouth ***
+-> Jun 27 08:11:58 ida dracut: *** Including module: kernel-modules ***
+-> Jun 27 08:12:02 ida dracut: *** Including module: mdraid ***
+-> Jun 27 08:12:02 ida dracut: Skipping udev rule: 64-md-raid.rules
+-> Jun 27 08:12:03 ida dracut: *** Including module: resume ***
+-> Jun 27 08:12:03 ida dracut: *** Including module: rootfs-block ***
+-> Jun 27 08:12:03 ida dracut: *** Including module: terminfo ***
+-> Jun 27 08:12:03 ida dracut: *** Including module: udev-rules ***
+-> Jun 27 08:12:04 ida dracut: Skipping udev rule: 91-permissions.rules
+-> Jun 27 08:12:04 ida dracut: *** Including module: biosdevname ***
+-> Jun 27 08:12:04 ida dracut: *** Including module: systemd ***
+-> Jun 27 08:12:05 ida dracut: *** Including module: usrmount ***
+-> Jun 27 08:12:05 ida dracut: *** Including module: base ***
+-> Jun 27 08:12:05 ida dracut: *** Including module: fs-lib ***
+-> Jun 27 08:12:05 ida dracut: *** Including module: shutdown ***
+-> Jun 27 08:12:05 ida dracut: *** Including modules done ***
+-> Jun 27 08:12:05 ida dracut: *** Installing kernel module dependencies and firmware ***
+-> Jun 27 08:12:05 ida dracut: *** Installing kernel module dependencies and firmware done ***
+-> Jun 27 08:12:05 ida dracut: *** Resolving executable dependencies ***
+-> Jun 27 08:12:06 ida dracut: *** Resolving executable dependencies done***
+-> Jun 27 08:12:06 ida dracut: *** Hardlinking files ***
+-> Jun 27 08:12:06 ida dracut: *** Hardlinking files done ***
+-> Jun 27 08:12:06 ida dracut: *** Stripping files ***
+-> Jun 27 08:12:07 ida dracut: *** Stripping files done ***
+-> Jun 27 08:12:07 ida dracut: *** Generating early-microcode cpio image ***
+-> Jun 27 08:12:07 ida dracut: *** Constructing GenuineIntel.bin ****
+-> Jun 27 08:12:07 ida dracut: *** Store current command line parameters ***
+-> Jun 27 08:12:07 ida dracut: *** Creating image file ***
+-> Jun 27 08:12:20 ida dracut: *** Creating image file done ***
