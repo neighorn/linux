@@ -1,5 +1,18 @@
 #! /bin/bash
 
+function Space {
+
+	
+	filename="$1"
+#	Filesystem      Size  Used Avail Use% Mounted on
+#	/dev/md2         46G  9.8G   34G  23% /
+	data=`df -hlP "${filename%/*}" 2> /dev/null | awk '!/Filesystem/ {print \$4, \$5;}'`
+	avail=${data%% *}
+	percent=${data##* }
+	percent=${percent%%}
+	echo "$percent($avail free)"
+}
+
 function ReadLSOF {
 	grep tree/ |
 	head -n 1 | 
@@ -15,10 +28,7 @@ function ReadLSOF {
 		# [[ $fh = [0-9]*r ]] && continue			# Filter out input file.
 		filename="${filename% (*}"			# Clean up NFS mounts.
 
-#		1               2     3    4     5    6
-#		Filesystem      Size  Used Avail Use% Mounted on
-#		/dev/md2         46G  9.8G   34G  23% /
-		space=`df -hlP "${filename%/*}" 2> /dev/null | awk '!/Filesystem/ {print \$4 "/" $5;}'`
+		space=`Space $filename`
 
 		# Get size in a compact unit.
 		size=`stat -c %s "$filename" 2> /dev/null`
@@ -42,7 +52,7 @@ function ReadLSOF {
 		fi
 
 		filename=`echo "$filename" | sed 's/^.*\/\(.*\/.*\/tree\)/\1/'`		# Strip down to vault.
-		printf "%-s %5d %-6s %8s %4s: %s\n" $now $pid "rsync" $space $size "$filename"
+		printf "%-s %5d %-6s %13s %4s: %s\n" $now $pid "rsync" "$space" $size "$filename"
 	done 
 }
 
@@ -79,8 +89,8 @@ do
 	while read trash pid trash trash trash trash trash trash dir
 	do
 		dir=${dir%%/tree/*}
-		percent=`df -hlP "$dir" | awk '!/Filesystem/ {print \$4 "/" \$5}'`
-		printf "%-s %5d %-6s %4s: %s\n" $now $pid "expire" $percent "$dir"
+		space=`Space $filename`
+		printf "%-s %5d %-6s %13s     : %s\n" $now $pid "expire" "$space" "$dir"
 	done |
 	sort -r |
 	while read current
