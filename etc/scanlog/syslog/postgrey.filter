@@ -3,3 +3,4 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*cleaning up old l
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*cleaning up old entries...$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*cleaning main database finished. before: \d+, after: \d+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*cleaning clients database finished. before: \d+, after: \d+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*action=pass, reason=triplet found, delay=\d+, client_name=\S+, client_address=\S+, sender=\S+, recipient=\S+$"
