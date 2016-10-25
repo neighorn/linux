@@ -70,6 +70,7 @@ our $LastStats='';         # Our most recent statistics report.
 our $LastProgress = 0;	   # The last time we generated a progress report.
 our $CheckpointDuration=1; # The time it takes to write a checkpoint file.
 our $FileAttrMode;	   # Do we have FileAttr (0=no,1=cmd,2=File::ExtAttr);
+our $HostName = `hostname -s`;
 
 my %DFHash;		   # List of file systems we were trying to clean up.
 
@@ -999,6 +1000,7 @@ sub PrintStatFile {
     if (open($STATFILE,'>',$Opt{statfile})) {
         if ($Opt{statformat} eq 'html') {
 	    $Text =~ s/$/<br>\n/mg;	# Insert <br> at text line ends.
+	    my $Timestamp=strftime("%T",localtime());
             print $STATFILE qq[
                 <!DOCTYPE html>
                 <html>
@@ -1007,6 +1009,7 @@ sub PrintStatFile {
 			<meta HTTP-EQUIV="refresh" CONTENT="60">
                     </head>
                     <body>
+			<h2>$HostName $Prog status as of $Timestamp</h2>
 			<font face="COURIER NEW" size=2>
 			$Text
 			</font>
