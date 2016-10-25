@@ -16,5 +16,5 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*[[:xdigit:]
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*connect from \S+\[\S+\]$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*disconnect from \S+\[\S+\]"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*lost connection after CONNECT from \S+\[\S+\]$"
-IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*NOQUEUE: reject: RCPT from \S+\[\S+\]: 450 4.2.0 <\S+>: Recipient address rejected: Greylisted,$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*NOQUEUE: reject: RCPT from \S+\[\S+\]: 450 4.2.0 <\S+>: Recipient address rejected: Greylisted,"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*warning: dict_nis_init:"
