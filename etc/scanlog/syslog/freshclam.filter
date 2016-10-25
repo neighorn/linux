@@ -1,0 +1,3 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ freshclam(\[\d+\])?:\s*Received signal: wake up$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ freshclam(\[\d+\])?:\s*ClamAV update process started at ... ... .. ..:..:.. ....$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ freshclam(\[\d+\])?:\s*(main|daily|bytecode).cvd is up to date \(version: \d+, sigs: \d+, f-level: \d+, builder: \S+\)$"
