@@ -60,6 +60,8 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?ahci [[:
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?APEI:? Can not request iomem region .* for GARs.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?ata\d+(\.\d+)?: SATA link down \(SStatus 0 SControl 300\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?ata\d.\d+: configured for"
+IGNORE	'^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?audit: type=1400 audit\(\d+\.\d+\:\d+\): apparmor="STATUS" operation="\S+" profile="\S+" name="\S+" pid=\d+ comm="\S+"$'
+IGNORE	'^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?audit: type=1400 audit\(\d+\.\d+\:\d+\): apparmor="ALLOWED" operation="\S+" profile="\S+" name="\S+" pid=\d+ comm="\S+" requested_mask="\S+" denied_mask="\S+" fsuid=\d+ ouid=\d+$'
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?bio: create slab \<bio-\d+\> at \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?BIOS EDD facility v.*, \d+ devices found"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?block sdb\d+: hash matches$"
