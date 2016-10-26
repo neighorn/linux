@@ -6,25 +6,20 @@
 Now=`date +%H:%M:%S\ %m/%d/%Y`
 Success=''
 Failure=''
+Highlight="\033[33;40;1m";  # Yellow FG, Black BG, Bright.
+Reset="\033[0m";
+
 
 echo "This is a test e-mail.\nThe time is now $Now" |
 	mail -s "Test e-mail at $Now" $@
 Status=$?
 if [[ $Status -eq 0 ]]
 then
-	Success="$Success $mail"
+	echo "    Test mail sent to $@"
+	Time=${Now%% *}
+	echo -e "    The time is now ${Highlight}${Time}${Reset}"
+	exit 0
 else
-	Failure="$Failure $mail"
+	echo "Unable to send test mail to $@"
+	exit 8
 fi
-
-Success="${Success# }"
-Failure="${Failure# }"
-[[ "$Failure" != "" ]] && "Unable to send test mail to $Failure"
-if [[ "$Success" != "" ]]
-then
-	echo "    Test mail sent to $Success"
-	echo "    The time is now $Now"
-fi
-
-[[ "$Failure" != "" ]] && exit 8
-exit 0
