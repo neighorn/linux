@@ -10,14 +10,13 @@ Highlight="\033[33;40;1m";  # Yellow FG, Black BG, Bright.
 Reset="\033[0m";
 
 
-echo "This is a test e-mail.\nThe time is now $Now" |
+echo "This is a test e-mail.  It was sent at $Now." |
 	mail -s "Test e-mail at $Now" $@
 Status=$?
 if [[ $Status -eq 0 ]]
 then
-	echo "    Test mail sent to $@"
 	Time=${Now%% *}
-	echo -e "    The time is now ${Highlight}${Time}${Reset}"
+	echo -e " Test e-mail sent to $@ at ${Highlight}${Time}${Reset}."
 	exit 0
 else
 	echo "Unable to send test mail to $@"
