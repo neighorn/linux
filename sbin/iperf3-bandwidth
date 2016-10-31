@@ -43,6 +43,8 @@ our %OptionSpecifications=(
 		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'test|t'		=>	sub {$Options{test} = (exists($Options{test})?$Options{test}+1:1)},
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+		'server=s'		=>	\&opt_Value,
+		'port=i'		=>	\&opt_Value,
 		'retries=i'		=>	\&opt_Value,
 		'minrate=i'		=>	\&opt_Value,
 		'sendminrate=i'		=>	\&opt_Value,
@@ -356,11 +358,19 @@ sub RunLocally {
 #		iperf Done.
 #		
 	my $IPERF;
-	my($SendRate,$RecvRate);
+	$Options{server}='iperf.he.net' unless ($Options{server});
+	$Options{port}='5201' unless ($Options{port});
+	$Options{sendminrate}=$Options{minrate} unless ($Options{sendminrate});
+	$Options{recvminrate}=$Options{minrate} unless ($Options{recvminrate});
+	die "Either --minrate or --sendminrate and --recvminrate must be specified to run $Prog\n"
+		unless ($Options{sendminrate} and $Options{recvminrate});
 	my $Try = 0;
-	while ($Try++ le $Options{retries}) {
+	my $MaxSend = 0;
+	my $MaxRecv = 0;
+	while ($Try++ <= $Options{retries}) {
+		my($SendRate,$RecvRate);
 		print "Verbose: Beginning attempt #$Try\n" if ($Options{verbose});
-		die "Unable to run iperf3: $!" unless open($IPERF,,'iperf3 -c iperf.he.net -P 2 -i 0 -p 5201 -f m -d 2>&1 |');
+		die "Unable to run iperf3: $!" unless open($IPERF,,"iperf3 -c $Options{server} -P 2 -i 0 -p $Options{port} -f m -d 2>&1 |");
 		while (<$IPERF>) {
 			chomp;
 			print "Verbose: Read: $_\n" if ($Options{verbose} > 2);	# Verbose 3+ - list all lines read.
@@ -373,23 +383,22 @@ sub RunLocally {
 				$RecvRate = $1;
 			}
 		}
-		last if (defined($SendRate) and defined($RecvRate));
-		print "Verbose: no data found\n";
+		$MaxSend = $SendRate if (defined($SendRate) and $SendRate > $MaxSend);
+		$MaxRecv = $RecvRate if (defined($RecvRate) and $RecvRate > $MaxRecv);
+		last if ($MaxSend >= $Options{sendminrate} and $MaxRecv >= $Options{recvminrate});
 		$SendRate = undef;
 		$RecvRate = undef;
 		sleep(30) if ($Try <= $Options{retries});
 	}
-	if (!defined($SendRate) or !defined($RecvRate)) {
+	if ($MaxSend == 0 or $MaxRecv == 0) {
 		warn "Unable to gather bandwidth measurements after $Options{retries} attempts.\n";
 		return(8);
 	}
-	print "Measured Send Rate=$SendRate mb/sec, Receive Rate=$RecvRate mb/sec\n";
-	$Options{sendminrate}=$Options{minrate} unless ($Options{sendminrate});
-	$Options{recvminrate}=$Options{minrate} unless ($Options{recvminrate});
-	warn "Send rate ($SendRate mb/sec) is below threshold ($Options{sendminrate}) mb/sec)\n"
-		if ( $Options{sendminrate} and ($SendRate < $Options{sendminrate}));
-	warn "Receive rate ($RecvRate mb/sec) is below threshold ($Options{recvminrate}) mb/sec)\n"
-		if ( $Options{recvminrate} and ($RecvRate < $Options{recvminrate}));
+	print "Measured Send Rate=$MaxSend mb/sec, Receive Rate=$MaxRecv mb/sec\n";
+	warn "Send rate ($MaxSend mb/sec) is below threshold ($Options{sendminrate}) mb/sec)\n"
+		if ( $Options{sendminrate} and ($MaxSend < $Options{sendminrate}));
+	warn "Receive rate ($MaxRecv mb/sec) is below threshold ($Options{recvminrate}) mb/sec)\n"
+		if ( $Options{recvminrate} and ($MaxRecv < $Options{recvminrate}));
 }
 
 
@@ -568,15 +577,21 @@ sub opt_O {
 				This is primarily to allow a configuration
 				file list to be included, but some of the
 				hosts in the list to subsequently be excluded.
-	--minrate n:		MinRate: flag an error if the send or receive
+	--minrate=n:		MinRate: flag an error if the send or receive
 				rate falls below this many megabits/second.
 				See also sendminrate, recvminrate.
-	--sendminrate n:	SendMinRate: flag an error if the send rate
+	--sendminrate=n:	SendMinRate: flag an error if the send rate
 				falls below this many megabits/second.  
 				Overrides minrate.
-	--recvminrate n:	RecvMinRate: flag an error if the receive rate
+	--recvminrate=n:	RecvMinRate: flag an error if the receive rate
 				falls below this many megabits/second.  
 				Overrides minrate.
+	--retries=n		Retries: retry connection and measurement
+				n times.  Testing will stop after the first
+				measurement that meets the
+				sendminrate/recvminrate/minrate goals.
+	--server=s		Server: Iperf3 server.  Defaults to iperf.he.net
+	--port=n		Server port: Iperf3 server port.  Defaults to 5201.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
 				May be used multiple times to increase verbosity.
