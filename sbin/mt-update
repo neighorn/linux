@@ -43,6 +43,7 @@ our %OptionSpecifications=(
 		'yum-only'		=>	\&opt_Value,
 		'plesk-only'		=>	\&opt_Value,
                 'remote-host|R=s'	=>	\&opt_Array,
+		'reboot=s'		=>	\&opt_Array,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
 );
 #
@@ -118,8 +119,14 @@ RunDangerousCmd("run-linux $RemoteHosts yum upgrade -y") unless ($Options{'plesk
 print "Beginning Plesk micro-update installation process...\n" unless ($Options{'yum-only'});
 RunDangerousCmd("run-linux $RemoteHosts 'mv /root/.my.cnf /root/.my.cnf.hold;/usr/local/psa/admin/sbin/autoinstaller --select-product-id plesk --select-release-current --reinstall-patch --install-component base;mv /root/.my.cnf.hold /root/.my.cnf'");
 
-print "Reboot remote systems (Y/n)?\n";
-my $Response = <STDIN>;
+my $Response;
+if ($Options{reboot}) {
+	$Response=$Options{reboot};
+}
+else {
+	print "Reboot remote systems (Y/n)?\n";
+	$Response = <STDIN>;
+}
 
 if ($Response =~ /^\s*y(es)?\s*$/i) {
 	print "Rebooting systems...\n";
@@ -274,12 +281,10 @@ sub opt_h {
 }
 =pod
 
-=head1 $Prog - 
-
-<<description>>
+=head1 mt-update - install updates to Media Temple servers
 
 =head3 Usage:  
-        $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] 
+        $Prog [options]
 
         $Prog -h
 
@@ -300,6 +305,11 @@ sub opt_h {
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFiles[0]
                                 into the command line at this point.
+	--remote-host|-R host:	Remote: install updates on host.  May be
+				repeated.
+	--reboot=X		Reboot: Use --reboot=y to reboot without 
+				prompting.  Use --reboot=n to not reboot.
+				Default is to prompt once updates are complete.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
         --help|-h:              Help: display this panel
