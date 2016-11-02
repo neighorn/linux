@@ -1,13 +1,16 @@
 #!/usr/bin/perl
-
+#
+# Run MySQL back-ups
+#
 use strict;
 use warnings;
 use LogOutput;
-use Getopt::Long 2.38 qw(GetOptionsFromString :config gnu_compat permute bundling);
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
-use FindBin qw($Bin $Script);
-use File::Basename;
 use POSIX qw(strftime);
+use Fcntl qw(:flock :mode :DEFAULT);
+use File::Basename;
+use FindBin qw($Bin $Script);
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -22,6 +25,8 @@ my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
+our $HostName=`hostname -s`;		# Get our host name.
+chomp $HostName;
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -41,9 +46,11 @@ our %OptionSpecifications=(
 		'log-file|l=s'		=>	\&opt_Value,
 		'test|t'		=>	\&opt_Value,
 		'cycles|r=s'		=>	\&opt_cycles,
+		'check'			=>	\&opt_cycles,
 		'min-size|s=s'		=>	\&opt_min_size,
 		'max-size|S=s'		=>	\&opt_max_size,
 		'output-directory|o=s'	=>	\&opt_Value,
+		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'username|user|U=s'	=>	\&opt_Value,
 		'gzip|z'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
@@ -127,9 +134,11 @@ LogOutput({
 	VERBOSE			=> $LogOutputVerbose,
 });
 
-@Parms = ('--all-databases') unless (@Parms+0);	# Assume all databases unless they gave us a list.
-foreach my $Database (@Parms) {
-	BackupDatabase($Database);
+if (exists($Options{'remote-host'})) {
+	$Errors = RunRemote(@ARGV);
+}
+else {
+	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
 
 if ($Errors) {
@@ -139,6 +148,149 @@ if ($Errors) {
 }
 
 exit( ($Errors?10:0) );
+
+
+# ---------------------------------------------------------
+#
+# RunRemote - Run this elsewhere and track the results.
+#
+sub RunRemote {
+
+	my @ARGV=@_;
+	my $Errors = 0;
+
+	# Analyze the remote-host list, ignoring duplicates and handling !-deletions.
+	my @HostList = @{$Options{'remote-host'}};
+	die "No remote hosts specified on the command line or in the configuration file.\n" unless (@HostList);
+
+	my $MaxLength = 0;
+	foreach (@HostList) { $MaxLength=($MaxLength < length($_)?length($_):$MaxLength); }
+	$MaxLength++;		# Allow for trailing colon.
+	my $DeleteNext=0;
+	foreach (@ARGV) {
+		if ($DeleteNext) {
+			$_ = '';
+			$DeleteNext=0;
+		}
+		elsif (/^--remote-host=/) {
+			$_ = '';		# Delete this for remote systems.
+		}
+		elsif (/^-R/) {
+			$_ = '';
+			$DeleteNext=1;
+		}
+	}
+	@ARGV = grep { $_ ne '' } @ARGV;
+	@ARGV = map {qq<"$_">} @ARGV;
+
+	foreach my $Host (@HostList) {
+		my $Cmd =   "ssh $Host $Prog "
+			  . join(' ', @ARGV) . ' '
+			  . '-F SHOWALL '
+			  . '--always-mail= '
+			  . '2\>\&1 '
+			  ;
+		my $FH;
+
+		# Don't even go to remote hosts if test level 2 (-tt).
+		if($Options{test} and $Options{test} >= 2) {
+			print "Test: $Cmd\n";
+			next;
+		}
+
+		print "Verbose: Running $Cmd\n" if ($Options{verbose} or $Options{test});
+		if (open($FH, "$Cmd |")) {
+			while (<$FH>) {
+				printf "%-*s %s", $MaxLength, "$Host:", $_;
+			}
+			close $FH;
+			my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
+			print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
+			$Errors++ if ($ExitCode);
+		}
+		else {
+			warn "Unable to open ssh session to $Host: $!\n";
+			$Errors++;
+		}
+	}
+
+	return $Errors;
+}
+
+
+# ---------------------------------------------------------
+#
+# RunLocally - run a sysbackup on this machine.
+#
+sub RunLocally {
+	# ---------------------------------------------------------
+	#
+	# Load any host-specific options
+	#
+	my $HostOptions = shift;
+	if ($HostOptions) {
+		my @Array = quotewords(" ",0,$HostOptions);
+		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
+	}
+
+	# ---------------------------------------------------------
+	#
+	# Check for conflicting jobs/Acquire the job lock
+	#
+	my $JobLockFile = "/var/run/$Prog.lock";
+	my $JOBLOCKFH;
+	if (!$Options{test} and !open($JOBLOCKFH,'>>',$JobLockFile)) {
+	        print "Unable to create/open $JobLockFile: $!\n";
+	        return 1;
+	}
+	if (!$Options{test} and !flock($JOBLOCKFH, LOCK_EX | LOCK_NB)) {
+	        my @stat = stat($JobLockFile);
+	        my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
+	        $mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
+	        print "Skipped this job due to a conflicting job in progress per "
+	                . qq<"$JobLockFile" dated $mdate at >
+	                . strftime(
+	                        "%H:%M:%S",
+	                        localtime((stat($JobLockFile))[8]))
+	                . "\n"
+	                ;
+	        return 1;
+	}
+
+	# ---------------------------------------------------------
+	#
+	# Run the back-ups
+	#
+	my $Errors = 0;
+	@Parms = ('--all-databases') unless (@Parms+0);	# Assume all databases unless they gave us a list.
+	foreach my $Database (@Parms) {
+		$Errors += BackupDatabase($Database);
+	}
+
+	# ---------------------------------------------------------
+	#
+	# Run the check, if requested.
+	#
+        $Errors += RunDangerousCmd(
+                  '/usr/bin/mysqlcheck '
+                . '--all-databases '
+                . ($Options{username}?"-u $Options{username} ":'')
+                . ($Options{host}?"--host $Options{host} ":'')
+        );
+
+
+	# ---------------------------------------------------------
+	#
+	# Release the job lock.
+	#
+	if ($JOBLOCKFH) {
+	        close $JOBLOCKFH;
+	        unlink $JobLockFile;
+	}
+	return ($Errors>0?1:0);
+
+}
+
 
 
 #
@@ -192,35 +344,37 @@ sub BackupDatabase {
 	# to restore a table, we don't accidentally include code that drops some database.  Dropping databases
 	# manually isn't very difficult or time-consuming.
 	# Use a .tmp file and rename when we're done, so some separate process knows this file isn't complete.
-		RunDangerousCmd(
-			  "mysqldump -u $Options{username} --opt --add-drop-table --routines --events "
-			. "--single-transaction --allow-keywords --quote-names $eventsopt "
-			. ($Options{host}?"--host=$Options{host} ":'') 
-			. qq<-r "$OutPath.tmp" >
-			. $Database
-		);
-		if (-f "$OutPath.tmp" or $Options{test}) {
-			RunDangerousCmd(qq<mv "$OutPath.tmp" "$OutPath">);	# Rename tmp file now that it's done.
-			my $size =  ($Options{test}?0:(stat($OutPath))[7]);
-			print commify($size)
-				. " bytes "
-				. ($size > 1024?'(' . CompressSize($size) . ') ':'')
-				. "written to $OutPath\n";
-			warn "Warning: backup is less than the minimum expected size ("
-				. commify($Options{'min-size'}) ." bytes)\n"
-			    if ($Options{'min-size'} and $size < $Options{'min-size'} and ! $Options{test});
-			warn "Warning: backup is more than the maximum expected size ("
-				. commify($Options{'max-size'}) . " bytes)\n"
-			    if ($Options{'max-size'} and $size > $Options{'max-size'} and ! $Options{test});
-			if ($Options{gzip}) {
-			    RunDangerousCmd("rm $OutPath.gz") if (-e "$OutPath.gz");
-			    RunDangerousCmd("gzip $OutPath")
-			}
-		}
-		else {
-			die "Unable to locate output file $OutPath";
+	RunDangerousCmd(
+		  "mysqldump -u $Options{username} --opt --add-drop-table --routines --events "
+		. "--single-transaction --allow-keywords --quote-names $eventsopt "
+		. ($Options{host}?"--host=$Options{host} ":'') 
+		. qq<-r "$OutPath.tmp" >
+		. $Database
+	);
+	if (-f "$OutPath.tmp" or $Options{test}) {
+		RunDangerousCmd(qq<mv "$OutPath.tmp" "$OutPath">);	# Rename tmp file now that it's done.
+		my $size =  ($Options{test}?0:(stat($OutPath))[7]);
+		print commify($size)
+			. " bytes "
+			. ($size > 1024?'(' . CompressSize($size) . ') ':'')
+			. "written to $OutPath\n";
+		warn "Warning: backup is less than the minimum expected size ("
+			. commify($Options{'min-size'}) ." bytes)\n"
+		    if ($Options{'min-size'} and $size < $Options{'min-size'} and ! $Options{test});
+		warn "Warning: backup is more than the maximum expected size ("
+			. commify($Options{'max-size'}) . " bytes)\n"
+		    if ($Options{'max-size'} and $size > $Options{'max-size'} and ! $Options{test});
+		if ($Options{gzip}) {
+		    RunDangerousCmd("rm $OutPath.gz") if (-e "$OutPath.gz");
+		    RunDangerousCmd("gzip $OutPath")
 		}
 	}
+	else {
+		warn "Unable to locate output file $OutPath";
+		return 1;
+	}
+	return 0;
+}
 
 
 #
@@ -409,6 +563,7 @@ sub opt_help {
 				* See Warning below. *
 	--cycles|-r days:	Retention: delete old backups after "days" days.
 				Default=7.
+	--check			Check: Also run a database check
 	--min-size|-s size:	Size: issue an error if the output is less than "size"
 				bytes (before compression).
 	--max-size|-S size:	Size: issue an error if the output is more than "size"
@@ -418,6 +573,11 @@ sub opt_help {
 	--username|-U username:	User: Log into the database as "username".  Defaults
 				to current name.
 	--gzip|z		Zip: gzip the output files when going to disk.
+	--remote|R name		Remote: Don't run locally, but run on remote system
+				"name" instead.  May be repeated, or name may be a
+				comma-separated list to run on multple systems. 
+				Include "localhost" or similar to run it both 
+				locally and remotely.
 
 
 =head3 Parameters:
@@ -515,19 +675,30 @@ __END__
 #
 # The following are normal messages we don't need to see.
 #
-IGNORE	/^\s*$/
+IGNORE	/^\s*(\S+:\s*)?\s*$/
 #
 # These are normal messages that we want to see in the e-mail log only.
 #
-IGNORE	"^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
-LOGONLY	/^Command: /
+LOGONLY	"^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*(\S+:\s*)?\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*(\S+:\s*)?Remote job exited with return code 0 and signal 0$"
+LOGONLY	/^\s*(\S+:\s*)?Command: /
+LOGONLY	"^\s*\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 #
 # These are normal messages that we want to see.
 #
-SHOW	/^\S+ ended normally with status 0 and signal 0$/
-SHOW	/^debug:/i
-SHOW	/^test:/i
-SHOW	/^Executing:/i
-SHOW	/^Verbose:/i
-SHOW	"^\s*Deleting "
-SHOW	"^[0-9,]+ bytes (\(.*\) )?written to \S+$"
+LOGONLY	/^\s*(\S+:\s*)?\S+ ended normally with status 0 and signal 0$/
+SHOW	/^\s*(\S+:\s*)?debug:/i
+SHOW	/^\s*(\S+:\s*)?test:/i
+SHOW	/^\s*(\S+:\s*)?Executing:/i
+SHOW	/^\s*(\S+:\s*)?Verbose:/i
+SHOW	"^\s*(\S+:\s*)?Deleting "
+SHOW	"^\s*(\S+:\s*)?[0-9,]+ bytes (\(.*\) )?written to \S+$"
+# The log files always throw an error about locks.  mysqlcheck should be smarter. 
+# Always show the log names, so that if another error comes up we know which 
+# table it applies to. 
+IGNORE  "^\s*(\S+:\s+)?Error\s*: You can't use locks with log tables.$" 
+SHOW    "^\s*(\S+:\s+)?mysql.(slow|general)_log\s*$" 
+IGNORE  "^\s*(\S+:\s+)?.*\s+OK$" 
