@@ -107,11 +107,6 @@ LogOutput({
 	MAIL_SUBJECT => $Options{subject},
 });
 
-# Verify the command line.
-if (exists($Options{week})) {
-	die "Invalid value for -n ($Options{week}): must be 1-5\n" unless ($Options{week} =~ /^[1-5]$/);
-}
-
 if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
 	$Errors = RunRemote(@ARGV);
 }
@@ -280,27 +275,6 @@ sub RunLocally {
 	);
 
 }
-
-
-# ---------------------------------------------------------
-#
-# GetStatus - retrieve the status of a device
-#
-sub GetStatus {
-	my $SyncFile = shift;
-	my $FH;
-	if (open($FH,'<',$SyncFile)) {
-		my $Status = <$FH>;
-		chomp $Status;
-		close $FH;
-		return $Status;
-	} 
-	else {
-		warn "Unable to open $SyncFile: $!\n";
-		return "unknown";
-	}
-}
-
 
 
 # ---------------------------------------------------------
