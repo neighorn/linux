@@ -469,22 +469,91 @@ sub opt_Value {
 	$Options{$Name} = $Value;
 }
 
-
+# ---------------------------------------------------------
 #
-# opt_Array - generic multi-value optoin  processing
+# opt_Array - generic multi-value option  processing
 #
 sub opt_Array {
 
-	my($Name,$Value,undef) = @_;
-	if (defined($Value) and length($Value)) {
-		# Add this value to the array.
-		push @{$Options{$Name}},$Value;
-	}
-	else {
+	my($Name,$Value,%ArrayOpt) = @_;
+
+	# Possible array processing options:
+	#	preserve-lists:	0 (default), split on embedded spaces or commas
+	#			1, don't split on embedded spaces or commas
+	#	allow-delete:	0 (default), leading ! on value has no meaning
+	#			1, leading ! on value means delete value from
+	#				current list.
+	#	force-delete:	0 (default), assume add unless ! and allow-delete=1
+	#			1, delete this item regardless of leading !
+
+
+	# Set a recursion limit if we don't already have one.  This helps
+	# us detect list loops (listA points to listA, or A->B->A, etc.).
+	$ArrayOpt{'recursion-limit'} = 64 unless ($ArrayOpt{'recursion-limit'});
+
+	# Is the value empty, meaning to wipe any entries to this point.
+	if (!$Value) {
 		# Received "--opt=".  Empty this array.
 		@{$Options{$Name}}=();
+		return;
+	}
+
+	# Split out lists by default, unless embedded-lists are preserved.
+	my @ValueList;
+	if ($ArrayOpt{'preserve-lists'}) {
+		# Preserve commas and embedded spaces.  Just leave value as is.
+		@ValueList = ($Value);
+	}
+	else {
+		$Value =~ s/[\s,]+$//;	# Trailing separators make no sense.
+		$Value =~ s/^\s+//;	# Ignore leading whitespace.
+		@ValueList = split(/[,\s]+/,$Value);
+	}
+
+	# Now process each list item individually.
+	while ($Value = shift(@ValueList)) {
+		
+		# Are we adding or deleting this item.
+		my $AddItem = 1;	# Assume we're adding.
+		my $Prefix;
+		if ($ArrayOpt{'force-delete'}) {
+			# We've been told, flat-out, to delete this item.
+			$AddItem = 0;
+			$Value =~ s/^!+// if ($ArrayOpt{'allow-delete'});
+		}
+		elsif ($ArrayOpt{'allow-delete'} and $Value =~ /^!+(.*)$/) {
+			# Delete is allowed, and ! is present.
+			$AddItem = 0;
+			$Value = $1;
+		}
+		
+		# If config lists are permitted, see if this is a config list.
+		if ($ArrayOpt{'expand-config'} and exists($Config{uc($Value)})) {
+			# This is a reference to a config file list. Recurse
+			# through this, in case the list contains more lists.
+			die "List loop detected in --$Name=$Value"
+				if ($ArrayOpt{'recursion-limit'} <= 0);
+			opt_Array(
+				$Name,
+				$Config{uc($Value)},
+				%ArrayOpt,'recursion-limit'=>($ArrayOpt{'recursion-limit'}-1),
+				'force-delete'=> (1-$AddItem),
+			);
+			next;
+		}
+
+		# If we got here, we have a value to either add or delete.
+		if ($AddItem) {
+			push @{$Options{$Name}},$Value
+				unless grep { $_ eq $Value } @{$Options{$Name}};
+		}
+		else {
+			# Remove this item from the list if present.
+			@{$Options{$Name}} = grep { $_ ne $Value } @{$Options{$Name}};
+		}
 	}
 }
+
 
 
 
