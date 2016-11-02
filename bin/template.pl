@@ -25,6 +25,8 @@ our $Errors=0;
 our %Config;
 our @Parms;
 our %Options;			# Options settings.
+our $HostName = `hostname -s`;
+chomp $HostName;
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
