@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# Backup critical system components and gather recovery information.
+# <<summary here>>
 #
 use strict;
 use warnings;
@@ -107,15 +107,6 @@ else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
 
-# ---------------------------------------------------------
-#
-# Release the job lock.
-#
-if ($JOBLOCKFH) {
-        close $JOBLOCKFH;
-        unlink $JobLockFile;
-}
-
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
@@ -173,6 +164,9 @@ sub LoadConfigFile {
 		}
         }
 }
+
+
+
 # ---------------------------------------------------------
 #
 # RunRemote - Run this elsewhere and track the results.
@@ -256,8 +250,9 @@ sub RunLocally {
 		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
 	}
 
+	# ---------------------------------------------------------
 	#
-	# Check for conflicting jobs.
+	# Check for conflicting jobs/Acquire the job lock
 	#
 	$JobLockFile = "/var/run/$Prog.lock";
 	if (!$Options{test} and !open($JOBLOCKFH,'>>',$JobLockFile)) {
@@ -277,6 +272,15 @@ sub RunLocally {
 	                ;
 	        exit 11;
 	}
+	# ---------------------------------------------------------
+	#
+	# Release the job lock.
+	#
+	if ($JOBLOCKFH) {
+	        close $JOBLOCKFH;
+	        unlink $JobLockFile;
+	}
+
 }
 
 
