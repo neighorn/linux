@@ -188,7 +188,8 @@ sub RunRemote {
 			  . join(' ', @ARGV) . ' '
 			  . '-F SHOWALL '
 			  . '--always-mail= '
-			  . '-O DefaultJob '
+			  . '-O :DefaultJob '
+			  . "-O :$Host "
 			  . '2\>\&1 '
 			  ;
 		my $FH;
@@ -564,6 +565,9 @@ sub opt_Array {
 sub opt_O {
 	my(undef,$Value) = @_;
 	$Value = uc($Value);
+	$Value =~ m/(:?)(\S+)/;	# See if it starts with a colon, meaning optional.
+	my $Optional = $1;
+	$Value = $2;
 	if (exists($Config{$Value})) {
 		$Errors ++ unless GetOptionsFromString(
 			$Config{$Value},
@@ -572,7 +576,7 @@ sub opt_O {
 		);
 	}
 	else {
-		warn qq<Warning: "$Value" not found in configuration file\n>;
+		warn qq<Warning: "$Value" not found in configuration file\n> unless $Optional;
 	}
 }
 
@@ -615,6 +619,9 @@ sub opt_help {
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFile
                                 into the command line at this point.
+				A leading colon on "config" suppresses a 
+				warning message if "config" is not found
+				in the configuration file.
         --filter|-F filter:     Filter: Use alternate error detection
                                 filter file "filter".  The default is
                                 to use the built-in error filter.
@@ -751,7 +758,7 @@ IGNORE	"^\s*(\S+:\s*)?Remote job exited with return code 0 and signal 0$"
 IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0$"
 IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 IGNORE	"^\s*\S+:\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-LOGONLY	"^\s*\S+ ended normally with status 0 and signal 0$.
+LOGONLY	"^\s*\S+ ended normally with status 0 and signal 0$"
 LOGONLY	"^\s*\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 LOGONLY	"^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 SHOW	"^\s*(\S+:\s*)?[1-9][\d,]* bytes (\(.*\) )?written to \S+$"
