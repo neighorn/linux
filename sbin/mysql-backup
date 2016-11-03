@@ -82,8 +82,11 @@ if (-e $ConfigFile) {
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 
 # Process the config file defaults if present.
-unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
-	if (defined($Config{'ALLJOBS'}));
+foreach (('ALLJOBS',"HOST=$HostName")) {
+	my $ConfigName = uc($_);
+	unshift @ARGV, quotewords(" ",0,$Config{$ConfigName})
+		if (exists($Config{$ConfigName}) and defined($Config{$ConfigName}));
+}
 
 # Use the default job if it's defined and we didn't get anything on 
 # the command line.
@@ -188,8 +191,7 @@ sub RunRemote {
 			  . join(' ', @ARGV) . ' '
 			  . '-F SHOWALL '
 			  . '--always-mail= '
-			  . '-O :DefaultJob '
-			  . "-O :$Host "
+			  . "-O :Remote=$Host "
 			  . '2\>\&1 '
 			  ;
 		my $FH;
@@ -355,7 +357,7 @@ sub BackupDatabase {
 	);
 	if (-f "$OutPath.tmp" or $Options{test}) {
 		RunDangerousCmd(qq<mv "$OutPath.tmp" "$OutPath">);	# Rename tmp file now that it's done.
-		my $size =  ($Options{test}?0:(stat($OutPath))[7]);
+		my $size =  ($Options{test}?999999:(stat($OutPath))[7]);
 		print commify($size)
 			. " bytes "
 			. ($size > 1024?'(' . CompressSize($size) . ') ':'')
@@ -621,7 +623,21 @@ sub opt_help {
                                 into the command line at this point.
 				A leading colon on "config" suppresses a 
 				warning message if "config" is not found
-				in the configuration file.
+				in the configuration file.  Several reserved
+				names are defined, and will be used if defined:
+				ALLJOBS: Prepended to all command lines - used
+				  to set standard options (e.g. always-mail)
+                                DEFAULTJOB: Used if no command line options or
+                                  parameters are specified
+                                HOST=hostname: Prepended to all command lines
+                                  after ALLJOBS if the short host name of the
+                                  host running the command matches "hostname".
+                                  This allows a common config file to be used
+                                  across multiple hosts with different option
+                                  requirements
+                                REMOTE=hostname: Prepended to all command lines
+                                  if executed on hostname, but run via -R from
+                                  another host.
         --filter|-F filter:     Filter: Use alternate error detection
                                 filter file "filter".  The default is
                                 to use the built-in error filter.
