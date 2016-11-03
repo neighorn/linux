@@ -71,9 +71,12 @@ foreach (keys(%Config)) { s/,$//;};     # Trim off trailing commas.
 push @ARGV,(shellwords($Config{DEFAULTJOB}))
         if (join(' ',@ARGV) =~ /^\s*(\b-[tv]+)*\s*$/ && defined($Config{DEFAULTJOB}));
 
-# Process the config file host defaults and general defaults if present.
-unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
-        if (defined($Config{'ALLJOBS'}));
+# Process the config file defaults if present.
+foreach (('ALLJOBS',"HOST=$HostName")) {
+	my $ConfigName = uc($_);
+	unshift @ARGV, quotewords(" ",0,$Config{$ConfigName})
+		if (exists($Config{$ConfigName}) and defined($Config{$ConfigName}));
+}
 
 # ---------------------------------------------------------
 #
@@ -216,6 +219,7 @@ sub RunRemote {
 			  . join(' ', @ARGV) . ' '
 			  . '-F SHOWALL '
 			  . '--always-mail= '
+			  . "-O :REMOTE=$Host "
 			  . '2\>\&1 '
 			  ;
 		my $FH;
@@ -458,11 +462,14 @@ sub opt_Array {
 sub opt_O {
         my(undef,$Value) = @_;
         $Value = uc($Value);
+	$Value =~ m/(:?)(\S+)/;	# See if it starts with a colon, meaning optional.
+	my $Optional = $1;
+	$Value = $2;
         if (exists($Config{$Value})) {
                 $Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
         }
         else {
-                warn qq<Warning: "$Value" not found in configuration file\n>;
+                warn qq<Warning: "$Value" not found in configuration file\n> unless $Optional;
         }
 }
 
@@ -504,8 +511,25 @@ exit 1;
                                 this e-mail address if errors are
                                 detected in this job.
         --option-set|-O config: Insert the "config" configuration options
-                                from /usr/local/etc/%Prog.cfg
+                                from $ConfigFile
                                 into the command line at this point.
+				A leading colon on "config" suppresses a 
+				warning message if "config" is not found
+				in the configuration file.  Several reserved
+				names are defined, and will be used if defined:
+				ALLJOBS: Prepended to all command lines - used
+				  to set standard options (e.g. always-mail)
+                                DEFAULTJOB: Used if no command line options or
+                                  parameters are specified
+                                HOST=hostname: Prepended to all command lines
+                                  after ALLJOBS if the short host name of the
+                                  host running the command matches "hostname".
+                                  This allows a common config file to be used
+                                  across multiple hosts with different option
+                                  requirements
+                                REMOTE=hostname: Prepended to all command lines
+                                  if executed on hostname, but run via -R from
+                                  another host.
 	--remote-host|-R host	Remote: Run this on one or more remote
 				hosts.  "host" may be a host name, an
 				IP address, a configuration file entry
