@@ -81,17 +81,17 @@ if (-e $ConfigFile) {
 }
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+	if (!@ARGV && defined($Config{DEFAULTJOB}));
+
 # Process the config file defaults if present.
 foreach (('ALLJOBS',"HOST=$HostName")) {
 	my $ConfigName = uc($_);
 	unshift @ARGV, quotewords(" ",0,$Config{$ConfigName})
 		if (exists($Config{$ConfigName}) and defined($Config{$ConfigName}));
 }
-
-# Use the default job if it's defined and we didn't get anything on 
-# the command line.
-push @ARGV,(shellwords($Config{DEFAULTJOB}))
-	if (!@ARGV && defined($Config{DEFAULTJOB}));
 
 # Pre-process our command line, to get the options we need for LogOutput.
 my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
