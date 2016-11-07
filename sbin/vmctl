@@ -175,36 +175,40 @@ sub ProcessMachine {
 			print "$Machine is already stopped\n" if ($Options{verbose} > 0);
 		}
 		else {
-			print "$Machine is being stopped\n" if ($Options{verbose} >= 0);
+			print '' . ($Options{test}?'Test: ':'') . "$Machine is being stopped\n" if ($Options{verbose} >= 0);
 		
 			# Wait for it to shutdown before proceeding
 			my $Count = $Options{waittime} * 4;	
 			while (
 				    $Count
-				and (($State = $MachObject->get_info->{state}) == Sys::Virt::Domain::STATE_RUNNING)) 
+				and (($State = $MachObject->get_info->{state}) == Sys::Virt::Domain::STATE_RUNNING)
+				and !($Options{test}) 
+			)
 			{
 				$MachObject->shutdown();
 				sleep 15;
 				$Count--;
 			}
-			if (($State = $MachObject->get_info->{state}) == Sys::Virt::Domain::STATE_RUNNING) {
+			if (($State = $MachObject->get_info->{state}) == Sys::Virt::Domain::STATE_RUNNING and !($Options{test})) {
 				warn "$Machine failed to stop\n";
 				$Errors++;
 			}
 		}
 	}
 	if ($Options{operation} eq 'start' or $Options{operation} eq 'bounce') {
-		if ($State == Sys::Virt::Domain::STATE_RUNNING) {
+		if ($State == Sys::Virt::Domain::STATE_RUNNING and !($Options{test})) {
 			print "$Machine is already running\n" if ($Options{verbose} > 0);
 		}
 		else {
-			print "$Machine is being started\n" if ($Options{verbose} >= 0);
+			print '' . ($Options{test}?'Test: ':'') . "$Machine is being started\n" if ($Options{verbose} >= 0);
 
 			# Wait for it to start before proceeding
 			my $Count = $Options{waittime} * 4;	
 			while (
 				    $Count
-				and (($State = $MachObject->get_info->{state}) != Sys::Virt::Domain::STATE_RUNNING)) 
+				and (($State = $MachObject->get_info->{state}) != Sys::Virt::Domain::STATE_RUNNING)
+				and !($Options{test})
+			) 
 			{
 				$MachObject->create();
 				sleep 15;
