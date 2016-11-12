@@ -358,7 +358,7 @@ sub BackupDatabase {
 	if (-f "$OutPath.tmp" or $Options{test}) {
 		RunDangerousCmd(qq<mv "$OutPath.tmp" "$OutPath">);	# Rename tmp file now that it's done.
 		my $size =  ($Options{test}?999999:(stat($OutPath))[7]);
-		printf "%15s bytes (%6s) written to \S+\n"
+		printf "%15s bytes (%6s) written to %s\n",
 			commify($size), CompressSize($size), $OutPath;
 		warn "Warning: backup is less than the minimum expected size ("
 			. commify($Options{'min-size'}) ." bytes)\n"
