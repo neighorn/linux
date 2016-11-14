@@ -2,6 +2,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*All rights reserved.
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*balanced pool "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*balancing pool "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*bind update on \S+ from \S+ rejected: incoming update is less critical than outgoing update$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*bind update on \S+ got ack from internal-failover: xid mismatch.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*BOOTREPLY for \d+\.\d+\.\d+\.\d+ to "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*BOOTREQUEST from ..:..:..:..:..:.."
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Copyright \d+-\d+ Internet (Software|Systems) Consortium.$"
