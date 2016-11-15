@@ -1,6 +1,6 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?-+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?-+\s+\S+\s+-+$"
-IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?[1-9][\d,]+ bytes (\(\S+\) )?written to \S+.sql"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?[1-9][\d,]+ bytes (\(\s*\S+\) )?written to \S+.sql"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?\S+\s+OK$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?Deleting \S+.sql"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mysql-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?Error\s+: You can't use locks with log tables.$"
