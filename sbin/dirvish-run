@@ -65,6 +65,7 @@ our %OptionSpecifications=(
 		'filter-file|F=s'	=>	\&opt_Array,
 		'help|h|?!'		=>	\&opt_h,
 		'ifup!'			=>	\&opt_Value,
+		'ifuptarget=s'		=>	\&opt_Value,
 		'ifbefore=s'		=>	\&opt_Value,
 		'imagename|image=s'	=>	\&opt_Value,
 		'ionice=s'		=>	\&opt_Value,
@@ -330,9 +331,10 @@ sub ProcessBackup {
 	local(%Options,%OptionSpecifications);
 	%Options = %TmpOptions;
 	%OptionSpecifications = %TmpOptSpec;
-	$OptionSpecifications{'<>'} = '';	# No recursive loops.
-	if ($Config{"vault=$Target"}) {
-		$Errors ++ unless GetOptionsFromString($Config{"vault=$Target"},%OptionSpecifications);
+	delete $OptionSpecifications{'<>'};	# No recursive loops.
+	my $VaultConfig = uc("vault=$Target");
+	if ($Config{$VaultConfig}) {
+		$Errors ++ unless GetOptionsFromString($Config{$VaultConfig},%OptionSpecifications);
 	}
 
 	if ($Options{verbose} >= 3) {
@@ -394,6 +396,7 @@ sub ProcessBackup {
 	# Check host-up condition if requested.
 	if ($Options{ifup}) {
 		# We're only supposed to back this target up if it's reachable.
+		# Did not supply one explicitly.  Use the client from the dirvish .conf file.
 		my $branch = ($Target=~/\S+:(\S+%)/?$1:'default');
 		my $CONFFH;
 		my $ConfFile = "$MachineDirectory/dirvish/$branch.conf";
@@ -416,11 +419,15 @@ sub ProcessBackup {
 		}
 		close $CONFFH;
 		my $SOCKET;
+		$Client = $Options{ifuptarget} if ($Options{ifuptarget});	# Use override if specified.
 		if ($Client =~ /^(localhost|127.0.0.1)$/i) {
 			# Localhost.  Make sure tree exists, to support automounts.
 			if (! -e $Tree) {
 				print "Skipped $Target -- $Tree is not accessible.\n";
 				return;
+			}
+			elsif ($Options{verbose}) {
+				print "Verbose: Found $Client is up.  Proceeding with $Target backup.\n";
 			}
 		}
 		elsif ($Client) {
@@ -985,7 +992,15 @@ Vault Options:
 					source directory tree exists, to support
 					automount access to remote systems.
 					--noifup cancels a prior --ifup.
-
+	--ifuptarget=target		When used with --ifup, check if "target"
+					is up.  The default is to use the
+					"client" as specified in the vault's
+					Dirvish .conf file.  Note: this should
+					probably be used in the dirvish-run.cfg
+                                        vault=xxx record rather than the command
+                                        line.  Using it on the command line would
+                                        then apply to all subsequent vaults until
+                                        it is reset, which is not typically desired.
 	--imagename=name		Interpret "name" with strftime and
 	--image=name			the job start time, and then pass the
 					resulting value to dirvish as
