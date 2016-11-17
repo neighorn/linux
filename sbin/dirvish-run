@@ -419,10 +419,10 @@ sub ProcessBackup {
 		}
 		close $CONFFH;
 		my $SOCKET;
-		$Client = $Options{ifuptarget} if ($Options{ifuptarget});	# Use override if specified.
+		$Options{ifuptarget} = $Client unless ($Options{ifuptarget});	# Use client unless override if specified.
 		if ($Client =~ /^(localhost|127.0.0.1)$/i) {
 			# Localhost.  Make sure tree exists, to support automounts.
-			if (! -e $Tree) {
+			if (! -e "$Tree/.") {
 				print "Skipped $Target -- $Tree is not accessible.\n";
 				return;
 			}
@@ -430,15 +430,17 @@ sub ProcessBackup {
 				print "Verbose: Found $Client is up.  Proceeding with $Target backup.\n";
 			}
 		}
-		elsif ($Client) {
-			if ($SOCKET = IO::Socket::INET->new(PeerHost=>$Client,PeerPort=>'ssh',Timeout=>5)) {
+		elsif ($Options{ifuptarget}) {
+			if ($SOCKET = IO::Socket::INET->new(PeerHost=>$Options{ifuptarget},PeerPort=>'ssh',Timeout=>5)) {
+				print "Verbose:  $Options{ifuptarget} is accessible via ssh\n" if ($Options{verbose});
 				close $SOCKET;
 			}
-			elsif ($SOCKET = IO::Socket::INET->new(PeerHost=>$Client,PeerPort=>'rsync',Timeout=>5)) {
+			elsif ($SOCKET = IO::Socket::INET->new(PeerHost=>$Options{ifuptarget},PeerPort=>'rsync',Timeout=>5)) {
+				print "Verbose:  $Options{ifuptarget} is accessible via rsync\n" if ($Options{verbose});
 				close $SOCKET;
 			}
 			else {
-				print "    $Target skipped -- $Client is unreachable.\n";
+				print "    $Target skipped -- $Options{ifuptarget} is unreachable.\n";
 				return;
 			}
 		}
