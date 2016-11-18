@@ -54,7 +54,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: warning: Illeg
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: warning: numeric result .* in address->name lookup for"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: warning: smtpd_peer_init.*verification failed: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?: connect from \S+\[\d+\.\d+\.\d+\.\d+\]$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?: lost connection after CONNECT from \S+[\d+\.\d+\.\d+\.\d+\]$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?: lost connection after CONNECT from \S+\[\d+\.\d+\.\d+\.\d+\]$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?: disconnect from \S+\[\d+\.\d+\.\d+\.\d+\] commands="
 IGNORE	"^\S*$"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/master(\[\d+\])?: daemon started -- version"
