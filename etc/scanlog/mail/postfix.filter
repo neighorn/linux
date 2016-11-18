@@ -37,6 +37,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: lost connectio
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*: Sender address rejected:"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*450.*Service (temporarily )?is unavailable(\(g\))?$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*450.*Recipient address rejected: Greylisted,"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*454.*Relay access denied;"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*504.*Relay access denied;"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*550.*User unknown in local recipient table"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*554.*Relay access denied;"
