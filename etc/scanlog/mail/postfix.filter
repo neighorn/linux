@@ -41,6 +41,8 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: rejec
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*: Sender address rejected:"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*550.*User unknown in local recipient table"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*554.*: Relay access denied;"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*554.* blocked usingx;"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*554.* access denied"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: NOQUEUE: reject: .*blocked using s?bl-xbl.spamhaus.org"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: table hash:/etc/aliases\(\d+,\d+\) has changed -- restarting$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?: timeout after \S+ from"
