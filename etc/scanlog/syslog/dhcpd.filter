@@ -13,7 +13,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*DHCPACK (on|to) \d+\
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*DHCPDISCOVER from ..:..:..:..:..:.. (\(\S+\)\s*)?via "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*DHCPINFORM from \d+\.\d+\.\d+\.\d+ "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*DHCPOFFER on \d+\.\d+\.\d+\.\d+"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*DHCPRELEASE of \d+.\d+.\d+.\d+ from [0-9a-f:]+ via "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*DHCPRELEASE of \d+.\d+.\d+.\d+ from [0-9a-f:]+ (\(\S+\)\s+)?via "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*DHCPREQUEST for \d+\.\d+\.\d+\.\d+"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*failover peer internal-failover: I move from "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*failover peer internal-failover: peer moves from "

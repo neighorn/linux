@@ -695,7 +695,7 @@ IGNORE	"^\s*(\S+:\s*)?update-initramfs: deferring update \(trigger activated\)\s
 IGNORE	"^\s*(\S+:\s*)?update-initramfs: Deleting"
 IGNORE	"^\s*(\S+:\s*)?update-initramfs: Generating "
 IGNORE	"^\s*(\S+:\s*)?update-rc.d: warning: start and stop actions are no longer supported; falling back to defaults\s*$"
-IGNORE	"^\s*(\S+:\s*)?ureadahead will be reprofiled on next rebooti\s*$"
+IGNORE	"^\s*(\S+:\s*)?ureadahead will be reprofiled on next reboot\s*$"
 IGNORE	"^\s*(\S+:\s*)?Use 'apt-get autoremove' to remove them.$"
 IGNORE	"^\s*(\S+:\s*)?W: Possible missing firmware /lib/firmware/ast_dp501_fw.bin for module ast$"
 IGNORE	"^\s*(\S+:\s*)?warning: commands will be executed using /bin/sh$"
