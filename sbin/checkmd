@@ -126,22 +126,24 @@ sub CheckMDDevices {
 
 
 	# Typical /proc/mdstat records...
-	# md1 : active raid1 sda1[0] sdb1[1] sdc[2](S)
+	# md13 : active raid6 sdb[9] sdd[8] sdh[7] sdg[6] sdf[5] sde[4] sdc[3] sda[2]
 	#      261952 blocks [2/2] [UU]
 	#      996018 blocks super 1.2 [2/1] [U_]
 	# Recovery line...
 	#[========>............]  recovery = 41.3% (45933184/111201856) finish=1051.6min speed=1032K/sec
-	my ($mdname, $status, $type);
+	my ($mdname, $status, $type, $disks);
 	my $ReturnStatus = 0;
 	open (MDSTAT, '/proc/mdstat') || die("Unable to open /proc/mdstat: $!\n");
 	while (<MDSTAT>) {
 		chomp;
 		next if (/^\s*$/);
-		#        md1          :   active     raid1        s  da 1 [ 0 ]  (S )
 		print "Verbose: $_\n" if ($opt_v);
-		if (/^\s*(md\d+)\s*:\s*(\S+)\s+.*(raid\S+)(\s+[sh]d.+\d*\[\d+\](\([SF]\))?)+$/) {
+	                   # md13 : active raid6 sdb[9] sdd[8] sdh[7] sdg[6] sdf[5] sde[4] sdc[3] sda[2]
+		if (/^\s*(md\d+)\s*:\s*(\S+)\s+(raid\S+)\s+((?:[sh]d[a-z]+\d*\[\d+\](?:\([SF]\))?\s*)+)/) {
 			# This is a "mdx : active raid1" line.
-			($mdname, $status, $type) = ($1,$2,$3);
+			($mdname, $status, $type, $disks) = ($1,$2,$3,$4);
+			$disks =~ s/^\s+//;
+			$disks =~ s/\s+$//;
 			my $rest;
 			($rest = $_) =~ s/^.*?://;
 			if ($status =~ /^active/ && $type =~ /raid[156]/ && $_ !~ /\(F\)/) {
@@ -149,20 +151,19 @@ sub CheckMDDevices {
 				print "Verbose:	- normal\n" if ($opt_v);
 			} else {
 				warn "Unexpected response from $mdname: $rest\n";
-				$ReturnStatus=1;
+				$ReturnStatus=$disks;
 			}
-			# Maintain a list of devices.
-			$rest =~ s/^raid\S+\s*//;
-			foreach (split(/\s+/,$rest)) {
-				if (/(...)\d+\[\d+\]/) {
-					$devices{$1}=1;
-				}
+			# Maintain a list of devices, in case we need to document them.
+			#  sdb[9] sdd[8] sdh[7] sdg[6] sdf[5] sde[4] sdc[3] sda[2]
+			foreach (split(/\s+/,$disks)) {
+				$devices{$1}=1 if (/^\s*([a-z]+)+\d*\[\d+\]\s*$/);
 			}
 		}
 		if (/\s*\d+\s+blocks\s.*\[\d+\/\d+\]\s+(\S+)\s*$/) {
 			# This is a "xxxxxx blocks [2/2] [UU]" line.
 			if ($1 !~ /^\[UU+\]/) {
 				warn "$mdname is degraded ($1)\n" unless ($opt_w);
+				warn "$mdname disks: $disks\n" unless ($opt_w);
 				$ReturnStatus=1;
 			}
 		}
