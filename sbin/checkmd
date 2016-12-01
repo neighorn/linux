@@ -16,6 +16,7 @@ $Prog=~s/^.*\///;		# Trim off the path, if present.
 our @Parms;
 our $opt_C;
 our $opt_d;
+our $opt_D;
 our $opt_f;
 our $opt_h;
 our $opt_m;
@@ -43,7 +44,7 @@ chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
 #	   Normal =s and =i would replace values instead of concatenate.
 #	2) We don't support long option names, except as aliases.
 # These are the standard production options.  Add more options here as needed.
-my $OptSpec='C d f h m=l e=l p=l P=l O=s v w';
+my $OptSpec='C d D f h m=l e=l p=l P=l O=s v w';
 
 # Load the config file.
 if (-e $ConfigFile) {
@@ -106,13 +107,15 @@ do {
 } until (($ErrorFlag == 0) or ($opt_w == 0));
 
 
-# Document the devices if we had errors.
-if ($ErrorFlag) {
+# Document the devices
+if ($ErrorFlag or $opt_D) {
 	foreach (sort(keys(%devices))) {
+		my $raid_list = join(', ',sort(@{$devices{$_}}));
 		my $serial = `smartctl -i /dev/$_ | grep 'Serial Number'`;
 		chomp $serial;
 		$serial =~ s/^.*:\s+//;
-		print "Device /dev/$_: S#$serial\n" if ($serial);
+		printf "Device /dev/%-7s Serial #%-20s RAIDs: %s\n", $_, $serial, $raid_list
+			if ($serial);
 	}
 }
 
@@ -156,7 +159,7 @@ sub CheckMDDevices {
 			# Maintain a list of devices, in case we need to document them.
 			#  sdb[9] sdd[8] sdh[7] sdg[6] sdf[5] sde[4] sdc[3] sda[2]
 			foreach (split(/\s+/,$disks)) {
-				$devices{$1}=1 if (/^\s*([a-z]+)+\d*\[\d+\]\s*$/);
+				push @{$devices{$1}},"$mdname" if (/^\s*([a-z]+)+\d*\[\d+\]\s*$/);
 			}
 		}
 		if (/\s*\d+\s+blocks\s.*\[\d+\/\d+\]\s+(\S+)\s*$/) {
@@ -235,6 +238,7 @@ Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
 Flags:
 	-C:		Check: consider check (verify) status as an error.
 			By default RAIDs that are verifying are considered healthy.
+        -D: 		Devices: Document which disks are in which arrays.
 	-e mailid:	Error: Send an execution report to this e-mail address
 			if errors are detected.
 	-f:		Force: Ignore "DisableUntil" parameter from the config file.
@@ -302,7 +306,7 @@ LOGONLY	/^Command: /
 SHOW	/^\s*debug:/
 SHOW	/^\s*Checks disabled until/
 IGNORE	/^\S+ ended normally with status 0 and signal 0$/
-SHOW	"^Device /dev/\S+:\s+S#"
+SHOW	"^\s*Device /dev/\S+\s+Serial #\S+\s+RAIDs: "
 SHOW	"^\s*Verbose:"
 IGNORE	"^\s*\S+:\s+.*resync=DELAYED$"
 IGNORE	"^\s*bitmap:"
