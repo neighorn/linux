@@ -7,6 +7,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ check_reload_status: Starting packages$
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ check_reload_status: updating dyndns \S+.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*Abandoning IP address \S+: pinged before offer$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcpd(\[\d+\])?:\s*ICMP Echo reply"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dnsmasq(\[\d+\])?:\s*possible DNS-rebind attack detected:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dnsmasq(\[\d+\])?:\s*using nameserver \S+#53 for domain \S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dpinger(\[\d+\])?:\s*send_interval \d+ms\s+loss_interval \d+ms"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ filterlog(\[\d+\])?:\s*[\d,]+,\S+,match"
