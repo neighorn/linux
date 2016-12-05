@@ -378,7 +378,7 @@ __END__
 #
 #            atomic | 2.2 kB     00:00
 # ---------- plesk update
-#SHOW	"^\s*\S+\.(x86_64|i686|noarch)\s+.*el[567]\S*\s*$"
+#SHOW	"^(\s*\S+\.(x86_64|i686|noarch)\s+.*el[567]\S*)+\s*$"
 IGNORE	"^\s* Trying to establish test connection... connected\s*$"
 IGNORE	"^\s*$"
 IGNORE	"^\s*(-->\s*)?Processing Dependency:"
@@ -454,6 +454,7 @@ SHOW	"^\s* installed. Installation will not continue.$"
 SHOW	"^\s*(\S+\s+)?(x86_64|i686|noarch)\s+\S+\s+\S+\s+[\d.]+\s+[kmg]$"i
 SHOW	"^\s*-+ 11b\S+ -+$"
 SHOW	"^\s*\S+ ended normally with status 0 and signal 0 - run time:"
+SHOW	"^(\s*\S+\.(x86_64|i686|noarch)\S+\.el\d+)+\s*$"
 SHOW	"^\s*\S+\.(x86_64|i686|noarch)(_\d+)?\s+\S+\s*$"
 SHOW	"^\s*All patches were applied.$"
 SHOW	"^\s*Beginning Plesk micro-update installation process\.\.\.$"
