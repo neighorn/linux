@@ -471,21 +471,27 @@ sub EraseDisk {
 			. "\nVerify that hdparm is at least version 9.31 to assure the drive was erased.\n";
 	}
 
-	$Status = system("hdparm -I $disk | grep -q '^[ 	]*not[ 	]*enabled *\$'");
+	$Status = system("hdparm -I $disk | grep -q '^[ 	]*not[ 	]*enabled *\$'") unless ($Options{test});
 	if ($Status != 0) {
 		warn "$disk: security password didn't clear.  Erase status is unknown.\n";
 		$Statuses{$disk} = "unknown - password didn't clear";
 		$Errors++;
 		exit 1;
 	}
-	if ( -x '/sbin/parted') {
-		# Optionally, mark that we've wiped it.
-		RunDangerousCmd("parted $disk mklabel gpt mkpart wiped 64 80");
-	}
-	print ''
-		. ($Options{test}?'Test: ':'') .
-		strftime("%Y-%m-%d %T $disk security erasure ended normally.\n",localtime())
-		;
+
+# Mark that we've wiped it.
+if (!$Options{test}) {
+		my $DISKFH;
+		my $serial = $DiskData{serial};
+		$serial =~ s/^\.\.\.//;
+		if (open($DISKFH,'>',"$disk")) {
+			print $DISKFH "Serial #$serial secure-erased at " . strftime("%Y-%m-%d %T %Z (UTC %z)",localtime()) . "\n";
+		}
+		else {
+			print STDERR "Unable to open $disk to be marked as wiped: $!.  This is not vital to the wiping process.\n";
+		}
+close $DISKFH;
+}
 	exit 0;
 }
 
