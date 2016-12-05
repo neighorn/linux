@@ -1,2 +1,1 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+-\d+\) Passed CLEAN \{RelayedOutbound\}, LOCAL \[\S+\]:\d+ "
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+-\d+\) Passed CLEAN \{RelayedInbound\}, \[\S+\]:\d+ "
+../mail/amavis.filter
