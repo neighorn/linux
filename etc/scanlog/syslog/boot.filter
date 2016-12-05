@@ -1435,6 +1435,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*SCPlugin-Of
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*SCPlugin-Ofono: end _init.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*SCPlugin-Ofono: init!$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ NetworkManager(\[\d+\])?:\s*SCPluginIfupdown: management mode: unmanaged$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]: Deleting interface #\d+"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]: ntpd \d+.\d+.\d+p\d+\@\d+.\d+-o Tue Juns+\d+ \d+:\d+:\d+ UTC \d+ \(\d+\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]: proto: precision = \d+.\d+ usec$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]: unable to bind to wildcard address \d+.\d+.\d+.\d+ - another process may be running - EXITING$"
