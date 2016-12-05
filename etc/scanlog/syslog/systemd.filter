@@ -52,6 +52,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-modules-load(\[\d+\])?:\s*Modul
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-tmpfiles(\[\d+\])?:\s*\[/usr/lib/tmpfiles.d/\S+:\d+\] Duplicate line for path \"\S+\", ignoring.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-udevd(\[\d+\])?:\s*error opening USB device 'descriptors' file$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-udevd(\[\d+\])?:\s*error: /dev/sd\S+: No such file or directory$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-udevd(\[\d+\])?:\s*error: Could not generate persistent MAC address for \S+: No such file or directory$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-udevd(\[\d+\])?:\s*Failed to apply ACL on \S+: No such file or directory$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-udevd(\[\d+\])?:\s*inotify_add_watch\(.*\) failed: No such file or directory$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-udevd(\[\d+\])?:\s*Process '/sbin/mdadm --incremental \S+ --offroot' failed with exit code 1.$"
