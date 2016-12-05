@@ -1,1 +1,1 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ snapd(\[\d+\])?:\s(daemon.go:\d+:\s*)?*DEBUG:"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/lib/snapd/)?snapd(\[\d+\])?:\s*(daemon.go:\d+:\s*)?DEBUG:"

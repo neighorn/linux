@@ -1,5 +1,5 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ libvirtd-guests.sh(\[\d+\])?:\s*libvirt-guests is configured not to start any guests on boot$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ libvirtd(\[\d+\])?:\s*libvirt version:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ libvirtd(\[\d+\])?:\s*hostname:"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ libvirtd(\[\d+\])?:\s*failed to open file '/sys/class/net/.*': No such file or directory$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ libvirtd(\[\d+\])?:\s*Failed to open file '/sys/class/net/.*': No such file or directory$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ libvirtd(\[\d+\])?:\s*unable to read: /sys/class/net/.*: No such file or directory$"
