@@ -1,7 +1,7 @@
 #IGNORE	"^\S*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ plesk sendmail(\[\d+\])?:\s*handlers_stderr: SKIP"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ plesk sendmail(\[\d+\])?:\s*SKIP during call 'check-quota' handler"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*[[:xdigit:]]+: client=\S+\[\S+\]$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*[[:xdigit:]]+: client=\S+\[\S+\]"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*connect from \S+\[\S+\]$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*disconnect from \S+\[\S+\]"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*lost connection after (AUTH|CONNECT|HELO|RCPT|STARTTLS) from \S+\[\S+\]$"
