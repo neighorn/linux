@@ -305,7 +305,7 @@ IGNORE	"^\s*.+\s+\|\s+\d+\s+[+-]+$"
 IGNORE  "^\s*.+\s+\|\s+.*->\s+\d+\s+bytes$"
 IGNORE  "^\s*delete mode \d+ "
 IGNORE  "^\s*rename "
-IGNORE	"^\s*mode change [0-7]+ => [0-7]+ \S+$"
+IGNORE	"^\s*mode change [0-7]+ => [0-7]+ \S+\s*$"
 #              1 file changed, 1 insertion(+), 1 deletion(-)
 #              1 file changed, 12 insertions(+), 3 deletions(-)
 SHOW	"^\s*\d+ files? changed(,\s+\d+ insertions?\(\+\))?(,\s+\d+ deletions?\(\-\))?$"
