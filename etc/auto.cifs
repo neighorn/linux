@@ -62,7 +62,7 @@ export gid=$(getent passwd nobody | awk -F: '{print $4}')
 if [[ -e "/usr/local/etc/auto.cifs.d/mounttab" ]]
 then
     override=$(grep -i "^$key\s" /usr/local/etc/auto.cifs.d/mounttab)
-    override=${override#*$IFS}	# Remove host name to get just the options.
+    override=${override#*[$IFS]}	# Remove host name to get just the options.
     for name in $override
     do
         value=${name#*=}
