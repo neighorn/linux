@@ -71,6 +71,8 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*warning: smt
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?:\s*connect from \S+\[\d+\.\d+\.\d+\.\d+\]$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?:\s*disconnect from \S+\[\d+\.\d+\.\d+\.\d+\] commands="
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?:\s*lost connection after CONNECT from \S+\[\d+\.\d+\.\d+\.\d+\]$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?:\s*warning: hostname \S+ does not resolve to address \S+: Name or service not known$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?:\s*warning: \S+: SASL PLAIN authentication failed:$"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/master(\[\d+\])?:\s*daemon started -- version"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/master(\[\d+\])?:\s*Daemon started.$"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/master(\[\d+\])?:\s*reload configuration$"
