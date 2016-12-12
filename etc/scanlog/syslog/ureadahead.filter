@@ -1,1 +1,2 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ureadahead(\[\d+\])?:\s*ureadahead:\d+/\S+: Ignored relative path$"
+# Dec 10 00:58:23 dmz205 ureadahead[1664]: ureadahead:./memory.memsw.usage_in_bytes: Ignored relative path
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ureadahead(\[\d+\])?:\s*ureadahead:\S*: Ignored relative path$"
