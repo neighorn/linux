@@ -184,7 +184,7 @@ sub PrintItem {
 		%Item = @_;
 	}
 
-	foreach (qw(from lastupdate to status)) { $Item{$_} = '' unless ($Item{$_})};
+	foreach (qw(from lastupdate to status detail)) { $Item{$_} = '' unless ($Item{$_})};
 	my $line = sprintf "%-12s %-15s %-40s %-40s %-8s %-60.60s\n",$queueID,$Item{lastupdate},$Item{from},$Item{to},$Item{status},$Item{detail};
 	print $line if ($line =~ $FilterRegex or $line =~ ('^Queue ID|^-----'));
 }
