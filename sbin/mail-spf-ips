@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+#
+# Generate a whitelist based on SPF records for Microsoft.
+# Based on code from http://aplawrence.com/Kerio/recursive_spf.html
+#
+# Typical usage:
+#
+#    /usr/local/sbin/mail-spf-ips outlook.com google.com > /etc/postgrey/whitelist_clients.outlook.google.com
+#
+# and then update postgrey start-up to include this custom whitelist.
+
+use strict;
+use warnings;
+use POSIX qw(strftime);
+use FindBin qw($RealScript);
+
+print strftime("# Updated %Y-%m-%d %H:%M:%S by $RealScript\n",localtime());
+
+foreach my $domain (@ARGV) {
+	print "\n#   Domain $domain\n";
+	getit($domain);
+}
+
+sub getit {
+    my $domain = shift;
+
+    my @foo     = `nslookup -q=TXT $domain`;
+    my @results = ();
+    foreach (@foo) {
+        chomp;
+        next if not /$domain\ttext/;
+        s/$domain\ttext = "v=spf1//;
+        @results = split /\s+/;
+        foreach (@results) {
+            next if /[-~]all/;
+            if (/include:/) {
+                s/include://;
+                getit($_);
+            }
+            elsif (/^ip[46]:(\S+)$/i) {
+                print "$1\n";
+            }
+	    else {
+                #print "$_\n";
+            }
+        }
+    }
+}
+
