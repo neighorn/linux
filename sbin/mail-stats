@@ -17,7 +17,6 @@ use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($Bin $Script);
 use feature 'switch';
-use RRD::Simple;
 use Time::Local;
 use POSIX qw(strftime);
 use List::Util qw(max);
@@ -32,9 +31,6 @@ my $BaseDir=$Bin;			# Set our base directory.
 my $LogFile="";			# Name of the log file.
 my $ConfigFile;			# Name of config files.
 ($ConfigFile=$BaseDir) =~ s|/[^/]+?$|/etc/$Prog.cfg|;
-my $RRDFile;
-($RRDFile=$BaseDir) =~ s|/[^/]+?$|/var/$Prog/$Prog.rrd|;     # Name of config file.
-our $rrd;				# Graph handle.
 
 our @Parms;				# Array of remaining cmdline parms.
 our %Config;				# Our configuration options.
@@ -166,7 +162,6 @@ foreach my $FileName (@Parms) {
 		my $TimeStamp = timelocal($Second,$Minute,$Hour,$Day,$MonthTable{$1},$opt_Y-1900);
 		if (int($TimeStamp/$BlockInterval) != $PriorTimeBlock) {
 			# Report on this 5-minute block.
-			UpdateRRD($RRDFile,$PriorTimeStamp,%Counts) if ($PriorTimeStamp);
 			# Add this block into the totals for the day.
 			foreach (keys(%Counts)){
 				$DayCounts{$_} += $Counts{$_};
@@ -185,89 +180,61 @@ foreach my $FileName (@Parms) {
 			$PriorDay = "$Month/$Day/$opt_Y";
 		}
 		$PriorTimeStamp=$TimeStamp;
-		given ($_) {
-			when (/postfix\/smtpd\[\d+\]: connect from \S+\[(\d+\.\d+\.\d+\.\d+)\]/) {
-				$Counts{Inbound_Connections}++ unless ($1 =~ /$ConnectExclude/o); # Counts if it's not internal.
+		if (/postfix\/smtpd\[\d+\]: connect from \S+\[(\d+\.\d+\.\d+\.\d+)\]/) {
+			$Counts{Inbound_Connections}++ unless ($1 =~ /$ConnectExclude/o); # Counts if it's not internal.
+		}
+		elsif (/smtpd.*NOQUEUE: reject:.*Client host.*blocked using (\S+?);/) {
+			$Counts{RBL_Total}++;
+			if (exists($RBL{$1})) {
+				$RBL{$1}++;
 			}
-			when (/smtpd.*NOQUEUE: reject:.*Client host.*blocked using (\S+?);/) {
-				$Counts{RBL_Total}++;
-				if (exists($RBL{$1})) {
-					$RBL{$1}++;
-				}
-				else {
-					$RBL{$1}=1;
-				}
+			else {
+				$RBL{$1}=1;
 			}
-			when (/smtpd.*NOQUEUE: reject:.*http:\/\/www.openspf.org\//) {
-				$Counts{SPF_Blocked}++;
+		}
+		elsif (/smtpd.*NOQUEUE: reject:.*http:\/\/www.openspf.org\//) {
+			$Counts{SPF_Blocked}++;
+		}
+		elsif (/smtpd.*NOQUEUE: reject:.*Recipient address rejected: Greylisted/) {
+			$Counts{Postgrey_Blocked}++;
+		}
+		elsif (/smtpd.*NOQUEUE: reject:/) {
+			$Counts{Postfix_Blocked}++;
+		}
+		elsif (/postgrey: action=pass, reason/) {
+			$Counts{Postgrey_Allowed}++;
+		}
+		elsif (/amavis\[\d+\]: .* Blocked INFECTED/) {
+			$Counts{Viruses_Blocked}++;
+		}
+		elsif (/amavis\[\d+\]: .* Blocked /) {
+			$Counts{Amavis_Blocked}++;
+		}
+		elsif (/amavis\[\d+\]: .* Passed SPAMMY,/) {
+			$Counts{Amavis_SPAMMY}++;
+		}
+		elsif (m"postfix/local\[\d+\]: .* to=<(\S+)\@.* relay=local, .* status=sent \(delivered") {
+			$Counts{Delivered_Local}++;
+			my $Dest = lc($1);
+			if (defined($Destinations{$Dest})) {
+				$Destinations{$Dest}++;
 			}
-			when (/smtpd.*NOQUEUE: reject:.*Recipient address rejected: Greylisted/) {
-				$Counts{Postgrey_Blocked}++;
+			else {
+				$Destinations{$Dest}=1;
 			}
-			when (/smtpd.*NOQUEUE: reject:/) {
-				$Counts{Postfix_Blocked}++;
-			}
-			when (/postgrey: action=pass, reason/) {
-				$Counts{Postgrey_Allowed}++;
-			}
-			when (/amavis\[\d+\]: .* Blocked INFECTED/) {
-				$Counts{Viruses_Blocked}++;
-			}
-			when (/amavis\[\d+\]: .* Blocked /) {
-				$Counts{Amavis_Blocked}++;
-			}
-			when (/amavis\[\d+\]: .* Passed SPAMMY,/) {
-				$Counts{Amavis_SPAMMY}++;
-			}
-			when (m"postfix/local\[\d+\]: .* to=<(\S+)\@.* relay=local, .* status=sent \(delivered") {
-				$Counts{Delivered_Local}++;
-				my $Dest = lc($1);
-				if (defined($Destinations{$Dest})) {
-					$Destinations{$Dest}++;
-				}
-				else {
-					$Destinations{$Dest}=1;
-				}
-			}
-			when (/postfix\/smtp\[\d+\]: .*relay=(?!(127\.0\.0\.\d+|192\.168\.\d+\.\d+|172\.1[6-9]\.\d+\.\d+|172\.2\d\.\d+\.\d+|172\.3[0-2]\.\d+\.\d+)).* status=sent/) {
-				$Counts{Delivered_Remote}++;
-			}
-			default { print "debug: $_\n" if ($opt_I);}
+		}
+		elsif (/postfix\/smtp\[\d+\]: .*relay=(?!(127\.0\.0\.\d+|192\.168\.\d+\.\d+|172\.1[6-9]\.\d+\.\d+|172\.2\d\.\d+\.\d+|172\.3[0-2]\.\d+\.\d+)).* status=sent/) {
+			$Counts{Delivered_Remote}++;
+		}
+		else {
+			print "debug: $_\n" if ($opt_I);
 		}
 	}
 }
 
 
 # Add any remaining data.
-UpdateRRD($RRDFile, $PriorTimeStamp, %Counts) if ($RecCount);
 PrintReport($PriorTimeStamp,\%DayCounts,\%Destinations,\%RBL);
-
-# Create new graphs.
-	#Inbound_Connections, RBL_Total Postgrey_Blocked Postgrey_Allowed,
-	#Postfix_Blocked, Viruses_Blocked Amavis_Blocked Amavis_SPAMMY, 
-	#Delivered_Local, Delivered_Remote
-foreach (@Measurements) {
-do
-	$rrd->graph($RRDFile,basename => $_,destination=>'/usr/local/etc/apache2/pages/ts/mail', sources=> [$_], timestamp=> 'rrd');
-}
-#$rrd->graph($RRDFile, 
-#	basename => "delivered",
-#	destination=> '/usr/local/etc/apache2/pages/ts/mail',
-#	sources => [ qw(Delivered_Local Delivered_Remote) ],
-#	timestamp => 'rrd',
-#);
-#$rrd->graph($RRDFile, 
-#	basename => "spam_blocked",
-#	destination=> '/usr/local/etc/apache2/pages/ts/mail',
-#	sources => [ qw(Delivered_Local Inbound_Connections) ],
-#	timestamp => 'rrd',
-#);
-#$rrd->graph($RRDFile, 
-#	basename => "blocks",
-#	destination=> '/usr/local/etc/apache2/pages/ts/mail',
-#	sources => [ qw(RBL_Total Postfix_Blocked Amavis_Blocked) ],
-#	timestamp => 'rrd',
-#);
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
@@ -323,62 +290,6 @@ sub PrintReport {
 
 
 
-#
-# Update RRD
-#
-sub UpdateRRD {
-
-	my ($RRDFile, $TimeStamp, %Counts) = @_;
-
-	if (!defined($rrd)) {
-		# Make sure we have our directory.
-		my $RRDDir;
-		($RRDDir = $RRDFile) =~ s:/[^/]*?$::;
-		if (! -d $RRDDir) {
-			RunDangerousCmd("mkdir -p $RRDDir")
-				or die "Unable to create $RRDDir directory: $!";
-		}
-		
-		$rrd = RRD::Simple->new(file => $RRDFile, cf => [ 'AVERAGE' ]);
-		
-		if ( !-w $RRDFile ) {
-			my @field_list = map(("$_","ABSOLUTE"),@Measurements);
-			$rrd->create ($RRDFile, 'year',@field_list) || die "Unable to create RRD file";
-			foreach(@Measurements) {
-				$rrd->heartbeat ($RRDFile,$_,86400) || die "Unable to set heartbeat for new RRD file";
-			}
-		};
-	}
-	
-	# Can't rewrite data that's already been entered.
-	if ($rrd->last() >= $TimeStamp) {
-		printf strftime(
-			"Ignoring data prior to %m/%d/%Y at %H:%M:%S -- already in database\n"
-			, localtime($rrd->last())
-		)
-			unless ($Ignore_Warning_Issued);
-		$Ignore_Warning_Issued=1;
-		return
-	}
-
-	# Put data into it.
-	# $RRD::Simple::DEBUG=1;
-	$rrd->update(
-		$RRDFile
-		, $TimeStamp
-		, Inbound_Connections => $Counts{Inbound_Connections},
-		, Blacklist => $Counts{RBL_Total},
-		, Greylist => $Counts{Postgrey_Blocked}-$Counts{Postgrey_Allowed},
-		, Viruses => $Counts{Viruses_Blocked},
-		, Postfix_rules => $Counts{Postfix_Blocked},
-		, Amavis => $Counts{Amavis_Blocked},
-		, Spammy => $Counts{Amavis_SPAMMY},
-		, Delivered_Inbound => $Counts{Delivered_Local},
-		, Delivered_Outbound => $Counts{Delivered_Remote},
-	) 
-		|| die "Unable to update $_ in $RRDFile: $!";
-}
-	$RRD::Simple::DEBUG=0;
 #
 # RunDangerousCmd - run a command, or suppress it if -t specified.
 #
