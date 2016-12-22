@@ -2,7 +2,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*([[:xdigit:]]+:\s
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*\d+/\d+/\d+-\d+:\d+:\d+ postgrey \(type Net::Server::Multiplex\) starting! pid\(\d+\)\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*action=greylist, reason=.*, client_name=\S+, client_address=\S+, sender=\S+, recipient=\S+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*action=pass, reason=triplet found, delay=\d+, client_name=\S+, client_address=\S+, sender=\S+, recipient=\S+$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*Binding to TCP Port \d+ on host \S+ with IPv4$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*Binding to TCP port \d+ on host \S+ with IPv4$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*Binding to UNIX socket file /var/run/postgrey.socket using SOCK_STREAM\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*cleaning clients database finished. before: \d+, after: \d+"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postgrey(\[\d+\])?:\s*cleaning main database finished. before: \d+, after: \d+"
