@@ -5,12 +5,15 @@
 # processname: elogd
 # config: /usr/local/elog/elogd.cfg
 # pidfile: /var/run/elogd.pid
+### BEGIN INIT INFO
 # Provides:          elogd
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Electronic Logbook
+# Description: Electronic Logbook
+### END INIT INFO
 
 # Source function library.
 # . /etc/rc.d/init.d/functions
