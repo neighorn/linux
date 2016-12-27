@@ -287,12 +287,14 @@ foreach my $Item (@ItemList) {
 			if ($Item->FirstNotification == 0) {
 				# This was a Delayfirstnotification target, that has remained down through the delay period.
 				# Essentially, it's a firstfail as far as notifications are concerned.
+		                push @NowFail, $LongDesc;
 				$DoDownActions = 1;
 				$Item->FirstNotification($Now);
 			}
 			elsif ($Options{renotify}) {
 				# We sent out notifications before, but it's time for another one.
 				push @StillFail, $LongDesc;
+				$DoDownActions = 1;
 			}
 		}
 		else {
@@ -338,6 +340,7 @@ foreach my $Item (@ItemList) {
 		#
 		#syslog('WARNING','%s', "$Desc is NOW FAILING")
 		#	if ($^O !~ /MSWin/);
+		push @NowFail, $LongDesc;
 		$DoDownActions = 1;
 		$Item->FirstNotification($Now);
 		$WorstError = 8;
@@ -357,7 +360,6 @@ foreach my $Item (@ItemList) {
 
 	# Common code for "Now Down and no delay notification" or "Still down and delay time expired"
 	if ($DoDownActions) {
-		push @NowFail, $LongDesc;
 		if (my $Action = $Item->Onfail) {
 			if ($Options{test}) {
 				print "\t\tTesting: OnFail action for $Desc suppressed.\n";
