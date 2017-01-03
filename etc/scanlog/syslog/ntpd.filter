@@ -3,7 +3,8 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ clock_sync$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ freq_mode$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ freq_set kernel"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ leap_event"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ leap_disarmed$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ leap_event$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+ [\da-f]+ [\da-f]+ no_sys_peer$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ntpd\[\d+\]:\s*[\d.]+\s*c016 06 restart$"
 # 216.75.56.132 local addr 192.168.11.225 -> <null>
