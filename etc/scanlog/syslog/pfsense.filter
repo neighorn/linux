@@ -40,6 +40,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/xmlrpc.php: Resyncin
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ root: \S+ is starting up.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ root: Bogons V[46] file downloaded but not updating IPv[46] bogons table because it is not in use.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ root: Bogons V[46] file downloaded: \d+ addresses (added|deleted).$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ root: Bogons V[46] file downloaded: no changes.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ root: rc.update_bogons.sh is (beginning|ending) the update cycle.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ root: rc.update_bogons.sh is sleeping for \d+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ xinetd\[\d+\]: readjusting service \S+.$"
