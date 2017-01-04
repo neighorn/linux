@@ -210,7 +210,7 @@ my($pid,$status,$detail);
 `tty -s`;	# Find out if we have a tty.
 my $no_tty = $?;
 if ($Services) {
-	eval {
+	my $Status = eval {
 		local $SIG{ALRM} = sub{ die "alarm\n" };
 		alarm $Options{maxwaittime};
 		
@@ -221,6 +221,8 @@ if ($Services) {
 				($pid,$status,$detail) = split('/',<$FH>,3);
 				$IOList->remove($FH);
 				close $FH;
+				print "Verbose: $pid responded with status $status and detail $detail\n"
+					if ($Options{verbose});
 				$PIDs{$pid}->Status($status);
 				$PIDs{$pid}->StatusDetail($detail);
 				$PIDs{$pid}->PIDComplete(1);
@@ -228,7 +230,8 @@ if ($Services) {
 		}
 		alarm 0;
 		# Wipe out waiting message.
-		print ' 'x40 . "\r" unless ($no_tty or $Options{quiet});
+		#print ' 'x40 . "\r" unless ($no_tty or $Options{quiet});
+		return 0;
 	};
 	if ($@) {
 		my $Signal = $@;
@@ -287,14 +290,12 @@ foreach my $Item (@ItemList) {
 			if ($Item->FirstNotification == 0) {
 				# This was a Delayfirstnotification target, that has remained down through the delay period.
 				# Essentially, it's a firstfail as far as notifications are concerned.
-		                push @NowFail, $LongDesc;
 				$DoDownActions = 1;
 				$Item->FirstNotification($Now);
 			}
 			elsif ($Options{renotify}) {
 				# We sent out notifications before, but it's time for another one.
 				push @StillFail, $LongDesc;
-				$DoDownActions = 1;
 			}
 		}
 		else {
@@ -340,7 +341,6 @@ foreach my $Item (@ItemList) {
 		#
 		#syslog('WARNING','%s', "$Desc is NOW FAILING")
 		#	if ($^O !~ /MSWin/);
-		push @NowFail, $LongDesc;
 		$DoDownActions = 1;
 		$Item->FirstNotification($Now);
 		$WorstError = 8;
@@ -360,6 +360,7 @@ foreach my $Item (@ItemList) {
 
 	# Common code for "Now Down and no delay notification" or "Still down and delay time expired"
 	if ($DoDownActions) {
+		push @NowFail, $LongDesc;
 		if (my $Action = $Item->Onfail) {
 			if ($Options{test}) {
 				print "\t\tTesting: OnFail action for $Desc suppressed.\n";
