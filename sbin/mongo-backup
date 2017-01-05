@@ -1,0 +1,784 @@
+#!/usr/bin/perl
+#
+# Run a MongoDB back-up
+#
+use strict;
+use warnings;
+use LogOutput;
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
+use Text::ParseWords;
+use POSIX qw(strftime);
+use Fcntl qw(:flock :mode :DEFAULT);
+use File::Basename;
+use FindBin qw($Bin $Script);
+use File::Find;
+
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
+
+# Initialize variables.
+our $Prog=$0;                           # Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+my $Errors=0;   	                # No errors so far.
+my $Syslog='user';                      # Name of Syslog facility.  '' for none.
+my $BaseDir="/usr/local/etc";		# Set our base directory.
+my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+our %Config;				# Data from the config file.
+our %Options;				# Options settings.
+our @Parms;				# List of non-option arguments.
+our $HostName=`hostname -s`;		# Get our host name.
+chomp $HostName;
+
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+our %OptionSpecifications=(
+		'<>'			=>	sub {push @Parms,shift;},
+		'debug|d'		=>	sub {$DB::AutoTrace=1;},
+		'help|h|?!'		=>	\&opt_help,
+		'host|H=s'		=>	\&opt_Value,
+		'always-mail|m=s'	=>	\&opt_Array,
+		'error-mail|M=s'	=>	\&opt_Array,
+		'executable=s'		=>	\&opt_Value,
+		'option-set|O=s'	=>	\&opt_O,
+		'always-page|p=s'	=>	\&opt_Array,
+		'error-page|P=s'	=>	\&opt_Array,
+		'filter-file|F=s'	=>	\&opt_Value,
+		'log-file|l=s'		=>	\&opt_Value,
+		'test|t'		=>	\&opt_Value,
+		'cycles|r=s'		=>	\&opt_cycles,
+		'min-size|s=s'		=>	\&opt_min_size,
+		'max-size|S=s'		=>	\&opt_max_size,
+		'output-directory|o=s'	=>	\&opt_Value,
+		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
+		'username|user|U=s'	=>	\&opt_Value,
+		'gzip|z'		=>	\&opt_Value,
+		'oplog'			=>	\&opt_Value,
+		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+);
+#
+
+# Note: general purpose script - don't change current directory.
+#chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
+
+# Load the config file.
+if (-e $ConfigFile) {
+	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+	# Build a hash of settings found in the config file.
+	while (<CONFIG>) {
+		next if (/^\s*#/);      # Comment.
+		next if (/^\s*$/);      # Blank line.
+		chomp;
+		my ($name,$settings)=split(/:?\s+/,$_,2);
+		$name=uc($name);	# Name is not case sensitive.
+		$settings='' unless ($settings);	# Avoid undef issue.
+		$settings=~s/\s+$//;	# Trim trailing spaces.
+		$Config{$name}.=$settings . ',' ;
+	}
+	close CONFIG;
+	foreach (keys(%Config)) {
+		$Config{$_} =~ s/,$//;	# Remove trailing comma
+	}
+}
+foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+	if (!@ARGV && defined($Config{DEFAULTJOB}));
+
+# Process the config file defaults if present.
+foreach (('ALLJOBS',"HOST=$HostName")) {
+	my $ConfigName = uc($_);
+	unshift @ARGV, quotewords(" ",0,$Config{$ConfigName})
+		if (exists($Config{$ConfigName}) and defined($Config{$ConfigName}));
+}
+
+# Pre-process our command line, to get the options we need for LogOutput.
+my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
+%Options=(verbose => 0);	# Initialize Options.
+$Errors ++ unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
+	
+# Set up our logging and output filtering.
+my $RunDate=`date +%m/%d`;
+chomp $RunDate;
+my $Subject;
+if ($Options{subject}) {
+	$Subject="$Options{subject}" ;
+} elsif (@Parms >= 1) {
+	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
+} else {
+	$Subject="%* %m/%d %C %N %E %*%*%*" ;
+};
+
+# Make sure some key LogOutput items exist;
+foreach (qw(always-mail error-mail always-page error-page)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
+$Options{verbose} = 0 unless (exists($Options{verbose}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
+my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
+
+LogOutput({
+	SYSLOG_FACILITY		=> $Syslog,
+	MAIL_FILE		=> $Options{logfile},
+	MAIL_FILE_PERMS		=> 0644,
+	ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
+	ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
+	ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
+	MAIL_SUBJECT		=> $Subject,
+	FILTER_FILE		=> $Options{'filter-file'},
+	VERBOSE			=> $LogOutputVerbose,
+});
+
+# Set defaults.
+$Options{'output-directory'}="/usr/local/backup/mongo" unless ($Options{'output-directory'});
+$Options{cycles}=7 unless ($Options{cycles});
+$Options{host} = '' unless (exists($Options{host}) and $Options{host});
+$Options{executable}="mongodump" unless $Options{executable};
+
+if (exists($Options{'remote-host'})) {
+	$Errors = RunRemote(@ARGV);
+}
+else {
+	$Errors = RunLocally($Config{uc("host=$HostName")});
+}
+
+if ($Errors) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+exit( ($Errors?10:0) );
+
+
+# ---------------------------------------------------------
+#
+# RunRemote - Run this elsewhere and track the results.
+#
+sub RunRemote {
+
+	my @ARGV=@_;
+	my $Errors = 0;
+
+	# Analyze the remote-host list, ignoring duplicates and handling !-deletions.
+	my @HostList = @{$Options{'remote-host'}};
+	die "No remote hosts specified on the command line or in the configuration file.\n" unless (@HostList);
+
+	my $MaxLength = 0;
+	foreach (@HostList) { $MaxLength=($MaxLength < length($_)?length($_):$MaxLength); }
+	$MaxLength++;		# Allow for trailing colon.
+	my $DeleteNext=0;
+	foreach (@ARGV) {
+		if ($DeleteNext) {
+			$_ = '';
+			$DeleteNext=0;
+		}
+		elsif (/^--remote-host=/) {
+			$_ = '';		# Delete this for remote systems.
+		}
+		elsif (/^-R/) {
+			$_ = '';
+			$DeleteNext=1;
+		}
+	}
+	@ARGV = grep { $_ ne '' } @ARGV;
+	@ARGV = map {qq<"$_">} @ARGV;
+
+	foreach my $Host (@HostList) {
+		my $Cmd =   "ssh $Host $Prog "
+			  . join(' ', @ARGV) . ' '
+			  . '-F SHOWALL '
+			  . '--always-mail= '
+			  . "-O :Remote=$Host "
+			  . '2\>\&1 '
+			  ;
+		my $FH;
+
+		# Don't even go to remote hosts if test level 2 (-tt).
+		if($Options{test} and $Options{test} >= 2) {
+			print "Test: $Cmd\n";
+			next;
+		}
+
+		print "Verbose: Running $Cmd\n" if ($Options{verbose} or $Options{test});
+		if (open($FH, "$Cmd |")) {
+			while (<$FH>) {
+				printf "%-*s %s", $MaxLength, "$Host:", $_;
+			}
+			close $FH;
+			my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
+			print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
+			$Errors++ if ($ExitCode);
+		}
+		else {
+			warn "Unable to open ssh session to $Host: $!\n";
+			$Errors++;
+		}
+	}
+
+	return $Errors;
+}
+
+
+# ---------------------------------------------------------
+#
+# RunLocally - run a sysbackup on this machine.
+#
+sub RunLocally {
+	# ---------------------------------------------------------
+	#
+	# Load any host-specific options
+	#
+	my $HostOptions = shift;
+	if ($HostOptions) {
+		my @Array = quotewords(" ",0,$HostOptions);
+		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
+	}
+
+	# ---------------------------------------------------------
+	#
+	# Check for conflicting jobs/Acquire the job lock
+	#
+	my $JobLockFile = "/var/run/$Prog.lock";
+	my $JOBLOCKFH;
+	if (!$Options{test} and !open($JOBLOCKFH,'>>',$JobLockFile)) {
+	        print "Unable to create/open $JobLockFile: $!\n";
+	        return 1;
+	}
+	if (!$Options{test} and !flock($JOBLOCKFH, LOCK_EX | LOCK_NB)) {
+	        my @stat = stat($JobLockFile);
+	        my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
+	        $mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
+	        print "Skipped this job due to a conflicting job in progress per "
+	                . qq<"$JobLockFile" dated $mdate at >
+	                . strftime(
+	                        "%H:%M:%S",
+	                        localtime((stat($JobLockFile))[8]))
+	                . "\n"
+	                ;
+	        return 1;
+	}
+
+	# ---------------------------------------------------------
+	#
+	# Run the back-ups
+	#
+	my $Errors = 0;
+	@Parms = ('') unless (@Parms+0);	# Assume all databases unless they gave us a list.
+	foreach my $Database (@Parms) {
+		$Errors += BackupDatabase($Database);
+	}
+
+	# ---------------------------------------------------------
+	#
+	# Release the job lock.
+	#
+	if ($JOBLOCKFH) {
+	        close $JOBLOCKFH;
+	        unlink $JobLockFile;
+	}
+	return ($Errors>0?1:0);
+
+}
+
+
+
+#
+# BackupDatabase
+#
+sub BackupDatabase {
+	my $Database = shift;
+	my $OutputPrefix = ($Options{host}?$Options{host} . '-':'');
+	$OutputPrefix=~s/:/-/;		# In case host includes a port number.
+	$OutputPrefix .= ($Database?"$Database-":'');
+
+	# Build the backup file name.
+	my $DeletePattern;
+	my $OutPath = $Options{'output-directory'};
+	$OutPath .= "/$OutputPrefix%Y-%m-%d" if (-d $OutPath);	# Add file name if this is a directory.
+	$DeletePattern = basename($OutPath);		# Get the file name portion.
+	$DeletePattern =~ s/%./\\S+/g;			# Convert substitution values to \S+.
+	$DeletePattern = "^${DeletePattern}(.gz)?\$";	# Add anchors and optional .gz.
+	$OutPath=strftime($OutPath,localtime());	# Interp time vars (ours and theirs).
+	my $OutDir=dirname($OutPath);
+	
+	# Delete any incomplete backups.
+	RunDangerousCmd("rm -rf $OutDir/*.tmp 2> /dev/null");
+
+	# Delete any old cycles.
+	if (open(my $FHLS,"ls -t $OutDir 2> /dev/null |")) {
+		my $Count=0;
+		while (<$FHLS>) {
+			chomp;
+			next unless (-f "$OutDir/$_");		# Skip non-directories.
+			next unless (/$DeletePattern/o);	# Skip different format file names.
+			next unless (/^[a-zA-Z0-9._-]+$/);	# Skip funny file names to avoid surprise interpretations.
+			$Count++;
+			RunDangerousCmd(qq<rm -rf "$OutDir/$_">) if ($Count >= $Options{cycles});
+		}
+		close $FHLS;
+	} else {
+		warn "Unable to open ls command: $!\n";
+	}
+	
+	# Now back up all our databases.  Use a .tmp file and rename when we're done, so some separate
+	# process knows this file isn't complete.
+	RunDangerousCmd(
+		  "$Options{executable} "
+		. ($Options{host}?"--host=$Options{host} ":'') 
+		. ($Options{username}?"-u $Options{username} ":'')
+		. ($Options{optlog}?'--oplog':'')
+		. qq<--out="$OutPath.tmp" >
+		. $Database
+	);
+	if (-d "$OutPath.tmp" or $Options{test}) {
+		RunDangerousCmd(qq<mv "$OutPath.tmp" "$OutPath">);	# Rename tmp file now that it's done.
+		my $size = 0;
+		if ($Options{test}) {
+			$size=999999;
+		}
+		else {
+			find(sub {$size += -s if -f $_}, $OutPath);
+		}
+		printf "%15s bytes (%6s) written to %s\n",
+			commify($size), CompressSize($size), $OutPath;
+		warn "Warning: backup is less than the minimum expected size ("
+			. commify($Options{'min-size'}) ." bytes)\n"
+				if ($Options{'min-size'} and $size < $Options{'min-size'} and ! $Options{test});
+		warn "Warning: backup is more than the maximum expected size ("
+			. commify($Options{'max-size'}) . " bytes)\n"
+				if ($Options{'max-size'} and $size > $Options{'max-size'} and ! $Options{test});
+		if ($Options{gzip}) {
+			RunDangerousCmd("rm $OutPath.tgz") if (-e "$OutPath.tgz");
+			my $Parent=dirname($OutPath);
+			my $Child;
+			($Child = $OutPath) =~ s"^.*/"";
+			RunDangerousCmd("cd $Parent && tar -czf $Child.tgz $Child && rm -rf $Child")
+		}
+	}
+	else {
+		warn "Unable to locate output file $OutPath";
+		return 1;
+	}
+	return 0;
+}
+
+
+#
+# RunDangerousCmd - run a command, or suppress it if -t specified.
+#
+sub RunDangerousCmd {
+	my ($Cmd,$FH,$Line);
+	$Cmd=join(' ',@_);
+	if ($Options{test}) {
+		print "Test: $Cmd\n";
+		return 0;
+	} else {
+		print "Executing: $Cmd\n" if ($Options{verbose});
+		if (open($FH,"$Cmd 2>&1 |")) {
+			while ($Line=<$FH>) {
+				$Line=~s/[
+]//g;
+				chomp $Line;
+				print "$Line\n";
+			};
+			close $FH;
+			return $?;
+		} else {
+			warn qq(Unable to start process for "$Cmd": $!\n");
+			return 8<<8;
+		}
+	}
+}
+
+
+#
+# commify - insert commas in numbers.
+#
+sub commify {
+	local $_ = shift;
+	1 while s/^(-?\d+)(\d{3})/$1,$2/;
+	return $_;
+}
+
+
+#
+# ExpandSize - convert various number formats to an integer.
+#
+sub ExpandSize {
+        my $Value = shift;
+        $Value =~ s/,//g;               # Ignore commas.
+        if ($Value =~ /^(\d+)$/i) {
+                return $1;
+        }
+        elsif ($Value =~ /^(\d+(\.\d+)?)K$/i) {
+                return $1*1024;
+        }
+        elsif ($Value =~ /^(\d+(\.\d+)?)M$/i) {
+                return $1*1024*1024;
+        }
+        elsif ($Value =~ /^(\d+(\.\d+)?)G$/i) {
+                return $1*1024*1024*1024;
+        }
+        elsif ($Value =~ /^(\d+(\.\d+)?)T$/i) {
+                return $1*1024*1024*1024*1024;
+        }
+        else {
+                return undef;
+        }
+}
+
+
+
+#
+# CompressSize - convert bytes to KMGT
+#
+sub CompressSize {
+        my $Value = shift;
+        $Value =~ s/,//g;               # Ignore commas.
+	my $Unit = ' bytes';
+	foreach (('K','M','G','T')) {
+		if ($Value >= 1024) {
+			$Unit = $_;
+			$Value /= 1024;
+		}
+	}
+	return sprintf('%.1f%s',$Value,$Unit);
+}
+
+
+
+#
+# opt_Value - generic single-value option processing
+#
+sub opt_Value {
+	my($Name,$Value) = @_;
+	$Options{$Name} = $Value;
+}
+
+# ---------------------------------------------------------
+#
+# opt_Array - generic multi-value option  processing
+#
+sub opt_Array {
+
+	my($Name,$Value,%ArrayOpt) = @_;
+
+	# Possible array processing options:
+	#	preserve-lists:	0 (default), split on embedded spaces or commas
+	#			1, don't split on embedded spaces or commas
+	#	allow-delete:	0 (default), leading ! on value has no meaning
+	#			1, leading ! on value means delete value from
+	#				current list.
+	#	force-delete:	0 (default), assume add unless ! and allow-delete=1
+	#			1, delete this item regardless of leading !
+
+
+	# Set a recursion limit if we don't already have one.  This helps
+	# us detect list loops (listA points to listA, or A->B->A, etc.).
+	$ArrayOpt{'recursion-limit'} = 64 unless ($ArrayOpt{'recursion-limit'});
+
+	# Is the value empty, meaning to wipe any entries to this point.
+	if (!$Value) {
+		# Received "--opt=".  Empty this array.
+		@{$Options{$Name}}=();
+		return;
+	}
+
+	# Split out lists by default, unless embedded-lists are preserved.
+	my @ValueList;
+	if ($ArrayOpt{'preserve-lists'}) {
+		# Preserve commas and embedded spaces.  Just leave value as is.
+		@ValueList = ($Value);
+	}
+	else {
+		$Value =~ s/[\s,]+$//;	# Trailing separators make no sense.
+		$Value =~ s/^\s+//;	# Ignore leading whitespace.
+		@ValueList = split(/[,\s]+/,$Value);
+	}
+
+	# Now process each list item individually.
+	while ($Value = shift(@ValueList)) {
+		
+		# Are we adding or deleting this item.
+		my $AddItem = 1;	# Assume we're adding.
+		my $Prefix;
+		if ($ArrayOpt{'force-delete'}) {
+			# We've been told, flat-out, to delete this item.
+			$AddItem = 0;
+			$Value =~ s/^!+// if ($ArrayOpt{'allow-delete'});
+		}
+		elsif ($ArrayOpt{'allow-delete'} and $Value =~ /^!+(.*)$/) {
+			# Delete is allowed, and ! is present.
+			$AddItem = 0;
+			$Value = $1;
+		}
+		
+		# If config lists are permitted, see if this is a config list.
+		if ($ArrayOpt{'expand-config'} and exists($Config{uc($Value)})) {
+			# This is a reference to a config file list. Recurse
+			# through this, in case the list contains more lists.
+			die "List loop detected in --$Name=$Value"
+				if ($ArrayOpt{'recursion-limit'} <= 0);
+			opt_Array(
+				$Name,
+				$Config{uc($Value)},
+				%ArrayOpt,'recursion-limit'=>($ArrayOpt{'recursion-limit'}-1),
+				'force-delete'=> (1-$AddItem),
+			);
+			next;
+		}
+
+		# If we got here, we have a value to either add or delete.
+		if ($AddItem) {
+			push @{$Options{$Name}},$Value
+				unless grep { $_ eq $Value } @{$Options{$Name}};
+		}
+		else {
+			# Remove this item from the list if present.
+			@{$Options{$Name}} = grep { $_ ne $Value } @{$Options{$Name}};
+		}
+	}
+}
+
+
+
+
+#
+# opt_O - Load an option set.
+#
+sub opt_O {
+	my(undef,$Value) = @_;
+	$Value = uc($Value);
+	$Value =~ m/(:?)(\S+)/;	# See if it starts with a colon, meaning optional.
+	my $Optional = $1;
+	$Value = $2;
+	if (exists($Config{$Value})) {
+		$Errors ++ unless GetOptionsFromString(
+			$Config{$Value},
+			%OptionSpecifications,
+			'<>' => sub{push @ARGV, shift;}         # Need to save any stray paramters.
+		);
+	}
+	else {
+		warn qq<Warning: "$Value" not found in configuration file\n> unless $Optional;
+	}
+}
+
+
+
+#
+# opt_help: Usage
+#
+sub opt_help {
+
+        my $Pagenater=$ENV{PAGENATER};
+        $Pagenater="more" unless ($Pagenater);
+        system("pod2text $Bin/$Script | $Pagenater");
+        exit(1);
+}
+
+=pod
+
+=head1 $Prog - Back up mongo databases
+
+=head3 Usage:  
+
+	$Prog [options] [database...]
+	$Prog [-h]
+
+=head3 Flags:
+
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
+        --error-mail|-e mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+	--log-file|-l logfile:	LogFile: write log to "logfile, in addition to
+				the syslog.
+        --option-set|-O config: Insert the "config" configuration options
+                                from $ConfigFile
+                                into the command line at this point.
+				A leading colon on "config" suppresses a 
+				warning message if "config" is not found
+				in the configuration file.  Several reserved
+				names are defined, and will be used if defined:
+				ALLJOBS: Prepended to all command lines - used
+				  to set standard options (e.g. always-mail)
+                                DEFAULTJOB: Used if no command line options or
+                                  parameters are specified
+                                HOST=hostname: Prepended to all command lines
+                                  after ALLJOBS if the short host name of the
+                                  host running the command matches "hostname".
+                                  This allows a common config file to be used
+                                  across multiple hosts with different option
+                                  requirements
+                                REMOTE=hostname: Prepended to all command lines
+                                  if executed on hostname, but run via -R from
+                                  another host.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+        --help|-h:              Help: display this panel
+	--executable name:	Executable: declare the explicit path to the
+				mongodump command.  Defaults to searching the
+				path.
+	--output-directory|-o output:	Output: Save the output in this file/directory.
+				If "output" is a directory, the default filename is
+				yyyy-mm-dd.  "Output" is processed by strftime,
+				so % variables (a la `date`) are interpreted.
+				Default value is /usr/local/backup/mongo/%Y-%m-%d
+				if no databases are specified, or
+				/usr/local/backup/mongo/databasename-%Y-%m-%d
+				if individual databases are specified.
+				* See Warning below. *
+	--cycles|-r days:	Retention: delete old backups after "days" days.
+				Default=7.
+	--min-size|-s size:	Size: issue an error if the output is less than "size"
+				bytes (before compression).
+	--max-size|-S size:	Size: issue an error if the output is more than "size"
+				bytes (before compression).
+	--hostname|-H hostname:	Host name: host name of the host containing the database
+				server.  By default, no host name is specified.
+	--username|-U username:	User: Log into the database as "username".  By default
+				no user name is specified.
+	--gzip|z		Zip: gzip the output files when going to disk.
+	--remote|R name		Remote: Don't run locally, but run on remote system
+				"name" instead.  May be repeated, or name may be a
+				comma-separated list to run on multple systems. 
+				Include "localhost" or similar to run it both 
+				locally and remotely.
+
+
+=head3 Parameters:
+
+	databasename...:	Back up just the specified database(s) into individual
+			files.  The default is to back up all databases into a single
+			file.
+
+=head3 Examples (where databaseX is the name of the specific database):
+	mongo-backup -o /opt/mongo/backups
+		- back up all databases to /opt/mongo/backups/databaseX-yyyy-mm-dd.sql
+	mongo-backup -o /opt/mongo/backups database1 database2
+		- back up two databases to /opt/mongo/backups/databaseX-yyyy-mm-dd.sql
+	mongo-backup database1 database2 database3
+		- back up three databases to /usr/local/backup/mysql/databaseX-yyyy-mm-dd.sql
+
+
+=head3 Warning:
+
+Execution of this script may cause old files in the output directory to be deleted.  *.tmp
+files (from failed prior executions) are deleted.  Also, older files may be deleted as
+part of --cycles processing.
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
+
+=cut
+
+
+#
+# Options{cycles}: handle retention period.
+#
+sub opt_cycles {
+	my(undef,$Value) = @_;
+	if ($Value =~ /^[1-9]\d*$/) {
+		$Options{cycles} = $Value;
+	}
+	else {
+		warn "Invalid cycle count (--cycles/-r) value: $Value\n";
+		$Errors++;
+	}
+}
+
+
+#
+# opt_min_size - minimum size threshold
+#
+sub opt_min_size {
+        my(undef,$Value) = @_;
+	$Options{'min-size'} = ExpandSize($Value);
+        if (!defined($Options{'min-size'})) {
+                warn qq<Invalid minimum size (--min-size/-s) value: "$Value"\n>;
+		$Errors++;
+		$Options{'min-size'} = 0;
+        }
+}
+
+
+
+#
+# opt_max_size - max size threshold
+#
+sub opt_max_size {
+        my(undef,$Value) = @_;
+	$Options{'max-size'} = ExpandSize($Value);
+        if (!defined($Options{'max-size'})) {
+                warn qq<Invalid maximum size (-S) value: "$Value"\n>;
+		$Errors++;
+		$Options{'max-size'} = 0;
+        }
+}
+
+
+__END__
+#
+# Output filters.  The syntax is: type pattern
+#
+#  Type:	Ignore - Don't display this message, it's not interesting.
+#		LogOnly - Write this message to the syslog and log file, but
+#			don't display it on STDOUT.
+#		Show - Display this message, but it's not an error condition.
+#		# - This is a comment, ignore it.
+#
+#  Pattern:	an ordinary perl pattern.  All patterns for a given score
+#		are joined by logical OR conditions.
+#
+#  Notes:
+#	1) The "Type" parameter may be specified in upper, lower, or mixed case.
+#	2) All messages go to the syslog, regardless of this filter.
+#
+#
+IGNORE	"^\s*(\S+:\s*)?\s*$"
+IGNORE	"^\s*(\S+:\s*)?Deleting "
+IGNORE	"^\s*(\S+:\s*)?Remote job exited with return code 0 and signal 0$"
+IGNORE	"^\s*(\S+:\s+)?.*\s+OK$" 
+IGNORE	"^\s*(\S+:\s+)?Error\s*: You can't use locks with log tables.$" 
+IGNORE	"^\s*(\S+:\s+)?mysql.(slow|general)_log\s*$" 
+IGNORE	"^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0$"
+IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*Command: "
+IGNORE	"^\s*....-..-..T..:..:..\....-....\s*$"
+IGNORE	"^\s*....-..-..T..:..:..\....-....\s+done dumping \S+ \(\d+ documents?\)$"
+IGNORE	"^\s*....-..-..T..:..:..\....-....\s+writing \S+ (metadata )?to "
+IGNORE	"^\s*....-..-..T..:..:..\....-....\s+\[[#.]+\]\s+\S+\s+\d+/\d+\s+\([\d.]+%\)$"
+IGNORE	"^\s*tar: Removing leading `/' from member names$"
+LOGONLY	"^\s*\S+ ended normally with status 0 and signal 0$"
+LOGONLY	"^\s*\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY	"^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+SHOW	"^\s*(\S+:\s*)?[1-9][\d,]* bytes (\(.*\) )?written to \S+$"
+SHOW	"^\s*(\S+:\s*)?debug:"i
+SHOW	"^\s*(\S+:\s*)?Executing:"i
+SHOW	"^\s*(\S+:\s*)?test:"i
+SHOW	"^\s*(\S+:\s*)?Verbose:"i
+SHOW	"^\s*Command: "
