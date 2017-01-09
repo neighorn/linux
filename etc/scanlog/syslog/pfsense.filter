@@ -37,6 +37,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.filter_synchroniz
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.filter_synchronize: \S+ sync successfully completed with https://\S+:8443.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/xmlrpc.php: ROUTING: setting default route to \S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/xmlrpc.php: Resyncing OpenVPN instances.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ppp\[\d+\]:\s*\[\S+\] rec'd unexpected protocol CallBack Control Protocol (CBCP), rejecting$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ root: \S+ is starting up.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ root: Bogons V[46] file downloaded but not updating IPv[46] bogons table because it is not in use.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ root: Bogons V[46] file downloaded: \d+ addresses (added|deleted).$"
