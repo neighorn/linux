@@ -1,6 +1,7 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mongo-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?-+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mongo-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?-+\s+\S+\s+-+$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mongo-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?[1-9][\d,]+ bytes (\(\s*\S+\) )?written to \S+"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mongo-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?\s*$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mongo-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?\s*....-..-..T..:..:..\....-0.00#011\[[#.]+\]\s+\S+\s+\d+/\d+\s+\(\d+\.\d+%\)$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mongo-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?\s*....-..-..T..:..:..\....-0.00#011done dumping \S+ \(\d+ documents?\)$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ mongo-backup(-remote)?\[\d+\]:\s*(\S+:\s*)?\s*....-..-..T..:..:..\....-0.00#011writing \S+( metadata)? to \S+$"
