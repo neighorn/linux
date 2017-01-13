@@ -1,1 +1,1 @@
-../mail/filter-email.filter
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ filter-email(\[\d+\])?:\s*"
