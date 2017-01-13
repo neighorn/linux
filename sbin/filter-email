@@ -11,6 +11,8 @@ use Text::ParseWords;
 use POSIX qw(strftime);
 use FindBin qw($Bin $Script);
 use MIME::Base64;
+use Encode qw(decode);
+use Encode::MIME::Header;
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -25,6 +27,7 @@ my @ConfigFiles=("$BaseDir/${Prog}.cfg","$BaseDir/${Prog}.d/${Prog}.cfg");	# Nam
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
+our @FilterFiles;			# Map of patterns to filter files.
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -39,10 +42,12 @@ our %OptionSpecifications=(
 		'option-set|O=s'	=>	\&opt_O,
 		'always-page|p=s'	=>	\&opt_Array,
 		'error-page|P=s'	=>	\&opt_Array,
-		'filter-file|F=s'	=>	\&opt_Value,
+		'filter-file|F=s'	=>	\&opt_Array,
 		'test|t'		=>	\&opt_Value,
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
-		'input-file|i=s'	=>	sub {push @Parms,shift;},
+		'inputfile|input-file|i=s'	=>	sub {push @Parms,shift;},
+		'copyfile=s'		=>	\&opt_Value,
+		'tty!'			=>	\&opt_Value,
 );
 #
 
@@ -76,7 +81,7 @@ if (@Parms) {
 	close $FH;
 }
 else {
-	print "Reading from STDIN...\n";
+	print "Reading from STDIN...\n" if (-t STDOUT);
 	@lines = <STDIN>;
 }
 
@@ -87,7 +92,8 @@ my $JobName;
 foreach (@lines) {
 	chomp;
 	last if (/^\s*$/);		# Blank line means end of headers.
-	$SendingHost = $1 if (/^Received: from (\S+)/i and ! $SendingHost);
+	$_ = decode('MIME-Header',$_);	# Handle MIME encoding.
+	$SendingHost = $1 if (/^Received: from (\S+)/i);
 	#$From = $_ if (/^From /i and ! $From);
 	$InputSubject = $_ if (/^Subject: /i and ! $InputSubject);
 	last if ($From and $InputSubject);	# Found all we wanted.
@@ -99,37 +105,47 @@ $From = getlogin() unless ($From !~ /^\s*$/);
 ($JobName = $InputSubject) =~ s/^\s*(\S+)\b.*$/$1/;
 $JobName =~ s/[^a-zA-Z0-9:_-]//g;
 $SendingHost = "(unknown host)" unless ($SendingHost);
-$SendingHost=lc($SendingHost);
+$SendingHost = lc($SendingHost);
+$SendingHost =~ s/\..*$//;	#Strip domain name.
 
-if (! $Options{'filter-file'}) {
-	# No filter file explicitly set.  See if we can find a customized filter file.
-	foreach my $dir ("/usr/local/etc/${Prog}.d","/usr/local/etc") {
-		next unless (-d $dir);
-		foreach my $name ("$JobName","$SendingHost.$JobName") {
-			if (-r "$dir/$name.filter") {
-				$Options{'filter-file'}="$dir/$name.filter";
-				last;
-			}
-		}
-		last if ($Options{'filter-file'});
+# See if we can find a customized filter file.
+my $filterfile;
+print "Verbose: Looking for FilterFile specification in config files.\n" if ($Options{verbose} >= 2);
+foreach (@FilterFiles) {
+	my($regex,$file);
+	($regex,$file) = @{$_};
+	my $string="HOST:$SendingHost SUBJECT:$InputSubject";
+	print qq(Verbose:\tComparing "$string"  to  "$regex"\n) if ($Options{verbose} >= 2);
+	if ($string =~ $regex) {
+		print "Verbose:\t\tFound match on $file\n" if ($Options{verbose} >= 2);
+		push @{$Options{'filter-file'}},$file;
 	}
 }
-$Options{'filter-file'} = "/usr/local/etc/${Prog}.d/DEFAULT.filter"
-	if (! $Options{'filter-file'} and -e "/usr/local/etc/$Prog.d/DEFAULT.filter");
+
+# See if we can find a customized filter file.
+print "Verbose: Check for default filter file names.\n" if ($Options{verbose} >= 2);
+foreach my $dir ("/usr/local/etc/${Prog}.d","/usr/local/etc") {
+	next unless (-d $dir);
+	foreach my $name ("$JobName","$SendingHost.$JobName") {
+		my $file = "$dir/$name.filter";
+		print "Verbose:\tChecking for $file\n" if ($Options{verbose} >= 2);
+		if (-r $file) {
+			print "Verbose:\t\tFound match on $file\n" if ($Options{verbose} >= 2);
+			push @{$Options{'filter-file'}},$file;
+		}
+	}
+}
+
+push @{$Options{'filter-file'}}, "/usr/local/etc/$Prog.d/$Prog.filter"
+	if (-e "/usr/local/etc/$Prog.d/$Prog.filter");
 	
 # Set up our logging and output filtering.
 my $RunDate=`date +%m/%d`;
 chomp $RunDate;
-my $OutputSubject;
-if ($Options{subject}) {
-	$OutputSubject="$Options{subject}" ;
-}
-elsif ($InputSubject) {
-	$OutputSubject=$InputSubject
-}
-else {
-	$OutputSubject="%* %m/%d %C %N %E %*%*%*" ;
-};
+my $OutputSubject = ($Options{subject}
+	?$Options{subject}
+	:"%* %m/%d $SendingHost $JobName %E %*%*%*"
+);
 
 # Make sure some key items exist;
 foreach (qw(always-mail error-mail always-page error-page)) {
@@ -138,6 +154,16 @@ foreach (qw(always-mail error-mail always-page error-page)) {
 $Options{verbose} = 0 unless (exists($Options{verbose}));
 $Options{logfile} = '' unless (exists($Options{logfile}));
 my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
+
+$Options{tty} = (-t STDOUT) unless (defined($Options{tty}));	# No tty if we're non-interactive and no --tty.
+if (!$Options{tty}) {
+	# We're not interactive.  Turn off STDOUT and STDERR, as it confuses the mail server
+	# when called via /etc/aliases.
+	close STDOUT;
+	close STDERR;
+	open(STDOUT,'>','/dev/null');
+	open(STDERR,'>','/dev/null');
+}
 
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
@@ -150,17 +176,18 @@ LogOutput({
 	MAIL_SUBJECT		=> $OutputSubject,
 	FILTER_FILE		=> $Options{'filter-file'},
 	VERBOSE			=> $LogOutputVerbose,
+	CLEAN_UP		=> \&CleanUp,
 });
 
 
 
 # Open the copy file if requested.
 my $COPYFILE;
-if ($Options{'input-file'}) {
-	$Options{'input-file'} =~ s/%U/$ENV{LOGNAME}/g;
-	$Options{'input-file'} = strftime($Options{'input-file'},localtime());
-	warn "Unable to open $Options{'input-file'}: $!" 
-		unless open($COPYFILE,'>',$Options{'input-file'});
+if ($Options{'copy-file'}) {
+	$Options{'copy-file'} =~ s/%U/$ENV{LOGNAME}/g;
+	$Options{'copy-file'} = strftime($Options{'copy-file'},localtime());
+	warn "Unable to open $Options{'copy-file'}: $!" 
+		unless open($COPYFILE,'>',$Options{'copy-file'});
 }
 
 my $EndOfHeaders = 0;
@@ -190,7 +217,18 @@ PrintLine($EndOfHeaders,$COPYFILE,decode_base64($UULine))
 	if ($UULine);
 
 # Wrap up.
-my $ExitCode=$Errors?10:0;
+
+my $ExitCode;
+if (! $Options{tty}) {
+	$ExitCode = 0;	# Non-zero causes bounce back when used from /etc/aliases.
+}
+elsif ($Errors) {
+	$ExitCode = 10;
+}
+else {
+	$ExitCode= 0;
+}
+
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {
@@ -198,6 +236,14 @@ if ($ExitCode) {
 }
 
 exit($ExitCode);
+
+
+#
+# Clean-up - make sure we have a zero return code so we don't mess with Postfix.
+#
+sub CleanUp {
+	$LogOutput::ExitCode = 0;
+}
 
 
 #
@@ -245,6 +291,12 @@ sub LoadConfigFile {
                         $settings=~s/\s+$//;                    # Trim trailing spaces.
 			if ($name eq 'INCLUDE') {
 				LoadConfigFile($settings);
+			}
+			elsif ($name eq 'FILTERFILE') {
+				my ($file,$regex) = split(/\s+/,$settings,2);
+				$file="/usr/local/etc/$Prog.d/$file" unless ($file =~ m"^/");
+				eval "\$regex = qr$regex;";		# Compile the regex.
+				push @FilterFiles,[$regex,$file];
 			}
 			else {
 				$settings=~s/\s+$//;	# Trim trailing spaces.
@@ -339,22 +391,24 @@ sub opt_h {
 }
 =pod
 
-=head1 $Prog - post-process e-mail reports
+=head1 filter-email - post-process e-mail reports
 
-$Prog provides post-processing for e-mailed reports that don't provide native
+filter-email provides post-processing for e-mailed reports that don't provide native
 filtering.
 
 =head3 Usage:  
-        $Prog [options] [input-file]
 
-        $Prog -h
+        filter-email [options] [input-file]
+
+        filter-email -h
 
 =head3 Flags:
+
         --error-mail|-M mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
-        --filter|-F filter:     Filter: filter reports using this file.
-                                If not specified, $Prog will search
-                                to use the built-in error filter.
+        --filter|-F filter:     Filter: Append this filter file to 
+				list of filter files.  See Filter Files
+				below.
         --always-mail|-m addr:  Mailid: Send an execution report to
                                 this e-mail address.
         --always-page|-p addr:  Page: Send a very brief message
@@ -367,16 +421,25 @@ filtering.
                                 from $ConfigFiles[0]
                                 into the command line at this point.
         --test|-t:              Test: echo commands instead of running them.
+	--(no-)tty:		TTY: run with(out) STDOUT and STDERR.  This
+				defaults to --tty when run in an interactive
+				session, or --no-tty otherwise, such as
+				when called from /etc/aliases.  This option
+				is used primarily for testing.
         --verbose|-v:           Verbose: echo commands before running them.
         --help|-h:              Help: display this panel
 
 =head3 Parameters:
-        (none)
+
+        input-file:		Optional input file.  Typically filter-email
+				reads its input from STDIN, but a specific
+				file can be specified on the command line 
+				to aid in testing.
 
 =head3 Configuration files
 
 Configuration data may be loaded from the configuration files.  These files
-form key-value pairs that $Prog may reference.  The syntax of the file is:
+form key-value pairs that filter-email may reference.  The syntax of the file is:
 
 	name: value
 
@@ -389,22 +452,189 @@ Several "names" are reserved, as follows:
 =over
 
 =item *
+
 Alljobs: any value listed here is prepended to the command line before
 command line processing begins.  This permits default options to be
 set.
 
 =item *
+
 Defaultjob: any value listed here is used as the command line if no
 command line options are specified.
 
 =item *
+
 Include: any value here is treated as another configuration file, which
 is loaded immediately.
+
+=item *
+
+FilterFile: These records can be used to map incoming e-mails to associated
+filter files.  (See FilterFiles below for details on the contents and purpose 
+of filter files.)  Each FilterFile record uses the following format:
+
+    FilterFile: filename regex
+
+When an incoming e-mail is given to filter-email, it parses out the sending
+host and the subject.  It uses these to construct a descriptor string of
+the format:
+
+    HOST:<hostname> SUBJECT:<subject>
+
+For example:
+
+    HOST:server305 SUBJECT:Backup Report
+
+It then compares that descriptor string to the regex in each FilterFile 
+record.  If it matches the regex, the associated filter file is loaded.
+If more than one FilterFile record matches, subsequent filter
+files are treated as continuations of the first one.  File names may use
+an absolute path, or else are relative to /usr/local/etc/filter-email.d/.
+
+=back
+
+=head3 Filter files
+
+Filter files are used for two purposes.  Most importantly, they tell 
+filter-email whether the job reported in the incoming e-mail was
+successful or not.  They do this by checking all the lines of text
+in the e-mail against list of valid messages in the filter files.  If
+any lines don't match, they are considered to be error messages.  Error
+messages are flagged, and the job overall is reported to have errors.
+
+A secondary purpose of filter-email is to summarize lengthy reports.
+It does this by excluding some of the incoming lines from the outgoing
+report, as specified in the filter file(s).
+
+Most scripts that use this model have a standard internal list of filters.
+filter-email however, may process multiple radically different e-mails,
+and so requires more flexibility in determining which filter file(s)
+to use.  The following two sections describe how filter-email determines
+which filter files to use, and how filter files are constructed.
+
+=head4 Which filter file(s) to use
+
+Filter files may be selected in a variety of ways:
+
+=over
+
+=item *
+
+The -F or --filter option may be used to specify a filter
+file to use on all e-mails.  This can be specified on the command line
+or via a configuration file.  This option is rarely used in this script,
+as it is rare to have a single filter that applies to multiple e-mail
+reports.
+
+=item *
+
+filter-email always loads the following filters, if present:
+
+=over
+
+=item *
+
+/usr/local/filter-email.d/filter-email.filter
+
+=item *
+
+/usr/local/filter-email.d/<jobname>.filter
+
+=item *
+
+/usr/local/filter-email.d/<sending-host>.<jobname>.filter
+
+=back
+
+=item *
+
+The configuration files may include "FilterFile" records.  If the regex
+patterns on any of these records match the incoming e-mail, the associated filter file is
+loaded.  See the FilterFile item in Configuration Files above for more
+information on the format and processing of these records.
+
+=back
+
+=head4 What filter files contain
+
+Each filter file contains a series of records
+of the format:
+
+    operation  regex
+
+The operation is one of the following:
+
+=over
+
+=item *
+
+SHOW	- messages matching this regex are normal messages that should
+be displayed in the output report
+
+=item *
+
+IGNORE	- messages matching this regex are normal messages that should
+not be displayed in the output report
+
+=item *
+
+LOGONLY - messages matching this regex are normal messages that should
+be shown in the output report, but not on STDOUT.  For filter-email,
+this is essentially the same as "SHOW", since in normal
+use filter-file doesn't send anything to STDOUT.
+
+=item *
+
+Blank lines or lines beginning with # are ignored.
+
+=back
+
+Examples:
+
+    SHOW	"^\s*Backup started at ..:..:..$"
+    SHOW	/^\s*Backup successfully completed!$/
+    IGNORE	"^\s*Backup is \d+% complete.$"
+
+Note that filter files do not include messages indicating an error.
+There is no limit to the possible error messages, so any message
+that doesn't match a regex in one of the filter files is considered
+to be an error message.
+
+In the above example, we would see the "started" and "completed"
+messages, but not all the "1% complete", "2% complete", ...
+messages.  Also, we'd see any other messages such as
+"Backup failed", and they'd be flagged as errors.
+
+By using a proper selection of SHOW and IGNORE records, it is possible
+to reduce a possibly lengthy report into a summary of important messages
+plus any errors, and the errors are flagged.  E-mails with errors are
+also flagged in the subject line of the output report when the default
+subject line is used.
+
+=head3 Notes
+
+=over
+
+=item *
+
+Typically, filter-email is invoked out of /etc/aliases as shown in 
+the following example:
+
+    backup-report:	|/usr/local/sbin/filter-email
+
+=item *
+
+By default, filter-email only writes its output to the syslog, and,
+if it's running in --tty mode, to STDOUT.  Typical usage involves 
+including a -m or --always-mail option on the command line or 
+via a configuration file, so that output reports are e-mailed to the
+proper individual.
 
 =back
 
 =head3 Return codes:
-        0       :       Normal termination
+
+        0       :       Normal termination - or always in --no-tty mode.
         1       :       Help panel displayed.
         2       :       Invalid or unrecognized command line options.
         3       :       Invalid or unrecognized command line option value.

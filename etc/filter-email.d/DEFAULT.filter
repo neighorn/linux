@@ -1,2 +1,0 @@
-# By default, just echo the e-mail.
-SHOW	".*"

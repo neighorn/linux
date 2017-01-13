@@ -1,0 +1,8 @@
+SHOW	"^\s*Command: "
+SHOW	"^\s*Executing:"
+SHOW	"^\s*\S+ ended normally with status \d+ and signal 0$"
+SHOW	"^\s*\S+ ended on "
+SHOW	"^\s*Test:"
+SHOW	"^\s*Verbose:"
+SHOW	"^\s*\S+ started on "
+SHOW	"^\s*debug:"
