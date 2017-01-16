@@ -24,7 +24,7 @@ our $opt_e;
 our $opt_p;
 our $opt_P;
 our $opt_O;
-our $opt_v;
+our $opt_v = 0;
 our $opt_w = 0;
 our %devices;
 my @Args=@ARGV;			# Preserve orig command for ref.
@@ -76,7 +76,16 @@ if (@ARGV) {
 if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
 	
 # Set up our logging and output filtering.
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+LogOutput({
+        ALWAYS_MAIL_LIST => $opt_m,
+        ERROR_MAIL_LIST => $opt_e,
+        ALWAYS_PAGE_LIST => $opt_p,
+        ERROR_PAGE_LIST => $opt_P,
+        SYSLOG_FACILITY => 'user',
+        VERBOSE => ($opt_v >= 5? $opt_v-4:0),
+        FILTER_FILE => $LogFile,
+});
+
 
 if ($Config{DISABLEUNTIL} and not $opt_f and not $opt_w) {
 	if ($Config{DISABLEUNTIL} =~ m"^(\d\d\d\d)[/-](\d\d?)[/-](\d\d?)(?:\s+(\d\d?):(\d\d?)(?::(\d\d+))?)?") {
