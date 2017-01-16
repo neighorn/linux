@@ -148,7 +148,7 @@ foreach my $File (@Files) {
 	elsif ($File =~ /.gz$/)		{ $Unpack = 'zcat'; }
 	else				{ $Unpack = 'cat'; }
 	my $Status =
-		RunDangerousCmd("$Unpack $File | grep -v '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
+		RunDangerousCmd("$Unpack $File | grep -v --text '^... .. ..:..:.. .* scanlog: ' | sed 's/ *\$//'"); 
 		$ExitCode = $Status if ($Status > $ExitCode);
 }
 
