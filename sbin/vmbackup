@@ -399,7 +399,7 @@ sub ProcessBackup {
 				if ($Count % 2 == 0) {
 					# Send shutdown once per minute.
 					eval {$Machines{$MachineName}->shutdown();};
-					if ($@) {
+					if ($@ and ($@ =~ /^\s*1\s*$/) {
 						my $message = chomp($@);
 						warn "$MachineName shutdown generated $message\n";
 						RunDangerousCmd("virsh list --all | grep '$MachineName'");
