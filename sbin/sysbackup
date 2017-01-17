@@ -48,6 +48,7 @@ our %OptionSpecifications=(
 		'min-size|s=s'		=>	\&opt_Value,
 		'option-set|O=s'	=>	\&opt_O,
 		'output-dir|D=s'	=>	\&opt_Value,
+		'pmax=i'		=>	\&opt_Value,
 		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'test|t'		=>	sub {$Options{test} = (exists($Options{test})?$Options{test}+1:1)},
 		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
@@ -138,6 +139,16 @@ die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$P
 $Options{cycles}=5 unless (exists($Options{cycles}));
 die("Invalid number \"$Options{cycles}\" for --cycles.  See \"$Prog -h\" for usage.")
 	unless ($Options{cycles} =~ /^[1-9]\d*$/);
+if (exists($Options{pmax}) and defined($Options{pmax})) {
+       if ($Options{pmax} !~ /^[1-9]\d*/) {
+               warn qq<Invalid value "$Options{pmax}" for --pmax.  Resetting to default.\n>;
+               $Options{pmax}=50;
+       }
+}
+else {
+       $Options{pmax}=50;
+}
+
 
 # Add any additional file type exclusions.
 foreach (@{$Options{'exclude-fs'}}) {
@@ -223,6 +234,9 @@ sub LoadConfigFile {
 #
 sub RunRemote {
 
+	# Load some additional modules only needed on the parent.
+	require Parallel::ForkManager;
+
 	my @ARGV=@_;
 	my $Errors = 0;
 
@@ -251,35 +265,41 @@ sub RunRemote {
 	@ARGV = grep { $_ ne '' } @ARGV;
 	@ARGV = map {qq<"$_">} @ARGV;
 
+	my $PFM = Parallel::ForkManager->new($Options{pmax},'/tmp');
+
 	foreach my $Host (@HostList) {
-		my $Cmd =   "ssh $Host $Prog "
-			  . join(' ', @ARGV) . ' '
-			  . '-F SHOWALL '
-			  . '--always-mail= '
-			  . '--remote-host= '	# Avoid --remote-host recursion from AllJobs in .cfg.
-			  . '2\>\&1 '
-			  ;
-		my $FH;
-
-		# Don't even go to remote hosts if test level 2 (-tt).
-		if($Options{test} and $Options{test} >= 2) {
-			print "Test: $Cmd\n";
-			next;
-		}
-
-		print "Verbose: Running $Cmd\n" if ($Options{verbose} or $Options{test});
-		if (open($FH, "$Cmd |")) {
-			while (<$FH>) {
-				printf "%-*s %s", $MaxLength, "$Host:", $_;
+		my $pid = $PFM->start;	# Fork the child process.
+		if (!$pid) {
+			my $Cmd =   "ssh $Host $Prog "
+				  . join(' ', @ARGV) . ' '
+				  . '-F SHOWALL '
+				  . '--always-mail= '
+				  . '--remote-host= '	# Avoid --remote-host recursion from AllJobs in .cfg.
+				  . '2\>\&1 '
+				  ;
+			my $FH;
+	
+			# Don't even go to remote hosts if test level 2 (-tt).
+			if($Options{test} and $Options{test} >= 2) {
+				print "Test: $Cmd\n";
+				next;
 			}
-			close $FH;
-			my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
-			print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
-			$Errors++ if ($ExitCode);
-		}
-		else {
-			warn "Unable to open ssh session to $Host: $!\n";
-			$Errors++;
+	
+			print "Verbose: Running $Cmd\n" if ($Options{verbose} or $Options{test});
+			if (open($FH, "$Cmd |")) {
+				while (<$FH>) {
+					printf "%-*s %s", $MaxLength, "$Host:", $_;
+				}
+				close $FH;
+				my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
+				print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
+				$Errors++ if ($ExitCode);
+			}
+			else {
+				warn "Unable to open ssh session to $Host: $!\n";
+				$Errors++;
+			}
+			$PFM->finish(0,\$Errors);
 		}
 	}
 
@@ -791,6 +811,11 @@ exit 1;
 				This is primarily to allow a configuration
 				file list to be included, but some of the
 				hosts in the list to subsequently be excluded.
+        --pmax=n:               Max parallel jobs: When used in conjunction
+                                with --remote-host/-R, this will limit the
+                                number of remote hosts running jobs at the
+                                same time to n.  Default is 50.  Set to 1
+                                to run the jobs serially.
 	--precmd=cmd		PreCmd: Run this command before starting the
 				backup.  May be repeated to execute multiple
 				commands.  Prefix with ! if job should be
