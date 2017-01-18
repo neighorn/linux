@@ -367,6 +367,7 @@ sub RunLocally {
 	my $Try = 0;
 	my $MaxSend = 0;
 	my $MaxRecv = 0;
+	my $LastLine='';
 	while ($Try++ <= $Options{retries}) {
 		my($SendRate,$RecvRate);
 		print "Verbose: Beginning attempt #$Try\n" if ($Options{verbose});
@@ -374,6 +375,8 @@ sub RunLocally {
 		while (<$IPERF>) {
 			chomp;
 			print "Verbose: Read: $_\n" if ($Options{verbose} > 2);	# Verbose 3+ - list all lines read.
+			next unless (/\S/);	# Skip blank lines, if any.
+			$LastLine = $_;
 			next unless (/^\s*\[SUM\]\s+\S+\s+sec\s+\S+\s+\S+\s+(\d+)\s+Mbits\/sec\s.*(sender|receiver)/);
 			print "Verbose: Found: $_\n" if ($Options{verbose} == 2);	# Verbose 2 - list lines processed.
 			if ($2 eq 'sender') {
@@ -391,7 +394,7 @@ sub RunLocally {
 		sleep(30) if ($Try <= $Options{retries});
 	}
 	if ($MaxSend == 0 or $MaxRecv == 0) {
-		warn "Unable to gather bandwidth measurements after $Options{retries} attempts.\n";
+		warn "Unable to gather bandwidth measurements after $Options{retries} attempts. Last line read:\n\t$LastLine\n";
 		return(8);
 	}
 	print "Measured Send Rate=$MaxSend mb/sec, Receive Rate=$MaxRecv mb/sec\n";
