@@ -11,13 +11,16 @@ then
 	rm $LXC_ROOTFS_PATH/var/log/lastlog
 fi
 
-if [[ -f "$LXC_ROOTFS_PATH/var/lib/samba/private/secrets.tdb" ]]
-then
-	# Delete old samba data, so we establish our own identity.
-	uppername=`echo $LXC_SRC_NAME | tr '[a-z]' '[A-Z]'`
-	tdbtool $LXC_ROOTFS_PATH/var/lib/samba/private/secrets.tdb <<ENDTDB
-	delete SECRETS/SID/$uppername
-	quit
-ENDTDB
-fi
+for name in /var/lib/samba/private/secrets.tdb /usr/local/samba/private/secrets.tdb
+do
+	if [[ -f "${LXC_ROOTFS_PATH}$name" ]]
+	then
+		# Delete old samba data, so we establish our own identity.
+		uppername=`echo $LXC_SRC_NAME | tr '[a-z]' '[A-Z]'`
+		tdbtool ${LXC_ROOTFS_PATH}$name <<ENDTDB
+		delete SECRETS/SID/$uppername
+		quit
+	ENDTDB
+	fi
+done
 
