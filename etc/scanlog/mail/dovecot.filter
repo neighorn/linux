@@ -11,3 +11,4 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Error:
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Login: user=<\S+>, method=\S+, rip=\S+, lip=\S+, mpid=\S+"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*lda\(\S+\): msgid=<\S+>: saved"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*lda\(\S+\): sieve: msgid=<\S+>: "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*lda\(\S+\): master: Dovecot v\S+ \(\S+\) starting up for "
