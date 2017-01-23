@@ -247,8 +247,8 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mpt2sas_
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mpt2sas_cm\d+: #011sas_address\(0x[[:xdigit:]]+\), phy\(\d+\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mpt2sas_cm\d+: #011scsi_status\(check condition\)\(0x[[:xdigit:]]+\), scsi_state\(autosense valid \)\(0x[[:xdigit:]]+\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mpt2sas_cm\d+: #011tag\(\d+\), transfer_count\(\d+\), sc->result\(0x[[:xdigit:]]+\)$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mpt2sas_cm\d+: removing : enclosure logical id\(0x[[:xdigit:]]+\), slot\(\d+\)
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mpt2sas_cm\d+: removing handle\(0x[[:xdigit:]]+\), sas_addr\(0x[[:xdigit:]]+\)
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mpt2sas_cm\d+: removing : enclosure logical id\(0x[[:xdigit:]]+\), slot\(\d+\)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mpt2sas_cm\d+: removing handle\(0x[[:xdigit:]]+\), sas_addr\(0x[[:xdigit:]]+\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?mtrr: 0x.*0x.* overlaps existing 0x.*,0x"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?NET: Registered protocol family \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?Netfilter messages via NETLINK v\S+$"
