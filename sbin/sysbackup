@@ -10,6 +10,7 @@ use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
+use File::Temp qw(tempdir);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -265,7 +266,9 @@ sub RunRemote {
 	@ARGV = grep { $_ ne '' } @ARGV;
 	@ARGV = map {qq<"$_">} @ARGV;
 
-	my $PFM = Parallel::ForkManager->new($Options{pmax},'/tmp');
+	my $TempDir = tempdir( "${Prog}-XXXXXX", TMPDIR => 1, CLEANUP => 1); 
+	mkdir $TempDir,0x700 || warn "Unable to create temp director $TempDir: $!\n";
+	my $PFM = Parallel::ForkManager->new($Options{pmax},$TempDir);
 
 	foreach my $Host (@HostList) {
 		my $pid = $PFM->start;	# Fork the child process.
