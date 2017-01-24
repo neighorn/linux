@@ -266,9 +266,7 @@ sub RunRemote {
 	@ARGV = grep { $_ ne '' } @ARGV;
 	@ARGV = map {qq<"$_">} @ARGV;
 
-	my $TempDir = tempdir( "${Prog}-XXXXXX", TMPDIR => 1, CLEANUP => 1); 
-	mkdir $TempDir,0x700 || warn "Unable to create temp director $TempDir: $!\n";
-	my $PFM = Parallel::ForkManager->new($Options{pmax},$TempDir);
+	my $PFM = Parallel::ForkManager->new($Options{pmax});
 
 	foreach my $Host (@HostList) {
 		my $pid = $PFM->start;	# Fork the child process.
@@ -296,13 +294,13 @@ sub RunRemote {
 				close $FH;
 				my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
 				print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
-				$Errors++ if ($ExitCode);
+				$Errors++ if ($ExitCode or $Signal);
 			}
 			else {
 				warn "Unable to open ssh session to $Host: $!\n";
 				$Errors++;
 			}
-			$PFM->finish(0,\$Errors);
+			$PFM->finish($Errors);
 		}
 	}
 

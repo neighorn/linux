@@ -1,4 +1,4 @@
-# Copyright (c) 2005-2015, Martin Consulting Services, Inc.
+# Copyright (c) 2005-2017, Martin Consulting Services, Inc.
 # Licensed under the Lesser Gnu Public License (LGPL).
 # 
 # ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
@@ -22,7 +22,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.28;
+our $Version	= 3.30;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -32,6 +32,10 @@ our($READLOGFILE_FH);		# File handle.
 our($WRITEMAILFILE_FH) = undef;	# File handle.
 our($Verbose);			# Do we print diagnostics?
 our($Subject);			# Do they want to alter the subject line?
+our %FilterFiles;		# List of filter files we've loaded, so we don't duplicate.
+our @Filters;			# Array of collected filter patterns.
+our @FiltersMetaData;		# Array of hashes.  Each has metadata for one filter.
+our $CompiledRegex;		# The assembled, compiled regex we actually use.
 
 # Package variables.  Private to this file, but used in multiple routines.
 my %Options;			# We'll store all our command line parameters and such here.
@@ -40,9 +44,6 @@ my $ErrorsDetected = 0;		# Flags whether errors were detected.
 my $HostName;			# Our host name.
 				# productive work while we monitor it.
 #	Tests used to determine how to process messages.  Initially reject all.
-my($NormalTest) = sub{0;};		# Will reference an anonymous subroutine.
-my($IgnoreTest) = sub{0;};		# Will reference an anonymous subroutine.
-my($MailOnlyTest) = sub{0;};		# Will reference an anonymous subroutine.
 
 sub LogOutput {
 
@@ -107,9 +108,22 @@ sub LogOutput {
 	# Prepare our mail file.
 	$DeleteMailFile = _PrepareMailFile();
 
-	# Load in our filters.  Input file comes from %Options.  Output
-	# goes into $NormalTest, $IgnoreTest, $MailOnlyTest.
+	# Load in our filters.
+	#	First from filter files.
 	_LoadFilters();
+	#	Last, add some of our own.  These go last, so they can be pre-empted by the caller.
+        AddFilter('LOGONLY "^\s*\S+ started on \S+ on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d$"');
+        AddFilter('LOGONLY "^\S+ ended normally with status \d and signal \d+"');
+        AddFilter('LOGONLY "^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d - run time:"');
+	print "LogOutput: " . (0+@Filters) . " filters loaded.\n" if $Options{Verbose};
+
+	# Assemble and compile the final filter.
+        my $FinalRegex=join('||',map {"m$Filters[$_]o\n\t"} 0..$#Filters);
+        print "LogOutput: Final Pattern=\n\t$FinalRegex\n\n" if $Options{VERBOSE};
+        $CompiledRegex=eval "sub {\$_ = shift; return ($FinalRegex?\$^R:undef);}";
+        if ($@) {
+                die(qq<LogOutput: Invalid pattern in\n\n"$FinalRegex"\n\nmessage filters: $@\n>);
+	}
 
 	# Now that we made it this far, we're safe to spin off the child process
 
@@ -155,6 +169,12 @@ sub LogOutput {
 		$|=1;			# STDERR in this case?
 		select STDOUT;
 
+		# Release a bunch of big stuff the parent needed, but we don't.
+		undef %FilterFiles;
+		undef @Filters;
+		undef @FiltersMetaData;
+		undef $CompiledRegex;
+
 		# Begin our log.
 		$TimeStamp=strftime("%A, %Y-%m-%d at %H:%M:%S",localtime($^T));
 		my @ArgList = @main::ARGV;
@@ -183,108 +203,119 @@ sub LogOutput {
 		print "LogOutput: Errors detected so far: $ErrorsDetected\n" if $Options{VERBOSE} > 6;
 	}
 
-# The output is done.
-if ($ErrorsDetected >= 1) {
-	$ErrorsDetected += _FilterMessage(
-		$ErrorsDetected 
-		. ' unexpected message'
-		. ($ErrorsDetected==1?'':'s')		# Manage plurals.
-		. ' ("->") detected in '
-		. $Options{PROGRAM_NAME} 
-		. ' execution.'
-	);
-}
+	# The output is done.  Check our min/max counts.
+	foreach my $MetaRef (@FiltersMetaData) {
+		if (defined($MetaRef->{mincount}) and ($MetaRef->{mincount} > $MetaRef->{count})) {
+			&_FilterMessage("LogOutput: Message count failed.  Needed at least $MetaRef->{mincount} but received $MetaRef->{count} for $MetaRef->{filename} line $MetaRef->{linenum}.\n");
+			$ErrorsDetected++;
+		}
+		if (defined($MetaRef->{maxcount}) and ($MetaRef->{maxcount} < $MetaRef->{count})) {
+			&_FilterMessage("LogOutput: Message count failed.  Needed no more than $MetaRef->{maxcount} but received $MetaRef->{count} for $MetaRef->{filename} line $MetaRef->{linenum}.\n");
+			$ErrorsDetected++;
+		}
+	}
 
-# Check the status of the child.
-close LOGREADHANDLE; #Ignore return from close.  Always says child went away.
-waitpid($PID,0) if ($^O eq 'MSWin32');
-$Status=$?;
-$ExitCode=$Status>>8;
-$SignalCode=$Status & 0x7F;  # This is correct.  0x80 indicates core dump or not.
-print "LogOutput: Child ended with Status=$Status (Exit Code = $ExitCode, Signal=$SignalCode)\n"
-	if ($Options{VERBOSE});
-
-$StopTime=time();
-$TimeStamp=strftime("%A, %Y-%m-%d at %H:%M:%S",localtime($StopTime));
-$RunTime=$StopTime-$^T;
-my($RunSec,$RunMin,$RunHour,$RunDay);
-$RunSec = $RunTime % 60;		# localtime($RunTime) gave weird results
-$RunTime=($RunTime - $RunSec)/60;
-$RunMin = $RunTime % 60;
-$RunTime=($RunTime - $RunMin)/60;
-$RunHour = $RunTime % 24;
-$RunDay=($RunTime - $RunHour)/24;
-$RunTime = "$RunSec second" . ($RunSec == 1?'':'s');
-$RunTime = "$RunMin minute" . ($RunMin == 1?'':'s') . ", $RunTime"
-	if ($RunDay+$RunHour+$RunMin);
-$RunTime = "$RunHour hour" . ($RunHour == 1?'':'s') . ", $RunTime"
-	if ($RunDay+$RunHour);
-$RunTime = "$RunDay day" . ($RunDay == 1?'':'s') . ", $RunTime"
-	if ($RunDay);
-$RawRunTime="$RunDay:$RunHour:$RunMin:$RunSec";
-$Options{MAIL_FILE_PREFIX}='';		# Don't prefix wrap-up messages.
-$ErrorsDetected += _FilterMessage("   $Options{PROGRAM_NAME} ended on $TimeStamp - run time: $RunTime");
-
-# Force an error if the job exited with a bad status code or signal.
-$ErrorsDetected++ if ($SignalCode != 0);
-if ($ErrorsDetected == 0) {
-	# No errors so far.  Check their return code against our list of valid return codes.
-	my $Found = 0;
-	foreach (@{$Options{NORMAL_RETURN_CODES}}) {
-		if ($ExitCode == $_) {
-			$Found++;
-			last;
-		};
-	};
-	$ErrorsDetected++ unless ($Found);	# Not a valid return code.
-}
-
-if ($ErrorsDetected > 0) {
-	# Force a non-zero exit if there was an error the child didn't detect.
-	$ExitCode = 5 if ($ExitCode == 0);
-	$ErrorsDetected += _FilterMessage("$Options{PROGRAM_NAME} failed with status $ExitCode and signal $SignalCode");
-	close($WRITEMAILFILE_FH) if ($Options{MAIL_FILE});
-} else {
-	$ErrorsDetected += _FilterMessage(
-		"$Options{PROGRAM_NAME} ended normally with status $ExitCode and signal $SignalCode");
-	close($WRITEMAILFILE_FH) if ($Options{MAIL_FILE});
-}
-
-# Tweak up the subject line, now that we know how we ended.
-$Options{MAIL_SUBJECT} = '' unless $Options{MAIL_SUBJECT};
-$Options{MAIL_SUBJECT} = _MakeSubstitutions($Options{MAIL_SUBJECT}, $StartTime);
-$Options{MAIL_SUBJECT} =~ s/^\s*//;		# Strip leading blanks.
-$Options{MAIL_SUBJECT} =~ s/\s*$//;		# Strip trailing blanks.
-$Options{MAIL_SUBJECT} =~ s/\s\s/ /g;	# Strip embedded multiple blanks.
+	if ($ErrorsDetected >= 1) {
+		$ErrorsDetected += _FilterMessage(
+			$ErrorsDetected 
+			. ' unexpected message'
+			. ($ErrorsDetected==1?'':'s')		# Manage plurals.
+			. ' ("->") detected in '
+			. $Options{PROGRAM_NAME} 
+			. ' execution.'
+		);
+	}
 	
-# Send mail if requested.
-if ($ErrorsDetected) {
-	_SetupMail($Options{ERROR_MAIL_LIST}, $Options{MAIL_SUBJECT}, $Options{MAIL_FILE}, $Options{MAIL_FROM});
-	_SetupMail($Options{ERROR_PAGE_LIST}, $Options{MAIL_SUBJECT}, '', $Options{MAIL_FROM}) ;
-} else {
-	_SetupMail($Options{ALWAYS_MAIL_LIST}, $Options{MAIL_SUBJECT}, $Options{MAIL_FILE}, $Options{MAIL_FROM});
-	_SetupMail($Options{ALWAYS_PAGE_LIST}, $Options{MAIL_SUBJECT}, '', $Options{MAIL_FROM});
-}
-
-my $CleanupSub = $Options{CLEAN_UP};
-if (defined($CleanupSub)) {
-	# They specified a cleanup subroutine.
-	if (defined(&$CleanupSub)) {
-		# ... and it exists.
-		&$CleanupSub($ExitCode,$Options{MAIL_FILE},$ErrorsDetected)
+	# Check the status of the child.
+	close LOGREADHANDLE; #Ignore return from close.  Always says child went away.
+	waitpid($PID,0) if ($^O eq 'MSWin32');
+	$Status=$?;
+	$ExitCode=$Status>>8;
+	$SignalCode=$Status & 0x7F;  # This is correct.  0x80 indicates core dump or not.
+	print "LogOutput: Child ended with Status=$Status (Exit Code = $ExitCode, Signal=$SignalCode)\n"
+		if ($Options{VERBOSE});
+	
+	$StopTime=time();
+	$TimeStamp=strftime("%A, %Y-%m-%d at %H:%M:%S",localtime($StopTime));
+	$RunTime=$StopTime-$^T;
+	my($RunSec,$RunMin,$RunHour,$RunDay);
+	$RunSec = $RunTime % 60;		# localtime($RunTime) gave weird results
+	$RunTime=($RunTime - $RunSec)/60;
+	$RunMin = $RunTime % 60;
+	$RunTime=($RunTime - $RunMin)/60;
+	$RunHour = $RunTime % 24;
+	$RunDay=($RunTime - $RunHour)/24;
+	$RunTime = "$RunSec second" . ($RunSec == 1?'':'s');
+	$RunTime = "$RunMin minute" . ($RunMin == 1?'':'s') . ", $RunTime"
+		if ($RunDay+$RunHour+$RunMin);
+	$RunTime = "$RunHour hour" . ($RunHour == 1?'':'s') . ", $RunTime"
+		if ($RunDay+$RunHour);
+	$RunTime = "$RunDay day" . ($RunDay == 1?'':'s') . ", $RunTime"
+		if ($RunDay);
+	$RawRunTime="$RunDay:$RunHour:$RunMin:$RunSec";
+	$Options{MAIL_FILE_PREFIX}='';		# Don't prefix wrap-up messages.
+	$ErrorsDetected += _FilterMessage("   $Options{PROGRAM_NAME} ended on $TimeStamp - run time: $RunTime");
+	
+	# Force an error if the job exited with a bad status code or signal.
+	$ErrorsDetected++ if ($SignalCode != 0);
+	if ($ErrorsDetected == 0) {
+		# No errors so far.  Check their return code against our list of valid return codes.
+		my $Found = 0;
+		foreach (@{$Options{NORMAL_RETURN_CODES}}) {
+			if ($ExitCode == $_) {
+				$Found++;
+				last;
+			};
+		};
+		$ErrorsDetected++ unless ($Found);	# Not a valid return code.
 	}
-	else {
-		# ... and it doesn't exist.
-		warn "LogOutput: Subroutine $CleanupSub does not exist.";
+	
+	if ($ErrorsDetected > 0) {
+		# Force a non-zero exit if there was an error the child didn't detect.
+		$ExitCode = 5 if ($ExitCode == 0);
+		$ErrorsDetected += _FilterMessage("$Options{PROGRAM_NAME} failed with status $ExitCode and signal $SignalCode");
+		close($WRITEMAILFILE_FH) if ($Options{MAIL_FILE});
+	} else {
+		$ErrorsDetected += _FilterMessage(
+			"$Options{PROGRAM_NAME} ended normally with status $ExitCode and signal $SignalCode");
+		close($WRITEMAILFILE_FH) if ($Options{MAIL_FILE});
 	}
-}
-
-unlink($Options{MAIL_FILE})
-	if ($Options{MAIL_FILE} && -e $Options{MAIL_FILE} && $DeleteMailFile);
-
-exit $ExitCode;
-
-*main::DATA{IO};	# Dummy ref. to main::DATA to resolve false -w alert.
+	
+	# Tweak up the subject line, now that we know how we ended.
+	$Options{MAIL_SUBJECT} = '' unless $Options{MAIL_SUBJECT};
+	$Options{MAIL_SUBJECT} = _MakeSubstitutions($Options{MAIL_SUBJECT}, $StartTime);
+	$Options{MAIL_SUBJECT} =~ s/^\s*//;		# Strip leading blanks.
+	$Options{MAIL_SUBJECT} =~ s/\s*$//;		# Strip trailing blanks.
+	$Options{MAIL_SUBJECT} =~ s/\s\s/ /g;	# Strip embedded multiple blanks.
+		
+	# Send mail if requested.
+	if ($ErrorsDetected) {
+		_SetupMail($Options{ERROR_MAIL_LIST}, $Options{MAIL_SUBJECT}, $Options{MAIL_FILE}, $Options{MAIL_FROM});
+		_SetupMail($Options{ERROR_PAGE_LIST}, $Options{MAIL_SUBJECT}, '', $Options{MAIL_FROM}) ;
+	} else {
+		_SetupMail($Options{ALWAYS_MAIL_LIST}, $Options{MAIL_SUBJECT}, $Options{MAIL_FILE}, $Options{MAIL_FROM});
+		_SetupMail($Options{ALWAYS_PAGE_LIST}, $Options{MAIL_SUBJECT}, '', $Options{MAIL_FROM});
+	}
+	
+	my $CleanupSub = $Options{CLEAN_UP};
+	if (defined($CleanupSub)) {
+		# They specified a cleanup subroutine.
+		if (defined(&$CleanupSub)) {
+			# ... and it exists.
+			&$CleanupSub($ExitCode,$Options{MAIL_FILE},$ErrorsDetected)
+		}
+		else {
+			# ... and it doesn't exist.
+			warn "LogOutput: Subroutine $CleanupSub does not exist.";
+		}
+	}
+	
+	unlink($Options{MAIL_FILE})
+		if ($Options{MAIL_FILE} && -e $Options{MAIL_FILE} && $DeleteMailFile);
+	
+	exit $ExitCode;
+	
+	*main::DATA{IO};	# Dummy ref. to main::DATA to resolve false -w alert.
 }
 
 
@@ -538,11 +569,6 @@ sub _LoadFilters {
 	my $FilterHandle;		# Handle, in case they don't use DATA.
 	my $Type;			# Type of pattern from FilterHandle file
 	my $Pattern;			# Pattern from FilterHandle file.
-	my $PatternNum;			# Pattern record number.
-	my @IgnorePatterns;		# Collected patterns from FilterHandle.
-	my @NormalPatterns;		# Collected patterns from FilterHandle.
-	my @MailOnlyPatterns;		# Collected patterns from FilterHandle.
-	my %FilterFilesRead;		# Don't read a file twice.
 
 	# Get a list of our filter file(s).
 	my @FilterList;
@@ -569,46 +595,36 @@ sub _LoadFilters {
 
 	# Process each filter file.
 	foreach my $FilterFile (@FilterList) {
-		# See if we've already read this file, to prevent loops and unnecessary processing.
+		# See if it's a reserved file name.  Otherwise, process it as a file.
 		if ($FilterFile eq 'SHOWALL') {
-			@NormalPatterns = ('/.*/');
-			@IgnorePatterns = ();
+			# Reserved word - show all messages.  Used sometimes when scripts call other scripts.
+			undef @Filters;
+			undef @FiltersMetaData;
+			AddFilter('SHOW //');
 			print "LogOutput: FilterList includes SHOWALL -- any other filters discarded\n" if ($Options{VERBOSE});
 			last;
 		}
 		elsif ($FilterFile eq 'IGNOREALL') {
-			@NormalPatterns = ();
-			@IgnorePatterns = ('/.*/');
+			# Reserved word - ignore all messages.  Could be used when scripts call other scripts.
+			undef @Filters;
+			undef @FiltersMetaData;
+			AddFilter('IGNORE //');
 			print "LogOutput: FilterList includes IGNOREALL -- any other filters discarded\n" if ($Options{VERBOSE});
 			last;
 		}
 		elsif ($FilterFile eq 'REJECTALL') {
-			@NormalPatterns = ();
-			@IgnorePatterns = ();
+			# Reserved word - reject all messages.  Not sure why this would be useful.  Testing, perhaps.
+			undef @Filters;
+			undef @FiltersMetaData;
+			AddFilter('IGNORE /a^/');	# Impossible pattern - can't have data before start of line.
 			print "LogOutput: FilterList includes REJECTALL -- all filters discarded\n" if ($Options{VERBOSE});
 			last;
 		}
 		else {
-			_LoadFilterFile($FilterFile,\%FilterFilesRead,\@IgnorePatterns,\@NormalPatterns,\@MailOnlyPatterns);
+			# It's an ordinary file.  Go load it.
+			_LoadFilterFile($FilterFile);
 		}
 	}
-	
-
-	# Add our standard messages on the end of the normal list, so they don't
-	# get flagged as errors.  Note that ignore patterns take precedence, so
-	# the caller can still choose to ignore them.
-	push @MailOnlyPatterns, '"^\s*\S+ started on \S+ on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d$"';
-	push @MailOnlyPatterns, '"^\S+ ended normally with status \d and signal \d+"';
-	push @MailOnlyPatterns, '"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d - run time:"';
-
-	# Now turn them in to patterns within three anonymous subroutines.  This
-	# means the patterns only get compiled once, making our pattern
-	# matches run much faster.
-
-	$IgnoreTest = _CompilePatterns("Ignore",@IgnorePatterns);
-	$NormalTest = _CompilePatterns("Show",@NormalPatterns);
-	$MailOnlyTest = _CompilePatterns("MailOnly",@MailOnlyPatterns);
-
 }
 
 
@@ -618,19 +634,17 @@ sub _LoadFilters {
 #
 sub _LoadFilterFile {
 	my $FilterHandle;		# Handle, in case they don't use DATA.
-	my $Type;			# Type of pattern from FilterHandle file
-	my $Pattern;			# Pattern from FilterHandle file.
-	my $PatternNum;			# Pattern record number.
+	my $LineNum;			# Pattern record number.
 
-	my($FilterFile,$FilesReadRef,$IgnoreRef,$NormalRef,$MailOnlyRef) = @_;
-	if (exists($FilesReadRef->{$FilterFile})) {
+	my $FilterFile = shift;
+	if (exists($FilterFiles{$FilterFile})) {
 		# We already read this one.  Skip it.
 		print "LogOutput: Skipping filters from $FilterFile -- already read\n" if $Options{VERBOSE};
 		return;
 	}
 	else {
 		print "LogOutput: Loading filters from $FilterFile\n" if $Options{VERBOSE};
-		$FilesReadRef->{$FilterFile}=1;
+		$FilterFiles{$FilterFile}=1;
 	}
 
 	if ($FilterFile eq '__DATA__') {
@@ -643,48 +657,119 @@ sub _LoadFilterFile {
 		return;
 	}
 
-	# Build arrays of our scoring patterns.
-	$PatternNum=0;
+	# Read and process the file.
+	$LineNum=0;
 	while (<$FilterHandle>) {
-		$PatternNum++;
+		$LineNum++;
 		chomp;
-		print "LogOutput: \tread $PatternNum: $_\n"
+		print "LogOutput: \tRead $LineNum: $_\n"
 			if ($Options{VERBOSE} >= 2);
 		next if (/^\s*$/ or /^\s*#/);	# Skip comments and blank lines.
-
-		# Split out the type from the pattern.
-		($Type,$Pattern)=split('\s+',$_,2);
-		$Pattern=~s/\s+$//;		# Strip trailing whitespace.
-		if ($Type =~ /^include$/i) {
-			_LoadFilterFile($Pattern,$FilesReadRef,$IgnoreRef,$NormalRef,$MailOnlyRef);
-			print "LogOutput: Resuming $FilterFile\n" if $Options{VERBOSE};
-			next;
-		}
-
-		# Check for syntax errors.
-		eval "qr$Pattern;";		# Check pattern for syntax problems.
-		if ($@) {
-			print qq<LogOutput: \tSyntax error in $FilterFile line $PatternNum ("> 
-				. substr($Pattern,0,50)
-				. qq<"): $@\n>;
-			next;
-		}
-
-		# Add to the appropriate pattern list.
-		if ($Type =~ /ignore/i) {
-			# Add it to this array.
-			push @$IgnoreRef, $Pattern;
-		} elsif ($Type =~ /show/i) {
-			# Add it to this array.
-			push @$NormalRef, $Pattern;
-		} elsif ($Type =~ /mailonly|logonly/i) {
-			# Add it to this array.
-			push @$MailOnlyRef, $Pattern;
-		} else {
-			$ErrorsDetected += _FilterMessage(qq<LogOutput: Invalid type "$Type" in pattern record $PatternNum -- ignored.\n>);
-		}
+                AddFilter($_,$FilterFile,$LineNum);
 	}
 	close ($FilterHandle);
+}
+
+
+#
+# AddFilter - add one filter to our stack.
+#
+sub AddFilter {
+	my($FilterLine,$FilterFile,$LineNum) = @_;
+
+	# Try to document who called us if they didn't pass file and/or line number.
+	my(undef,$callfile,$callline) = caller;
+	$FilterFile = ($callfile?$callfile:'?') unless $FilterFile;	
+	$LineNum = ($callline?$callline:'?') unless $LineNum;
+
+	# Split out the settings from the pattern.
+	my($SettingsList,$Pattern)=split(/\s+/,$FilterLine,2);
+	$Pattern=~s/\s+$//;		# Strip trailing whitespace.
+	if ($SettingsList =~ /^include$/i) {
+		_LoadFilterFile($Pattern);
+		print "LogOutput: Resuming $FilterFile\n" if $Options{VERBOSE};
+		next;
+	}
+
+	# Compile pattern and check for syntax errors.
+	eval "qr$Pattern;";		# Check pattern for syntax problems.
+	if ($@) {
+		print qq<LogOutput: \tSyntax error in $FilterFile line $LineNum ("> 
+			. substr($Pattern,0,50)
+			. qq<"): $@\n>;
+		return 1;
+	}
+	my %Hash = (
+		filename => $FilterFile,	# Save the file name.
+		linenum => $LineNum,	# Save the line number.
+		count => 0,		# Initialize the "seen" count to zero.
+		regex => $Pattern,	# Store the compiled regex.
+	);
+
+	# Add to the appropriate pattern list.
+	my $Errors = 0;
+	foreach my $Setting (split(/,/,$SettingsList)) {		# Split the settings list into settings.
+		my($Name,$Value)= split(/=/,$Setting,2);		# Might be name=value format.
+		$Name = uc($Name);					# Ignore case.
+		if ( ($Setting =~ /^ignore$/i) or ( ($Name eq 'OUTPUT') and ($Value eq 'IGNORE') ) ) {
+			# Ignore this message.
+			$Hash{output}=();
+		}
+		elsif ( ($Setting =~ /^show$/i) or ( ($Name eq 'OUTPUT') and ($Value eq 'SHOW') ) ) {
+			# Show this message.
+			$Hash{output}=['STDOUT'];
+		}
+		elsif ( ($Setting =~ /^(MAILONLY|LOGONLY)$/i) or ( ($Name eq 'OUTPUT') and ($Value eq 'LOGFILE') ) ) {
+			# Log this message.
+			$Hash{output}=['LOGFILE'];
+		}
+		elsif ( ($Name eq 'COUNT') and ($Value =~ /^(\d+)$/)) {
+			# Count=x: must be x messages, typically 1 to say this message must appear.
+			$Hash{mincount} = $Hash{maxcount} = $1;
+			my($min,$max) = ($1, $2);
+		}
+		elsif ( ($Name eq 'COUNT') and ($Value =~ /^(\d*)(?:-|\.\.)(\d*)$/)) {
+			# Count=x-y, Count=x-, Count=-x, or the same with .. instead of -.
+			my($min,$max) = ($1, $2);
+			undef $min unless ($min =~ /^\d+$/);
+			undef $max unless ($max =~ /^\d+$/);
+			if (defined($min) and defined($max) and ($min > $max)) {
+				print qq<LogOutput: \tCount minimum($min) is greater than maximum($max) in $FilterFile line $LineNum -- ignored\n>;
+				$Errors++;
+			}
+			elsif (!defined($min) and !defined($max)) {
+				print qq<LogOutput: \tCount minimum and maximum are both unspecified in $FilterFile line $LineNum -- ignored\n>;
+				$Errors++;
+			}
+			else {
+				$Hash{mincount} = $min if (defined($min));
+				$Hash{maxcount} = $max if (defined($max));
+			}
+		}
+		
+		else {
+			$ErrorsDetected += _FilterMessage(qq<LogOutput: Invalid type "$Setting" in pattern record $LineNum -- ignored.\n>);
+		}
+	}
+	push @FiltersMetaData, { %Hash };		# Store this filter's meta-data.
+
+	# Now we need to add tracking to the filter, so when it matches we can look up the metadata.
+	# To do this, we add (?{xxx}) to the end of each pattern, where xxx is the index number of
+	# the metadata in @FiltersMetaData.  On a match, $^R will be set to xxx.  Unreliable before
+	# perl 5.10, however we're currently at 5.22 so probably safe.
+	#
+	# Alternation creates a problem, in that turning "x|y" into "x|y(?{xxx})" will only return xxx
+	# on y, not x.  To fix this, we check for alternation.  If it's present we wrap it in a non-bind
+	# grouping operator, so that xxx is returned if either match.  Technically, we do this even 
+	# when the alternation operator is escaped, which isn't necessary, but since the grouping operator
+	# is harmless, it doesn't hurt anything.  We could do it on every pattern, but that's just a 
+	# waste of Regex CPU cycles.
+	my($Delim,$Regex,$Flags) = ($Pattern =~ /\s*(.)(.*)\1([^\s]*)\s*$/);
+	#$Regex=~s/\$$/\\Z/;				# Keep $ at end from being interpreted when we add (.
+	$Regex="(?:$Regex)" if ($Regex =~ /\|/);	# Fix alternations
+	push @Filters,"${Delim}$Regex(?{$#FiltersMetaData})${Delim}$Flags";
+	
+	return $Errors;
 }
 
 
@@ -698,32 +783,6 @@ sub _StripDuplicates {
 	return grep { !$Seen{$_} ++} @_;
 }
 
-
-
-#
-# _CompilePatterns - compile a series of patterns into a anon. subroutine.
-# 
-sub _CompilePatterns {
-
-	my $PatternName = shift;
-	if (@_ == 0) {
-		# Empty pattern list.  Will never match.
-		print "LogOutput: $PatternName pattern is empty\n\n" if $Options{VERBOSE};
-		return eval "sub { return 0 };";
-	}
-	my @Patterns = (@_);
-
-	# Join the individual tests into a single massive pattern.
-	my $Pattern=join('||',map {"m$Patterns[$_]o\n\t"} 0..$#Patterns);
-	print "LogOutput: $PatternName Patterns=\n\t$Pattern\n\n" if $Options{VERBOSE};
-	my $CompiledTest=eval "sub {$Pattern}";
-	if ($@) {
-		die("Invalid pattern in \"$PatternName\" message filters: $@\n");
-	}
-	else {
-		return $CompiledTest;
-	}
-}
 
 #
 # _MakeSubstitutions - substitute values for % variables in text
@@ -799,51 +858,46 @@ sub _MakeSubstitutions {
 #
 sub _FilterMessage {
 
-	$_ = shift;
+	my $Message = shift;
 
 	my $Prefix;		# Message prefix (spaces or '-> ').
 	my $StdOut;		# Goes to stdout?
 	my $ErrorsDetected = 0;	# Did we flag a bad message?
-	
+
 	# Log everything through Syslog if requested.
-	if ($Options{SYSLOG_FACILITY} && !/^\s*$/) {
-		if (!(syslog("INFO", "%s", $_))) {
-			$Options{SYSLOG_FACILITY}=0;
+	if ($Options{SYSLOG_FACILITY} && ( $Message !~ /^\s*$/) ) {
+		if (!(syslog("INFO", "%s", $Message))) {
 			$ErrorsDetected += _FilterMessage("LogOutput: Unable to write to syslog: $!");
 			print "LogOutput: Unable to write to syslog\n" if ($Options{VERBOSE});
+			$Options{SYSLOG_FACILITY}=0;		# Don't try again.
 
 		}
 	}
 
-	# Classify this message as ignorable, normal, mailonly, or error.
-	if (&$IgnoreTest) {
-		# Ignore it.
-		print "LogOutput: Ignoring: $_\n" if ($Options{VERBOSE});
-		return $ErrorsDetected;
-	}
-	elsif (&$NormalTest) {
-		# This is normal.
-		print "LogOutput: Normal message: $_\n" if ($Options{VERBOSE});
-		$Prefix='   ';
-		$StdOut=1;
-	}
-	elsif (&$MailOnlyTest) {
-		# This is normal, no stdout.
-		print "LogOutput: MailOnly message: $_\n" if ($Options{VERBOSE});
-		$Prefix='   ';
-		$StdOut=0;
-	}
-	else {
-		# This is not normal.
-		print "LogOutput: Error message: $_\n" if ($Options{VERBOSE});
-		$Prefix='-> ';
-		$ErrorsDetected=1;
-		$StdOut=1;
+	if (defined(my $Index=$CompiledRegex->($Message))) {
+		my $MetaData = $FiltersMetaData[$Index];
+		$MetaData->{count}++;				# Increment the count.
+		print "LogOutput: Message match:"
+			. " File=" . $MetaData->{filename}
+			. ", Line=" . $MetaData->{linenum}
+			. ", Count=" . $MetaData->{count}
+			. ", Text=$Message\n"
+				if ($Options{VERBOSE} >= 1);
+		# Process the output instructions.
+		foreach my $Output (@{$MetaData->{output}}) {
+			if ($Output eq 'STDOUT') {
+				WriteMessage($Options{MAIL_FILE},1,"   $Message");
+			}
+			elsif ($Output eq 'LOGFILE') {
+				WriteMessage($Options{MAIL_FILE},0,"   $Message");
+			}
+		}
+		return 0;	# We're done with this message.
 	}
 
-	# Now write it out.  We still use and maintain WriteMessage for
-	# compatibility with earlier programs, since it was exported.
-	WriteMessage($Options{MAIL_FILE},$StdOut,$Prefix.$_);
+	print "LogOutput: Message did not match: $Message\n" if ($Options{VERBOSE});
+	WriteMessage($Options{MAIL_FILE},1,'-> '.$Message);
+	$ErrorsDetected++;
 
 	return $ErrorsDetected;
 }
@@ -1014,7 +1068,7 @@ or as a reference to an array (i.e. \@mail_list).
 
 =head2 Version 1 and 2
 
-This calling format is supported but deprecated in version 3.  This interface 
+This calling format is supported but deprecated starting in version 3.  This interface 
 is maintained for backward compatibility only.
 
     use LogOutput;
@@ -1028,7 +1082,7 @@ is maintained for backward compatibility only.
 	$ErrorPageList
     );
 
-These calling arguments equate to the version 3 options as follows:
+These calling arguments equate to the version 3+ options as follows:
 
    $FilterFile		FILTER_FILE
    $Syslog		SYSLOG_FACILITY
@@ -1063,11 +1117,14 @@ For details on the overall implementation approach, see
 
 =head2 FILTER_FILE
 
-This option contains a file name of a file containing message
+This option contains a path name a file containing message
 filtering information.  Wildcards are allowed, in which case all
 files matching the pattern are loaded.  This can also be an array,
 in which case each element is is processed as a file name, possibly
-with wildcards.  The following case-sensitive reserve words have special
+with wildcards.  Additionally, directory names may be specified, in
+which case all files in the directory are loaded.
+
+The following case-sensitive reserved file names have special
 meanings:
 
 =over 4
@@ -1265,7 +1322,7 @@ LogOutput determines whether a job failed based on three criteria:
 
 =item 1)
 
-Return code - non-zero return codes indicate failure
+Return code - non-zero return codes (default) or return code not listed in NORMAL_RETURN_CODES if specified indicate failure
 
 =item 2)
 
@@ -1275,42 +1332,65 @@ a signal (segfault, kill, etc.), is considered to have failed
 =item 3)
 
 Unexpected messages, according to the specification found in
-the "$FilterFile" file.
+the "$FilterFile" fileis).
 
 =back
 
-When initially called, LogOutput reads the filter file (usually <DATA>), and
-builds two lists of patterns.  The first list matches messages from the
-calling script that are considered normal messages that should be shown
-in the e-mail reports and at the console.  The second list matches messages
-that are normal, but should not be shown.  
+LogOutput begins by reading the filter files (usually <DATA>) and creating a
+list of patterns.  It returns control to the calling program, while capturing
+the output and comparing it to the list of patterns.
+When a match occurs, it uses options associated with the matching pattern
+to determine the disposition of the message.  If no match occurs, the message
+is flagged as an error.
 
-As the script runs, any messages it produces are matched against these pattern
-lists.  If the message matches the first list, it is echoed to the console,
-the syslog if requested, and the e-mail report file.  If the message matches
-the second list, it is echoed to the syslog, but otherwise ignored.  Any
-message that does not match either list is echoed to all output media, and
-is treated as an error condition.
+The format of the filter file is:   OPTIONS  PATTERN
 
-The format of the filter file is:   TYPE  PATTERN
+Options is a comma separated list of options.  Options may be in one of two formats:
 
-TYPE can be one of the following case-insensitive words:
+    NAME
+    NAME=value
+     
+The possible options are:
 
-    SHOW	Show this message on all output media
-    MAILONLY	Show this message on the syslog and e-mail reports
-    LOGONLY	Same as MAILONLY, deprecated
-    IGNORE	Show this message on the system log only
-    INCLUDE	PATTERN is an additional filter file to be loaded
+    SHOW	  Show this message in the syslog, on STDOUT, and in the e-mail report
+    MAILONLY	  Show this message in the syslog and e-mail reports
+    LOGONLY	  Same as MAILONLY, deprecated
+    IGNORE	  Show this message on the system log only
+    INCLUDE	  PATTERN is an additional filter file to be loaded
+    COUNT=value	  Value may be an integer or a range of integers.  At the end of 
+                  the output, LogOutput will verify that the number of occurrances
+                  of messages matching this pattern matches the value or is within
+                  the range.  If not, an error is reported.  Range formats are:
+                     x-y  - counts between x and y inclusive are valid
+                     x..y - synonym for x-y
+                     -y   - counts less than or equal to y are valid
+                     ..y  - synonym for -y
+                     x-   - counts at or above x are valid
+                     x..  - synonym for x-
 
 Except for "INCLUDE", PATTERN is any valid PERL pattern.
 
+                  Example:
+
+
+                  In this example, any output matching the pattern will be displayed in 
+                  the syslog, on STDOUT, and in the e-mail report.  At the end of the
+                  job, an error will be thrown if this message did not appear, or appeared
+                  more than once.
+
+
 For example:
 
-    IGNORE	"^Now processing record \d+$"
-    SHOW	"^\d+ records written successfully.$"
+    IGNORE		"^Now processing record \d+$"
+    SHOW		"^\d+ records written successfully.$"
+    SHOW,COUNT=1	/^Backup completed successfully$/
 
 The "Now processing" progress messages will not be shown in the e-mail
-report.  The "### records written" summary message will be shown.
+report or on STDOUT.  The "### records written" summary message will be shown.
+The "Backup completed..." message will also be shown on STDOUT and in the
+e-mail.  In addition, at the end of the job, an error will be thrown if this
+message did not occur exactly once (e.g. job killed part way through, or two
+backups occurred in the same job.
 
 =head1 Clean-up
 
@@ -1324,16 +1404,15 @@ most of the script code.
 =head1 Detailed Description
 
 When LogOutput is called, it begins by loading the filter file patterns.
-Once these patterns are loaded, they are compiled into a pair of anonymous
-subroutines to improve efficiency.  Any errors in the pattern syntax are
-detected and reported at this time.
+Any errors in the pattern syntax are detected and reported at this time.
 
 Next LogOutput forks a child process.  The child process then returns to the
 caller, so that the calling script now runs as a child of LogOutput.  The 
 parent process reads STDOUT and STDERR from the child, matching each message
-against the two filter patterns, and logging messages accordingly.
+against the filter patterns, and logging messages accordingly.
 
 When the child process terminates, the parent process
+checks any filters that have COUNT= parameters, 
 calls any clean-up routine,
 notes any unusual termination statuses from the child in the log file,
 closes the log file,

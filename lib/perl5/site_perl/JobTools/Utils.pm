@@ -483,13 +483,13 @@ sub RunRemote {
 				close $FH;
 				my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
 				print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
-				$Errors++ if ($ExitCode);
+				$Errors++ if ($ExitCode or $Signal);
 			}
 			else {
 				warn "Unable to open ssh session to $Host: $!\n";
 				$Errors++;
 			}
-			$PFM->finish(0,\$Errors);
+			$PFM->finish($Errors);
 		}
 	}
 
