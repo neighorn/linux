@@ -1,7 +1,7 @@
 package JobTools::Utils;
 require Exporter;
 @ISA		= qw(Exporter);
-@EXPORT_OK	= qw( Commify ExpandByteSize CompressByteSize LoadConfigFiles OptArray OptValue RunDangerousCmd RunRemote);
+@EXPORT_OK	= qw( Commify ExpandByteSize CompressByteSize LoadConfigFiles OptArray OptFlag OptValue RunDangerousCmd RunRemote);
 our $Version	= 1.0;
 our $BYTESIZE_UNITS = 'BKMGTPEZY';
 our $OptionsRef;				# Pointer to %Options hash
@@ -349,6 +349,22 @@ sub OptArray {
 sub OptValue {
 	my($Name,$Value) = @_;
 	$OptionsRef->{$Name} = $Value;
+}
+
+
+# ---------------------------------------------------------
+#
+# OptFlag - generic no-value flag option processing
+#
+sub OptFlag {
+	my($Name) = @_;
+	if (exists($OptionsRef->{$Name})) {
+		$OptionsRef->{$Name}++;
+	}
+	else {
+		$OptionsRef->{$Name} = 1;
+	}
+
 }
 
 

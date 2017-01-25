@@ -143,7 +143,12 @@ is($Config{TEST9},'testa testb','LoadConfigFile multiple declarations');
 is($Config{TEST10},'testa testb testc testd teste','LoadConfigFile include file, recursive include');
 
 undef %Options;		# Make sure this is initialized.
-OptValue('opt1','test1');						is($Options{opt1},'test1','OptValue simple value');
+OptValue('opt1','test1');							is($Options{opt1},'test1','OptValue simple value');
+
+undef %Options;		# Reinitialize this.
+OptFlag('test');								is($Options{test},1,'OptFlag first use');
+OptFlag('test');								is($Options{test},2,'OptFlag second use');
+OptFlag('test');								is($Options{test},3,'OptFlag third use');
 
 undef %Options;		# Make sure this is initialized.
 %Config = (		# Reinitialize with testing values.
@@ -164,9 +169,7 @@ OptArray('opt8','a,SERVERS,i','expand-config' => 1);				is(join('/',@{$Options{o
 OptArray('opt9','a,LOOP,h','expand-config' => 1);				is(join('/',@{$Options{opt9}}),'a/b/c/d/h','OptArray expand-config=1, config loop');
 OptArray('opt10','a,b,c,d,!CGROUP','expand-config' => 1, 'allow-delete' => 1);	is(join('/',@{$Options{opt10}}),'a/b/d','OptArray expand-config=1, negate config');
 
-%Options = (		# Reinitialize this.
-	test => 1,
-);
+%Options = (test => 1);	# Reinitialize this.
 unlink($TempFile);
 RunDangerousCmd("touch $TempFile");
 ok(! -f $TempFile,'RunDangerousCmd - test in program options');
