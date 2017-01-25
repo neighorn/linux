@@ -6,19 +6,18 @@
 #
 use strict;
 use warnings;
+use lib '..';
 use Test::More qw(no_plan);
-use lib '.';
 use File::Temp qw(tempfile);
-use Utils @Utils::EXPORT_OK;	# Import everything.
-#use Utils::_GatherParms;	# And the unexported stuff.
+use JobTools::Utils @JobTools::Utils::EXPORT_OK;	# Import everything.
 
 my %Config = (test1 => 'abc');
 my %Options = (test2 => 'def');
-Utils::init( options => \%Options, config => \%Config);
-is ($Utils::OptionsRef,\%Options, 'init Options');
-is ($Utils::OptionsRef->{test1},$Options{test1}, 'init Options - right pointer');
-is ($Utils::ConfigRef,\%Config, 'init Config');
-is ($Utils::ConfigRef->{test2},$Config{test2}, 'init Config right pointer');
+JobTools::Utils::init( options => \%Options, config => \%Config);
+is ($JobTools::Utils::OptionsRef,\%Options, 'init Options');
+is ($JobTools::Utils::OptionsRef->{test1},$Options{test1}, 'init Options - right pointer');
+is ($JobTools::Utils::ConfigRef,\%Config, 'init Config');
+is ($JobTools::Utils::ConfigRef->{test2},$Config{test2}, 'init Config right pointer');
 
 is(Commify(-1000000),'-1,000,000','Commify(-1,000000)');
 is(Commify(-100000),'-100,000','Commify(-100000)');
@@ -77,7 +76,7 @@ is(CompressByteSize(Value=>1234567,Conversion=>1000,Format=>'%.3f %s'),'1.235 M'
 my %Args = 	(                                 test3 => 'arg', test4 => 'arg' );
    %Options =	(                 test2 => 'opt',                 test4 => 'opt' );
 my %Defaults = 	( test1 => 'def', test2 => 'def', test3 => 'def', test4 => 'def' );
-my %Parms = Utils::_GatherParms(\%Args,\%Defaults);
+my %Parms = JobTools::Utils::_GatherParms(\%Args,\%Defaults);
 is($Parms{test1},'def','_GatherParms default used');
 is($Parms{test2},'opt','_GatherParms options overrides default');
 is($Parms{test3},'arg','_GatherParms args overrides default');

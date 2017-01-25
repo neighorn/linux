@@ -1,4 +1,4 @@
-package Utils;
+package JobTools::Utils;
 require Exporter;
 @ISA		= qw(Exporter);
 @EXPORT_OK	= qw( Commify ExpandByteSize CompressByteSize LoadConfigFiles OptArray OptValue RunDangerousCmd RunRemote);
