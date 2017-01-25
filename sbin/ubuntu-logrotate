@@ -598,29 +598,3 @@ IGNORE	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
 SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
 SHOW	"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
 SHOW	"^\s*(\S+:\s*)?(Test|Executing|Verbose|debug):"
-  log \S+ does not exist -- skipping
-  log does not need rotating
-  log needs rotating
- after \d+ days \(\d+ rotations\)
- weekly \(\d+ rotations\)
-/var/log/\S+
-compressing log with: \S+
-considering log /var/log/\S+
-creating new 
-dateext suffix '-\S+'
-empty log files are not rotated, old logs are removed
-empty log files are rotated, old logs are removed
-empty log files are rotated, only log files >= \d+ bytes are rotated, old logs are removed
-glob pattern '-\[0-9\]\[0-9\]\[0-9\]\[0-9\]\[0-9\]\[0-9\]\[0-9\]\[0-9\]'
-Handling \d+ logs
-Ignoring 
-including /etc/logrotate.d
-not running postrotate script, since no logs were rotated
-reading config file \S+
-removing old log \S+
-renaming \S+ to \S+
-rotating log \S+, log->rotateCount is \d+
-rotating pattern: \S+  monthly \(\d+ rotations\)
-running postrotate script
-running prerotate script
-switching euid to 0 and egid to \d+
