@@ -521,7 +521,7 @@ sub _GatherParms {
 
 	my($ArgvRef, $DefaultsRef) = @_;
 	my %Parms;
-	foreach my $item (keys($DefaultsRef)) {
+	foreach my $item (keys(%$DefaultsRef)) {
 		if (exists($ArgvRef->{$item})) {
 			# Provided in passed arguments.
 			$Parms{$item} = $ArgvRef->{$item};
