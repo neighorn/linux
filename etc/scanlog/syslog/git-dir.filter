@@ -1,6 +1,7 @@
-IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ git-dir(\[\d+.])?:\s*.+\s+\|\s+\d+\s+[+-]+$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ git-dir(\[\d+.])?:\s*.+\s+\|\s+.*->\s+\d+\s+bytes$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ git-dir(\[\d+.])?:\s*.+\s+\|\s+\d+\s+[+-]+$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ git-dir(\[\d+.])?:\s*[a-f\d]+\.\.[a-f\d]+\s*\S+\s+->\s+.+$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ git-dir(\[\d+.])?:\s*\*\s*\[new branch\]"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ git-dir(\[\d+.])?:\s*\d+ files? changed(,\s+\d+ insertions?\(\+\))?(,\s+\d+ deletions?\(\-\))?$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ git-dir(\[\d+.])?:\s*Already up-to-date.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ git-dir(\[\d+.])?:\s*create mode \d+ "
