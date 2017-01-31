@@ -21,8 +21,8 @@ use Fcntl qw(:flock);
 
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
-our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.30;
+our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject);
+our $Version	= 3.31;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -764,10 +764,16 @@ sub AddFilter {
 	# when the alternation operator is escaped, which isn't necessary, but since the grouping operator
 	# is harmless, it doesn't hurt anything.  We could do it on every pattern, but that's just a 
 	# waste of Regex CPU cycles.
-	my($Delim,$Regex,$Flags) = ($Pattern =~ /\s*(.)(.*)\1([^\s]*)\s*$/);
-	#$Regex=~s/\$$/\\Z/;				# Keep $ at end from being interpreted when we add (.
+	$Pattern =~ s/^\s*//;				# Strip any leading spaces.
+	my $StartDelim = substr($Pattern,0,1);		# Get the leading delimiter.
+	my $index = index('<{',$StartDelim);		# See if it's special.
+	my $EndDelim = ($index >= 0			# Is it < or {
+		? substr('>}',$index,1)			# Yes, use > or } for end delim.
+		: $StartDelim				# No, end delim is same as start.
+	);
+	my($Regex,$Flags) = ($Pattern =~ /${StartDelim}(.*)${EndDelim}([^\s]*)\s*$/);
 	$Regex="(?:$Regex)" if ($Regex =~ /\|/);	# Fix alternations
-	push @Filters,"${Delim}$Regex(?{$#FiltersMetaData})${Delim}$Flags";
+	push @Filters,"${StartDelim}$Regex(?{$#FiltersMetaData})${EndDelim}$Flags";
 	
 	return $Errors;
 }
