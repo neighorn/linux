@@ -5,7 +5,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d(\s+\S+)?\s+snmpd(\[\d+\])?:\s*Created direc
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d(\s+\S+)?\s+snmpd(\[\d+\])?:\s*Created directory: /var/lib/snmp/mib_indexes$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d(\s+\S+)?\s+snmpd(\[\d+\])?:\s*error finding row index in _ifXTable_container_row_restore$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d(\s+\S+)?\s+snmpd(\[\d+\])?:\s*error on subcontainer 'ia_addr' insert \(-1\)"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d(\s+\S+)?\s+snmpd(\[\d+\])?:\s*IfIndex of an interface changed.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d(\s+\S+)?\s+snmpd(\[\d+\])?:\s*IfIndex of an interface changed."
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d(\s+\S+)?\s+snmpd(\[\d+\])?:\s*NET-SNMP version \S+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d(\s+\S+)?\s+snmpd(\[\d+\])?:\s*Turning on AgentX master support.$"
 SHOW	"^... [1-3 ]\d \d\d:\d\d:\d\d(\s+\S+)?\s+snmpd(\[\d+\])?:\s*Received TERM or STOP signal\.\.\.\s+shutting down\.\.\.\s*$"

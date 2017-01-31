@@ -2,6 +2,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dbus(\[\d+\])?:\s*\[system\] Activating
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dbus(\[\d+\])?:\s*\[system\] Reloaded configuration$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ journal(\[\d+\])?:\s*Journal started$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ journal(\[\d+\])?:\s*suppressed \d+ messages from"i
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ journal(\[\d+\])?:\s*journal: internal error: End of file from monitor$(?#Triggered by VM normal shutdown)"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*\S+: Activating swap \S+...$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*\S+: Adding .* random time.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\])?:\s*\S+: Dev \S+ appeared twice with different sysfs paths \S+ and \S+$"
@@ -48,6 +49,8 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-logind(\[\d+\])?:\s*New seat \S
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-logind(\[\d+\])?:\s*New session \S+ of user \S+\.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-logind(\[\d+\])?:\s*Removed session \S+\.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-logind(\[\d+\])?:\s*Watching system buttons on \S+"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-machined: Machine \S+ terminated.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-machined: New machine \S+\.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-modules-load(\[\d+\])?:\s*Inserted "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-modules-load(\[\d+\])?:\s*Module '\S+' is builtin$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ systemd-tmpfiles(\[\d+\])?:\s*\[/usr/lib/tmpfiles.d/\S+:\d+\] Duplicate line for path \"\S+\", ignoring.$"
