@@ -21,7 +21,7 @@ use Fcntl qw(:flock);
 
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
-our @EXPORT_OK	= qw(WriteMessage $Verbose $MailServer $MailDomain $Subject);
+our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject);
 our $Version	= 3.31;
 
 our($ExitCode);			# Exit-code portion of child's status.
@@ -766,13 +766,12 @@ sub AddFilter {
 	# waste of Regex CPU cycles.
 	$Pattern =~ s/^\s*//;				# Strip any leading spaces.
 	my $StartDelim = substr($Pattern,0,1);		# Get the leading delimiter.
-	my $index = index('<{[(',$StartDelim);		# See if it's special.
-	my $EndDelim = ($index >= 0			# Is it <, {, [, or (
-		? substr('>}])',$index,1)		# Yes, use >, }, ], or ) for end delim.
+	my $index = index('<{',$StartDelim);		# See if it's special.
+	my $EndDelim = ($index >= 0			# Is it < or {
+		? substr('>}',$index,1)			# Yes, use > or } for end delim.
 		: $StartDelim				# No, end delim is same as start.
 	);
 	my($Regex,$Flags) = ($Pattern =~ /${StartDelim}(.*)${EndDelim}([^\s]*)\s*$/);
-	#$Regex=~s/\$$/\\Z/;				# Keep $ at end from being interpreted when we add (.
 	$Regex="(?:$Regex)" if ($Regex =~ /\|/);	# Fix alternations
 	push @Filters,"${StartDelim}$Regex(?{$#FiltersMetaData})${EndDelim}$Flags";
 	
