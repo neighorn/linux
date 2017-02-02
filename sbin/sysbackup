@@ -5,6 +5,7 @@
 use strict;
 use warnings;
 use LogOutput;
+use JobTools::Utils qw(OptArray OptFlag OptValue LoadConfigFiles RunRemote RunDangerousCmd Commify ExpandByteSize CompressByteSize);
 use Getopt::Long qw(GetOptionsFromArray GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
@@ -27,32 +28,34 @@ our %Config;
 our @Parms;
 our %Options;			# Options settings.
 
+JobTools::Utils::init(config => \%Config, options => \%Options);
+
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
 our %OptionSpecifications=(
 		'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
-		'always-mail|m=s'	=>	\&opt_Array,
-		'always-page|p=s'	=>	\&opt_Array,
-		'cycles|C=i'		=>	\&opt_Value,
+		'always-mail|m=s'	=>	\&OptArray,
+		'always-page|p=s'	=>	\&OptArray,
+		'cycles|C=i'		=>	\&OptValue,
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
-		'error-mail|M=s'	=>	\&opt_Array,
-		'error-page|P=s'	=>	\&opt_Array,
-		'exclude-fs|X=s'	=>	\&opt_Array,
-		'exclude|x=s'		=>	\&opt_Array,
-		'filter-file|F=s'	=>	\&opt_Array,
-		'help|h|?!'		=>	\&opt_h,
-		'precmd=s'		=>	sub { opt_Array(@_,'preserve-lists'=>1);},
-		'postcmd=s'		=>	sub { opt_Array(@_,'preserve-lists'=>1);},
-		'max-size|S=s'		=>	\&opt_Value,
-		'min-size|s=s'		=>	\&opt_Value,
-		'option-set|O=s'	=>	\&opt_O,
-		'output-dir|D=s'	=>	\&opt_Value,
-		'pmax=i'		=>	\&opt_Value,
-		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
-		'test|t'		=>	sub {$Options{test} = (exists($Options{test})?$Options{test}+1:1)},
-		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+		'error-mail|M=s'	=>	\&OptArray,
+		'error-page|P=s'	=>	\&OptArray,
+		'exclude-fs|X=s'	=>	\&OptArray,
+		'exclude|x=s'		=>	\&OptArray,
+		'filter-file|F=s'	=>	\&OptArray,
+		'help|h|?!'		=>	\&Opth,
+		'precmd=s'		=>	sub { OptArray(@_,'preserve-lists'=>1);},
+		'postcmd=s'		=>	sub { OptArray(@_,'preserve-lists'=>1);},
+		'max-size|S=s'		=>	\&OptValue,
+		'min-size|s=s'		=>	\&OptValue,
+		'option-set|O=s'	=>	\&OptO,
+		'output-dir|D=s'	=>	\&OptValue,
+		'pmax=i'		=>	\&OptFlag,
+		'remote|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+		'test|t'		=>	\&OptFlag,
+		'verbose|v'		=>	\&OptFlag,
 );
 #
 my %TypeExclude = (	# Populate a default list of types to exclude.
@@ -94,7 +97,7 @@ our $BaseDir="/usr/local/backup/$Prog";	# Set our base directory.
 # Load the config file.
 #
 foreach (@ConfigFiles) {
-        LoadConfigFile($_);
+        LoadConfigFiles($_);
 }
 foreach (keys(%Config)) { s/,$//;};     # Trim off trailing commas.
 
@@ -156,8 +159,8 @@ foreach (@{$Options{'exclude-fs'}}) {
 	$TypeExclude{$_}=1;
 }
 
-if (exists($Options{'remote-host'}) and @{$Options{'remote-host'}} > 0) {
-	$Errors = RunRemote(@ARGV);
+if (exists($Options{remote}) and @{$Options{remote}} > 0) {
+	$Errors = RunRemote(argv => [$Prog,@ARGV]);
 }
 else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});
@@ -181,131 +184,6 @@ if ($ExitCode) {
 
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
-
-
-# ---------------------------------------------------------
-#
-# LoadConfigFile - load a configuration file
-#
-sub LoadConfigFile {
-	my $ConfigFile = shift;
-	if (-e $ConfigFile) {
-		my $CONFIGFH;
-                open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-                # Build a hash of settings found in the config file.
-                my @Lines;
-
-                # Read config file and assemble continuation lines into single items.
-                while (<$CONFIGFH>) {
-                        chomp;
-                        next if (/^\s*#/);                      # Comment.
-                        next if (/^\s*$/);                      # Blank line.
-                        if (/^\s+(\S.*)$/ and @Lines > 0) {
-                                # Continuation line.  Append to prior line.
-                                $Lines[$#Lines] .= " $1";
-                        }
-                        else {
-                                push @Lines, $_;
-                        }
-                }
-                close $CONFIGFH;
-
-                # Process assembled lines.
-                foreach (@Lines) {
-                        my ($name,$settings)=split(/:?\s+/,$_,2);
-                        $name=uc($name);                        # Name is not case sensitive.
-                        $settings='' unless ($settings);        # Avoid undef warnings.
-                        $settings=~s/\s+$//;                    # Trim trailing spaces.
-			if ($name eq 'INCLUDE') {
-				LoadConfigFile($settings);
-			}
-			else {
-				$settings=~s/\s+$//;	# Trim trailing spaces.
-				$Config{$name}.=$settings . ',' ;
-			}
-                }
-		foreach (keys(%Config)) {
-			$Config{$_} =~ s/,$//;  # Remove trailing comma
-		}
-        }
-}
-# ---------------------------------------------------------
-#
-# RunRemote - Run this elsewhere and track the results.
-#
-sub RunRemote {
-
-	# Load some additional modules only needed on the parent.
-	require Parallel::ForkManager;
-
-	my @ARGV=@_;
-	my $Errors = 0;
-
-	# Analyze the remote-host list, ignoring duplicates and handling !-deletions.
-	my @HostList = @{$Options{'remote-host'}};
-	die "No remote hosts specified on the command line or in the configuration file.\n" unless (@HostList);
-
-	my $MaxLength = 0;
-	foreach (@HostList) { $MaxLength=($MaxLength < length($_)?length($_):$MaxLength); }
-	$MaxLength++;		# Allow for trailing colon.
-	my $DeleteNext=0;
-	# Remove -R/--remote-host from remote.  They don't need to know who else we're backing up.
-	foreach (@ARGV) {
-		if ($DeleteNext) {
-			$_ = '';
-			$DeleteNext=0;
-		}
-		elsif (/^--remote-host=/) {
-			$_ = '';		# Delete this for remote systems.
-		}
-		elsif (/^-R/) {
-			$_ = '';
-			$DeleteNext=1;
-		}
-	}
-	@ARGV = grep { $_ ne '' } @ARGV;
-	@ARGV = map {qq<"$_">} @ARGV;
-
-	my $PFM = Parallel::ForkManager->new($Options{pmax});
-
-	foreach my $Host (@HostList) {
-		my $pid = $PFM->start;	# Fork the child process.
-		if (!$pid) {
-			my $Cmd =   "ssh $Host $Prog "
-				  . join(' ', @ARGV) . ' '
-				  . '-F SHOWALL '
-				  . '--always-mail= '
-				  . '--remote-host= '	# Avoid --remote-host recursion from AllJobs in .cfg.
-				  . '2\>\&1 '
-				  ;
-			my $FH;
-	
-			# Don't even go to remote hosts if test level 2 (-tt).
-			if($Options{test} and $Options{test} >= 2) {
-				print "Test: $Cmd\n";
-				next;
-			}
-	
-			print "Verbose: Running $Cmd\n" if ($Options{verbose} or $Options{test});
-			if (open($FH, "$Cmd |")) {
-				while (<$FH>) {
-					printf "%-*s %s", $MaxLength, "$Host:", $_;
-				}
-				close $FH;
-				my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
-				print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
-				$Errors++ if ($ExitCode or $Signal);
-			}
-			else {
-				warn "Unable to open ssh session to $Host: $!\n";
-				$Errors++;
-			}
-			$PFM->finish($Errors);
-		}
-	}
-
-	return $Errors;
-}
 
 
 # ---------------------------------------------------------
@@ -488,15 +366,15 @@ sub RunLocally {
 	);
 	chomp $size;
 	$size =~ s/^\s*(\d+)\s.*$/$1/;
-	print commify($size)
+	print Commify($size)
 		. " bytes "
-		. ($size > 1024?'(' . CompressSize($size) . ') ':'')
+		. ($size > 1024?'(' . CompressByteSize($size) . ') ':'')
 		. "written to $OutputDir\n";
 	warn "Warning: backup is less than the minimum expected size ("
-		. commify($Options{'min-size'}) ." bytes)\n"
+		. Commify($Options{'min-size'}) ." bytes)\n"
 	    if ($Options{'min-size'} and $size < $Options{'min-size'});
 	warn "Warning: backup is more than the maximum expected size ("
-		. commify($Options{'max-size'}) . " bytes)\n"
+		. Commify($Options{'max-size'}) . " bytes)\n"
 	    if ($Options{'max-size'} and $size > $Options{'max-size'});
 
 	# ---------------------------------------------------------
@@ -517,195 +395,11 @@ sub RunLocally {
 
 # ---------------------------------------------------------
 #
-# commify - insert commas in numbers.
-#
-sub commify {
-	local $_ = shift;
-	1 while s/^(-?\d+)(\d{3})/$1,$2/;
-	return $_;
-}
-
-
-# ---------------------------------------------------------
-#
-# ExpandSize - convert various number formats to an integer.
-#
-sub ExpandSize {
-        my $Value = shift;
-        $Value =~ s/,//g;               # Ignore commas.
-        if ($Value =~ /^(\d+)$/i) {
-                return $1;
-        }
-        elsif ($Value =~ /^(\d+(\.\d+)?)K$/i) {
-                return $1*1024;
-        }
-        elsif ($Value =~ /^(\d+(\.\d+)?)M$/i) {
-                return $1*1024*1024;
-        }
-        elsif ($Value =~ /^(\d+(\.\d+)?)G$/i) {
-                return $1*1024*1024*1024;
-        }
-        elsif ($Value =~ /^(\d+(\.\d+)?)T$/i) {
-                return $1*1024*1024*1024*1024;
-        }
-        else {
-                return undef;
-        }
-}
-
-
-
-# ---------------------------------------------------------
-#
-# CompressSize - convert bytes to KMGT
-#
-sub CompressSize {
-        my $Value = shift;
-        $Value =~ s/,//g;               # Ignore commas.
-	my $Unit = ' bytes';
-	foreach (('K','M','G','T')) {
-		if ($Value >= 1024) {
-			$Unit = $_;
-			$Value /= 1024;
-		}
-	}
-	return sprintf('%.1f%s',$Value,$Unit);
-}
-
-
-# ---------------------------------------------------------
-#
-# RunDangerousCmd - run a command, or suppress it if -t specified.
-#
-sub RunDangerousCmd {
-	my ($Cmd,$FH,$Line);
-	$Cmd=join(' ',@_);
-	if ($Options{test}) {
-		print "Test: $Cmd\n";
-		return 0;
-	} else {
-		print "Executing: $Cmd\n" if ($Options{'verbose'});
-		if (open($FH,"$Cmd 2>&1 |")) {
-			while ($Line=<$FH>) {
-				$Line=~s/[
-]//g;
-				chomp $Line;
-				print "$Line\n";
-			};
-			close $FH;
-			return $?;
-		} else {
-			warn qq(Unable to start process for "$Cmd": $!\n");
-			return 8<<8;
-		}
-	}
-}
-
-
-# ---------------------------------------------------------
-#
-# opt_Value - generic single-value option processing
-#
-sub opt_Value {
-	my($Name,$Value) = @_;
-	$Options{$Name} = $Value;
-}
-
-
-# ---------------------------------------------------------
-#
-# opt_Array - generic multi-value option  processing
-#
-sub opt_Array {
-
-	my($Name,$Value,%ArrayOpt) = @_;
-
-	# Possible array processing options:
-	#	preserve-lists:	0 (default), split on embedded spaces or commas
-	#			1, don't split on embedded spaces or commas
-	#	allow-delete:	0 (default), leading ! on value has no meaning
-	#			1, leading ! on value means delete value from
-	#				current list.
-	#	force-delete:	0 (default), assume add unless ! and allow-delete=1
-	#			1, delete this item regardless of leading !
-
-
-	# Set a recursion limit if we don't already have one.  This helps
-	# us detect list loops (listA points to listA, or A->B->A, etc.).
-	$ArrayOpt{'recursion-limit'} = 64 unless ($ArrayOpt{'recursion-limit'});
-
-	# Is the value empty, meaning to wipe any entries to this point.
-	if (!$Value) {
-		# Received "--opt=".  Empty this array.
-		@{$Options{$Name}}=();
-		return;
-	}
-
-	# Split out lists by default, unless embedded-lists are preserved.
-	my @ValueList;
-	if ($ArrayOpt{'preserve-lists'}) {
-		# Preserve commas and embedded spaces.  Just leave value as is.
-		@ValueList = ($Value);
-	}
-	else {
-		$Value =~ s/[\s,]+$//;	# Trailing separators make no sense.
-		$Value =~ s/^\s+//;	# Ignore leading whitespace.
-		@ValueList = split(/[,\s]+/,$Value);
-	}
-
-	# Now process each list item individually.
-	while ($Value = shift(@ValueList)) {
-		
-		# Are we adding or deleting this item.
-		my $AddItem = 1;	# Assume we're adding.
-		my $Prefix;
-		if ($ArrayOpt{'force-delete'}) {
-			# We've been told, flat-out, to delete this item.
-			$AddItem = 0;
-			$Value =~ s/^!+// if ($ArrayOpt{'allow-delete'});
-		}
-		elsif ($ArrayOpt{'allow-delete'} and $Value =~ /^!+(.*)$/) {
-			# Delete is allowed, and ! is present.
-			$AddItem = 0;
-			$Value = $1;
-		}
-		
-		# If config lists are permitted, see if this is a config list.
-		if ($ArrayOpt{'expand-config'} and exists($Config{uc($Value)})) {
-			# This is a reference to a config file list. Recurse
-			# through this, in case the list contains more lists.
-			die "List loop detected in --$Name=$Value"
-				if ($ArrayOpt{'recursion-limit'} <= 0);
-			opt_Array(
-				$Name,
-				$Config{uc($Value)},
-				%ArrayOpt,'recursion-limit'=>($ArrayOpt{'recursion-limit'}-1),
-				'force-delete'=> (1-$AddItem),
-			);
-			next;
-		}
-
-		# If we got here, we have a value to either add or delete.
-		if ($AddItem) {
-			push @{$Options{$Name}},$Value
-				unless grep { $_ eq $Value } @{$Options{$Name}};
-		}
-		else {
-			# Remove this item from the list if present.
-			@{$Options{$Name}} = grep { $_ ne $Value } @{$Options{$Name}};
-		}
-	}
-}
-
-
-
-# ---------------------------------------------------------
-#
 # opt_min_size - minimum size threshold
 #
 sub opt_min_size {
         my(undef,$Value) = @_;
-	$Options{'min-size'} = ExpandSize($Value);
+	$Options{'min-size'} = ExpandByteSize($Value);
         if (!defined($Options{'min-size'})) {
                 warn qq<Invalid minimum size (--min-size/-s) value: "$Value"\n>;
 		$Errors++;
@@ -721,7 +415,7 @@ sub opt_min_size {
 #
 sub opt_max_size {
         my(undef,$Value) = @_;
-	$Options{'max-size'} = ExpandSize($Value);
+	$Options{'max-size'} = ExpandByteSize($Value);
         if (!defined($Options{'max-size'})) {
                 warn qq<Invalid maximum size (-S) value: "$Value"\n>;
 		$Errors++;
@@ -802,7 +496,7 @@ exit 1;
         --option-set|-O config: Insert the "config" configuration options
                                 from /usr/local/etc/%Prog.cfg
                                 into the command line at this point.
-	--remote-host|-R host	Remote: Run this on one or more remote
+	--remote|-R host	Remote: Run this on one or more remote
 				hosts.  "host" may be a host name, an
 				IP address, a configuration file entry
 				name, or a comma or space separated list of
@@ -813,7 +507,7 @@ exit 1;
 				file list to be included, but some of the
 				hosts in the list to subsequently be excluded.
         --pmax=n:               Max parallel jobs: When used in conjunction
-                                with --remote-host/-R, this will limit the
+                                with --remote/-R, this will limit the
                                 number of remote hosts running jobs at the
                                 same time to n.  Default is 50.  Set to 1
                                 to run the jobs serially.

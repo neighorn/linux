@@ -5,12 +5,12 @@
 use strict;
 use warnings;
 use LogOutput;
+use JobTools::Utils qw(OptArray OptFlag OptValue LoadConfigFiles RunRemote RunDangerousCmd);
 use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
-use JobTools::Utils qw(OptArray OptFlag OptValue LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
