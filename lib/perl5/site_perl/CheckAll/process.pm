@@ -174,12 +174,14 @@ sub _Check {
 
         foreach (@{$HostData{$Host}}) {
         	chomp;
-        	printf REALSTDOUT "\r%5d   Checking %s\n", $$, $_ if ($Self->{Verbose});
+        	printf REALSTDOUT "\r%5d   Comparing %s to %s\n", $$, $Target, $_ if ($Self->{Verbose});
 		if ($_ =~ $Target) {
+        		printf REALSTDOUT "\r%5d     Match found: %s\n", $$, $_ if ($Self->{Verbose});
 			$Self->{Status} = $Self->CHECK_OK;
         		return $Self->CHECK_OK;
 		}
         };
+       	printf REALSTDOUT "\r%5d   %s did not match any process\n", $$, $Target if ($Self->{Verbose});
 	$Self->{Status} = $Self->CHECK_FAIL;
        	return $Self->CHECK_FAIL;
 }
