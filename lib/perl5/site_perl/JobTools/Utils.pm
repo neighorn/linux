@@ -1,7 +1,7 @@
 package JobTools::Utils;
 require Exporter;
 @ISA		= qw(Exporter);
-@EXPORT_OK	= qw( Commify ExpandByteSize CompressByteSize LoadConfigFiles OptArray OptFlag OptValue RunDangerousCmd RunRemote);
+@EXPORT_OK	= qw( Commify ExpandByteSize CompressByteSize LoadConfigFiles OptArray OptFlag OptValue RunDangerousCmd RunRemote ExpandConfigList);
 our $Version	= 1.0;
 our $BYTESIZE_UNITS = 'BKMGTPEZY';
 our $OptionsRef;				# Pointer to %Options hash
@@ -448,6 +448,9 @@ sub RunRemote {
 	}
 
 	# Analyze the target host list, ignoring duplicates and handling !-deletions.
+	@HostList = ExpandConfigList(@HostList);
+
+	# Get the max host name length, for display purposes.
 	my $MaxLength = 0;
 	foreach (@HostList) { $MaxLength=($MaxLength < length($_)?length($_):$MaxLength); }
 	$MaxLength++;		# Allow for trailing colon.
@@ -488,6 +491,7 @@ sub RunRemote {
 			# Don't even go to remote hosts if test level 2 (-tt).
 			if($Parms{test} >= 2) {
 				print "Test: $Cmd\n";
+				$PFM->finish(0);
 				next;
 			}
 	
@@ -536,5 +540,67 @@ sub _GatherParms {
 	return %Parms;
 }
 
+
+#
+# ExpandConfigList: - Expand a host list with any values found in config files.
+#
+sub ExpandConfigList {
+
+	my @HostList = @_;	# Make a local copy we can mess with.
+	my @ExpandedHostList;
+	my %HostsUsed;
+	while ($_ = shift(@HostList)) {
+		my($Prefix,$Host) = m/^(!*)(\S+)$/;
+		if (exists($ConfigRef->{$Host})) {
+			# This is a config list, not a single host name.  Need to expand it.
+			my %ConfigSeenHash;	# Avoid recursion loops.
+			my @ConfigList = _ExpandConfigGroup($Host,\%ConfigSeenHash);
+			foreach (@ConfigList) { s/^\!*/$Prefix/}; #Strip any prefixes, then add ours.
+			unshift @HostList, @ConfigList;		# Push the expanded list back on the list.
+		}
+		elsif ($Prefix) {
+			# We're deleting a host.
+			next unless (exists($HostsUsed{$Host}));		# But we never saw it anyway.
+			@HostList = grep {$_ != $Host} @HostList;
+			$HostsUsed{$Host} = 0;
+		}
+		elsif ($HostsUsed{$Host}) {
+			#next;			# Already saw this one.
+		}
+		else {
+			# This is a new, simple host name.
+			push @ExpandedHostList, $Host;
+			$HostsUsed{$Host} = 1;
+		}
+	}
+	return @ExpandedHostList;
+}
+
+
+
+#
+# _ExpandConfigGroup: - Expand a configuration setting value into a group of host names.
+#
+sub _ExpandConfigGroup {
+
+	my($GroupName,$SeenRef) = @_;
+	return () if (exists($SeenRef->{$GroupName}));		# We've already done this one.
+	$SeenRef->{$GroupName} = 1;				# Remember we've done this one, to avoid loops.
+	return ($GroupName) unless (exists($ConfigRef->{$GroupName}));	# Doesn't exist.  Should not happen.
+
+	my @GroupList = split(/[,\s]+/,$ConfigRef->{$GroupName});
+	my @ReturnList;
+	while ($_ = shift @GroupList) {
+		if (exists($ConfigRef->{$_})) {
+			# It's a nested group.
+			unshift @GroupList,_ExpandConfigGroup($_,$SeenRef);
+		}
+		else {
+			# It's a simple value.
+			push @ReturnList, $_;
+		}
+	}
+	return @ReturnList;
+}
 
 1;

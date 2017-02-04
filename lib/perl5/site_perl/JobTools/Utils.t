@@ -128,7 +128,6 @@ test10: testc testd teste
 INCLUDE $TempFile2
 CONFIG2
 close $TMP2;
-
 undef %Config;		# Make sure this is initialized.
 LoadConfigFiles($TempFile);
 is($Config{TEST1},'testa','LoadConfigFile simple');
@@ -145,11 +144,17 @@ is($Config{TEST10},'testa testb testc testd teste','LoadConfigFile include file,
 undef %Options;		# Make sure this is initialized.
 OptValue('opt1','test1');							is($Options{opt1},'test1','OptValue simple value');
 
+#
+# OptFlag
+#
 undef %Options;		# Reinitialize this.
 OptFlag('test');								is($Options{test},1,'OptFlag first use');
 OptFlag('test');								is($Options{test},2,'OptFlag second use');
 OptFlag('test');								is($Options{test},3,'OptFlag third use');
 
+#
+# OptArray
+#
 undef %Options;		# Make sure this is initialized.
 %Config = (		# Reinitialize with testing values.
 	SERVERS => 'b c MORE h',
@@ -169,6 +174,9 @@ OptArray('opt8','a,SERVERS,i','expand-config' => 1);				is(join('/',@{$Options{o
 OptArray('opt9','a,LOOP,h','expand-config' => 1);				is(join('/',@{$Options{opt9}}),'a/b/c/d/h','OptArray expand-config=1, config loop');
 OptArray('opt10','a,b,c,d,!CGROUP','expand-config' => 1, 'allow-delete' => 1);	is(join('/',@{$Options{opt10}}),'a/b/d','OptArray expand-config=1, negate config');
 
+#
+# RunDangerousCmd
+#
 %Options = (test => 1);	# Reinitialize this.
 unlink($TempFile);
 RunDangerousCmd("touch $TempFile");
@@ -184,5 +192,35 @@ ok($Status == 0,'RunDangerousCmd - normal status');
 unlink($TempFile);
 $Status = RunDangerousCmd("ls $TempFile > /dev/null 2> /dev/null");
 ok($Status != 0,'RunDangerousCmd - error status');
+
+#
+# ExpandConfigList
+#
+%Config = (
+	LIST1 => "a",
+	LIST2 => "a b",
+	LIST3 => "a b c",
+	LIST4 => "a,b,c",
+	LIST5 => "a b,c",
+	LIST6 => "LIST5",
+	LIST7 => "d,LIST5",
+	LIST8 => "LIST8",
+	LIST9 => "e,LIST10",
+	LIST10 => "f,LIST9",
+);
+is(join('-',ExpandConfigList('LIST1')),'a','ExpandConfigList simple value');
+is(join('-',ExpandConfigList('LIST2')),'a-b','ExpandConfigList two values');
+is(join('-',ExpandConfigList('LIST1','LIST2')),'a-b','ExpandConfigList duplicate value');
+is(join('-',ExpandConfigList('LIST3')),'a-b-c','ExpandConfigList three values');
+is(join('-',ExpandConfigList('LIST4')),'a-b-c','ExpandConfigList comma separators');
+is(join('-',ExpandConfigList('LIST5')),'a-b-c','ExpandConfigList mixed separators');
+is(join('-',ExpandConfigList('LIST6')),'a-b-c','ExpandConfigList simple group referral');
+is(join('-',ExpandConfigList('LIST7')),'d-a-b-c','ExpandConfigList list and group');
+is(join('-',ExpandConfigList('LIST8')),'','ExpandConfigList simple recursive loop');
+is(join('-',ExpandConfigList('LIST9')),'e-f','ExpandConfigList multi-part recursive loop');
+
+#
+# RunRemote
+#
 
 print "Note: No tests for RunRemote are currently available.\n";

@@ -49,8 +49,8 @@ our %OptionSpecifications=(
 		'subject=s'		=>	\&OptValue,
 		'username|user|U=s'	=>	\&OptValue,
                 'option-set|O=s'        =>      \&opt_O,
-		'test|t'		=>	\&OptValue,
-		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+		'test|t'		=>	\&OptFlag,
+		'verbose|v'		=>	\&OptFlag,
 		'pmax=n'		=>	\&OptValue,
 );
 #

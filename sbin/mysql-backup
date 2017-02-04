@@ -46,17 +46,17 @@ our %OptionSpecifications=(
 		'error-page|P=s'	=>	\&OptArray,
 		'filter-file|F=s'	=>	\&OptValue,
 		'log-file|l=s'		=>	\&OptValue,
-		'test|t'		=>	\&OptValue,
-		'cycles|r=s'		=>	\&Optcycles,
-		'check'			=>	\&Optcycles,
+		'test|t'		=>	\&OptFlag,
+		'cycles|r=s'		=>	\&opt_cycles,
+		'check'			=>	\&OptFlag,
 		'min-size|s=s'		=>	\&opt_min_size,
 		'max-size|S=s'		=>	\&opt_max_size,
 		'output-directory|o=s'	=>	\&OptValue,
 		'remote|R=s'		=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'username|user|U=s'	=>	\&OptValue,
 		'gzip|z'		=>	\&OptValue,
-		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
-		'pmax=n'		=	\&OptValue,
+		'verbose|v'		=>	\&OptFlag,
+		'pmax=n'		=>	\&OptValue,
 );
 #
 
@@ -248,7 +248,7 @@ sub BackupDatabase {
 	}
 	
 	# Figure out our mysqldump version, for version-sensitive options.
-	my $textversion = `mysqldump -V`;
+	my $textversion = `mysqldump -V 2> /dev/null`;
 	$textversion =~ s/^.* Distrib\s+([\d.]+).*/$1/;
 	my $MSDVersion = '';
 	foreach (split(/\./,$textversion)) {
@@ -272,7 +272,7 @@ sub BackupDatabase {
 		RunDangerousCmd(qq<mv "$OutPath.tmp" "$OutPath">);	# Rename tmp file now that it's done.
 		my $size =  ($Options{test}?999999:(stat($OutPath))[7]);
 		printf "%15s bytes (%6s) written to %s\n",
-			Commify($size), CompressSize($size), $OutPath;
+			Commify($size), CompressByteSize($size), $OutPath;
 		warn "Warning: backup is less than the minimum expected size ("
 			. Commify($Options{'min-size'}) ." bytes)\n"
 		    if ($Options{'min-size'} and $size < $Options{'min-size'} and ! $Options{test});
@@ -458,7 +458,7 @@ sub opt_cycles {
 #
 sub opt_min_size {
         my(undef,$Value) = @_;
-	$Options{'min-size'} = ExpandSize($Value);
+	$Options{'min-size'} = ExpandByteSize($Value);
         if (!defined($Options{'min-size'})) {
                 warn qq<Invalid minimum size (--min-size/-s) value: "$Value"\n>;
 		$Errors++;
@@ -473,7 +473,7 @@ sub opt_min_size {
 #
 sub opt_max_size {
         my(undef,$Value) = @_;
-	$Options{'max-size'} = ExpandSize($Value);
+	$Options{'max-size'} = ExpandByteSize($Value);
         if (!defined($Options{'max-size'})) {
                 warn qq<Invalid maximum size (-S) value: "$Value"\n>;
 		$Errors++;
