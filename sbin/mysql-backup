@@ -119,7 +119,7 @@ LogOutput({
 	VERBOSE			=> $LogOutputVerbose,
 });
 
-if (exists($Options{'remote'})) {
+if (exists($Options{'remote'}) and 0+@{$Options{remote}}) {
 	$Errors = RunRemote(argv => [$Prog,@ARGV]);
 }
 else {

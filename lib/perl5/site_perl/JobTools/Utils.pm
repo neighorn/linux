@@ -474,7 +474,7 @@ sub RunRemote {
 	@RemoteParms = grep { $_ ne '' } @RemoteParms;
 	@RemoteParms = map {qq<"$_">} @RemoteParms;
 
-	my $PFM = Parallel::ForkManager->new($Parms{pmax},'/tmp');
+	my $PFM = Parallel::ForkManager->new($Parms{pmax});
 
 	foreach my $Host (@HostList) {
 		my $pid = $PFM->start;	# Fork the child process.
