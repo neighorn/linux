@@ -218,6 +218,10 @@ is(join('-',ExpandConfigList('LIST6')),'a-b-c','ExpandConfigList simple group re
 is(join('-',ExpandConfigList('LIST7')),'d-a-b-c','ExpandConfigList list and group');
 is(join('-',ExpandConfigList('LIST8')),'','ExpandConfigList simple recursive loop');
 is(join('-',ExpandConfigList('LIST9')),'e-f','ExpandConfigList multi-part recursive loop');
+is(join('-',ExpandConfigList('LIST3','!b')),'a-c','ExpandConfigList simple element delete');
+is(join('-',ExpandConfigList('!b','LIST3')),'a-b-c','ExpandConfigList premature element delete');
+is(join('-',ExpandConfigList('LIST3','!LIST1')),'b-c','ExpandConfigList List-based single delete');
+is(join('-',ExpandConfigList('LIST3','!LIST2')),'c','ExpandConfigList List-based multiple delete');
 
 #
 # RunRemote

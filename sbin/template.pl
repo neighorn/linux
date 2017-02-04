@@ -99,7 +99,7 @@ LogOutput({
 die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
 	if (@Parms);
 
-if (exists($Options{'remote'})) {
+if (exists($Options{remote}) and @{$Options{remote}} > 0) {
 	$Errors = RunRemote(argv => [$Prog,@ARGV]);
 }
 else {

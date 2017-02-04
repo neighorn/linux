@@ -561,7 +561,7 @@ sub ExpandConfigList {
 		elsif ($Prefix) {
 			# We're deleting a host.
 			next unless (exists($HostsUsed{$Host}));		# But we never saw it anyway.
-			@HostList = grep {$_ != $Host} @HostList;
+			@ExpandedHostList = grep {$_ ne $Host} @ExpandedHostList;
 			$HostsUsed{$Host} = 0;
 		}
 		elsif ($HostsUsed{$Host}) {
