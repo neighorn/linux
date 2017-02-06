@@ -38,7 +38,7 @@ our %OptionSpecifications=(
 		'<>'			=>	sub {push @Parms,shift;},
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'help|h|?!'		=>	\&opt_help,
-		'host|H=s'	=>	\&opt_Value,
+		'host|H=s'		=>	\&OptValue,
 		'always-mail|m=s'	=>	\&OptArray,
 		'error-mail|M=s'	=>	\&OptArray,
 		'option-set|O=s'	=>	\&opt_O,
