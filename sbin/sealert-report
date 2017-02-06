@@ -10,7 +10,7 @@ use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
-use FindBin qw($RealScript);
+use FindBin qw($RealBin $RealScript);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -345,7 +345,7 @@ sub opt_days {
 #
 sub opt_help {
 
-	system("pod2text '$RealScript' | less");
+	system("pod2text '$RealBin/$RealScript' | less");
 
 =pod
 

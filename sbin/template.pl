@@ -152,9 +152,9 @@ sub RunLocally {
 #
 sub opt_h {
 
-	use FindBin qw($RealScript);
+	use FindBin qw($RealBin $RealScript);
 
-	system(qq<pod2text $RealScript | sed "s/%Prog/$Prog/g" | more>);
+	system(qq<pod2text $RealBin/$RealScript | sed "s/%Prog/$Prog/g" | more>);
 exit 1;
 }
 

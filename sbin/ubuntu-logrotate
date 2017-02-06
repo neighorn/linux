@@ -262,15 +262,15 @@ sub RunLocally {
 	chdir('/var/lib/logrotate') || warn "unable to chdir to /var/log/rotate: $!";
 	RunDangerousCmd('touch /var/lib/logrotate/status') unless (-e '/var/log/rotate/status');
 	my($INFH,$OUTFH,$line);
-	if open($INFH,'<','/var/lib/logrotate/status') {
+	if (open($INFH,'<','/var/lib/logrotate/status')) {
 		$line = <$INFH>;
 		$line =~ s/"//g;
-		if (($Options{test} == 0) && open($OUTFH,'>','/var/lib/logrotate/status.clean') {
+		if (($Options{test} == 0) && open($OUTFH,'>','/var/lib/logrotate/status.clean')) {
 			print $OUTFH, $line;
 			while (<$INFH>) {
 				s/"//g;
 				if (/^\s*(\S+)\s+(\S+)\s*/) {
-					printf $OUTFH,"%s %s\n",$1,$2)
+					printf $OUTFH,"%s %s\n",$1,$2
 						if (-e "$1");
 				}
 			}
@@ -280,6 +280,7 @@ sub RunLocally {
 		}
 		elsif ($Options{test}) {
 			print "Testing: writes skipped\n";
+		}
 		else {
 			warn "Unable to write to /var/lib/logrotate/status.clean: $!";
 		}
@@ -457,9 +458,9 @@ sub opt_max_size {
 #
 sub opt_h {
 
-	use FindBin qw($RealScript);
+	use FindBin qw($RealBin $RealScript);
 
-	system(qq<pod2text $RealScript | sed "s/%Prog/$Prog/g" | more>);
+	system(qq<pod2text $RealBin/$RealScript | sed "s/%Prog/$Prog/g" | more>);
 exit 1;
 }
 

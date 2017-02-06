@@ -158,7 +158,7 @@ sub opt_h {
 
 	my $Pagenater=$ENV{PAGENATER};
 	$Pagenater="more" unless ($Pagenater);
-	system("pod2text $Script | $Pagenater");
+	system("pod2text $Bin/$Script | $Pagenater");
 	exit(1);
 }
 
