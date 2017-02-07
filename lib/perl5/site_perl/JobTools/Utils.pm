@@ -79,7 +79,7 @@ sub ExpandByteSize {
 	my $Value;			# Resulting value.
 	my $Suffix;			# Resulting suffix.
         $Input =~ s/,//g;               # Ignore commas.
-	if ($Input =~ /^\s*0*([1-9]\d*)\s*([$BYTESIZE_UNITS])?B?\s*$/) {
+	if ($Input =~ /^\s*0*([1-9]\d*)\s*([$BYTESIZE_UNITS])?B?\s*$/i) {
 		$Value = $1;
 		$Suffix = $2;
 	}
@@ -88,10 +88,7 @@ sub ExpandByteSize {
 		return undef;
 	}
 	$Suffix = 'B' unless (defined($Suffix));
-	if ($Suffix !~ /^[$BYTESIZE_UNITS]$/) {
-		warn qq<Unrecognized unit suffix "$Suffix" in $Hash{Value} -- conversion not possible>;
-		return undef;
-	}
+	$Suffix = uc($Suffix);
 		
 	# Validate the conversion factor.
 	if (! exists($Hash{Conversion})) {
@@ -107,7 +104,7 @@ sub ExpandByteSize {
 
         return $1 unless (defined($Suffix));	# No suffix means bytes.
 	
-	my $Factor = index($BYTESIZE_UNITS,$Suffix);
+	my $Factor = index(uc($BYTESIZE_UNITS),$Suffix);
 	if (defined($Factor)) {
 		return $Value*$Hash{Conversion}**$Factor;
         }

@@ -47,6 +47,7 @@ is(ExpandByteSize('1M'),1024**2,'ExpandByteSize("1M")');
 is(ExpandByteSize('10M'),1024**2*10,'ExpandByteSize("10M")');
 is(ExpandByteSize('100M'),1024**2*100,'ExpandByteSize("100M")');
 is(ExpandByteSize('1G'),1024**3,'ExpandByteSize("1G")');
+is(ExpandByteSize('1g'),1024**3,'ExpandByteSize("1g")-lower case');
 is(ExpandByteSize('1T'),1024**4,'ExpandByteSize("1T")');
 is(ExpandByteSize(Value=>'1K',Conversion=>1000),1000,'ExpandByteSize(Value=>1K,Conversion=>1000))');
 
