@@ -10,6 +10,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+(\s*\[SAT\])?, self-test in progress, \d+% remaining$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+(\s*\[SAT\])?, SMART Prefailure Attribute: (1|194|195) \S+ changed from ([5-9]\d|1\d\d) to ([5-9]\d|1\d\d)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+(\s*\[SAT\])?, SMART Prefailure Attribute: (2|3|8|9|191|194) \S+ changed from \d+ to \d\d\d$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/[sh]d[a-z]+(\s*\[SAT\])?, SMART Usage Attribute: (194) \S+ changed from \d+ to \d\d\d$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+ \[SAT\], found in smartd database:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+ \[SAT\], is in STANDBY mode, suspending checks$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+ \[SAT\], opened$"
