@@ -98,9 +98,9 @@ else
         smbclientopts="-N"
 fi
 # Added -m SMB3 below to allow CNAME's for hosts.
-cmd="$SMBCLIENT $smbclientopts -g -m SMB3 -L $key 2>/dev/null"
+cmd="$SMBCLIENT $smbclientopts -g -m SMB3 -L $key"
 echo "$cmd" > /tmp/auto.cifs.log
-$cmd |
+$cmd 2>/dev/null |
    awk -v key="$key" -v opts="$mountopts" -F'|' -- '
         BEGIN   { ORS=""; first=1 }
 	/Disk/  { if (first) { print opts; first=0 };
