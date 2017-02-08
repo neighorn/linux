@@ -1,7 +1,7 @@
 package JobTools::Utils;
 require Exporter;
 @ISA		= qw(Exporter);
-@EXPORT_OK	= qw( Commify ExpandByteSize CompressByteSize LoadConfigFiles OptArray OptFlag OptValue RunDangerousCmd RunRemote ExpandConfigList);
+@EXPORT_OK	= qw( Commify ExpandByteSize CompressByteSize LoadConfigFiles OptArray OptFlag OptValue OptOptionSet RunDangerousCmd RunRemote ExpandConfigList);
 our $Version	= 1.0;
 our $BYTESIZE_UNITS = 'BKMGTPEZY';
 our $OptionsRef;				# Pointer to %Options hash
@@ -79,7 +79,7 @@ sub ExpandByteSize {
 	my $Value;			# Resulting value.
 	my $Suffix;			# Resulting suffix.
         $Input =~ s/,//g;               # Ignore commas.
-	if ($Input =~ /^\s*0*([1-9]\d*)\s*([$BYTESIZE_UNITS])?B?\s*$/i) {
+	if ($Input =~ /^\s*0*([1-9]\d*\.?\d*)\s*([$BYTESIZE_UNITS])?B?\s*$/i) {
 		$Value = $1;
 		$Suffix = $2;
 	}
@@ -362,6 +362,49 @@ sub OptFlag {
 		$OptionsRef->{$Name} = 1;
 	}
 
+}
+
+
+# ---------------------------------------------------------
+#
+# OptOptionSet - Process options from an option set as if
+#                they had been on the command line.
+#    Example:
+#      Command line: myscript -O optset
+#      Confilg file: optset -v -m jsmith
+#      OptOptionSet( name => 'optset', optspec => \%OptSpec )
+#      Result: %Config (as declared in init) has -v turned on and -m set to 'jsmith'
+#
+sub OptOptionSet {
+	require Getopt::Long; Getopt::Long->import(qw(GetOptionsFromString));
+        my %Hash = @_;
+	
+	# Make sure we have all the necessary pieces.
+	my $Errors = 0;
+	foreach my $name (qw(name optspec)) {
+		if (!exists($Hash{$name})) {
+			warn "OptOptionSet: missing required $name parameter\n";
+			$Errors++;
+		}
+	}
+	return $Errors if ($Errors);
+
+        $Hash{name} = uc($Hash{name});	# Normalize the name.
+        $Hash{name} =~ m/(:?)(\S+)/;	# See if it starts with a colon, meaning optional.
+        my $Optional = $1;
+        $Hash{name} = $2;
+        if (exists($ConfigRef->{$Hash{name}})) {
+                $Errors++ unless GetOptionsFromString(
+                        $ConfigRef->{$Hash{name}},
+                        %{$Hash{optspec}},
+                        '<>' => sub{push @ARGV, shift;}         # Need to save any stray paramters.
+                );
+        }
+	elsif (! $Optional) {
+                warn qq<Warning: "$Hash{name}" not found in configuration file\n>;
+		$Errors++;
+        }
+	return $Errors;
 }
 
 

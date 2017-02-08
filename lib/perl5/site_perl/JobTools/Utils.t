@@ -42,6 +42,7 @@ is(ExpandByteSize('100B'),100,'ExpandByteSize("100B")');
 is(ExpandByteSize('1023B'),1023,'ExpandByteSize("1023B")');
 is(ExpandByteSize('1K'),1024,'ExpandByteSize("1K")');
 is(ExpandByteSize('10K'),10240,'ExpandByteSize("10K")');
+is(ExpandByteSize('10.5K'),10752,'ExpandByteSize("10.5K")');
 is(ExpandByteSize('100K'),102400,'ExpandByteSize("100K")');
 is(ExpandByteSize('1M'),1024**2,'ExpandByteSize("1M")');
 is(ExpandByteSize('10M'),1024**2*10,'ExpandByteSize("10M")');
@@ -174,6 +175,46 @@ OptArray('opt7','a,SERVERS,i');							is(join('/',@{$Options{opt7}}),'a/SERVERS/
 OptArray('opt8','a,SERVERS,i','expand-config' => 1);				is(join('/',@{$Options{opt8}}),'a/b/c/d/e/f/g/h/i','OptArray expand-config=1');
 OptArray('opt9','a,LOOP,h','expand-config' => 1);				is(join('/',@{$Options{opt9}}),'a/b/c/d/h','OptArray expand-config=1, config loop');
 OptArray('opt10','a,b,c,d,!CGROUP','expand-config' => 1, 'allow-delete' => 1);	is(join('/',@{$Options{opt10}}),'a/b/d','OptArray expand-config=1, negate config');
+
+#
+# OptOptionSet
+#
+%Config = (
+	OPTION1 => '-a',
+	OPTION2 => '-b',
+	OPTION3 => '-c',
+	OPTION4 => '-d -e',
+	'OPTION5=5' => '-f',
+	OPTION6 => '-g=6',
+	OPTION7 => '-h=1 -h=2 -h=3',
+	# No option8 for optional test
+	OPTION9 => '-i',
+	# No option10 for mandatory test
+);
+%Options = ();
+my %OptionSpecifications=(
+	'-a'	=>	\&OptFlag,
+	'-b'	=>	\&OptFlag,
+	'-c'	=>	\&OptFlag,
+	'-d'	=>	\&OptFlag,
+	'-e'	=>	\&OptFlag,
+	'-f'	=>	\&OptFlag,
+	'-g=n'	=>	\&OptValue,
+	'-h=n'	=>	\&OptArray,
+	'-i'	=>	\&OptFlag,
+);
+my $Status;
+
+OptOptionSet(name => 'option1', optspec => \%OptionSpecifications);		is($Options{a},1,'OptOptionSet simple flag, lower case');
+OptOptionSet(name => 'OPTION2', optspec => \%OptionSpecifications);		is($Options{b},1,'OptOptionSet simple flag, upper case');
+OptOptionSet(name => 'Option3', optspec => \%OptionSpecifications);		is($Options{c},1,'OptOptionSet simple flag, mixed case');
+OptOptionSet(name => 'option4', optspec => \%OptionSpecifications);		ok(($Options{d}==1 and $Options{e}==1),'OptOptionSet multiple simple flags');
+OptOptionSet(name => 'option5=5', optspec => \%OptionSpecifications);		is($Options{f},1,'OptOptionSet embedded equal sign');
+OptOptionSet(name => 'option6', optspec => \%OptionSpecifications);		is($Options{g},6,'OptOptionSet value assigned');
+OptOptionSet(name => 'option7', optspec => \%OptionSpecifications);		is(join('-',@{$Options{h}}),'1-2-3','OptOptionSet list assigned');
+$Status = OptOptionSet(name => ':option8', optspec => \%OptionSpecifications);	is($Status,0,'OptOptionSet optional set not found');
+$Status = OptOptionSet(name => 'option9', optspec => \%OptionSpecifications);	is($Options{i},1,'OptOptionSet optional set found');
+$Status = OptOptionSet(name => 'option10', optspec => \%OptionSpecifications);	ok(($Status != 0),'OptOptionSet mandatory set not found');
 
 #
 # RunDangerousCmd
