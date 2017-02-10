@@ -29,7 +29,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.filter_synchroniz
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.filter_synchronize: Beginning XMLRPC sync to https://\S+:8443.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.newwanip: pfSense package system has detected an IP change or dynamic WAN reconnection -  ->  \S+ - Restarting packages.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.newwanip: rc.newwanip called with empty interface.$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.newwanip: rc.newwanip: Info: starting on ovpnc4.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.newwanip: rc.newwanip: Info: starting on ovpnc\d+.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.newwanip: rc.newwanip: on \(IP address: \S+\) \(interface: \[\]\) \(real interface: ovpnc\d+\).$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/rc.start_packages: Restarting/Starting all packages.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php-fpm\[\d+\]:\s*/xmlrpc.php: Resyncing OpenVPN instances.$"
