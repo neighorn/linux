@@ -397,11 +397,11 @@ sub OptOptionSet {
                 $Errors++ unless GetOptionsFromString(
                         $ConfigRef->{$Hash{name}},
                         %{$Hash{optspec}},
-                        '<>' => sub{push @ARGV, shift;}         # Need to save any stray paramters.
                 );
         }
 	elsif (! $Optional) {
-                warn qq<Warning: "$Hash{name}" not found in configuration file\n>;
+                warn qq<Warning: "$Hash{name}" not found in configuration file\n>
+			unless (exists($Hash{'suppress-output'}) and $Hash{'suppress-output'});
 		$Errors++;
         }
 	return $Errors;
@@ -422,12 +422,14 @@ sub RunDangerousCmd {
 	my %Parms = _GatherParms(\%Settings,\%Defaults);
 
 	if ($Parms{test}) {
-		print "Test: $Cmd\n";
+		print "Test: $Cmd\n"
+			unless (exists($Settings{'suppress-output'}) and $Settings{'suppress-output'});
 		return 0;
 	}
 	else {
 		my($FH,$Line);
-		print "Executing: $Cmd\n" if ($Parms{verbose});
+		print "Executing: $Cmd\n"
+			if ($Parms{verbose} and !$Settings{'suppress-output'});
 		if (open($FH,"$Cmd 2>&1 |")) {
 			while ($Line=<$FH>) {
 				$Line=~s/[

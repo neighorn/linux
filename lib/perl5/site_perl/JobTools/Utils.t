@@ -13,6 +13,7 @@ use JobTools::Utils @JobTools::Utils::EXPORT_OK;	# Import everything.
 
 my %Config = (test1 => 'abc');
 my %Options = (test2 => 'def');
+my $Status;
 JobTools::Utils::init( options => \%Options, config => \%Config);
 is ($JobTools::Utils::OptionsRef,\%Options, 'init Options');
 is ($JobTools::Utils::OptionsRef->{test1},$Options{test1}, 'init Options - right pointer');
@@ -179,6 +180,7 @@ OptArray('opt10','a,b,c,d,!CGROUP','expand-config' => 1, 'allow-delete' => 1);	i
 #
 # OptOptionSet
 #
+my @Parms;
 %Config = (
 	OPTION1 => '-a',
 	OPTION2 => '-b',
@@ -190,6 +192,8 @@ OptArray('opt10','a,b,c,d,!CGROUP','expand-config' => 1, 'allow-delete' => 1);	i
 	# No option8 for optional test
 	OPTION9 => '-i',
 	# No option10 for mandatory test
+	OPTION11 => '-j abc',
+	OPTION12 => 'def -k ghi -l',
 );
 %Options = ();
 my %OptionSpecifications=(
@@ -202,8 +206,11 @@ my %OptionSpecifications=(
 	'-g=n'	=>	\&OptValue,
 	'-h=n'	=>	\&OptArray,
 	'-i'	=>	\&OptFlag,
+	'-j'	=>	\&OptFlag,
+	'-k'	=>	\&OptFlag,
+	'-l'	=>	\&OptFlag,
+	'<>' => sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
 );
-my $Status;
 
 OptOptionSet(name => 'option1', optspec => \%OptionSpecifications);		is($Options{a},1,'OptOptionSet simple flag, lower case');
 OptOptionSet(name => 'OPTION2', optspec => \%OptionSpecifications);		is($Options{b},1,'OptOptionSet simple flag, upper case');
@@ -214,21 +221,27 @@ OptOptionSet(name => 'option6', optspec => \%OptionSpecifications);		is($Options
 OptOptionSet(name => 'option7', optspec => \%OptionSpecifications);		is(join('-',@{$Options{h}}),'1-2-3','OptOptionSet list assigned');
 $Status = OptOptionSet(name => ':option8', optspec => \%OptionSpecifications);	is($Status,0,'OptOptionSet optional set not found');
 $Status = OptOptionSet(name => 'option9', optspec => \%OptionSpecifications);	is($Options{i},1,'OptOptionSet optional set found');
-$Status = OptOptionSet(name => 'option10', optspec => \%OptionSpecifications);	ok(($Status != 0),'OptOptionSet mandatory set not found');
+$Status = OptOptionSet(name => 'option10', optspec => \%OptionSpecifications, 'suppress-output' => 1);
+										ok(($Status != 0),'OptOptionSet mandatory set not found');
+@Parms=();
+OptOptionSet(name => 'option11', optspec => \%OptionSpecifications);		is(join('-',@Parms),'abc','OptOptionSet trailing parm');
+@Parms=();
+OptOptionSet(name => 'option12', optspec => \%OptionSpecifications);		is(join('-',@Parms),'def-ghi','OptOptionSet intermixed parms');
+
 
 #
 # RunDangerousCmd
 #
 %Options = (test => 1);	# Reinitialize this.
 unlink($TempFile);
-RunDangerousCmd("touch $TempFile");
+RunDangerousCmd("touch $TempFile",'suppress-output' => 1);
 ok(! -f $TempFile,'RunDangerousCmd - test in program options');
 unlink($TempFile);
 undef %Options;
-RunDangerousCmd("touch $TempFile", test => 1);
+RunDangerousCmd("touch $TempFile", test => 1, 'suppress-output' => 1);
 ok(! -f $TempFile,'RunDangerousCmd - test in calling options');
 unlink($TempFile);
-my $Status = RunDangerousCmd("touch $TempFile");
+$Status = RunDangerousCmd("touch $TempFile", 'suppress-output' => 1);
 ok(-f $TempFile,'RunDangerousCmd - live test');
 ok($Status == 0,'RunDangerousCmd - normal status');
 unlink($TempFile);
