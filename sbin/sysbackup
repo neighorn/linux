@@ -34,7 +34,8 @@ JobTools::Utils::init(config => \%Config, options => \%Options);
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
-our %OptionSpecifications=(
+our %OptionSpecifications;
+%OptionSpecifications=(
 		'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
 		'always-mail|m=s'	=>	\&OptArray,
 		'always-page|p=s'	=>	\&OptArray,
@@ -45,12 +46,12 @@ our %OptionSpecifications=(
 		'exclude-fs|X=s'	=>	\&OptArray,
 		'exclude|x=s'		=>	\&OptArray,
 		'filter-file|F=s'	=>	\&OptArray,
-		'help|h|?!'		=>	\&Opth,
+		'help|h|?!'		=>	\&opt_h,
 		'precmd=s'		=>	sub { OptArray(@_,'preserve-lists'=>1);},
 		'postcmd=s'		=>	sub { OptArray(@_,'preserve-lists'=>1);},
 		'max-size|S=s'		=>	\&OptValue,
 		'min-size|s=s'		=>	\&OptValue,
-		'option-set|O=s'	=>	\&OptO,
+		'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
 		'output-dir|D=s'	=>	\&OptValue,
 		'pmax=i'		=>	\&OptFlag,
 		'remote|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
@@ -421,26 +422,6 @@ sub opt_max_size {
 		$Errors++;
 		$Options{'max-size'} = 0;
         }
-}
-
-
-
-#
-# opt_O - Load an option set.
-#
-sub opt_O {
-	my(undef,$Value) = @_;
-	$Value = uc($Value);
-	if (exists($Config{$Value})) {
-		$Errors ++ unless GetOptionsFromString(
-			$Config{$Value},
-			%OptionSpecifications,
-			'<>' => sub{push @ARGV, shift;}         # Need to save any stray paramters.
-		);
-	}
-	else {
-		warn qq<Warning: "$Value" not found in configuration file\n>;
-	}
 }
 
 
