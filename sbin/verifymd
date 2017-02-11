@@ -34,7 +34,8 @@ JobTools::Utils::init(config => \%Config, options => \%Options);
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
-our %OptionSpecifications=(
+our %OptionSpecifications;
+%OptionSpecifications=(
 		'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
 		'always-mail|m=s'	=>	\&OptArray,
 		'always-page|p=s'	=>	\&OptArray,
@@ -54,6 +55,7 @@ our %OptionSpecifications=(
                 'week|n=i'		=>	\&OptValue,
                 'exclude|x=s'		=>	\&OptArray,
                 'pmax=i'		=>	\&OptValue,
+		'option-set|O=s'	=>	sub { OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
 );
 #
 our $ExitCode;
