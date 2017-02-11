@@ -49,7 +49,7 @@ my %OptionSpecifications;
 		'remote|R=s'		=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'subject=s'		=>	\&OptValue,
 		'username|user|U=s'	=>	\&OptValue,
-                'option-set|O=s'        =>      sub { OptOptionSet($_[1], optspec => \%OptionSpecifications); },
+                'option-set|O=s'        =>      sub { OptOptionSet(name => $_[1], optspec => \%OptionSpecifications); },
 		'test|t'		=>	\&OptFlag,
 		'verbose|v'		=>	\&OptFlag,
 		'pmax=n'		=>	\&OptValue,
