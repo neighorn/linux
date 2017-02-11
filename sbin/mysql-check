@@ -12,7 +12,7 @@ use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
 use FindBin qw($Bin $Script);
 use LogOutput;
-use JobTools::Utils qw(OptArray OptFlag OptValue LoadConfigFiles RunRemote RunDangerousCmd);
+use JobTools::Utils qw(OptArray OptFlag OptValue OptOptionSet LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -34,7 +34,8 @@ JobTools::Utils::init(config => \%Config, options => \%Options);
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
-our %OptionSpecifications=(
+my %OptionSpecifications;
+%OptionSpecifications=(
 		'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
 		'always-mail|m=s'	=>	\&OptArray,
 		'always-page|p=s'	=>	\&OptArray,
@@ -45,10 +46,10 @@ our %OptionSpecifications=(
 		'filter-file|F=s'	=>	\&OptArray,
 		'help|h|?!'		=>	\&opt_h,
                 'host=s'                =>      \&OptValue,
-		'remote|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+		'remote|R=s'		=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'subject=s'		=>	\&OptValue,
 		'username|user|U=s'	=>	\&OptValue,
-                'option-set|O=s'        =>      \&opt_O,
+                'option-set|O=s'        =>      sub { OptOptionSet($_[1], optspec => \%OptionSpecifications); },
 		'test|t'		=>	\&OptFlag,
 		'verbose|v'		=>	\&OptFlag,
 		'pmax=n'		=>	\&OptValue,
@@ -161,26 +162,6 @@ sub RunLocally {
 }
 
 
-#
-# opt_O - Load an option set.
-#
-sub opt_O {
-	my(undef,$Value) = @_;
-	$Value = uc($Value);
-	if (exists($Config{$Value})) {
-		$Errors ++ unless GetOptionsFromString(
-			$Config{$Value},
-			%OptionSpecifications,
-			'<>' => sub{push @ARGV, shift;}         # Need to save any stray paramters.
-		);
-	}
-	else {
-		warn qq<Warning: "$Value" not found in configuration file\n>;
-	}
-}
-
-
-
 # ---------------------------------------------------------
 #
 # opt_h: Usage
@@ -216,9 +197,14 @@ exit 1;
         --error-page|-P addr:   Page error: Send a very brief message to
                                 this e-mail address if errors are
                                 detected in this job.
-        --option-set|-O config: Insert the "config" configuration options
+        --option-set|-O config: Process the "config" configuration options
                                 from /usr/local/etc/%Prog.cfg
-                                into the command line at this point.
+                                into the command line at this point. "config" 
+				may be prefixed with a colon (":") to 
+				indicate it is optional.  Otherwise the
+				configuration set is considered mandatory,
+				and a warning is issued if it is not found
+				in the configuration files.
 	--username|-U username: User: log in using "username".
         --host host:		Host:  Run mysqlcheck on the local machine
 				with the --host parameter to connect to 
