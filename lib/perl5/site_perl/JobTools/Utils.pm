@@ -526,6 +526,7 @@ sub RunRemote {
 				  . '-F SHOWALL '
 				  . '--always-mail= '
 				  . '--remote= '	# Avoid --remote recursion from AllJobs in .cfg.
+				  . "-O :remote=$Host "	# Optionally, load any options when running remote
 				  . '2\>\&1 '
 				  ;
 			my $FH;
