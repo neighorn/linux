@@ -5,7 +5,7 @@
 use strict;
 use warnings;
 use LogOutput;
-use JobTools::Utils qw(OptArray OptFlag OptValue LoadConfigFiles RunRemote RunDangerousCmd);
+use JobTools::Utils qw(OptArray OptFlag OptValue OptOptionSet LoadConfigFiles RunRemote RunDangerousCmd);
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);

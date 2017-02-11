@@ -11,7 +11,7 @@ use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
 use FindBin qw($Bin $Script);
 use LogOutput;
-use JobTools::Utils qw(OptArray OptFlag OptValue LoadConfigFiles RunRemote RunDangerousCmd Commify CompressByteSize ExpandByteSize);
+use JobTools::Utils qw(OptArray OptFlag OptValue OptOptionSet LoadConfigFiles RunRemote RunDangerousCmd Commify CompressByteSize ExpandByteSize);
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
