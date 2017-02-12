@@ -478,6 +478,11 @@ sub RunRemote {
 		}
 	}
 	return $Errors if ($Errors);
+	if (!exists($Parms{pmax}) or !defined($Parms{pmax}) or $Parms{pmax} !~ /^[1-9]\d*$/) {
+		warn qq<RunRemote: Invalid value "$Parms{pmax}" for pmax -- defaulting to 64\n>;
+		$Errors++;
+		$Parms{pmax}=64;
+	}
 
 	# Get the list of target hosts.
 	if (ref($Parms{remote}) eq 'SCALAR') {
