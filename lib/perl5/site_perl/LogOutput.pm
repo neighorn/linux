@@ -21,8 +21,8 @@ use Fcntl qw(:flock);
 
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
-our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject);
-our $Version	= 3.31;
+our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject FormatVerboseElapsedTime);
+our $Version	= 3.32;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -237,22 +237,7 @@ sub LogOutput {
 	
 	$StopTime=time();
 	$TimeStamp=strftime("%A, %Y-%m-%d at %H:%M:%S",localtime($StopTime));
-	$RunTime=$StopTime-$^T;
-	my($RunSec,$RunMin,$RunHour,$RunDay);
-	$RunSec = $RunTime % 60;		# localtime($RunTime) gave weird results
-	$RunTime=($RunTime - $RunSec)/60;
-	$RunMin = $RunTime % 60;
-	$RunTime=($RunTime - $RunMin)/60;
-	$RunHour = $RunTime % 24;
-	$RunDay=($RunTime - $RunHour)/24;
-	$RunTime = "$RunSec second" . ($RunSec == 1?'':'s');
-	$RunTime = "$RunMin minute" . ($RunMin == 1?'':'s') . ", $RunTime"
-		if ($RunDay+$RunHour+$RunMin);
-	$RunTime = "$RunHour hour" . ($RunHour == 1?'':'s') . ", $RunTime"
-		if ($RunDay+$RunHour);
-	$RunTime = "$RunDay day" . ($RunDay == 1?'':'s') . ", $RunTime"
-		if ($RunDay);
-	$RawRunTime="$RunDay:$RunHour:$RunMin:$RunSec";
+	($RunTime,$RawRunTime)=FormatVerboseElapsedTime($StopTime-$^T);
 	$Options{MAIL_FILE_PREFIX}='';		# Don't prefix wrap-up messages.
 	$ErrorsDetected += _FilterMessage("   $Options{PROGRAM_NAME} ended on $TimeStamp - run time: $RunTime");
 	
@@ -465,6 +450,42 @@ sub _CleanEmailLists {
 	$Options{ERROR_MAIL_LIST} = [ _StripDuplicates(@{$Options{ERROR_MAIL_LIST}},@{$Options{ALWAYS_MAIL_LIST}}) ];
 	$Options{ERROR_PAGE_LIST} = [ _StripDuplicates(@{$Options{ERROR_PAGE_LIST}},@{$Options{ALWAYS_PAGE_LIST}}) ];
 
+}
+
+
+#
+# FormatVerboseElapsedTime - format seconds elapsed into human-readable format.
+# 
+sub FormatVerboseElapsedTime {
+
+	my $RunTime = shift;
+
+	if ($RunTime !~ /^\d+$/) {
+		warn <LogOutput::FormatVerboseElapsedTime: invalid elapsed time "$RunTime" provided - treated as zero.\n>;
+		$RunTime = 0;
+	}
+
+	my($RunSec,$RunMin,$RunHour,$RunDay);
+	$RunSec = $RunTime % 60;		# localtime($RunTime) gave weird results
+	$RunTime=($RunTime - $RunSec)/60;
+	$RunMin = $RunTime % 60;
+	$RunTime=($RunTime - $RunMin)/60;
+	$RunHour = $RunTime % 24;
+	$RunDay=($RunTime - $RunHour)/24;
+	$RunTime = "$RunSec second" . ($RunSec == 1?'':'s');
+	$RunTime = "$RunMin minute" . ($RunMin == 1?'':'s') . ", $RunTime"
+		if ($RunDay+$RunHour+$RunMin);
+	$RunTime = "$RunHour hour" . ($RunHour == 1?'':'s') . ", $RunTime"
+		if ($RunDay+$RunHour);
+	$RunTime = "$RunDay day" . ($RunDay == 1?'':'s') . ", $RunTime"
+		if ($RunDay);
+	if (wantarray) {
+		my $RawRunTime="$RunDay:$RunHour:$RunMin:$RunSec";
+		return ($RunTime,$RawRunTime);
+	}
+	else {
+		return $RunTime;
+	}
 }
 
 
