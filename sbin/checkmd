@@ -46,7 +46,8 @@ my %OptionSpecifications;
 	'filter-file|F=s'	=>	\&OptArray,
 	'force|f'		=>	\&OptFlag,
 	'help|h|?!'		=>	\&opt_h,
-	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => %OptionSpecifications);},
+	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
+	'pmax=n'		=>	\&OptValue,
 	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 	'test|t'		=>	\&OptFlag,
 	'verbose|v'		=>	\&OptFlag,
@@ -83,7 +84,7 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 # Process the command line options.
 #
 my @ARGVSave = @ARGV;           # In case we need to reprocess the command line later.
-%Options=(verbose => 0, test => 0, wait => 0);        # Initialize Options.
+%Options=(verbose => 0, test => 0, wait => 0, pmax => 64);        # Initialize Options.
 die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;              # Restore @ARGV for LogOutput and second GetOptions.
 
@@ -402,41 +403,17 @@ DISABLEUNTIL: Disable checks until the specified date or date-and-time
 
 =cut
 __END__
-#
-# Output filters.  The syntax is: type pattern
-#
-#  Type:	Ignore - Don't display this message, it's not interesting.
-#		LogOnly - Write this message to the syslog and log file, but
-#			don't display it on STDOUT.
-#		Show - Display this message, but it's not an error condition.
-#		# - This is a comment, ignore it.
-#
-#  Pattern:	an ordinary perl pattern.  All patterns for a given score
-#		are joined by logical OR conditions.
-#
-#  Notes:
-#	1) The "Type" parameter may be specified in upper, lower, or mixed case.
-#	2) All messages go to the syslog, regardless of this filter.
-#
-#
-# The following are normal messages we don't need to see.
-#
-IGNORE	/^\s*$/
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
-LOGONLY	/^Command: /
-#
-# These are normal messages that we want to see.
-#
-SHOW	/^\s*debug:/
-SHOW	/^\s*Checks disabled until/
-IGNORE	/^\S+ ended normally with status 0 and signal 0$/
-SHOW	"^\s*Device /dev/\S+\s+Serial #\S+\s+RAIDs: "
-SHOW	"^\s*Verbose:"
-IGNORE	"^\s*\S+:\s+.*resync=DELAYED$"
-IGNORE	"^\s*bitmap:"
-#
-# Anything that doesn't match one of these three sets of patterns is considered
-# an error.
+# See LogOutput.pm for filter format.
+IGNORE	"^\s*(\S+:\s*)?$"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*\S+ ended normally with status 0 and signal 0$"
+IGNORE	"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+IGNORE	"^\s*\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s+Command: "
+LOGONLY	"^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY	"^\s*Command: "
+SHOW	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
