@@ -1,141 +1,223 @@
 #!/usr/bin/perl
-
+#
+# checkmd - check on the health of md devices
+#
 use strict;
 use warnings;
-use LogOutput;
-use ProcessOptions;
+use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use Text::ParseWords;
+use POSIX qw(strftime);
+use Fcntl qw(:flock :mode :DEFAULT);
+use File::Basename;
 use Time::Local;
-
-# Set up the environment.
-$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/sbin:/usr/sbin:/usr/bin:/bin';
+use LogOutput;
+use JobTools::Utils qw(OptArray OptFlag OptValue OptOptionSet LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
-our $Prog=$0;			# Get our name, for messages.
-$Prog=~s/^.*\///;		# Trim off the path, if present.
-our @Parms;
-our $opt_C;
-our $opt_d;
-our $opt_D;
-our $opt_f;
-our $opt_h;
-our $opt_m;
-our $opt_e;
-our $opt_p;
-our $opt_P;
-our $opt_O;
-our $opt_v = 0;
-our $opt_w = 0;
-our %devices;
+my $Prog=$0;			# Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";		# Trim off the path, if present.
+$ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 my @Args=@ARGV;			# Preserve orig command for ref.
-my $ErrorFlag=0;			# No errors so far.
-my $Syslog='user';			# Name of Syslog facility.  '' for no logging.
-my $LogFile='';			# Log file name, or null for none.
-my $BaseDir='/usr/local/etc';	# Set our base directory.
-my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
-my %Config;
+my $ErrorFlag=0;		# No errors so far.
+my @ConfigFiles=("/usr/local/etc/${Prog}.cfg");     # Name of config files.
+my $JobLockFile;		# Name of our lock file.
+my $JOBLOCKFH;			# Lock file handle.
+our $Errors=0;
+our %Config;
+our @Parms;
+our %Options;			# Options settings.
+JobTools::Utils::init(config => \%Config, options => \%Options);
 
-# Set our base directory.
-chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+my %OptionSpecifications;
+%OptionSpecifications=(
+	'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
+	'always-mail|m=s'	=>	\&OptArray,
+	'always-page|p=s'	=>	\&OptArray,
+	'check-is-error|C'	=>	\&OptFlag,
+	'debug|d'		=>	sub {$DB::AutoTrace=1;},
+	'devices|D'		=>	\&OptFlag,
+	'error-mail|M=s'	=>	\&OptArray,
+	'error-page|P=s'	=>	\&OptArray,
+	'filter-file|F=s'	=>	\&OptArray,
+	'force|f'		=>	\&OptFlag,
+	'help|h|?!'		=>	\&opt_h,
+	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => %OptionSpecifications);},
+	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+	'test|t'		=>	\&OptFlag,
+	'verbose|v'		=>	\&OptFlag,
+	'wait|w'		=>	\&OptFlag,
+);
+our $ExitCode;
 
-# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
-#	1) We define a new type l (lowercase L), which is a list (i.e. if
-#	   specified multiple times, values are concatenated & blank separated.o
-#	   Normal =s and =i would replace values instead of concatenate.
-#	2) We don't support long option names, except as aliases.
-# These are the standard production options.  Add more options here as needed.
-my $OptSpec='C d D f h m=l e=l p=l P=l O=s v w';
+my $HostName = `hostname`;
+chomp $HostName;
+$HostName =~ s/\..*$//;		# Strip domain.
+our $BaseDir="/usr/local/backup/$Prog";	# Set our base directory.
 
+# ---------------------------------------------------------
+#
 # Load the config file.
-if (-e $ConfigFile) {
-        open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-        # Build a hash of settings found in the config file.
-        while (<CONFIG>) {
-                next if (/^\s*#/);      # Comment.
-                next if (/^\s*$/);      # Blank line.
-                my ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
-                $name=~tr/[a-z]/[A-Z]/;
-                $Config{$name}=$settings;
-        }
-}
+#
+LoadConfigFiles(files => \@ConfigFiles);
 
+# ---------------------------------------------------------
+#
 # Process the config file defaults if present.
+#
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+        if (join(' ',@ARGV) =~ /^\s*(\b-[tv]+)*\s*$/ && defined($Config{DEFAULTJOB}));
+
+# Process the config file host defaults and general defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
-	if (defined($Config{'ALLJOBS'}));
+        if (defined($Config{'ALLJOBS'}));
 
-# Process the command line options, if any.
-if (@ARGV) {
-	# Process the command line arguments.
-	ProcessOptions($OptSpec);
-} else {
-	# No command line options.  Run the default job.
-	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
-		if (defined($Config{'DEFAULTJOB'}));
-}
+# ---------------------------------------------------------
+#
+# Process the command line options.
+#
+my @ARGVSave = @ARGV;           # In case we need to reprocess the command line later.
+%Options=(verbose => 0, test => 0, wait => 0);        # Initialize Options.
+die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;              # Restore @ARGV for LogOutput and second GetOptions.
 
-if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
-	
+# ---------------------------------------------------------
+#
 # Set up our logging and output filtering.
+#
 LogOutput({
-        ALWAYS_MAIL_LIST => $opt_m,
-        ERROR_MAIL_LIST => $opt_e,
-        ALWAYS_PAGE_LIST => $opt_p,
-        ERROR_PAGE_LIST => $opt_P,
-        SYSLOG_FACILITY => 'user',
-        VERBOSE => ($opt_v >= 5? $opt_v-4:0),
-        FILTER_FILE => $LogFile,
+	ALWAYS_MAIL_LIST => $Options{'always-mail'},
+	ERROR_MAIL_LIST => $Options{'error-mail'},
+	ALWAYS_PAGE_LIST => $Options{'always-page'},
+	ERROR_PAGE_LIST => $Options{'error-page'},
+	SYSLOG_FACILITY => 'user',
+	VERBOSE => ($Options{verbose} >= 5? $Options{verbose}-4:0),
+	FILTER_FILE => $Options{'filter-file'},
 });
 
+# Verify the command line.
+die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
+	if (@Parms);
 
-if ($Config{DISABLEUNTIL} and not $opt_f and not $opt_w) {
-	if ($Config{DISABLEUNTIL} =~ m"^(\d\d\d\d)[/-](\d\d?)[/-](\d\d?)(?:\s+(\d\d?):(\d\d?)(?::(\d\d+))?)?") {
-		my($AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond) = ($1,$2,$3,$4,$5,$6);
-		$AHour = 8 unless (defined($AHour));
-		$AMinute = 0 unless (defined($AMinute));
-		$ASecond = 0 unless (defined($ASecond));
-		my $ADate = timelocal($ASecond,$AMinute,$AHour,$ADay,$AMonth-1,$AYear);
-		if (time() < $ADate) {
-			printf "Checks disabled until %d/%.2d/%.2d %d:%.2d:%.2d per config file. Use -f to force execution.\n",
-				$AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond;
-			exit 0;
+if (exists($Options{remote}) and @{$Options{remote}} > 0) {
+	$Errors = RunRemote(argv => [$Prog,@ARGV]);
+}
+else {
+	$Errors = RunLocally($Config{uc("host=$HostName")});
+}
+
+# ---------------------------------------------------------
+#
+# Release the job lock.
+#
+if ($JOBLOCKFH) {
+        close $JOBLOCKFH;
+        unlink $JobLockFile;
+}
+
+
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+$ExitCode=$Errors?10:0;
+exit($ExitCode);
+
+
+# ---------------------------------------------------------
+#
+# RunLocally - run a sysbackup on this machine.
+#
+sub RunLocally {
+	# ---------------------------------------------------------
+	#
+	# Load any host-specific options
+	#
+	my $HostOptions = shift;
+	if ($HostOptions) {
+		my @Array = quotewords(" ",0,$HostOptions);
+		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
+	}
+
+	my %devices;
+
+	# Check to see if we're disabled.
+	return 0 if CheckDisabled();
+	
+	if (! $Options{'always-mail'} and ! $Options{'error-mail'} ) {
+		# No mail addresses.  That's an error unless we have a tty.
+		`tty -s` && warn "No e-mail addresses supplied.  $Prog has no way to notify of raid failures.\n";
+	}
+	
+	do {
+		$ErrorFlag = CheckMDDevices(\%devices);
+		sleep(60) if ($ErrorFlag and $Options{wait});
+	} until (($ErrorFlag == 0) or ($Options{wait} == 0));
+	
+	
+	# Document the devices
+	if ($ErrorFlag or $Options{devices}) {
+		foreach (sort(keys(%devices))) {
+			my $raid_list = join(', ',sort(@{$devices{$_}}));
+			my $serial = `smartctl -i /dev/$_ | grep 'Serial Number'`;
+			chomp $serial;
+			$serial =~ s/^.*:\s+//;
+			printf "Device /dev/%-7s Serial #%-20s RAIDs: %s\n", $_, $serial, $raid_list
+				if ($serial);
+		}
+	}
+
+
+}
+
+
+
+# ---------------------------------------------------------
+#
+# CheckDisabled - see if they've disabled checks for a while.
+#
+sub CheckDisabled {
+
+	if ($Config{DISABLEUNTIL} and not $Options{force} and not $Options{wait}) {
+		if ($Config{DISABLEUNTIL} =~ m"^(\d\d\d\d)[/-](\d\d?)[/-](\d\d?)(?:\s+(\d\d?):(\d\d?)(?::(\d\d+))?)?") {
+			my($AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond) = ($1,$2,$3,$4,$5,$6);
+			$AHour = 8 unless (defined($AHour));
+			$AMinute = 0 unless (defined($AMinute));
+			$ASecond = 0 unless (defined($ASecond));
+			my $ADate = timelocal($ASecond,$AMinute,$AHour,$ADay,$AMonth-1,$AYear);
+			if (time() < $ADate) {
+				printf "Checks disabled until %d/%.2d/%.2d %d:%.2d:%.2d per config file. Use -f to force execution.\n",
+					$AYear,$AMonth,$ADay,$AHour,$AMinute,$ASecond;
+				return 1;	# Yes, checks are disabled.
+			}
+		}
+		else {
+			print "Invalid DisableUntil date specified in config file: $Config{DISABLEUNTIL} -- ignored.\n";
+			return 0;		# Default to not disabled
 		}
 	}
 	else {
-              print "Invalid DisableUntil date specified in config file: $Config{DISABLEUNTIL} -- ignored.\n";
+		return 0;			# No, checks are not disabled
 	}
 }
 
-if (! $opt_m and ! $opt_e ) {
-	# No mail addresses.  That's an error unless we have a tty.
-	`tty -s` && warn "No e-mail addresses supplied.  $Prog has no way to notify of raid failures.\n";
-}
 
-do {
-	$ErrorFlag = CheckMDDevices();
-	sleep(60) if ($ErrorFlag and $opt_w);
-} until (($ErrorFlag == 0) or ($opt_w == 0));
-
-
-# Document the devices
-if ($ErrorFlag or $opt_D) {
-	foreach (sort(keys(%devices))) {
-		my $raid_list = join(', ',sort(@{$devices{$_}}));
-		my $serial = `smartctl -i /dev/$_ | grep 'Serial Number'`;
-		chomp $serial;
-		$serial =~ s/^.*:\s+//;
-		printf "Device /dev/%-7s Serial #%-20s RAIDs: %s\n", $_, $serial, $raid_list
-			if ($serial);
-	}
-}
-
-exit(0);
-
-
+# ---------------------------------------------------------
 #
 # CheckMDDevices - check the status of MD devices.
 #
 sub CheckMDDevices {
 
+
+	my $DeviceHashRef = shift;
 
 	# Typical /proc/mdstat records...
 	# md13 : active raid6 sdb[9] sdd[8] sdh[7] sdg[6] sdf[5] sde[4] sdc[3] sda[2]
@@ -149,7 +231,7 @@ sub CheckMDDevices {
 	while (<MDSTAT>) {
 		chomp;
 		next if (/^\s*$/);
-		print "Verbose: $_\n" if ($opt_v);
+		print "Verbose: $_\n" if ($Options{verbose});
 	                   # md13 : active raid6 sdb[9] sdd[8] sdh[7] sdg[6] sdf[5] sde[4] sdc[3] sda[2]
 		if (/^\s*(md\d+)\s*:\s*(\S+)\s+(raid\S+)\s+((?:[sh]d[a-z]+\d*\[\d+\](?:\([SF]\))?\s*)+)/) {
 			# This is a "mdx : active raid1" line.
@@ -160,7 +242,7 @@ sub CheckMDDevices {
 			($rest = $_) =~ s/^.*?://;
 			if ($status =~ /^active/ && $type =~ /raid[156]/ && $_ !~ /\(F\)/) {
 				# Everything is normal.
-				print "Verbose:	- normal\n" if ($opt_v);
+				print "Verbose:	- normal\n" if ($Options{verbose});
 			} else {
 				warn "Unexpected response from $mdname: $rest\n";
 				$ReturnStatus=$disks;
@@ -168,14 +250,14 @@ sub CheckMDDevices {
 			# Maintain a list of devices, in case we need to document them.
 			#  sdb[9] sdd[8] sdh[7] sdg[6] sdf[5] sde[4] sdc[3] sda[2]
 			foreach (split(/\s+/,$disks)) {
-				push @{$devices{$1}},"$mdname" if (/^\s*([a-z]+)+\d*\[\d+\]\s*$/);
+				push @{$DeviceHashRef->{$1}},"$mdname" if (/^\s*([a-z]+)+\d*\[\d+\]\s*$/);
 			}
 		}
 		if (/\s*\d+\s+blocks\s.*\[\d+\/\d+\]\s+(\S+)\s*$/) {
 			# This is a "xxxxxx blocks [2/2] [UU]" line.
 			if ($1 !~ /^\[UU+\]/) {
-				warn "$mdname is degraded ($1)\n" unless ($opt_w);
-				warn "$mdname disks: $disks\n" unless ($opt_w);
+				warn "$mdname is degraded ($1)\n" unless ($Options{wait});
+				warn "$mdname disks: $disks\n" unless ($Options{wait});
 				$ReturnStatus=1;
 			}
 		}
@@ -193,96 +275,132 @@ sub CheckMDDevices {
 				}	
 			}
 			# If we're checking, and haven't been told to treat that as an error, we're OK.
-			next if ($operation eq 'check' and !$opt_C);
+			next if ($operation eq 'check' and !$Options{'check-is-error'});
 
 			# We're recovering (or checking and told to treat that as an error).  Report.
 			chomp;
-			warn "$mdname: $_\n" unless ($opt_w);
+			warn "$mdname: $_\n" unless ($Options{wait});
 			$ReturnStatus=1;
 		}
 		if (/^\s*resync=/) {
 			# This device needs resync, but is delayed.  So it is still broken.
 			chomp;
-			warn "$mdname: $_\n" unless ($opt_w);
+			warn "$mdname: $_\n" unless ($Options{wait});
 			$ReturnStatus=1;
 		}
 	}
 	return $ReturnStatus;
 }
-
-
-#
-# Untaint  -- use very carefully!
-#
-
-sub untaint {
-        my(@parms) = @_;
-        foreach (@parms) {
-                s/^(.*)$/$1/;
-                $_=$1;
-        }
-        if (@parms == 1) {
-                # Return scalar
-                return $parms[$[];
-        } else {
-                # Return list
-                return (@parms);
-        }
-}
-
-
-
+# ---------------------------------------------------------
 #
 # opt_h: Usage
 #
 sub opt_h {
 
-	open (PAGENATER,$ENV{'PAGER'}?"| $ENV{'PAGER'}":"| more") || die("Unable to start pagenater: $!\n");
-	print PAGENATER <<"ENDUSAGE";
-$Prog - check for incomplete RAID meta-devices.
+	use FindBin qw($RealBin $RealScript);
 
-Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
-	$Prog [-h]
-
-Flags:
-	-C:		Check: consider check (verify) status as an error.
-			By default RAIDs that are verifying are considered healthy.
-        -D: 		Devices: Document which disks are in which arrays.
-	-e mailid:	Error: Send an execution report to this e-mail address
-			if errors are detected.
-	-f:		Force: Ignore "DisableUntil" parameter from the config file.
-	-m mailid:	Mailid: Send an execution report to this e-mail address.
-	-p mailid:	Page: Send a very brief message (suitable for a pager)
-			to this e-mail address when this job completes.
-	-P mailid:	Page error: Send a very brief message to this e-mail 
-			address if errors are detected in this job.
-	-O config:	Insert the "config" configuration options from
-			$ConfigFile into
-			the command line at this point.
-	-h	:	Help: display this panel
-	-v	:	Verbose
-	-w	:	Wait: loop, waiting until all devices are normal before exiting.
-
-Examples:
-	checkmd
-
-Notes:
-	The config file may contain "DISABLEUNTIL: yyyy/mm/dd" or
-	"DISABLEUNTIL: yyyy/mm/dd hh:mm:ss" to disable alerts until the
-	specified date (and time).  This can be used to suppress alerts for known
-	issues until the specified date.  This date can be ignored with -f.
-
-Return codes:
-	0	:	Normal termination
-	1	:	Help panel displayed.
-	2	:	Invalid or unrecognized command line options.
-	3	:	Invalid or unrecognized command line option value.
-	4	:	Incorrect command line parameters.
-	5	:	Unexpected message found in output.
-ENDUSAGE
-close PAGENATER;
+	system(qq<pod2text $RealBin/$RealScript | sed "s/%Prog/$Prog/g" | more>);
 exit 1;
 }
+
+=pod
+
+=head1 %Prog -  
+
+=head3 Usage:  
+        %Prog [flag1 ...]
+
+        %Prog -h
+
+=head3 Options:
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+	--check-is-error|-C:	Check: consider check (verify) status as an error.
+				By default RAIDs that are verifying are considered healthy.
+        --devices|-D: 		Devices: Document which disks are in which arrays.
+        --error-mail|-e mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
+	--force|-f:		Force: Ignore "DisableUntil" parameter from the config file.
+        --option-set|-O config: Process the "config" configuration option set
+				configuration file at this point. A warning is issued
+				if the named option set doesn't exist, unless the
+				name is prefixed with a colon to indicate that it
+				is optional.
+	--remote-host|-R host	Remote: Run this on one or more remote
+				hosts.  "host" may be a host name, an
+				IP address, a configuration file entry
+				name, or a comma or space separated list of
+				any mix of these.  This option may also be
+				repeated to append to the list.  Host names
+				preceeded by ! are removed from the list.
+				This is primarily to allow a configuration
+				file list to be included, but some of the
+				hosts in the list to subsequently be excluded.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+				May be used multiple times to increase verbosity.
+	--wait|-w:		Wait: loop, waiting until all devices are normal before exiting.
+        --help|-h:              Help: display this panel
+
+=head3 Parameters:
+        (none)
+
+=head3 Example:
+	checkmd
+
+=head3 Configuration files
+Configuration data may be loaded from the configuration files.  These files
+form key-value pairs that $Prog may reference.  The syntax of the file is:
+
+        name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=item *
+DISABLEUNTIL: Disable checks until the specified date or date-and-time
+	stamp.  Valid formats are "yyyy/mm/dd" and "yyyy/mm/dd hh:mm:ss".
+	This can be used to suppress alerts for known issues until the
+	specified date.  The DISABLEDUNTIL specification is ignored if
+	checkmd is executed with the --force/-f option.
+=back
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
+
+=cut
 __END__
 #
 # Output filters.  The syntax is: type pattern
