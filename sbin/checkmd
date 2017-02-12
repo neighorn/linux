@@ -47,7 +47,7 @@ my %OptionSpecifications;
 	'force|f'		=>	\&OptFlag,
 	'help|h|?!'		=>	\&opt_h,
 	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
-	'pmax=n'		=>	\&OptValue,
+	'remote-max=n'		=>	\&OptValue,
 	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 	'test|t'		=>	\&OptFlag,
 	'verbose|v'		=>	\&OptFlag,
@@ -84,7 +84,7 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 # Process the command line options.
 #
 my @ARGVSave = @ARGV;           # In case we need to reprocess the command line later.
-%Options=(verbose => 0, test => 0, wait => 0, pmax => 64);        # Initialize Options.
+%Options=(verbose => 0, test => 0, wait => 0);        # Initialize Options.
 die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
 @ARGV = @ARGVSave;              # Restore @ARGV for LogOutput and second GetOptions.
 
@@ -346,6 +346,8 @@ exit 1;
 				This is primarily to allow a configuration
 				file list to be included, but some of the
 				hosts in the list to subsequently be excluded.
+	--remote-max=n:		Remote max: set the maximum number of remote jobs
+				to run in parallel.  Used with --remote-host.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
 				May be used multiple times to increase verbosity.
@@ -416,4 +418,4 @@ IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 IGNORE	"^\s*\S+:\s+Command: "
 LOGONLY	"^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 LOGONLY	"^\s*Command: "
-SHOW	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
+SHOW	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time ="

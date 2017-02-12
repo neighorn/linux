@@ -1,15 +1,20 @@
 package JobTools::Utils;
 require Exporter;
-@ISA		= qw(Exporter);
-@EXPORT_OK	= qw( Commify ExpandByteSize CompressByteSize LoadConfigFiles OptArray OptFlag OptValue OptOptionSet RunDangerousCmd RunRemote ExpandConfigList);
-our $Version	= 1.0;
-our $BYTESIZE_UNITS = 'BKMGTPEZY';
+@ISA			= qw(Exporter);
+@EXPORT_OK		= qw( Commify CompressByteSize ExpandByteSize FormatElapsedTime LoadConfigFiles OptArray OptFlag OptValue OptOptionSet RunDangerousCmd RunRemote ExpandConfigList);
+%EXPORT_TAGS		= (
+	Opt		=> [qw(OptArray OptFlag OptValue OptOptionSet)],
+	ByteSize	=> [qw(CompressByteSize ExpandByteSize)],
+);
+our $Version		= 1.0;
+our $BYTESIZE_UNITS 	= 'BKMGTPEZY';
 our $OptionsRef;				# Pointer to %Options hash
 our $ConfigRef;					# Pointer to %Config hash
 our %OptArrayConfigUsed;			# Hash used to prevent infinite loops in OptArray config look-ups
 
 use strict;
 use warnings;
+use POSIX qw(strftime);
 
 # ---------------------------------------------------------
 # Copyright (c) 2015, Martin Consulting Services, Inc.
@@ -460,7 +465,7 @@ sub RunRemote {
 	my %Defaults = (
 		test => 0,
 		verbose => 0,
-		pmax => 1,
+		'remote-max' => 1,
 		argv => [],
 		remote => [],
 	);
@@ -478,10 +483,10 @@ sub RunRemote {
 		}
 	}
 	return $Errors if ($Errors);
-	if (!exists($Parms{pmax}) or !defined($Parms{pmax}) or $Parms{pmax} !~ /^[1-9]\d*$/) {
-		warn qq<RunRemote: Invalid value "$Parms{pmax}" for pmax -- defaulting to 64\n>;
+	if (!exists($Parms{'remote-max'}) or !defined($Parms{'remote-max'}) or $Parms{'remote-max'} !~ /^[1-9]\d*$/) {
+		warn qq<RunRemote: Invalid value "$Parms{'remote-max'}" for 'remote-max' -- defaulting to $Defaults{'remote-max'}\n>;
 		$Errors++;
-		$Parms{pmax}=64;
+		$Parms{'remote-max'}=$Defaults{'remote-max'};
 	}
 
 	# Get the list of target hosts.
@@ -521,7 +526,7 @@ sub RunRemote {
 	@RemoteParms = grep { $_ ne '' } @RemoteParms;
 	@RemoteParms = map {qq<"$_">} @RemoteParms;
 
-	my $PFM = Parallel::ForkManager->new($Parms{pmax});
+	my $PFM = Parallel::ForkManager->new($Parms{'remote-max'});
 
 	foreach my $Host (@HostList) {
 		my $pid = $PFM->start;	# Fork the child process.
@@ -544,13 +549,22 @@ sub RunRemote {
 			}
 	
 			print "Verbose: Running $Cmd\n" if ($Parms{verbose} or $Parms{test});
+			my $StartTime = time();
 			if (open($FH, "$Cmd |")) {
 				while (<$FH>) {
 					printf "%-*s %s", $MaxLength, "$Host:", $_;
 				}
 				close $FH;
 				my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
-				print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
+				my $StopTime = time();
+				printf "%-*s  Remote job ended at %8s, return code = %3d, signal = %3d, run time = %10ss\n",
+					$MaxLength,
+					"$Host:",
+					strftime("%H:%M:%S", localtime($StopTime)),
+					$ExitCode,
+					$Signal,
+					FormatElapsedTime($StopTime-$StartTime),
+					;
 				$Errors++ if ($ExitCode or $Signal);
 			}
 			else {
@@ -564,6 +578,34 @@ sub RunRemote {
 	return $Errors;
 }
 
+
+
+#
+# FormatElapsedTime: - return formatted elapsed time
+#
+sub FormatElapsedTime {
+
+	use integer;
+	my $sec = shift;
+	if ($sec !~ /^\d+$/) {
+		warn qq<JobTools::Utils::FormatElapsedTime: invalid value "$sec" provided -- treating as zero\n>;
+		$sec = 0;
+	}
+	
+	return $sec if $sec < 60;
+	
+	my $min = $sec / 60, $sec %= 60;
+	$sec = "0$sec" if $sec < 10;
+	return "$min:$sec" if $min < 60;
+	
+	my $hr = $min / 60, $min %= 60;
+	$min = "0$min" if $min < 10;
+	return "$hr:$min:$sec" if $hr < 24;
+	
+	my $day = $hr / 24, $hr %= 24;
+	$hr = "0$hr" if $hr < 10;
+	return "$day:$hr:$min:$sec";
+}
 
 
 #

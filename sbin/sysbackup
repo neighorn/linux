@@ -53,7 +53,7 @@ our %OptionSpecifications;
 		'min-size|s=s'		=>	\&OptValue,
 		'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
 		'output-dir|D=s'	=>	\&OptValue,
-		'pmax=i'		=>	\&OptFlag,
+		'remote-max=i'		=>	\&OptFlag,
 		'remote|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'test|t'		=>	\&OptFlag,
 		'verbose|v'		=>	\&OptFlag,
@@ -144,16 +144,6 @@ die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$P
 $Options{cycles}=5 unless (exists($Options{cycles}));
 die("Invalid number \"$Options{cycles}\" for --cycles.  See \"$Prog -h\" for usage.")
 	unless ($Options{cycles} =~ /^[1-9]\d*$/);
-if (exists($Options{pmax}) and defined($Options{pmax})) {
-       if ($Options{pmax} !~ /^[1-9]\d*/) {
-               warn qq<Invalid value "$Options{pmax}" for --pmax.  Resetting to default.\n>;
-               $Options{pmax}=50;
-       }
-}
-else {
-       $Options{pmax}=50;
-}
-
 
 # Add any additional file type exclusions.
 foreach (@{$Options{'exclude-fs'}}) {
@@ -487,7 +477,7 @@ exit 1;
 				This is primarily to allow a configuration
 				file list to be included, but some of the
 				hosts in the list to subsequently be excluded.
-        --pmax=n:               Max parallel jobs: When used in conjunction
+        --remote-max=n:		Max parallel jobs: When used in conjunction
                                 with --remote/-R, this will limit the
                                 number of remote hosts running jobs at the
                                 same time to n.  Default is 50.  Set to 1
@@ -608,7 +598,7 @@ IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\
 IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0"
 IGNORE	"^\s*\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
 IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
-IGNORE	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
+IGNORE  "^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "
 #
 # These are normal messages that we want to see.
 #

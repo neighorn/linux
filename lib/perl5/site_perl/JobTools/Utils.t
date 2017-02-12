@@ -279,6 +279,28 @@ is(join('-',ExpandConfigList('LIST3','!LIST1')),'b-c','ExpandConfigList List-bas
 is(join('-',ExpandConfigList('LIST3','!LIST2')),'c','ExpandConfigList List-based multiple delete');
 
 #
+# FormatElapsedTime
+#
+
+is (FormatElapsedTime(      0),           0,	'FormatElapsedTime - 0');
+is (FormatElapsedTime(      1),           1,	'FormatElapsedTime - 1');
+is (FormatElapsedTime(     10),          10,	'FormatElapsedTime - 10');
+is (FormatElapsedTime(     59),         '59',	'FormatElapsedTime - 59');
+is (FormatElapsedTime(     60),       '1:00',	'FormatElapsedTime - 1:00');
+is (FormatElapsedTime(     61),       '1:01',	'FormatElapsedTime - 1:01');
+is (FormatElapsedTime(    599),       '9:59',	'FormatElapsedTime - 9:59');
+is (FormatElapsedTime(    600),      '10:00',	'FormatElapsedTime - 10:00');
+is (FormatElapsedTime(   3599),      '59:59',	'FormatElapsedTime - 59:59');
+is (FormatElapsedTime(   3600),    '1:00:00',	'FormatElapsedTime - 1:00:00');
+is (FormatElapsedTime(   3601),    '1:00:01',	'FormatElapsedTime - 1:00:01');
+is (FormatElapsedTime(   3661),    '1:01:01',	'FormatElapsedTime - 1:01:01');
+is (FormatElapsedTime(  86399),   '23:59:59',	'FormatElapsedTime - 23:59:59');
+is (FormatElapsedTime(  86400),	'1:00:00:00',	'FormatElapsedTime - 1:00:00:00');
+is (FormatElapsedTime(  86401),	'1:00:00:01',	'FormatElapsedTime - 1:00:00:01');
+is (FormatElapsedTime(86400*2),	'2:00:00:00',	'FormatElapsedTime - 2:00:00:00');
+
+
+#
 # RunRemote
 #
 

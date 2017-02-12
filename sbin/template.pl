@@ -248,42 +248,18 @@ is loaded immediately.
 __END__
 #
 # ---------------------------------------------------------
-#
-# Output filters.  The syntax is: type pattern
-#
-#  Type:        Ignore - Don't display this message, it's not interesting.
-#               LogOnly - Write this message to the syslog and log file, but
-#                       don't display it on STDOUT.
-#               Show - Display this message, but it's not an error condition.
-#               # - This is a comment, ignore it.
-#
-#  Pattern:     an ordinary perl pattern.  All patterns for a given score
-#               are joined by logical OR conditions.
-#
-#  Notes:
-#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
-#       2) All messages go to the syslog, regardless of this filter.
-#
-#
-# The following are normal messages we don't need to see.
-#
+# See LogOutput.pm for an explanation of output filtering.
 IGNORE	"^\s*(\S+:\s*)?$"
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-LOGONLY "^\s*Command: "
-IGNORE	"^\s*\S+:\s+Command: "
-SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0"
-IGNORE	"^\s*\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
 IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
-IGNORE	"^\s*\S+:\s*Remote job exited with return code 0 and signal 0$"
-#
-# These are normal messages that we want to see.
-#
+IGNORE	"^\s*\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s+Command: "
+LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*Command: "
+SHOW	"^\s*(\S+:\s*)?(Test|Executing|Verbose|debug):"
+SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
 SHOW	"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
-SHOW	"^\s*(\S+:\s*)?(Test|Executing|Verbose|debug):"
+SHOW	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "

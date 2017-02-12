@@ -54,7 +54,7 @@ our %OptionSpecifications;
                 'force|f'		=>	\&OptFlag,
                 'week|n=i'		=>	\&OptValue,
                 'exclude|x=s'		=>	\&OptArray,
-                'pmax=i'		=>	\&OptValue,
+                'remote-max=i'		=>	\&OptValue,
 		'option-set|O=s'	=>	sub { OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
 );
 #
@@ -129,14 +129,14 @@ LogOutput({
 if (exists($Options{week})) {
 	die "Invalid value for -n ($Options{week}): must be 1-5\n" unless ($Options{week} =~ /^[1-5]$/);
 }
-if (exists($Options{pmax}) and defined($Options{pmax})) {
-	if ($Options{pmax} !~ /^[1-9]\d*/) {
-		warn qq<Invalid value "$Options{pmax}" for --pmax.  Resetting to default.\n>;
-		$Options{pmax}=50;
+if (exists($Options{remote-max}) and defined($Options{remote-max})) {
+	if ($Options{remote-max} !~ /^[1-9]\d*/) {
+		warn qq<Invalid value "$Options{remote-max}" for --remote-max.  Resetting to default.\n>;
+		$Options{remote-max}=50;
 	}
 }
 else {
-	$Options{pmax}=50;
+	$Options{remote-max}=50;
 }
 
 if (exists($Options{'remote'}) and @{$Options{'remote'}} > 0) {
@@ -376,10 +376,10 @@ exit 1;
         --option-set|-O config: Insert the "config" configuration options
                                 from /usr/local/etc/%Prog.cfg
                                 into the command line at this point.
-	--pmax=n:		Max parallel jobs: When used in conjunction
+	--remote-max=n:		Max remote jobs: When used in conjunction
 				with --remote/-R, this will limit the
 				number of remote hosts running jobs at the
-				same time to n.  Default is 50.  Set to 1
+				same time to n.  Default is 64.  Set to 1
 				to run the jobs serially.
         --remote|-R host        Remote: Run this on one or more remote
                                 hosts.  "host" may be a host name, an
@@ -439,7 +439,7 @@ IGNORE	"^\s*(\S+:\s+)?\d+ blocks .*\[U+\]$"
 IGNORE	"^\s*(\S+:\s+)?bitmap:"
 IGNORE	"^\s*(\S+:\s+)?Personalities : \["
 IGNORE	"^\s*(\S+:\s+)?unused devices: "
-SHOW	"^\s*\S+\s*:\s*Remote job exited with return code 0 and signal 0$"
+SHOW	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "
 IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0$"
 IGNORE	"^\s*\S+:\s+Beginning check of /dev/"
 IGNORE	"^\s*\S+:\s+Completed check of /dev/"

@@ -52,7 +52,7 @@ my %OptionSpecifications;
                 'option-set|O=s'        =>      sub { OptOptionSet(name => $_[1], optspec => \%OptionSpecifications); },
 		'test|t'		=>	\&OptFlag,
 		'verbose|v'		=>	\&OptFlag,
-		'pmax=n'		=>	\&OptValue,
+		'remote-max=n'		=>	\&OptValue,
 );
 #
 our $ExitCode;
@@ -234,8 +234,8 @@ exit 1;
         --help|-h:              Help: display this panel
 	--subject text:s	Subject: set the subject e-mail to 'text'.  Percent
 				variables are processed per LogOutput.pm.
-	--pmax=n		Parallel maximum: set the maximum number of
-				parallel jobs to run when using --remote
+	--remote-max=n		Remote maximum: set the maximum number of
+				remote jobs to run in parallel when using --remote
 				with multiple remote hosts.
 
 =head3 Parameters:              (none)
@@ -291,6 +291,6 @@ SHOW    "^\s*(\S+:\s+)?debug:"
 # Always show the log names, so that if another error comes up we know which 
 # table it applies to. 
 IGNORE  "^\s*(\S+:\s+)?Error\s*: You can't use locks with log tables.$" 
-IGNORE  "^\s*\S+:\s+Remote job exited with return code 0 and signal 0$"
+IGNORE  "^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "
 SHOW    "^\s*(\S+:\s+)?mysql.(slow|general)_log\s*$" 
 #
