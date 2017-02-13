@@ -322,7 +322,7 @@ exit 1;
 	--check-is-error|-C:	Check: consider check (verify) status as an error.
 				By default RAIDs that are verifying are considered healthy.
         --devices|-D: 		Devices: Document which disks are in which arrays.
-        --error-mail|-e mailid: Error: Send an execution report to this
+        --error-mail|-M mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --error-page|-P addr:   Page error: Send a very brief message to
                                 this e-mail address if errors are
