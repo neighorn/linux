@@ -465,7 +465,7 @@ sub RunRemote {
 	my %Defaults = (
 		test => 0,
 		verbose => 0,
-		'remote-max' => 1,
+		'remote-max' => 64,
 		argv => [],
 		remote => [],
 	);
