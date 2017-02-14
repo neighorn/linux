@@ -24,4 +24,4 @@ is (FormatVerboseElapsedTime(60),'1 minute, 0 seconds','FormatVerboseElapsedTime
 is (FormatVerboseElapsedTime(600),'10 minutes, 0 seconds','FormatVerboseElapsedTime - 10 minutes elapsed');
 is (join('-',FormatVerboseElapsedTime(600)),'10 minutes, 0 seconds-0:0:10:0','FormatVerboseElapsedTime - 10 minutes elapsed, raw value');
 
-print "Note: These tests handle AddFilter and FormatVerboseElapsedTime.  Other functions are not tested yet.\n";
+print "Note: These tests handle basic filter addition and pattern matching.  Other functions are not tested yet.\n";
