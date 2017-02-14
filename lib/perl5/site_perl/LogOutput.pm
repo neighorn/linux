@@ -22,7 +22,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject FormatVerboseElapsedTime);
-our $Version	= 3.32;
+our $Version	= 3.33;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -192,9 +192,25 @@ sub LogOutput {
 
 	# We're the parent.
 	$0="$Options{PROGRAM_NAME} -- output logger";		# Make us easy to find in ps.
+
+	# Prepare full log file, if requested.
+	my $RAW_LOGFILE_FH;
+	if ($Options{RAW_LOGFILE}) {
+		if (!open($RAW_LOGFILE_FH,'>',$Options{RAW_LOGFILE})) {
+			warn qq<LogOutput: Unable to open raw log file "$Options{RAW_LOGFILE}": $! - logging to this file has been disabled.\n>;
+			$RAW_LOGFILE_FH = undef();
+		}
+	}
 	
 	# Read and process everything from child's STDOUT.
 	while (<LOGREADHANDLE>) {
+		if ($RAW_LOGFILE_FH) {
+			if (! print($RAW_LOGFILE_FH $_)) {
+				warn qq<LogOutput: Unable to write to full log file "$Options{RAW_LOGFILE}": $! - further logging has been disabled.\n>;
+				close $RAW_LOGFILE_FH;
+				$RAW_LOGFILE_FH = undef;
+			}
+		}
 		chomp;
 		print "LogOutput: Read: $_\n" if $Options{VERBOSE} > 5;
 
@@ -297,6 +313,7 @@ sub LogOutput {
 	
 	unlink($Options{MAIL_FILE})
 		if ($Options{MAIL_FILE} && -e $Options{MAIL_FILE} && $DeleteMailFile);
+	close $RAW_LOGFILE_FH if ($RAW_LOGFILE_FH);
 	
 	exit $ExitCode;
 	
@@ -319,7 +336,7 @@ sub _SetOptions {
 		ERROR_MAIL_LIST => 1,
 		ERROR_PAGE_LIST => 1,
 		FILTER_FILE => 1,
-		#LOG_FILE => 1,
+		RAW_LOGFILE => 1,
 		MAIL_FILE_PREFIX => 1,
 		MAIL_FILE_PERMS => 1,
 		MAIL_FILE => 1,
@@ -342,6 +359,7 @@ sub _SetOptions {
 	$Options{CLEANUP}=undef();
 	$Options{ERROR_MAIL_LIST}=[];
 	$Options{ERROR_PAGE_LIST}=[];
+	$Options{RAW_LOGFILE}='';
 	$Options{MAIL_FILE_PREFIX}='';
 	$Options{MAIL_FILE}='';
 	$Options{MAIL_FILE_PERMS}=0640;
@@ -1069,6 +1087,7 @@ Options and defaults are shown in the table below:
 			|		| detected.
    FILTER_FILE		| <DATA>	| Name of a file containing
    			|		| the message filters.
+   RAW_LOGFILE		| -none-	| Write every output message here.
    MAIL_FILE		| (temp file)	| Name of a file to write
    			|		| filtered messages to.
    MAIL_FROM            | %U@%O         | Send e-mail with this From value.
@@ -1217,6 +1236,13 @@ See the "syslog" man pages for details on options.  If not set, 'pid'
 is used.  
 
 Example:  SYSLOG_FACILITY => 'USER'
+
+=head2 RAW_LOGFILE
+
+This option contains the name of a file to hold the full output
+text before filtering.  If not provided, no full log file
+is maintained.  This is often used instead of logging to the 
+syslog, although the two are not mutually exclusive.
 
 =head2 MAIL_FILE
 
