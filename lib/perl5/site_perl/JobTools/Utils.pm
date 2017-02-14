@@ -641,10 +641,11 @@ sub ExpandConfigList {
 	my %HostsUsed;
 	while ($_ = shift(@HostList)) {
 		my($Prefix,$Host) = m/^(!*)(\S+)$/;
-		if (exists($ConfigRef->{$Host})) {
+		my $UCHost = uc($Host);
+		if (exists($ConfigRef->{$UCHost})) {
 			# This is a config list, not a single host name.  Need to expand it.
 			my %ConfigSeenHash;	# Avoid recursion loops.
-			my @ConfigList = _ExpandConfigGroup($Host,\%ConfigSeenHash);
+			my @ConfigList = _ExpandConfigGroup($UCHost,\%ConfigSeenHash);
 			foreach (@ConfigList) { s/^\!*/$Prefix/}; #Strip any prefixes, then add ours.
 			unshift @HostList, @ConfigList;		# Push the expanded list back on the list.
 		}

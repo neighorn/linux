@@ -10,7 +10,7 @@ use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
 use LogOutput;
-use JobTools::Utils qw(OptArray OptFlag OptValue LoadConfigFiles RunRemote RunDangerousCmd);
+use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -32,7 +32,8 @@ JobTools::Utils::init(config => \%Config, options => \%Options);
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
-our %OptionSpecifications=(
+my %OptionSpecifications;
+%OptionSpecifications=(
 	'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
 	'always-mail|m=s'	=>	\&OptArray,
 	'always-page|p=s'	=>	\&OptArray,
@@ -41,7 +42,7 @@ our %OptionSpecifications=(
 	'error-page|P=s'	=>	\&OptArray,
 	'filter-file|F=s'	=>	\&OptArray,
 	'help|h|?!'		=>	\&opt_h,
-	'option-set|O=s'	=>	\&opt_O,
+	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
 	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 	'test|t'		=>	\&OptFlag,
 	'verbose|v'		=>	\&OptFlag,
