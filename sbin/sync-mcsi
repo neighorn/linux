@@ -96,8 +96,8 @@ LogOutput({
 });
 
 # Verify the command line.
-die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
-	if (@Parms);
+die("No servers provided on command line\n")
+	unless (@Parms);
 
 if (exists($Options{remote}) and @{$Options{remote}} > 0) {
 	$Errors = RunRemote(argv => [$Prog,@ARGV]);
@@ -143,6 +143,8 @@ sub RunLocally {
 
 	my $Dir = ((-d '/usr/mcsi')?'/usr/mcsi':'/usr/mcsi-linux');
 	my @HostList = ExpandConfigList(@Parms);	
+	die join(' ',@Parms) . " evaluated to an empty host list\n"
+		unless (@HostList);
 	foreach my $Item (@HostList) {
 		my($Server,$SSHParm);
 		if ($Item =~ /(\S+):(\S+)/) {
