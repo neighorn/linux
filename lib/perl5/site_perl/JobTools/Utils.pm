@@ -10,7 +10,6 @@ require Exporter;
 use strict;
 use warnings;
 use POSIX qw(strftime);
-use String::ShellQuote;
 
 our $Version		= 1.0;
 our $BYTESIZE_UNITS 	= 'BKMGTPEZY';
@@ -463,6 +462,7 @@ sub RunRemote {
 
 	# Load some additional modules only needed on the parent.
 	require Parallel::ForkManager;
+	require String::ShellQuote; String::ShellQuote->import(qw(shell_quote));
 
 	my %Defaults = (
 		test => 0,
