@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# Backup critical system components and gather recovery information.
+# Run apt-get upgrade and optionally reboot.
 #
 use strict;
 use warnings;
@@ -10,6 +10,7 @@ use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
+use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -25,26 +26,28 @@ our $Errors=0;
 our %Config;
 our @Parms;
 our %Options;			# Options settings.
+JobTools::Utils::init(config => \%Config, options => \%Options);
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
-our %OptionSpecifications=(
+my %OptionSpecifications;
+%OptionSpecifications=(
 		'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
-		'always-mail|m=s'	=>	\&opt_Array,
-		'always-page|p=s'	=>	\&opt_Array,
+		'always-mail|m=s'	=>	\&OptArray,
+		'always-page|p=s'	=>	\&OptArray,
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
-		'error-mail|M=s'	=>	\&opt_Array,
-		'error-page|P=s'	=>	\&opt_Array,
-		'filter-file|F=s'	=>	\&opt_Array,
+		'error-mail|M=s'	=>	\&OptArray,
+		'error-page|P=s'	=>	\&OptArray,
+		'filter-file|F=s'	=>	\&OptArray,
 		'help|h|?!'		=>	\&opt_h,
-		'option-set|O=s'	=>	\&opt_O,
-		'remote-host|R=s'	=>	sub { opt_Array(@_,'allow-delete'=>1,'expand-config'=>1);},
-		'reboot'		=>	\&opt_Value,
-		'subject=s'		=>	\&opt_Value,
-		'test|t'		=>	sub {$Options{test} = (exists($Options{test})?$Options{test}+1:1)},
-		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+		'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
+		'remote|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+		'reboot'		=>	\&OptValue,
+		'subject=s'		=>	\&OptValue,
+		'test|t'		=>	\&OptFlag,
+		'verbose|v'		=>	\&OptFlag,
 );
 #
 our $ExitCode;
@@ -57,10 +60,7 @@ our $BaseDir="/usr/local/backup/$Prog";	# Set our base directory.
 #
 # Load the config file.
 #
-foreach (@ConfigFiles) {
-        LoadConfigFile($_);
-}
-foreach (keys(%Config)) { s/,$//;};     # Trim off trailing commas.
+LoadConfigFiles(files => \@ConfigFiles);
 
 # ---------------------------------------------------------
 #
@@ -71,12 +71,9 @@ foreach (keys(%Config)) { s/,$//;};     # Trim off trailing commas.
 push @ARGV,(shellwords($Config{DEFAULTJOB}))
         if (join(' ',@ARGV) =~ /^\s*(\b-[tv]+)*\s*$/ && defined($Config{DEFAULTJOB}));
 
-# Process the config file defaults if present.
-foreach (('ALLJOBS',"HOST=$HostName")) {
-	my $ConfigName = uc($_);
-	unshift @ARGV, quotewords(" ",0,$Config{$ConfigName})
-		if (exists($Config{$ConfigName}) and defined($Config{$ConfigName}));
-}
+# Process the config file host defaults and general defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+        if (defined($Config{'ALLJOBS'}));
 
 # ---------------------------------------------------------
 #
@@ -108,8 +105,8 @@ LogOutput({
 die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
 	if (@Parms);
 
-if (exists($Options{'remote-host'})) {
-	$Errors = RunRemote(@ARGV);
+if (exists($Options{remote}) and @{$Options{remote}} > 0) {
+	$Errors = RunRemote(argv => [$Prog,@ARGV]);
 }
 else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});
@@ -133,122 +130,6 @@ if ($ExitCode) {
 
 $ExitCode=$Errors?10:0;
 exit($ExitCode);
-
-
-# ---------------------------------------------------------
-#
-# LoadConfigFile - load a configuration file
-#
-sub LoadConfigFile {
-	my $ConfigFile = shift;
-	if (-e $ConfigFile) {
-		my $CONFIGFH;
-                open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-                # Build a hash of settings found in the config file.
-                my @Lines;
-
-                # Read config file and assemble continuation lines into single items.
-                while (<$CONFIGFH>) {
-                        chomp;
-                        next if (/^\s*#/);                      # Comment.
-                        next if (/^\s*$/);                      # Blank line.
-                        if (/^\s+(\S.*)$/ and @Lines > 0) {
-                                # Continuation line.  Append to prior line.
-                                $Lines[$#Lines] .= " $1";
-                        }
-                        else {
-                                push @Lines, $_;
-                        }
-                }
-                close $CONFIGFH;
-
-                # Process assembled lines.
-                foreach (@Lines) {
-                        my ($name,$settings)=split(/:?\s+/,$_,2);
-                        $name=uc($name);                        # Name is not case sensitive.
-                        $settings='' unless ($settings);        # Avoid undef warnings.
-                        $settings=~s/\s+$//;                    # Trim trailing spaces.
-			if ($name eq 'INCLUDE') {
-				LoadConfigFile($settings);
-			}
-			else {
-				$settings=~s/\s+$//;	# Trim trailing spaces.
-				$Config{$name}.=$settings . ',' ;
-			}
-                }
-		foreach (keys(%Config)) {
-			$Config{$_} =~ s/,$//;  # Remove trailing comma
-		}
-        }
-}
-# ---------------------------------------------------------
-#
-# RunRemote - Run this elsewhere and track the results.
-#
-sub RunRemote {
-
-	my @ARGV=@_;
-	my $Errors = 0;
-
-	# Analyze the remote-host list, ignoring duplicates and handling !-deletions.
-	my @HostList = @{$Options{'remote-host'}};
-	die "No remote hosts specified on the command line or in the configuration file.\n" unless (@HostList);
-
-	my $MaxLength = 0;
-	foreach (@HostList) { $MaxLength=($MaxLength < length($_)?length($_):$MaxLength); }
-	$MaxLength++;		# Allow for trailing colon.
-	my $DeleteNext=0;
-	foreach (@ARGV) {
-		if ($DeleteNext) {
-			$_ = '';
-			$DeleteNext=0;
-		}
-		elsif (/^--(remote-host|option-set|subject)=/) {
-			$_ = '';		# Delete this for remote systems.
-		}
-		elsif (/^-[RO]/) {
-			$_ = '';
-			$DeleteNext=1;
-		}
-	}
-	@ARGV = grep { $_ ne '' } @ARGV;
-	@ARGV = map {qq<"$_">} @ARGV;
-
-	foreach my $Host (@HostList) {
-		my $Cmd =   "ssh $Host $Prog "
-			  . join(' ', @ARGV) . ' '
-			  . '-F SHOWALL '
-			  . '--always-mail= '
-			  . "-O :REMOTE=$Host "
-			  . '2\>\&1 '
-			  ;
-		my $FH;
-
-		# Don't even go to remote hosts if test level 2 (-tt).
-		if($Options{test} and $Options{test} >= 2) {
-			print "Test: $Cmd\n";
-			next;
-		}
-
-		print "Verbose: Running $Cmd\n" if ($Options{verbose} or $Options{test});
-		if (open($FH, "$Cmd |")) {
-			while (<$FH>) {
-				printf "%-*s %s", $MaxLength, "$Host:", $_;
-			}
-			close $FH;
-			my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
-			print "$Host:  Remote job exited with return code $ExitCode and signal $Signal\n";
-			$Errors++ if ($ExitCode);
-		}
-		else {
-			warn "Unable to open ssh session to $Host: $!\n";
-			$Errors++;
-		}
-	}
-
-	return $Errors;
-}
-
 
 # ---------------------------------------------------------
 #
@@ -314,167 +195,6 @@ sub RunLocally {
 }
 
 
-
-# ---------------------------------------------------------
-#
-# commify - insert commas in numbers.
-#
-sub commify {
-	local $_ = shift;
-	1 while s/^(-?\d+)(\d{3})/$1,$2/;
-	return $_;
-}
-
-
-# ---------------------------------------------------------
-#
-# RunDangerousCmd - run a command, or suppress it if -t specified.
-#
-sub RunDangerousCmd {
-	my ($Cmd,$FH,$Line);
-	$Cmd=join(' ',@_);
-	if ($Options{test}) {
-		print "Test: $Cmd\n";
-		return 0;
-	} else {
-		print "Executing: $Cmd\n" if ($Options{'verbose'});
-		if (open($FH,"$Cmd 2>&1 |")) {
-			while ($Line=<$FH>) {
-				$Line=~s/[
-]//g;
-				chomp $Line;
-				print "$Line\n";
-			};
-			close $FH;
-			return $?;
-		} else {
-			warn qq(Unable to start process for "$Cmd": $!\n");
-			return 8<<8;
-		}
-	}
-}
-
-
-# ---------------------------------------------------------
-#
-# opt_Value - generic single-value option processing
-#
-sub opt_Value {
-	my($Name,$Value) = @_;
-	$Options{$Name} = $Value;
-}
-
-
-# ---------------------------------------------------------
-#
-# opt_Array - generic multi-value option  processing
-#
-sub opt_Array {
-
-	my($Name,$Value,%ArrayOpt) = @_;
-
-	# Possible array processing options:
-	#	preserve-lists:	0 (default), split on embedded spaces or commas
-	#			1, don't split on embedded spaces or commas
-	#	allow-delete:	0 (default), leading ! on value has no meaning
-	#			1, leading ! on value means delete value from
-	#				current list.
-	#	force-delete:	0 (default), assume add unless ! and allow-delete=1
-	#			1, delete this item regardless of leading !
-
-
-	# Set a recursion limit if we don't already have one.  This helps
-	# us detect list loops (listA points to listA, or A->B->A, etc.).
-	$ArrayOpt{'recursion-limit'} = 64 unless ($ArrayOpt{'recursion-limit'});
-
-	# Is the value empty, meaning to wipe any entries to this point.
-	if (!$Value) {
-		# Received "--opt=".  Empty this array.
-		@{$Options{$Name}}=();
-		return;
-	}
-
-	# Split out lists by default, unless embedded-lists are preserved.
-	my @ValueList;
-	if ($ArrayOpt{'preserve-lists'}) {
-		# Preserve commas and embedded spaces.  Just leave value as is.
-		@ValueList = ($Value);
-	}
-	else {
-		$Value =~ s/[\s,]+$//;	# Trailing separators make no sense.
-		$Value =~ s/^\s+//;	# Ignore leading whitespace.
-		@ValueList = split(/[,\s]+/,$Value);
-	}
-
-	# Now process each list item individually.
-	while ($Value = shift(@ValueList)) {
-		
-		# Are we adding or deleting this item.
-		my $AddItem = 1;	# Assume we're adding.
-		my $Prefix;
-		if ($ArrayOpt{'force-delete'}) {
-			# We've been told, flat-out, to delete this item.
-			$AddItem = 0;
-			$Value =~ s/^!+// if ($ArrayOpt{'allow-delete'});
-		}
-		elsif ($ArrayOpt{'allow-delete'} and $Value =~ /^!+(.*)$/) {
-			# Delete is allowed, and ! is present.
-			$AddItem = 0;
-			$Value = $1;
-		}
-		
-		# If config lists are permitted, see if this is a config list.
-		if ($ArrayOpt{'expand-config'} and exists($Config{uc($Value)})) {
-			# This is a reference to a config file list. Recurse
-			# through this, in case the list contains more lists.
-			die "List loop detected in --$Name=$Value"
-				if ($ArrayOpt{'recursion-limit'} <= 0);
-			opt_Array(
-				$Name,
-				$Config{uc($Value)},
-				%ArrayOpt,'recursion-limit'=>($ArrayOpt{'recursion-limit'}-1),
-				'force-delete'=> (1-$AddItem),
-			);
-			next;
-		}
-
-		# If we got here, we have a value to either add or delete.
-		if ($AddItem) {
-			push @{$Options{$Name}},$Value
-				unless grep { $_ eq $Value } @{$Options{$Name}};
-		}
-		else {
-			# Remove this item from the list if present.
-			@{$Options{$Name}} = grep { $_ ne $Value } @{$Options{$Name}};
-		}
-	}
-}
-
-
-
-# ---------------------------------------------------------
-#
-# opt_O: Usage
-#
-#
-# opt_O - Load an option set.
-#
-sub opt_O {
-        my(undef,$Value) = @_;
-        $Value = uc($Value);
-	$Value =~ m/(:?)(\S+)/;	# See if it starts with a colon, meaning optional.
-	my $Optional = $1;
-	$Value = $2;
-        if (exists($Config{$Value})) {
-                $Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
-        }
-        else {
-                warn qq<Warning: "$Value" not found in configuration file\n> unless $Optional;
-        }
-}
-
-
-
 # ---------------------------------------------------------
 #
 # opt_h: Usage
@@ -497,19 +217,19 @@ exit 1;
         %Prog -h
 
 =head3 Options:
-        --error-mail|-e mailid: Error: Send an execution report to this
-                                e-mail address if errors are detected.
-        --filter|-F filter:     Filter: Use alternate error detection
-                                filter file "filter".  The default is
-                                to use the built-in error filter.
         --always-mail|-m addr:  Mailid: Send an execution report to
                                 this e-mail address.
         --always-page|-p addr:  Page: Send a very brief message
                                 (suitable for a pager) to this e-mail
                                 address when this job completes.
+        --error-mail|-M mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
         --error-page|-P addr:   Page error: Send a very brief message to
                                 this e-mail address if errors are
                                 detected in this job.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFile
                                 into the command line at this point.
@@ -530,7 +250,7 @@ exit 1;
                                 REMOTE=hostname: Prepended to all command lines
                                   if executed on hostname, but run via -R from
                                   another host.
-	--remote-host|-R host	Remote: Run this on one or more remote
+	--remote|-R host	Remote: Run this on one or more remote
 				hosts.  "host" may be a host name, an
 				IP address, a configuration file entry
 				name, or a comma or space separated list of
