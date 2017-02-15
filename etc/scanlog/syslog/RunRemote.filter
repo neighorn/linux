@@ -1,1 +1,1 @@
-IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ \S+(\[\d+\])?:\s*\S+:\s*Remote job ended, return code =   0, signal =   0, run time ="
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ \S+(\[\d+\])?:\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time ="
