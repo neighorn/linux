@@ -6,15 +6,16 @@ require Exporter;
 	Opt		=> [qw(OptArray OptFlag OptValue OptOptionSet)],
 	ByteSize	=> [qw(CompressByteSize ExpandByteSize)],
 );
+
+use strict;
+use warnings;
+use POSIX qw(strftime);
+
 our $Version		= 1.0;
 our $BYTESIZE_UNITS 	= 'BKMGTPEZY';
 our $OptionsRef;				# Pointer to %Options hash
 our $ConfigRef;					# Pointer to %Config hash
 our %OptArrayConfigUsed;			# Hash used to prevent infinite loops in OptArray config look-ups
-
-use strict;
-use warnings;
-use POSIX qw(strftime);
 
 # ---------------------------------------------------------
 # Copyright (c) 2015, Martin Consulting Services, Inc.
@@ -461,6 +462,7 @@ sub RunRemote {
 
 	# Load some additional modules only needed on the parent.
 	require Parallel::ForkManager;
+	require String::ShellQuote; String::ShellQuote->import(qw(shell_quote));
 
 	my %Defaults = (
 		test => 0,
@@ -523,8 +525,7 @@ sub RunRemote {
 			$DeleteNext=1;
 		}
 	}
-	@RemoteParms = grep { $_ ne '' } @RemoteParms;
-	@RemoteParms = map {qq<"$_">} @RemoteParms;
+	@RemoteParms = grep { $_ ne '' } @RemoteParms;	# Delete empty elements.
 
 	my $PFM = Parallel::ForkManager->new($Parms{'remote-max'});
 
@@ -532,9 +533,9 @@ sub RunRemote {
 		my $pid = $PFM->start;	# Fork the child process.
 		if (!$pid) {
 			my $Cmd =   "ssh $Host "
-				  . join(' ', @RemoteParms) . ' '
-				  . '-F SHOWALL '
-				  . '--always-mail= '
+				  . shell_quote(@RemoteParms) . ' '
+				  . '-F SHOWALL '	# Turn off filters.  Caller's own filters will process them.
+				  . '--always-mail= '	# Turn off individual e-mails -- caller will handle that.
 				  . '--remote= '	# Avoid --remote recursion from AllJobs in .cfg.
 				  . "-O :remote=$Host "	# Optionally, load any options when running remote
 				  . '2\>\&1 '

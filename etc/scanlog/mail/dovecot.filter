@@ -5,7 +5,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap(\(\S+\))?: Lo
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Aborted login \(auth failed, \d+ attempts in \d+ secs\): "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Aborted login \(no auth attempts in \d+ secs\): "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Disconnected \(.*\): user=<>, rip=\S+, lip=\S+,"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Disconnected \(auth failed, \d+ attempts in \d+ secs): user=<\S+>, "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Disconnected \(auth failed, \d+ attempts in \d+ secs\): user=<"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Error: SSL: Stacked error: error:\S+:.*:no shared cipher$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Error: SSL: Stacked error: error:\S+:.*:unknown protocol$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Error: SSL: Stacked error: error:\S+:.*:wrong version number$"
