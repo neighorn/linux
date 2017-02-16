@@ -862,7 +862,7 @@ sub _MakeSubstitutions {
 	$Text =~ s/%N/$Options{PROGRAM_NAME}/g;
 	$Text =~ s/%P/$PID/g;
 	$Text =~ s/%O/$Options{MAIL_DOMAIN}/g;
-	$Text =~ s/%./ /g;
+	$Text =~ s/%\./ /g;
 
 	# Conditional substitutions (%E, %*).
 	if ($ErrorsDetected) {
