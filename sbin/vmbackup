@@ -15,6 +15,7 @@ use IO::Socket;
 use Sys::Virt;
 use Data::Dumper::Simple;
 use JSON;			# To save/restore the backup index file.
+use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd Commify CompressByteSize);
 $Data::Dumper::Pad = "Verbose:\t\t";
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
@@ -25,7 +26,7 @@ $Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
 $Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
 my $Errors=0;   	                # No errors so far.
 my $BaseDir="/usr/local/etc";		# Set our base directory.
-my $ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
+my @ConfigFiles=("$BaseDir/${Prog}.cfg");	# Name of config files.
 my $Syslog = 'user';			# Log to the syslog.
 our %Config;				# Data from the config file.
 our %Options;				# Options settings.
@@ -35,62 +36,68 @@ our @RecoveryRestart;			# List of machines that failed to
 our %MachineNames;			# Valid machines and their status.
 our %Machines;				# Sys::Virt objects for each machine.
 our %BackedUp;				# Has each machine been backed up?
+our $MaxHostLength = 0;			# Length of longest host.
+JobTools::Utils::init(config => \%Config, options => \%Options);
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
-our %OptionSpecifications=(
-		'cd|b=s'		=>	\&opt_Value,
-		'cycles|C=i'		=>	\&opt_Value,
-		'debug|d'		=>	sub {$DB::AutoTrace=1;},
-		'help|h|?!'		=>	\&opt_h,
-		'always-mail|m=s'	=>	\&opt_Array,
-		'error-mail|M=s'	=>	\&opt_Array,
-		'after-state=s'		=>	\&opt_Value,
-		'option-set|O=s'	=>	\&opt_O,
-		'output|o=s'		=>	\&opt_Value,
-		'always-page|p=s'	=>	\&opt_Array,
-		'error-page|P=s'	=>	\&opt_Array,
-		'timeout|T=s'		=>	\&opt_Value,
-		'subject=s'		=>	\&opt_Value,
-		'gzip|z!'		=>	\&opt_Value,
-		'test|t!'		=>	\&opt_Value,
-		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
-		'exclude-file=s'	=>	\&opt_Array,
-		'exclude-vm=s'		=>	\&opt_Hash,
-		'include-file=s'	=>	\&opt_Array,
+my %OptionSpecifications;
+%OptionSpecifications=(
+	'cd|b=s'		=>	\&OptValue,
+	'cycles|C=i'		=>	\&OptValue,
+	'debug|d'		=>	sub {$DB::AutoTrace=1;},
+	'help|h|?!'		=>	\&opt_h,
+	'always-mail|m=s'	=>	\&OptArray,
+	'error-mail|M=s'	=>	\&OptArray,
+	'after-state=s'		=>	\&OptValue,
+	'option-set|O=s'	=>	sub {OptOptionSet( name => $_[1], optspec => \%OptionSpecifications);},
+	'output|o=s'		=>	\&OptValue,
+	'always-page|p=s'	=>	\&OptArray,
+	'error-page|P=s'	=>	\&OptArray,
+	'timeout|T=s'		=>	\&OptValue,
+	'subject=s'		=>	\&OptValue,
+	'gzip|z!'		=>	\&OptFlag,
+	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+	'test|t!'		=>	\&OptFlag,
+	'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+	'exclude-file=s'	=>	\&OptArray,
+	'exclude-vm=s'		=>	\&opt_Hash,
+	'include-file=s'	=>	\&OptArray,
+	'<>'			=>	sub {push @Parms,shift;}
 );
 #
 
+# ---------------------------------------------------------
+#
 # Load the config file.
-if (-e $ConfigFile) {
-	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-	# Build a hash of settings found in the config file.
-	while (<CONFIG>) {
-		next if (/^\s*#/);      # Comment.
-		next if (/^\s*$/);      # Blank line.
-		chomp;
-		my ($name,$settings)=split(/:?\s+/,$_,2);
-		$name=uc($name);	# Name is not case sensitive.
-		$settings=~s/\s+$//;	# Trim trailing spaces.
-		$Config{$name}.=$settings . ',' ;
-	}
-	close CONFIG;
-	foreach (keys(%Config)) {
-		$Config{$_} =~ s/,$//;	# Remove trailing comma
-	}
-}
-foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
-
-# Process the config file defaults if present.
-unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
-	if (defined($Config{'ALLJOBS'}));
+#
+LoadConfigFiles(files => \@ConfigFiles);
 
 # Use the default job if it's defined and we didn't get anything on 
 # the command line.
 push @ARGV,(shellwords($Config{DEFAULTJOB}))
 	if (!@ARGV && defined($Config{DEFAULTJOB}));
+
+# Process the config file defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+	if (defined($Config{'ALLJOBS'}));
+
+# Make a list of all the virtual machines.
+my $vmm = Sys::Virt->new(uri => 'qemu:///system');
+my @MachineHandles = $vmm->list_all_domains();
+foreach (@MachineHandles) {
+	my $Name = $_->get_name;
+	if ($Name eq '_ALL_') {
+		warn "Machine named '_ALL_' conflicts with $Prog keyword.  Ignoring this machine.";
+	}
+	else {
+		$Machines{$Name} = $_;		# Map names to objects.
+		$MachineNames{$Name}=0;		# Keep list of valid names.
+		$BackedUp{$Name}=0;		# Keep backup state, to avoid redundant runs.
+	}
+}
 
 # Pre-process our command line, to get the options we need for LogOutput.
 my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
@@ -101,13 +108,21 @@ if ($Errors) {
 	exit 15;
 }
 
-# If there aren't any parameters here, back up everything.
-push @ARGVSave, '_ALL_' if (@ARGV == 0);
-
 print Dumper(\%Config) if ($Options{verbose} >=3);
 
 @ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 	
+if (@Parms == 0) {
+	# Back up everything if they didn't give a list.
+	@Parms = keys(%Machines);
+	push @ARGV, @Parms;
+}
+foreach (@Parms) {
+	my $len = length($_);
+	$MaxHostLength = ($len > $MaxHostLength?$len:$MaxHostLength);
+}
+
+
 # Set up our logging and output filtering.
 my $RunDate=`date +%m/%d`;
 chomp $RunDate;
@@ -133,31 +148,16 @@ $Options{logfile} = '' unless (exists($Options{logfile}));
 my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 
 LogOutput({
-	SYSLOG_FACILITY		=> $Syslog,
+	ALWAYS_MAIL_LIST	=> \@{$Options{"always-mail"}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{"always-page"}},
+	ERROR_MAIL_LIST		=> \@{$Options{"error-mail"}},
+	ERROR_PAGE_LIST		=> \@{$Options{"error-page"}},
 	MAIL_FILE		=> $Options{logfile},
 	MAIL_FILE_PERMS		=> 0644,
-	ALWAYS_MAIL_LIST	=> \@{$Options{"always-mail"}},
-	ERROR_MAIL_LIST		=> \@{$Options{"error-mail"}},
-	ALWAYS_PAGE_LIST	=> \@{$Options{"always-page"}},
-	ERROR_PAGE_LIST		=> \@{$Options{"error-page"}},
 	MAIL_SUBJECT		=> $Subject,
+	SYSLOG_FACILITY		=> $Syslog,
 	VERBOSE			=> $LogOutputVerbose,
 });
-
-# Make a list of all the virtual machines.
-my $vmm = Sys::Virt->new(uri => 'qemu:///system');
-my @MachineHandles = $vmm->list_all_domains();
-foreach (@MachineHandles) {
-	my $Name = $_->get_name;
-	if ($Name eq '_ALL_') {
-		warn "Machine named '_ALL_' conflicts with $Prog keyword.  Ignoring this machine.";
-	}
-	else {
-		$Machines{$Name} = $_;		# Map names to objects.
-		$MachineNames{$Name}=0;		# Keep list of valid names.
-		$BackedUp{$Name}=0;		# Keep backup state, to avoid redundant runs.
-	}
-}
 
 # Make another pass through the parm list.  This time, actually
 # run backups when we come across parms via <>.  Doing it this way lets
@@ -170,7 +170,8 @@ foreach (@MachineHandles) {
 		verbose => $Options{verbose},
 		timeout => 5,
 );			# Reset Options to defaults for reprocessing.
-$Errors ++ unless (GetOptions(%OptionSpecifications,'<>'=>\&ProcessBackup));
+$OptionSpecifications{'<>'} = \&ProcessBackup;
+$Errors ++ unless (GetOptions(%OptionSpecifications));
 
 # If we tried to shut a machine down and it didn't go, make sure it's
 # still up.  We don't want to leave it down if it's supposed to be up,
@@ -272,7 +273,7 @@ sub ProcessBackup {
 	my ($OutputDir,$OutputFile) = ($1, $2);
 	if ($OutputDir =~ /[?*{}[\]]/) {
 		# Contains wild cards.
-		my $OutputDirTest = glob $OutputDir;
+		my($OutputDirTest) = glob($OutputDir);	# Need to pull in list context for 2nd call.
 		$OutputDir = $OutputDirTest if ($OutputDirTest and -d $OutputDirTest);
 		$Output = "$OutputDir/$OutputFile";
 	}
@@ -327,7 +328,7 @@ sub ProcessBackup {
 	if (open($INDEXFH,'<',$IndexFile)) {
 		my $Index = <$INDEXFH>;
 		close $INDEXFH;
-		%FullBackupIndex = %{decode_json($Index)};
+		eval '%FullBackupIndex = %{decode_json($Index)}' || unlink $IndexFile;
 	}
 	elsif (-f $IndexFile) {
 		warn "Unable to read $IndexFile: $!\n";
@@ -436,10 +437,14 @@ sub ProcessBackup {
 		RunDangerousCmd(qq<rm "$OutputTmp">);
 	}
 	elsif ( RunDangerousCmd(qq<mv "$OutputTmp" "$Output">) == 0) {
-		print strftime(
-			 "    ${TestPrefix}Backup of $MachineName completed normally at %Y-%m-%d %H:%M:%S\n"
-			, localtime()
-		);
+		my $Size = ($Options{test}?999999:(stat($Output))[7]);
+		printf "%s%-*s %s bytes (%6s) written to %s\n",
+			${TestPrefix},
+			$MaxHostLength+1,
+			"$MachineName:",
+			Commify($Size),
+			CompressByteSize($Size),
+			$Output;
 		$BackedUp{$MachineName} = 1;	# Don't do this one twice.
 	}
 	else {
@@ -451,12 +456,19 @@ sub ProcessBackup {
 	$BackupIndex{$Output} = (stat($Output))[9];
 	%{$FullBackupIndex{$MachineName}}=%BackupIndex;
         if (! $Options{test}) {
-		if (open($INDEXFH,'>',$IndexFile)) {
-                	print $INDEXFH encode_json(\%FullBackupIndex) . "\n";
-                	close $INDEXFH;
+		if (open($INDEXFH,'>',"$IndexFile.tmp")) {
+                	my $PrintStatus = print $INDEXFH encode_json(\%FullBackupIndex) . "\n";
+			my $CloseStatus = close $INDEXFH;
+			if ($PrintStatus and $CloseStatus ) {
+				RunDangerousCmd(qq<mv -f "$IndexFile.tmp" "$IndexFile">);
+			}
+			else {
+				warn "Unable to update $IndexFile.tmp: print status = $PrintStatus, close status = $CloseStatus\n";
+				$Errors++;
+			}
         	}
         	else {
-              		 warn "Unable to write $IndexFile: $!\n";
+              		 warn "Unable to write $IndexFile.tmp: $!\n";
         	}
 	}
 
@@ -507,60 +519,6 @@ sub IsRunning {
 
 
 #
-# RunDangerousCmd - run a command, or suppress it if -t specified.
-#
-sub RunDangerousCmd {
-	my ($Cmd,$FH,$Line);
-	$Cmd=join(' ',@_);
-	if ($Options{test}) {
-		print "    Test: $Cmd\n";
-		return 0;
-	} else {
-		print "    Executing: $Cmd\n" if ($Options{verbose} > 1);
-		if (open($FH,"$Cmd 2>&1 |")) {
-			while ($Line=<$FH>) {
-				$Line=~s/[
-]//g;
-				chomp $Line;
-				print "$Line\n";
-			};
-			close $FH;
-			return $?;
-		} else {
-			warn qq(Unable to start process for "$Cmd": $!\n");
-			return 8<<8;
-		}
-	}
-}
-
-
-#
-# opt_Value - generic single-value option processing
-#
-sub opt_Value {
-	my($Name,$Value) = @_;
-	$Options{$Name} = $Value;
-}
-
-
-#
-# opt_Array - generic multi-value option processing
-#
-sub opt_Array {
-
-	my($Name,$Value,undef) = @_;
-	if (defined($Value) and length($Value)) {
-		# Add this value to the array.
-		push @{$Options{$Name}},$Value;
-	}
-	else {
-		# Received "--opt=".  Empty this array.
-		@{$Options{$Name}}=();
-	}
-}
-
-
-#
 # opt_Hash - generic multi-value option processing
 #
 sub opt_Hash {
@@ -575,26 +533,6 @@ sub opt_Hash {
 		%{$Options{$Name}}=();
 	}
 }
-
-
-#
-# opt_O - Load an option set.
-#
-sub opt_O {
-	my(undef,$Value) = @_;
-	$Value = uc($Value);
-	if (exists($Config{$Value})) {
-		$Errors ++ unless GetOptionsFromString(
-			$Config{$Value},
-			%OptionSpecifications,
-			'<>' => sub{push @ARGV, shift;}		# Need to save any stray paramters.
-		);
-	}
-	else {
-		warn qq<Warning: "$Value" not found in configuration file\n>;
-	}
-}
-
 
 #
 # opt_h: Usage
@@ -775,61 +713,34 @@ close PAGENATER;
 exit 1;
 }
 __END__
-#
-# Output filters.  The syntax is: type pattern
-#
-#  Type:        Ignore - Don't display this message, it's not interesting.
-#               LogOnly - Write this message to the syslog and log file, but
-#                       don't display it on STDOUT.
-#               Show - Display this message, but it's not an error condition.
-#               # - This is a comment, ignore it.
-#
-#  Pattern:     an ordinary perl pattern.  All patterns for a given score
-#               are joined by logical OR conditions.
-#
-#  Notes:
-#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
-#       2) All messages go to the syslog, regardless of this filter.
-#
-#
-# The following are normal messages we don't need to see.
-#
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
-LOGONLY /^Command: /
-#
-# These are normal messages that we want to see.
-#
+# Output filters.  See LogOutput.pm for details on output filters.
 IGNORE	"^\s*$"
-SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
-SHOW    /^\s*\S+ ended normally with status 0 and signal 0 - run time:/
-SHOW    /^\s*Test:/
-SHOW    /^\s*Executing:/
-SHOW    /^\s*Verbose:/
-SHOW	/^\s*debug:/
-SHOW	/^\s*$/
-SHOW	"^\s*Backing up \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d$"
-SHOW	"^\s*Starting backup"
-SHOW	"^\s*Shutting down \S+"
+IGNORE	"^\s*\S+ is down$"
+IGNORE	"^\s*\S+ shutdown generated libvirt error code: 38, message: Unable to read from monitor: Connection reset by peer"
 IGNORE	"^\s*Domain \S+ is being shutdown"
 IGNORE	"^\s*Domain \S+ started$"
-IGNORE	"^\s*\S+ is down$"
-SHOW	"^\s*\S+ is already down$"
-SHOW	"^\s*Restarting \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
-SHOW	"^\s*\S+ started at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
-SHOW	"^\s*Backup of \S+ ended normally at \d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$"
-SHOW	"^\s*\S+ ended normally.$"
+IGNORE	"^\s*error: Failed to shutdown domain \S+$"
+IGNORE	"^\s*error: Unable to read from monitor: Connection reset by peer$"
 IGNORE	"^\s*mkdir /\S+$"
 IGNORE	"^\s*tar: \.: file changed as we read it$"
 IGNORE	"^\s*WARNING: gnome-keyring:: couldn't connect to:"
-SHOW	"^\s*error: Requested operation is not valid: USB device \S* is in use"
+LOGONLY	"^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
+LOGONLY	/^Command: /
+SHOW	"^\s*\S+ ended normally.$"
+SHOW	"^\s*\S+ is already down$"
+SHOW	"^\s*\S+ started at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
+SHOW	"^\s*Backing up \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d$"
+SHOW	"^\s*\S+:\s+[\d,]+ bytes \(\s*\d+\.\d.\) written to "
+SHOW	"^\s*Backup of \S+ ended normally at \d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$"
 SHOW	"^\s*error: failed to start domain \S+$"
-SHOW	"^\s*Backup of \S+ completed normally at ....-..-.. ..:..:..$"
-IGNORE	"^\s*error: Failed to shutdown domain \S+$"
-IGNORE	"^\s*error: Unable to read from monitor: Connection reset by peer$"
-IGNORE	"^\s*\S+ shutdown generated libvirt error code: 38, message: Unable to read from monitor: Connection reset by peer"
-# 
-# Anything that doesn't match one of these three sets of patterns is considered
-# an error.
+SHOW	"^\s*error: Requested operation is not valid: USB device \S* is in use"
+SHOW	"^\s*Restarting \S+ at \d\d\d\d-\d\d-\d\d \d+:\d\d:\d\d"
+SHOW	"^\s*Shutting down \S+"
+SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*Starting backup"
+SHOW	/^\s*$/
+SHOW	/^\s*\S+ ended normally with status 0 and signal 0 - run time:/
+SHOW	/^\s*debug:/
+SHOW	/^\s*Executing:/
+SHOW	/^\s*Test:/
+SHOW	/^\s*Verbose:/
