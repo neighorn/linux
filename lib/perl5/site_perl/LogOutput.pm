@@ -22,7 +22,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject FormatVerboseElapsedTime);
-our $Version	= 3.33;
+our $Version	= 3.34;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -843,7 +843,8 @@ sub _StripDuplicates {
 # 			errors have been detected yet.
 #               %p - percent, same as %%
 #               %U - User name
-#               %D - Mail domain
+#               %O - Mail domain
+#               %. - space -- used to avoid word splitting by ssh.
 # 		%anything else: any remaining % are processed by 
 # 			POSIX::strftime.
 # 		
@@ -861,6 +862,7 @@ sub _MakeSubstitutions {
 	$Text =~ s/%N/$Options{PROGRAM_NAME}/g;
 	$Text =~ s/%P/$PID/g;
 	$Text =~ s/%O/$Options{MAIL_DOMAIN}/g;
+	$Text =~ s/%./ /g;
 
 	# Conditional substitutions (%E, %*).
 	if ($ErrorsDetected) {
