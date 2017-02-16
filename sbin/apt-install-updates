@@ -43,7 +43,7 @@ my %OptionSpecifications;
 		'filter-file|F=s'	=>	\&OptArray,
 		'help|h|?!'		=>	\&opt_h,
 		'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
-		'remote|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+		'remote|R=s'		=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'reboot'		=>	\&OptValue,
 		'subject=s'		=>	\&OptValue,
 		'test|t'		=>	\&OptFlag,
@@ -326,28 +326,9 @@ is loaded immediately.
 =cut
 
 __END__
-#
 # ---------------------------------------------------------
+# Output filters.  See LogOutput.pm for details of output filtering.
 #
-# Output filters.  The syntax is: type pattern
-#
-#  Type:        Ignore - Don't display this message, it's not interesting.
-#               LogOnly - Write this message to the syslog and log file, but
-#                       don't display it on STDOUT.
-#               Show - Display this message, but it's not an error condition.
-#               # - This is a comment, ignore it.
-#
-#  Pattern:     an ordinary perl pattern.  All patterns for a given score
-#               are joined by logical OR conditions.
-#
-#  Notes:
-#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
-#       2) All messages go to the syslog, regardless of this filter.
-#
-#
-# The following are normal messages we don't need to see.
-#
-###
 IGNORE	"^\s*$"
 IGNORE	"^\s*(\S+:\s*)?.._..\.\S+\.\.\. done\s*$"
 IGNORE	"^\s*(\S+:\s*)?.._..\.UTF-8... up-to-date\s*$"
@@ -358,10 +339,11 @@ IGNORE	"^\s*(\S+:\s*)?\d+ upgraded, \d+ newly installed, \d+ to remove and \d+ n
 IGNORE	"^\s*(\S+:\s*)?\s*$"
 IGNORE	"^\s*(\S+:\s*)?\S+ start/running, process \d+$"
 IGNORE	"^\s*(\S+:\s*)?\S+ stop/waiting$"
+IGNORE	"^\s*(\S+:\s*)?\S+.(socket|service)$"
 IGNORE	"^\s*(\S+:\s*)?\S+:\s*\S+ ended normally with status 0 and signal 0"
 IGNORE	"^\s*(\S+:\s*)?\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
 IGNORE	"^\s*(\S+:\s*)?\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
-IGNORE	"^\s*(\S+:\s*)?\S+:\s*Remote job exited with return code 0 and signal 0$"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time ="
 IGNORE	"^\s*(\S+:\s*)?\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
 IGNORE	"^\s*(\S+:\s*)?\S+:\s+Command: "
 IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
@@ -424,6 +406,7 @@ IGNORE	"^\s*(\S+:\s*)?ureadahead will be reprofiled on next reboot\s*$"
 IGNORE	"^\s*(\S+:\s*)?Use 'apt-get autoremove' to remove them.$"
 IGNORE	"^\s*(\S+:\s*)?W: Possible missing firmware /lib/firmware/ast_dp501_fw.bin for module ast\s*$"
 IGNORE	"^\s*(\S+:\s*)?warning: commands will be executed using /bin/sh$"
+IGNORE	"^\s*(\S+:\s*)?Warning: Stopping \S+, but it can still be activated by:"
 IGNORE  "^\s*(\S+:\s*)?boots. If you want to update it now, run 'setupcon' from a virtual console.$"
 IGNORE  "^\s*(\S+:\s*)?insserv: Default-Start undefined, assuming empty start runlevel\(s\) for script `\S+'\s*$"
 IGNORE  "^\s*(\S+:\s*)?insserv: Default-Stop  undefined, assuming empty stop  runlevel\(s\) for script `\S+'\s*$"
