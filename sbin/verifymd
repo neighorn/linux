@@ -147,13 +147,12 @@ if ($JOBLOCKFH) {
 }
 
 
+$ExitCode=$Errors?10:0;
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {
 	#print "$Prog ended normally.\n";
 }
-
-$ExitCode=$Errors?10:0;
 exit($ExitCode);
 
 
@@ -220,11 +219,12 @@ sub RunLocally {
 				}
 				else {
 					warn "\t$device is in $Status state - no action taken\n";
-						$Errors++;
+					$Errors++;
 				}
 			}
 			else {
 				warn "Unable to open $StatusFile: $!\n";
+				$Errors++;
 			}
 		}
 		print "$Count device" . ($Count == 1?'':'s') . " switched to idle state\n";
@@ -250,6 +250,7 @@ sub RunLocally {
 			}
 			else {
 				warn "/dev/$device does not exist\n";
+				$Errors++;
 			}
 			next;
 		}
@@ -259,6 +260,7 @@ sub RunLocally {
 				system('grep -Eq "\[=*>" /proc/mdstat');
 				if ($? == 0 and ! $Options{force}) {
 					warn "Aborting $Prog - another RAID is rebuilding\n";
+					$Errors++;
 					system('cat /proc/mdstat');
 					die "\n";
 				}
@@ -276,6 +278,7 @@ sub RunLocally {
 					}
 					else {
 						warn "Unable to write to $SyncFile: $!\n";
+						$Errors++;
 						next;
 					}
 					close $FH;
@@ -297,10 +300,12 @@ sub RunLocally {
 			}
 			else {
 				warn "Unexpected status '$Status' found in $SyncFile\n";
+				$Errors++;
 			}
 		}
 		else {
 			warn "Unexpected status '$Status' found in $SyncFile - device skipped\n";
+			$Errors++;
 		}
 	}
 }
@@ -321,6 +326,7 @@ sub GetStatus {
 	} 
 	else {
 		warn "Unable to open $SyncFile: $!\n";
+		$Errors++;
 		return "unknown";
 	}
 }
@@ -405,62 +411,33 @@ exit 1;
 
 =cut
 __END__
+# Output filters.  See LogOutput.pm for a description of filters.
 #
-# Output filters.  The syntax is: type pattern
-#
-#  Type:        Ignore - Don't display this message, it's not interesting.
-#               LogOnly - Write this message to the syslog and log file, but
-#                       don't display it on STDOUT.
-#               Show - Display this message, but it's not an error condition.
-#               # - This is a comment, ignore it.
-#
-#  Pattern:     an ordinary perl pattern.  All patterns for a given score
-#               are joined by logical OR conditions.
-#
-#  Notes:
-#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
-#       2) All messages go to the syslog, regardless of this filter.
-#
-#
-# The following are normal messages we don't need to see.
-#
-IGNORE	/^\s*(\S+:\s*)?$/
+IGNORE	"^\s*(\S+:\s*)?$"
 IGNORE	"^\s*(\S+:\s+)?/dev/md\S+ excluded.$"
 IGNORE	"^\s*(\S+:\s+)?\d+ blocks .*\[U+\]$"
 IGNORE	"^\s*(\S+:\s+)?bitmap:"
 IGNORE	"^\s*(\S+:\s+)?Personalities : \["
 IGNORE	"^\s*(\S+:\s+)?unused devices: "
-SHOW	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "
 IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0$"
-IGNORE	"^\s*\S+:\s+Beginning check of /dev/"
-IGNORE	"^\s*\S+:\s+Completed check of /dev/"
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-
-LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-IGNORE "^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
-LOGONLY /^\s*Command: /
-IGNORE /^\s*\S+:\s+Command: /
 IGNORE	"^\s*\S+:\s+\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+ - run time:"
-#
-# These are normal messages that we want to see.
-#
-SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
-SHOW	"^\s*(\S+:\s+)?Test:"
-SHOW	"^\s*(\S+:\s+)?Executing:"
-SHOW	"^\s*(\S+:\s+)?debug:"
-SHOW	"^\s*Beginning check of /dev/"
-SHOW	"^\s*(\S+:\s+)?Ignoring /dev/"
-SHOW	"^\s*Completed check of /dev/"
+IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s+Beginning check of /dev/"
+IGNORE	"^\s*\S+:\s+Command: "
+IGNORE	"^\s*\S+:\s+Completed check of /dev/"
+LOGONLY	"^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY	"^\s*Command: "
 SHOW	"^\s*(\S+:\s+)?/dev/\S+ is already being verified.  Waiting for completion...$"
+SHOW	"^\s*(\S+:\s+)?\d+ devices? switched to idle state$"
+SHOW	"^\s*(\S+:\s+)?\S+ returned to idle state$"
+SHOW	"^\s*(\S+:\s+)?debug:"
+SHOW	"^\s*(\S+:\s+)?Executing:"
+SHOW	"^\s*(\S+:\s+)?Ignoring /dev/"
 SHOW	"^\s*(\S+:\s+)?md\d+\s+: active "
 SHOW	"^\s*(\S+:\s+)?Skipping run.  Week number is \d, not \d$"
-SHOW	"^\s*(\S+:\s+)?\S+ returned to idle state$"
-SHOW	"^\s*(\S+:\s+)?\d+ devices? switched to idle state$"
+SHOW	"^\s*(\S+:\s+)?Test:"
 SHOW	"^\s*(\S+:\s+)?Verbose:"
 SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
-
-#
-# Anything that doesn't match one of these three sets of patterns is considered
-# an error.
+SHOW	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "
+SHOW	"^\s*Beginning check of /dev/"
+SHOW	"^\s*Completed check of /dev/"
