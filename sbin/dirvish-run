@@ -14,6 +14,7 @@ use POSIX qw(strftime);
 use IO::Socket;
 use Data::Dumper;
 $Data::Dumper::Pad = "Verbose:        ";
+use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd Commify ExpandByteSize ExpandConfigList);
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -54,48 +55,53 @@ our %ExcludeVaults;			# Hash of values provided by --exclude-vaults=xxx
 # GetOptions doesn't work right on a second call to it (which we need
 # to do) with the conventional approach.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
-our %OptionSpecifications=(
-		'<>'			=>	sub {push @Parms,shift;},
-		'always-page|p=s'	=>	\&opt_Array,
-		'always-mail|m=s'	=>	\&opt_Array,
-		'debug|d'		=>	sub {$DB::AutoTrace=1;},
-		'dirvish|D=s'		=>	\&opt_Array,
-		'error-mail|M=s'	=>	\&opt_Array,
-		'error-page|P=s'	=>	\&opt_Array,
-		'exclude-vaults=s'	=>	\&opt_Array,
-		'expire=s'		=>	\&opt_Value,
-		'filter-file|F=s'	=>	\&opt_Array,
-		'help|h|?!'		=>	\&opt_h,
-		'ifup!'			=>	\&opt_Value,
-		'ifuptarget=s'		=>	\&opt_Value,
-		'ifbefore=s'		=>	\&opt_Value,
-		'imagename|image=s'	=>	\&opt_Value,
-		'ionice=s'		=>	\&opt_Value,
-		'jobinit|B=s'		=>	\&opt_Array,
-		'joblockfile=s'		=>	\&opt_Value,
-		'logfile|L=s'		=>	\&opt_Value,
-		'min-size|s=s'		=>	\&opt_s,
-		'max-size|S=s'		=>	\&opt_S,
-		'max-fs-percent=i'	=>	\&opt_Value,
-		'option-set|O=s'	=>	\&opt_O,
-		'rename-vault=s'	=>	\&opt_Value,
-		'rerun|R:1'		=>	\&opt_Value,
-		'sectionlockfile=s'	=>	\&opt_SectionLockFile,
-		'subject|N=s'		=>	\&opt_Value,
-		'statfile=s'		=>	\&opt_Value,
-		'test|t!'		=>	\&opt_Value,
-		'verbose|v'		=>	sub {$Options{verbose} = (exists($Options{verbose})?$Options{verbose}+1:1)},
+my %OptionSpecifications;
+%OptionSpecifications=(
+	'<>'			=>	sub {push @Parms,$_[0] if ($_[0]);},
+	'always-page|p=s'	=>	\&OptArray,
+	'always-mail|m=s'	=>	\&OptArray,
+	'debug|d'		=>	sub {$DB::AutoTrace=1;},
+	'dirvish|D=s'		=>	\&OptArray,
+	'error-mail|M=s'	=>	\&OptArray,
+	'error-page|P=s'	=>	\&OptArray,
+	'exclude-vaults=s'	=>	\&OptArray,
+	'expire=s'		=>	\&OptValue,
+	'filter-file|F=s'	=>	\&OptArray,
+	'help|h|?!'		=>	\&opt_h,
+	'ifup!'			=>	\&OptFlag,
+	'ifuptarget=s'		=>	\&OptValue,
+	'ifbefore=s'		=>	\&OptValue,
+	'imagename|image=s'	=>	\&OptValue,
+	'ionice=s'		=>	\&OptValue,
+	'jobinit|B=s'		=>	\&OptArray,
+	'joblockfile=s'		=>	\&OptValue,
+	'logfile|L=s'		=>	\&OptValue,
+	'min-size|s=s'		=>	\&opt_s,
+	'max-size|S=s'		=>	\&opt_S,
+	'max-fs-percent=i'	=>	\&OptValue,
+	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
+	'rename-vault=s'	=>	\&OptValue,
+	'rerun|R:1'		=>	\&OptFlag,
+	'sectionlockfile=s'	=>	\&OptSectionLockFile,
+	'subject|N=s'		=>	\&OptValue,
+	'statfile=s'		=>	\&OptValue,
+	'test|t!'		=>	\&OptFlag,
+	'verbose|v'		=>	\&OptFlag,
 );
 
 # Don't kill the job if the user disconnects.
 $SIG{HUP} = "IGNORE";
 
+# ---------------------------------------------------------
+#
 # Load the config file.
-foreach (@ConfigFiles) {
-	LoadConfigFile($_);
-}
-foreach (%Config) {s/\s*$//;};	# Trim off trailing spaces.
+#
+LoadConfigFiles(files => \@ConfigFiles);
 
+# ---------------------------------------------------------
+#
+# Process the config file defaults if present.
+#
 # Use the default job if it's defined and we didn't get anything on 
 # the command line.
 push @ARGV,(shellwords($Config{DEFAULTJOB}))
@@ -106,7 +112,10 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 	if (defined($Config{'ALLJOBS'}));
 @Banks = shellwords(($Config{BANKS}));	# Need this early for GetMachineDir.
 
-# Pre-process our command line, to get the options we need for LogOutput.
+# ---------------------------------------------------------
+#
+# Process the command line options.
+#
 my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
 $OptionMode = 'preprocess';	# Some options need to know if we're running or not.
 %Options=(verbose => 0);	# Initialize Options.
@@ -120,7 +129,20 @@ foreach my $Vault (@{$Options{'exclude-vaults'}}) {
 	}
 }
 
+# ---------------------------------------------------------
+#
+# Make sure some key items exist;
+#
+foreach (qw(always-mail error-mail always-page error-page)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
+$Options{verbose} = 0 unless (exists($Options{verbose}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
+
+# ---------------------------------------------------------
+#
 # Set our ionice value, if specified, so it applies to LogOutput's child too.
+#
 if ($Options{ionice}) {
 	if ($Options{ionice} =~ /^(\d+)(\/\d+)?$/) {
 		my ($Class,$ClassData) = ($1,$2);
@@ -136,7 +158,10 @@ if ($Options{ionice}) {
 	}
 }
 	
+# ---------------------------------------------------------
+#
 # Set up our logging and output filtering.
+#
 my $RunDate=`date +%m/%d`;
 chomp $RunDate;
 my $Subject;
@@ -150,14 +175,6 @@ else {
 	$Subject="%* %m/%d %C %N %E %*%*%*" ;
 };
 
-# Make sure some key items exist;
-foreach (qw(always-mail error-mail always-page error-page)) {
-	@{$Options{$_}} = () unless (exists($Options{$_}));
-}
-$Options{verbose} = 0 unless (exists($Options{verbose}));
-$Options{logfile} = '' unless (exists($Options{logfile}));
-my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
-
 LogOutput({
 	SYSLOG_FACILITY		=> $Syslog,
 	MAIL_FILE		=> $Options{logfile},
@@ -168,8 +185,13 @@ LogOutput({
 	ERROR_PAGE_LIST		=> \@{$Options{"error-page"}},
 	FILTER_FILE		=> $Options{"filter-file"},
 	MAIL_SUBJECT		=> $Subject,
-	VERBOSE			=> $LogOutputVerbose,
+	VERBOSE			=> ($Options{verbose} > 4?$Options{verbose}-4:0),
 });
+
+# ---------------------------------------------------------
+#
+# Verify the command line.
+#
 die "No BANKS defined in configuration file(s)" 
 	unless (defined($Config{BANKS}) 
 		and exists($Config{BANKS})
@@ -218,7 +240,7 @@ foreach (@{$Options{jobinit}}) {
 );
 $Options{"max-fs-percent"} = 95 unless ($Options{"max-fs-percent"});
 
-$OptionSpecifications{'<>'} = \&ProcessBackup;
+$OptionSpecifications{'<>'} = \&ProcessBackup(target => $_[0], optspec => \%OptionSpecifications);
 $Errors++ unless GetOptions(%OptionSpecifications);
 
 # Print the disk space report.
@@ -272,35 +294,6 @@ exit( ($Errors?10:0) );
 
 
 #
-# LoadConfigFile - load a configuration file
-#
-sub LoadConfigFile {
-	my $ConfigFile = shift;
-	if (-e $ConfigFile) {
-		my $CONFIGFH;
-		open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-		# Build a hash of settings found in the config file.
-		while (<$CONFIGFH>) {
-			next if (/^\s*#/);      # Comment.
-			next if (/^\s*$/);      # Blank line.
-			chomp;
-			my ($name,$settings)=split(/:?\s+/,$_,2);
-			$name=uc($name);	# Name is not case sensitive.
-			$settings='' unless ($settings);  # Avoid undef warnings.
-			if ($name eq 'INCLUDE') {
-				LoadConfigFile($settings);
-			}
-			else {
-				$settings=~s/\s+$//;	# Trim trailing spaces.
-				$Config{$name}.=$settings . ' ' ;
-			}
-		}
-		close $CONFIGFH;
-	}
-}
-
-
-#
 # GetNameLengths - get the length of the longest vault for formatting purposes.
 sub GetNameLengths {
 	my $Vault = shift;
@@ -316,12 +309,14 @@ sub GetNameLengths {
 #
 sub ProcessBackup {
 
-	my $Target = shift;
+	my %Parms = @_;
+	my $Target = $Parms{target};
+	my %LocalOptSpec = %{$Parms{optspec}};
 
         # Is this really a machine name, or a list of names?
 	if ($Config{$Target}) {
-		foreach (split(/[\s,]+/,$Config{$Target})) {
-			ProcessBackup($_);
+		foreach (ExpandConfigList($Target)) {
+			ProcessBackup(target => $_, optspec => \%LocalOptSpec);
 		}
 		return;
 	}
@@ -340,14 +335,12 @@ sub ProcessBackup {
 
 	# Load any machine-specific options from the config files.
 	my %TmpOptions = %Options;
-	my %TmpOptSpec = %OptionSpecifications;
-	local(%Options,%OptionSpecifications);
+	local(%Options);
 	%Options = %TmpOptions;
-	%OptionSpecifications = %TmpOptSpec;
-	delete $OptionSpecifications{'<>'};	# No recursive loops.
+	delete $LocalOptSpec{'<>'};	# No recursive loops.
 	my $VaultConfig = uc("vault=$Target");
 	if ($Config{$VaultConfig}) {
-		$Errors ++ unless GetOptionsFromString($Config{$VaultConfig},%OptionSpecifications);
+		$Errors ++ unless GetOptionsFromString($Config{$VaultConfig},%LocalOptSpec);
 	}
 
 	if ($Options{verbose} >= 3) {
@@ -716,8 +709,8 @@ sub Summarize {
 		"Run Time: %8ss, " .
 		"%s\n",
 		$MaxVaultLength, $Target,
-		commify($TotalItems), $TotalSize ,
-		commify($NewItems), $NewSize , 
+		Commify($TotalItems), $TotalSize ,
+		Commify($NewItems), $NewSize , 
 		$RunTime,
 		$Directory,
 		;
@@ -768,84 +761,6 @@ sub FormatSize {
 
 
 #
-# commify - insert commas in numbers.
-#
-sub commify {
-	local $_ = shift;
-	1 while s/^(-?\d+)(\d{3})/$1,$2/;
-	return $_;
-}
-
-#
-# RunDangerousCmd - run a command, or suppress it if -t specified.
-#
-sub RunDangerousCmd {
-	my ($Cmd,$FH,$Line);
-	$Cmd=join(' ',@_);
-	if ($Options{test}) {
-		print "Test: $Cmd\n";
-		return 0;
-	} else {
-		print "Executing: $Cmd\n" if ($Options{verbose});
-		if (open($FH,"$Cmd 2>&1 |")) {
-			while ($Line=<$FH>) {
-				$Line=~s/[
-]//g;
-				chomp $Line;
-				print "$Line\n";
-			};
-			close $FH;
-			return $?;
-		} else {
-			warn qq(Unable to start process for "$Cmd": $!\n");
-			return 8<<8;
-		}
-	}
-}
-
-
-#
-# opt_Value - generic single-value option processing
-#
-sub opt_Value {
-	my($Name,$Value) = @_;
-	$Options{$Name} = $Value;
-}
-
-
-#
-# opt_Array - generic multi-value option processing
-#
-sub opt_Array {
-
-	my($Name,$Value,undef) = @_;
-	if (defined($Value) and length($Value)) {
-		# Add this value to the array.
-		push @{$Options{$Name}},$Value;
-	}
-	else {
-		# Received "--opt=".  Empty this array.
-		@{$Options{$Name}}=();
-	}
-}
-
-
-#
-# opt_O - Load an option set.
-#
-sub opt_O {
-	my(undef,$Value) = @_;
-	$Value = uc($Value);
-	if (exists($Config{$Value})) {
-	        $Errors ++ unless GetOptionsFromString($Config{$Value},%OptionSpecifications);
-	}
-	else {
-	        warn qq<Warning: "$Value" not found in configuration file\n>;
-        }
-}
-
-
-#
 # opt_SectionLockFile - acquire a lock for subsequent vaults.
 #
 sub opt_SectionLockFile {
@@ -875,7 +790,7 @@ sub opt_SectionLockFile {
 #
 sub opt_s {
 	my(undef,$Value) = @_;
-	$Options{minsize} = ExpandSize($Value);
+	$Options{minsize} = ExpandByteSize($Value);
 	if (! defined($Options{minsize}) ) {
 		warn qq<Invalid value "$Value" for -s/--min-size.\n>;
 		$Options{minsize} = 0;
@@ -889,39 +804,11 @@ sub opt_s {
 #
 sub opt_S {
 	my(undef,$Value) = @_;
-	$Options{maxsize} = ExpandSize($Value);
+	$Options{maxsize} = ExpandByteSize($Value);
 	if (! defined($Options{maxsize}) ) {
 		warn qq<Invalid value "$Value" for -S/--max-size.\n>;
 		$Options{maxsize} = 0;
 	}
-}
-
-
-
-#
-# ExpandSize - convert various number formats to an integer.
-#
-sub ExpandSize {
-	my $Value = shift;
-        $Value =~ s/,//g;               # Ignore commas.
-        if ($Value =~ /^(\d+)$/i) {
-                return $1;
-        }
-        elsif ($Value =~ /^(\d+)K$/i) {
-                return $1*1024;
-        }
-        elsif ($Value =~ /^(\d+)M$/i) {
-                return $1*1024*1024;
-        }
-        elsif ($Value =~ /^(\d+)G$/i) {
-                return $1*1024*1024*1024;
-        }
-        elsif ($Value =~ /^(\d+)T$/i) {
-                return $1*1024*1024*1024*1024;
-        }
-        else {
-                return undef;
-        }
 }
 
 
