@@ -96,7 +96,10 @@ LogOutput({
 	FILTER_FILE => $Options{'filter-file'},
 });
 
-# Verify the command line.
+# ---------------------------------------------------------
+#
+# Verify the command line and run the job.
+#
 die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
 	if (@Parms);
 
