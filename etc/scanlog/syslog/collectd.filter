@@ -1,0 +1,4 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ collectd(\[\d+\])?:\s*Initialization complete, entering read-loop.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ collectd(\[\d+\])?:\s*plugin_load: plugin \"\S+\" successfully loaded.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ collectd(\[\d+\])?:\s*rrdtool plugin: Shutting down the queue thread. This may take a while.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ collectd(\[\d+\])?:\s*Systemd detected, trying to signal readyness.$"
