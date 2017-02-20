@@ -176,6 +176,7 @@ OptArray('opt7','a,SERVERS,i');							is(join('/',@{$Options{opt7}}),'a/SERVERS/
 OptArray('opt8','a,SERVERS,i','expand-config' => 1);				is(join('/',@{$Options{opt8}}),'a/b/c/d/e/f/g/h/i','OptArray expand-config=1');
 OptArray('opt9','a,LOOP,h','expand-config' => 1);				is(join('/',@{$Options{opt9}}),'a/b/c/d/h','OptArray expand-config=1, config loop');
 OptArray('opt10','a,b,c,d,!CGROUP','expand-config' => 1, 'allow-delete' => 1);	is(join('/',@{$Options{opt10}}),'a/b/d','OptArray expand-config=1, negate config');
+OptArray('opt12','a b "c d e" f g');						is(join('/',@{$Options{opt12}}),'a/b/"c d e"/f/g','OptArray quoted values');
 
 #
 # OptOptionSet
@@ -222,7 +223,7 @@ OptOptionSet(name => 'option7', optspec => \%OptionSpecifications);		is(join('-'
 $Status = OptOptionSet(name => ':option8', optspec => \%OptionSpecifications);	is($Status,0,'OptOptionSet optional set not found');
 $Status = OptOptionSet(name => 'option9', optspec => \%OptionSpecifications);	is($Options{i},1,'OptOptionSet optional set found');
 $Status = OptOptionSet(name => 'option10', optspec => \%OptionSpecifications, 'suppress-output' => 1);
-										ok(($Status != 0),'OptOptionSet mandatory set not found');
+										ok(($Status != 0),"OptOptionSet mandatory set not found - status $Status");
 @Parms=();
 OptOptionSet(name => 'option11', optspec => \%OptionSpecifications);		is(join('-',@Parms),'abc','OptOptionSet trailing parm');
 @Parms=();

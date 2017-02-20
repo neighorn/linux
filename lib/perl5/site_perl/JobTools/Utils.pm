@@ -10,6 +10,7 @@ require Exporter;
 use strict;
 use warnings;
 use POSIX qw(strftime);
+use Text::ParseWords;
 
 our $Version		= 1.0;
 our $BYTESIZE_UNITS 	= 'BKMGTPEZY';
@@ -166,25 +167,27 @@ sub LoadConfigFiles {
 	my %Hash;		# Input parameters.
 	if (@_ == 1) { 
 		# "LoadConfigFiles('my.cfg')" format.
-		@{$Hash{files}}	 = @_;	# Create a list of 1 file.
+		@{$Hash{files}}	= @_;	# Create a list of 1 file.
 	}
 	else {
 		# "LoadConfigFiles(files => \@file_list)" or
 		# "LoadConfigFiles(files => ["file1", "file2"])" format.
 		%Hash = @_;
 	}
+	$Hash{verbose} = $OptionsRef->{verbose} unless (exists($Hash{verbose}));
+	$Hash{verbose} = 0 unless (defined($Hash{verbose}));
 
 	foreach my $ConfigFile (@{$Hash{files}}) {
 		if (exists($LoadConfigFiles_ConfigFilesRead{$ConfigFile})) {
 			# We already read this one.
-			print "LoadConfigFiles: Ignoring duplicate $ConfigFile\n" if ($OptionsRef->{Verbose});
+			print "Verbose: JobTools::Utils::LoadConfigFiles: Ignoring duplicate $ConfigFile\n" if ($Hash{verbose});
 			next;
 		}
 		else {
 			# Remember we read this one, to avoid include-loops.
 			$LoadConfigFiles_ConfigFilesRead{$ConfigFile} = 1;
 		}
-		print "LoadConfigFiles: Processing $ConfigFile\n" if ($OptionsRef->{Verbose});
+		print "Verbose: JobTools::Utils::LoadConfigFiles: Processing $ConfigFile\n" if ($Hash{verbose});
 		if (-e $ConfigFile) {
 			my $CONFIGFH;
 	                open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
@@ -221,9 +224,11 @@ sub LoadConfigFiles {
 					if ($ConfigRef->{$name}) {
 						# Append to existing values.
 						$ConfigRef->{$name}.=" $settings";
+						print qq<Verbose: JobTools::Utils::LoadConfigFiles: Appending to $name: "$settings"\n> if ($Hash{verbose} >=2 );
 					}
 					else {
 						$ConfigRef->{$name}=$settings;
+						print qq<Verbose: JobTools::Utils::LoadConfigFiles: Setting $name to "$settings"\n> if ($Hash{verbose} >=2 );
 					}
 				}
 	                }
@@ -241,10 +246,10 @@ sub OptArray {
 
 	my $Name = shift;
 	my $Value = shift;
-
+	
 	# Possible array processing options:
-	#	preserve-lists:	0 (default), split on embedded spaces or commas
-	#			1, don't split on embedded spaces or commas
+	#       preserve-lists: 0 (default), split on embedded spaces or commas
+	#                       1, don't split on embedded spaces or commas
 	#	allow-delete:	0 (default), leading ! on value has no meaning
 	#			1, leading ! on value means delete value from
 	#				current list.
@@ -283,7 +288,7 @@ sub OptArray {
 	else {
 		$Value =~ s/[\s,]+$//;	# Trailing separators make no sense.
 		$Value =~ s/^\s+//;	# Ignore leading whitespace.
-		@ValueList = split(/[,\s]+/,$Value);
+		@ValueList = quotewords('[\s,]+',1,$Value);
 	}
 
 	# Now process each list item individually.
@@ -313,13 +318,13 @@ sub OptArray {
 				and exists($OptArrayConfigUsed{$Name}{$UCValue})
 			) {
 				# Already been here. Don't expand it a second time.
-				print "OptArray: $Name refers to $UCValue configuration file values more than once.  Ignored.\n"
+				print "Verbose: JobTools::Utils::OptArray: $Name refers to $UCValue configuration file values more than once.  Ignored.\n"
 					if ($Parms{verbose});
 			}
 			else {
 				# Load up options from this config file entry.
 				$OptArrayConfigUsed{$Name}{$UCValue} = 1;	# Remember we did this one.
-				print "OptArray: $Name refers to $UCValue configuration file values.  Expanding $UCValue.\n"
+				print "Verbose: JobTools::Utils::OptArray: $Name refers to $UCValue configuration file values.  Expanding $UCValue.\n"
 					if ($Parms{verbose});
 				OptArray(
 					$Name,
@@ -384,6 +389,7 @@ sub OptFlag {
 sub OptOptionSet {
 	require Getopt::Long; Getopt::Long->import(qw(GetOptionsFromString));
         my %Hash = @_;
+	$Hash{verbose} = 0 unless (exists($Hash{verbose}) and $Hash{verbose});
 	
 	# Make sure we have all the necessary pieces.
 	my $Errors = 0;
@@ -397,9 +403,13 @@ sub OptOptionSet {
 
         $Hash{name} = uc($Hash{name});	# Normalize the name.
         $Hash{name} =~ m/(:?)(\S+)/;	# See if it starts with a colon, meaning optional.
-        my $Optional = $1;
+        my $Optional = (defined($1) and $1 eq ':');
         $Hash{name} = $2;
+	print "Verbose: JobTools::Utils::OptOptionSet: Name = $Hash{name}, Optional = $Optional\n"
+		if ($Hash{verbose});
         if (exists($ConfigRef->{$Hash{name}})) {
+		print "Verbose: JobTools::Utils::OptOptionSet: Processing $Hash{name} option set: $ConfigRef->{$Hash{name}}\n"
+			if ($Hash{verbose});
                 $Errors++ unless GetOptionsFromString(
                         $ConfigRef->{$Hash{name}},
                         %{$Hash{optspec}},
@@ -410,6 +420,10 @@ sub OptOptionSet {
 			unless (exists($Hash{'suppress-output'}) and $Hash{'suppress-output'});
 		$Errors++;
         }
+	else {
+		print "Verbose: JobTools::Utils::OptOptionSet: Option set $Hash{name} not found and optional -- ignored\n"
+			if ($Hash{verbose});
+	}
 	return $Errors;
 }
 
@@ -549,7 +563,7 @@ sub RunRemote {
 				next;
 			}
 	
-			print "Verbose: Running $Cmd\n" if ($Parms{verbose} or $Parms{test});
+			print "Verbose: JobTools::Utils::RunRemote: Running $Cmd\n" if ($Parms{verbose} or $Parms{test});
 			my $StartTime = time();
 			if (open($FH, "$Cmd |")) {
 				while (<$FH>) {
