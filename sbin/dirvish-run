@@ -14,7 +14,7 @@ use POSIX qw(strftime);
 use IO::Socket;
 use Data::Dumper;
 $Data::Dumper::Pad = "Verbose:        ";
-use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd Commify ExpandByteSize ExpandConfigList);
+use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd Commify ExpandByteSize ExpandConfigList FormatElapsedTime);
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -50,6 +50,8 @@ our $CurrentMachine=0;			# nth machine being processed.
 our $TotalMachines=0;			# How many machines will we back up?
 our %MachinesDone;			# Hash of machines we did, so we don't try them twice.
 our %ExcludeVaults;			# Hash of values provided by --exclude-vaults=xxx
+our @Skipped;				# List of skipped machines.
+JobTools::Utils::init(config => \%Config, options => \%Options);
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -73,7 +75,7 @@ my %OptionSpecifications;
 	'ifbefore=s'		=>	\&OptValue,
 	'imagename|image=s'	=>	\&OptValue,
 	'ionice=s'		=>	\&OptValue,
-	'jobinit|B=s'		=>	\&OptArray,
+	'jobinit|B=s'		=>	sub {OptArray(@_,'preserve-lists' => 1);},
 	'joblockfile=s'		=>	\&OptValue,
 	'logfile|L=s'		=>	\&OptValue,
 	'min-size|s=s'		=>	\&opt_s,
@@ -192,10 +194,18 @@ LogOutput({
 #
 # Verify the command line.
 #
-die "No BANKS defined in configuration file(s)" 
-	unless (defined($Config{BANKS}) 
-		and exists($Config{BANKS})
-		and $Config{BANKS});
+unless (defined($Config{BANKS}) 
+	and exists($Config{BANKS})
+	and $Config{BANKS})
+{
+	warn "No BANKS defined in configuration file(s)\n";
+	$Errors++;
+}
+if (!$TotalMachines) {
+	warn "No machines specified for backup.\n";
+	$Errors++;
+}
+exit 12 if ($Errors);
 
 PrintStatsFile(strftime("%D %T $Prog started<br>",localtime()));
 if ($Options{joblockfile}) {
@@ -211,7 +221,7 @@ if ($Options{joblockfile}) {
 		my @stat = stat($Options{joblockfile});
 		my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
 		$mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
-		print "Skipped this job due to a conflicting job in progress per "
+		print "Warning: Skipped this job due to a conflicting job in progress per "
 			. qq<"$Options{joblockfile}" dated $mdate at >
 			. strftime(
 				"%H:%M:%S",
@@ -221,6 +231,7 @@ if ($Options{joblockfile}) {
 		exit 11;
 	}
 }
+
 
 foreach (@{$Options{jobinit}}) {
 	# Run any initialization scripts.
@@ -240,8 +251,11 @@ foreach (@{$Options{jobinit}}) {
 );
 $Options{"max-fs-percent"} = 95 unless ($Options{"max-fs-percent"});
 
-$OptionSpecifications{'<>'} = \&ProcessBackup(target => $_[0], optspec => \%OptionSpecifications);
+$OptionSpecifications{'<>'} = sub {&ProcessBackup(target => $_[0], config => \%Config, optspec => \%OptionSpecifications);};
 $Errors++ unless GetOptions(%OptionSpecifications);
+
+# List any skipped items.
+print "$_" foreach (sort(@Skipped));
 
 # Print the disk space report.
 if (%FileSystems) {
@@ -311,12 +325,13 @@ sub ProcessBackup {
 
 	my %Parms = @_;
 	my $Target = $Parms{target};
-	my %LocalOptSpec = %{$Parms{optspec}};
+	my %LocalOptSpec = %{$Parms{optspec}};	# Use local copy, so we can modify it.
+	my $ConfigRef = $Parms{config};
 
         # Is this really a machine name, or a list of names?
-	if ($Config{$Target}) {
+	if ($ConfigRef->{$Target}) {
 		foreach (ExpandConfigList($Target)) {
-			ProcessBackup(target => $_, optspec => \%LocalOptSpec);
+			ProcessBackup(target => $_, config => $ConfigRef, optspec => \%LocalOptSpec);
 		}
 		return;
 	}
@@ -329,18 +344,18 @@ sub ProcessBackup {
 
 	# Is this on our exclude list?
 	if (exists($ExcludeVaults{uc($Target)})) {
-		print "Skipped $Target -- found on exclude-vaults list.\n";
+		push @Skipped, sprintf("Skipped %-*s: found on exclude-vaults list.\n",$MaxVaultLength,$Target);
 		return;
 	};
 
 	# Load any machine-specific options from the config files.
-	my %TmpOptions = %Options;
-	local(%Options);
-	%Options = %TmpOptions;
-	delete $LocalOptSpec{'<>'};	# No recursive loops.
+	my %SaveOptions = %Options;		# Need to save the current state, so we can put them back.
+						# Can't just "local" %Option becacuase OptSpec already
+						# has their addresses (apparently).
+	delete $Options{'<>'};			# No recursive loops.
 	my $VaultConfig = uc("vault=$Target");
-	if ($Config{$VaultConfig}) {
-		$Errors ++ unless GetOptionsFromString($Config{$VaultConfig},%LocalOptSpec);
+	if ($ConfigRef->{$VaultConfig}) {
+		$Errors ++ unless GetOptionsFromString($ConfigRef->{$VaultConfig},%LocalOptSpec);
 	}
 
 	if ($Options{verbose} >= 3) {
@@ -349,10 +364,15 @@ sub ProcessBackup {
 	}
 	PrintStatsFile(strftime("\n%D %T Starting $Target\n",localtime()));
 
-	return unless($MachineDirectory=GetMachineDirectory($Target,0));
+	$MachineDirectory=GetMachineDirectory($Target,0);
+	if (!$MachineDirectory) {
+		%Options = %SaveOptions;		# Restore options.
+		return
+	}
 
 	if (exists($MachinesDone{$MachineDirectory})) {
-		print qq<    $Target skipped -- already backed once in this job.\n>;
+		push @Skipped, sprintf("Skipped %-*s: -- already backed once in this job.\n",$MaxVaultLength,$Target);
+		%Options = %SaveOptions;		# Restore options.
 		return;
 	}
 
@@ -362,6 +382,7 @@ sub ProcessBackup {
 	if (!chdir $MachineDirectory) {
 		warn "Unable to CD to $MachineDirectory: $!\n";
 		$Errors++;
+		%Options = %SaveOptions;		# Restore options.
 		return;
 	}
 	
@@ -374,7 +395,8 @@ sub ProcessBackup {
 			       ($relative and time() > $StartTime+$hours*3600+$minutes*60)
 				or (!$relative and strftime("%H:%M",localtime()) gt sprintf("%02d:%02d",$hours,$minutes))
 			) {
-				print qq<    $Target skipped -- outside "--ifbefore" time constraints.\n>;
+				push @Skipped, sprintf(qq<Skipped %-*s: -- outside "--ifbefore" time constraints.\n>,$MaxVaultLength,$Target);
+				%Options = %SaveOptions;		# Restore options.
 				return;
 			}
 		}
@@ -390,11 +412,13 @@ sub ProcessBackup {
 		if (!open($SECTIONLOCK,'>>',$Options{sectionlockfile})) {
  	               print "Unable to create/open section lock file $Options{sectionlockfile}: $!\n";
 			$Errors++;
+			%Options = %SaveOptions;		# Restore options.
                 	return;
 		}
         	if (!flock($SECTIONLOCK, LOCK_EX | LOCK_NB)) {
-                	print qq<Skipped $Target due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
+                	print qq<Warning: Skipped $Target due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
 			$Errors++;
+			%Options = %SaveOptions;		# Restore options.
                 	return;
 		}
         }
@@ -429,7 +453,8 @@ sub ProcessBackup {
 		if ($Client =~ /^(localhost|127.0.0.1)$/i) {
 			# Localhost.  Make sure tree exists, to support automounts.
 			if (! -e "$Tree/.") {
-				print "Skipped $Target -- $Tree is not accessible.\n";
+				push @Skipped, sprintf("Skipped %-*s: $Tree is not accessible.\n",$MaxVaultLength,$Target);
+				%Options = %SaveOptions;		# Restore options.
 				return;
 			}
 			elsif ($Options{verbose}) {
@@ -446,7 +471,8 @@ sub ProcessBackup {
 				close $SOCKET;
 			}
 			else {
-				print "    $Target skipped -- $Options{ifuptarget} is unreachable.\n";
+				push @Skipped, sprintf("Skipped %-*s: $Options{ifuptarget} is unreachable.\n",$MaxVaultLength,$Target);
+				%Options = %SaveOptions;		# Restore options.
 				return;
 			}
 		}
@@ -462,11 +488,13 @@ sub ProcessBackup {
 	if (!open($LOCK,'>>',$LockFile)) {
 		warn "Unable to create/open $LockFile: $!";
 		$Errors++;
+		%Options = %SaveOptions;		# Restore options.
 		return;
 	}
 	if (!flock($LOCK, LOCK_EX | LOCK_NB)) {
-		warn qq<Skipped $Target due to a conflicting backup in progress per "$LockFile"\n>;
+		warn qq<Warning: Skipped $Target due to a conflicting backup in progress per "$LockFile"\n>;
 		$Errors++;
+		%Options = %SaveOptions;		# Restore options.
 		return;
 	}
 
@@ -541,12 +569,38 @@ sub ProcessBackup {
 
 	# Remember we did this one.
 	$MachinesDone{$MachineDirectory} = 1;
+
+	# Clean up the .hist file, so it doesn't grow forever.  This is non-critical.
+	my $HistFile = `ls -t $MachineDirectory/dirvish/*.hist 2> /dev/null | head -1`;
+	chomp $HistFile;
+	my($OLDHIST,$NEWHIST);
+	if (	    open($OLDHIST,'<',$HistFile) 
+		and open($NEWHIST,'>',"$HistFile.tmp")
+	) {
+		while (<$OLDHIST>) {
+		 	#2012-11-25-Sun	2012-11-20 18:41:28	daily	+3 months == 2013-02-20 17:02:45
+			if (/^(\S+)\s+\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d\s+/) {
+				# This is an image name.
+				print $NEWHIST $_ if (-e "$MachineDirectory/$1");	# Write it if dir exists.
+			}
+			else {
+				# This is a comment or something else.  Just keep it.
+				print $NEWHIST $_;
+			}
+		}
+		if (close $OLDHIST and close $NEWHIST) {
+			RunDangerousCmd(qq<mv -f "$HistFile.tmp" "$HistFile">);
+		};
+	}
+	close $OLDHIST if defined($OLDHIST);		# Failed open may still need close.
+	close $NEWHIST if defined($NEWHIST);		# Failed open may still need close.
 	
 	# Remember this file system device for our space report.
 	my $fs=`df -P $MachineDirectory | tail -1`;
 	$fs =~ s/\s.*$//;	# Just need the device name.
 	chomp $fs;
 	$FileSystems{$fs}=1;
+	%Options = %SaveOptions;		# Restore options.
 }
 
 
@@ -691,17 +745,7 @@ sub Summarize {
 	}
 	$TotalSize=FormatSize($TotalSize);
 	$NewSize=FormatSize($NewSize);
-	my $RunTime=time()-$VaultStartTime;
-	if ($RunTime == 0) {
-		$RunTime = '       0';
-	}
-	else {
-		my $RunHours=int($RunTime/3600);
-		my $RunMin=int(($RunTime-$RunHours*3600)/60);
-		my $RunSec=$RunTime%60;
-		$RunTime = sprintf("%02d:%02d:%02d",$RunHours,$RunMin,$RunSec);
-		$RunTime =~ s/^\s*[0:]+//g;
-	}
+	my $RunTime=FormatElapsedTime(time()-$VaultStartTime);
 	my $length = length($Directory);
 	printf "    %-*s : " . 
 		"Total Items: %11s =%7s, " .
@@ -1083,8 +1127,7 @@ SHOW	"^\s*Disk space report:$"
 SHOW	"^\s*Filesystem\s+Size\s+Used\s+Avail\s+Use%\s+Mounted on\s*$"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
 SHOW	"^\s*Running:"
-SHOW	"^\s*Skipped \S+ -- .* is not accessible.$"
-SHOW	"^\s*Skipped \S+ -- found on exclude-vaults list.$"
+SHOW	"^\s*Skipped \S+\s*:"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 SHOW	/^\s*debug:/
 SHOW	/^\s*Unable to lock (stat|mail) file "\S+": Resource temporarily unavailable/
