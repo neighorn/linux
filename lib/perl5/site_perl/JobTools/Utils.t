@@ -37,7 +37,9 @@ is(Commify(-1000.1),'-1,000.1','Commify(-1,000.1)');
 is(Commify(1000.1),'1,000.1','Commify(1,000.1)');
 
 
+is(ExpandByteSize('1'),1,'ExpandByteSize("1")');
 is(ExpandByteSize('1B'),1,'ExpandByteSize("1B")');
+is(ExpandByteSize('1 B'),1,'ExpandByteSize("1 B")');
 is(ExpandByteSize('10B'),10,'ExpandByteSize("10B")');
 is(ExpandByteSize('100B'),100,'ExpandByteSize("100B")');
 is(ExpandByteSize('1023B'),1023,'ExpandByteSize("1023B")');
@@ -51,6 +53,12 @@ is(ExpandByteSize('100M'),1024**2*100,'ExpandByteSize("100M")');
 is(ExpandByteSize('1G'),1024**3,'ExpandByteSize("1G")');
 is(ExpandByteSize('1g'),1024**3,'ExpandByteSize("1g")-lower case');
 is(ExpandByteSize('1T'),1024**4,'ExpandByteSize("1T")');
+is(ExpandByteSize('1.K'),1024,'ExpandByteSize("1.K")');
+is(ExpandByteSize('.1K'),102.4,'ExpandByteSize(".1K")');
+is(ExpandByteSize('1.1K'),1126.4,'ExpandByteSize("1.1K")');
+is(ExpandByteSize('0'),0,'ExpandByteSize("0")');
+is(ExpandByteSize('0K'),0,'ExpandByteSize("0K")');
+is(ExpandByteSize('01K'),1024,'ExpandByteSize("01K")');
 is(ExpandByteSize(Value=>'1K',Conversion=>1000),1000,'ExpandByteSize(Value=>1K,Conversion=>1000))');
 
 

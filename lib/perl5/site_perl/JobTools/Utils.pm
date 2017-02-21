@@ -86,7 +86,7 @@ sub ExpandByteSize {
 	my $Value;			# Resulting value.
 	my $Suffix;			# Resulting suffix.
         $Input =~ s/,//g;               # Ignore commas.
-	if ($Input =~ /^\s*0*([1-9]\d*\.?\d*)\s*([$BYTESIZE_UNITS])?B?\s*$/i) {
+	if ($Input =~ /^\s*(\d+|\d+.|\d*.\d+)\s*([$BYTESIZE_UNITS])?B?\s*$/i) {
 		$Value = $1;
 		$Suffix = $2;
 	}
