@@ -409,6 +409,7 @@ __END__
 IGNORE	"^\s*(\S+:\s*)?$"
 IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 IGNORE	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*(\S+:\s*)?Checks disabled until ..../../.."
 IGNORE	"^\s*\S+ ended normally with status 0 and signal 0$"
 IGNORE	"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
 IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0"
