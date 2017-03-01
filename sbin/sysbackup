@@ -44,6 +44,7 @@ our %OptionSpecifications;
 		'error-mail|M=s'	=>	\&OptArray,
 		'error-page|P=s'	=>	\&OptArray,
 		'exclude-fs|X=s'	=>	\&OptArray,
+		'exclude-mount-opts=s'	=>	\&OptArray,
 		'exclude|x=s'		=>	\&OptArray,
 		'filter-file|F=s'	=>	\&OptArray,
 		'help|h|?!'		=>	\&opt_h,
@@ -296,25 +297,37 @@ sub RunLocally {
 	if (open(my $FHMOUNT,'mount |')) {
 		MOUNT: while (<$FHMOUNT>) {
 			chomp;
+			# /dev/md5 on /usr/local/backup type ext4 (rw,user_xattr)
+			if (!/^\s*(\S+)\s+on\s+(\S+)\s+type\s+(\S+)\s+(?:\((\S+)\))$/) {
+				warn "Unrecognized output from mount ignored: $_\n";
+				next;
+			}
+			my($Device,$MountPt,$Type,$MountOptsString) = ($1,$2,$3,$4);
 	
 			# Skip transient file systems based on type.
-			/\stype\s+(\S+)\s/;
-			next if ($TypeExclude{$1});
+			next if ($TypeExclude{$Type});
 
 			# Skip anything with a source device of "none"
-			next if (/^\s*none\s/);
+			next if ($Device eq 'none');
 	
 			# Skip anything under /mnt as being temporary.
-			next if (m"^\S+ on /mnt/");
+			next if ($MountPt =~ /^\/mnt\//);
 	
 			# Skip our own output area.
 			my $BackupRoot = $BaseDir;
 			$BackupRoot =~ s"/[^/]*$"";		# Drop host name.
 			next if (m"^\S+ on $BackupRoot");
 			
+			# Skip if it has options we're excluding.
+			my %MountOpts;
+			foreach (split(/,/,$MountOptsString)) {
+				$MountOpts{$_}=1;
+			}
+			foreach (@{$Options{'exclude-mount-opts'}}) {
+				next MOUNT if ($MountOpts{$_});
+			}
+
 			# Get the mount point, and compare to our exclude list.
-			my $MountPt;
-			($MountPt)=(split(/\s+/))[2];
 			foreach my $ExcludedMount (@{$Options{exclude}}) {
 				next MOUNT if ($MountPt =~ m"^$ExcludedMount(/.*)?$");
 			}
@@ -451,6 +464,11 @@ exit 1;
 				repeated.
 	--exclude-fs|-X fs	Exclude this filesystem type.  This list is
 				prepopulated with %ExcludeTypes.
+	--exclude-mount-opts=opt: Exclude file systems with the specified
+				mount options specified.  Examples:
+					--exclude-mount-opts=_netdev
+					--exclude-mount-opts=ro
+				May be repeated.
         --error-mail|-e mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --filter|-F filter:     Filter: Use alternate error detection
