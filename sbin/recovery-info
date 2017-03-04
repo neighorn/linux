@@ -1,310 +1,378 @@
-#! /usr/bin/perl
-
-use LogOutput;
-use ProcessOptions;
+#!/usr/bin/perl
+#
+# recovery-info -- record system information that can be useful for recovery
+#
+use strict;
+use warnings;
+use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use Text::ParseWords;
-
-# Set up the environment.
-$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+use POSIX qw(strftime);
+use Fcntl qw(:flock :mode :DEFAULT);
+use File::Basename;
+use LogOutput;
+use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
-$Prog=$0;			# Get our name, for messages.
-$Prog=~s/^.*\///;		# Trim off the path, if present.
-@Args=@ARGV;			# Preserve orig command for ref.
-$ErrorFlag=0;			# No errors so far.
-$Syslog='user';			# Name of Syslog facility.  '' for no logging.
-$LogFile='';			# Log file name, or null for none.
-$BaseDir='/usr/local/etc';	# Set our base directory.
-$ConfigFile="$BaseDir/${Prog}.cfg";	# Name of config file.
-$Limit=21;			# Number of days to keep old versions.
+my $Prog=$0;			# Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";		# Trim off the path, if present.
+$ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+my @Args=@ARGV;			# Preserve orig command for ref.
+my $ErrorFlag=0;		# No errors so far.
+my @ConfigFiles=("/usr/local/etc/${Prog}.cfg");     # Name of config files.
+my $JobLockFile;		# Name of our lock file.
+my $JOBLOCKFH;			# Lock file handle.
+our $Errors=0;
+our %Config;
+our @Parms;
+our %Options;			# Options settings.
+JobTools::Utils::init(config => \%Config, options => \%Options);
 
-# Set our base directory.
-chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+my %OptionSpecifications;
+%OptionSpecifications=(
+	'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
+	'always-mail|m=s'	=>	\&OptArray,
+	'always-page|p=s'	=>	\&OptArray,
+	'debug|d'		=>	sub {$DB::AutoTrace=1;},
+	'days=n'		=>	\&OptValue,
+	'error-mail|M=s'	=>	\&OptArray,
+	'error-page|P=s'	=>	\&OptArray,
+	'filter-file|F=s'	=>	\&OptArray,
+	'help|h|?!'		=>	\&opt_h,
+	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
+	'outputdir|o=s'		=>	\&OptValue,
+	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+	'test|t'		=>	\&OptFlag,
+	'verbose|v'		=>	\&OptFlag,
+);
+our $ExitCode;
 
-# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
-#	1) We define a new type l (lowercase L), which is a list (i.e. if
-#	   specified multiple times, values are concatenated & blank separated.o
-#	   Normal =s and =i would replace values instead of concatenate.
-#	2) We don't support long option names, except as aliases.
-# These are the standard production options.  Add more options here as needed.
-$OptSpec='d h m=l e=l p=l P=l o=s O=s k=s t v';
+my $HostName = `hostname`;
+chomp $HostName;
+$HostName =~ s/\..*$//;		# Strip domain.
+our $BaseDir="/usr/local/backup/$Prog";	# Set our base directory.
 
+# ---------------------------------------------------------
+#
 # Load the config file.
-if (-e $ConfigFile) {
-        open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-        # Build a hash of settings found in the config file.
-        while (<CONFIG>) {
-                next if (/^\s*#/);      # Comment.
-                next if (/^\s*$/);      # Blank line.
-                ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
-                $name=~tr/[a-z]/[A-Z]/;
-                $Config{$name}=$settings;
-        }
-}
+#
+LoadConfigFiles(files => \@ConfigFiles);
 
+# ---------------------------------------------------------
+#
 # Process the config file defaults if present.
+#
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+        if (join(' ',@ARGV) =~ /^\s*(\b-[tv]+)*\s*$/ && defined($Config{DEFAULTJOB}));
+
+# Process the config file host defaults and general defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
-	if (defined($Config{'ALLJOBS'}));
+        if (defined($Config{'ALLJOBS'}));
 
-# Process the command line options, if any.
-if (@ARGV) {
-	# Process the command line arguments.
-	ProcessOptions($OptSpec);
-} else {
-	# No command line options.  Run the default job.
-	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
-		if (defined($Config{'DEFAULTJOB'}));
-}
+# ---------------------------------------------------------
+#
+# Process the command line options.
+#
+my @ARGVSave = @ARGV;           # In case we need to reprocess the command line later.
+%Options=(verbose => 0);        # Initialize Options.
+die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;              # Restore @ARGV for LogOutput and second GetOptions.
 
-if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
-	
+# ---------------------------------------------------------
+#
 # Set up our logging and output filtering.
-LogOutput('',$Syslog,$LogFile,$opt_m,$opt_e,$opt_p,$opt_P);
+#
+LogOutput({
+	ALWAYS_MAIL_LIST => $Options{'always-mail'},
+	ERROR_MAIL_LIST => $Options{'error-mail'},
+	ALWAYS_PAGE_LIST => $Options{'always-page'},
+	ERROR_PAGE_LIST => $Options{'error-page'},
+	SYSLOG_FACILITY => 'user',
+	VERBOSE => ($Options{verbose} >= 5? $Options{verbose}-4:0),
+	FILTER_FILE => $Options{'filter-file'},
+});
 
-# If we're using the default output directory, perform clean up of prior
-# default directories and assign the default output directory name.
-if (!$opt_o) {
-	my $Prefix="/recovery-";
-	RunDangerousCmd("find $Prefix* -prune -type d -mtime +$Limit -exec echo Removing {} \\; -exec rm -rf {} \\;") if (glob("$Prefix*"));
-	my($day,$month,$year) = (localtime())[3..5];
-	$month++;		# Convert 0-11 to 1-12.
-	$year+=1900;		# Convert "years since 1900".
-	$opt_o=sprintf("$Prefix%04d%02d%02d",$year,$month,$day);
+# ---------------------------------------------------------
+#
+# Verify the command line and run the job.
+#
+die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
+	if (@Parms);
+
+if (exists($Options{remote}) and @{$Options{remote}} > 0) {
+	$Errors = RunRemote(argv => [$Prog,@ARGV]);
 }
-if (! -d $opt_o) {
-	RunDangerousCmd("mkdir $opt_o") &&
-		die "Unable to create $opt_o: $!";
+else {
+	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
 
-# Capture data for each disk present.
-my $FirstDisk;		# Need a valid disk name later for parted.
-open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(mapper|md|dm-)' |") ||
-	die("Unable to start fdisk process: $!\n");
-while (<$FDISK>) {
-	chomp;
-	s/^Disk\s*//;
-	s/:\s.*$//;
-	$InputName = $_;
-	$FirstDisk=$InputName unless ($FirstDisk);
-	($OutputName=$_) =~ s"^/dev/"$opt_o/";
-	$OutputName .= ".sector0";
-	RunDangerousCmd("mv $OutputName $OutputName.1")
-		if (-f $OutputName);
-	RunDangerousCmd("dd if=$InputName of=$OutputName bs=512 count=1");
-	$OutputName =~ s/.sector0$/.parted/;
-	RunDangerousCmd("parted $InputName p > $OutputName < /dev/null");
-	system("grep -q 'Partition Table: gpt' $OutputName");
-	my $status = $?;
-	$OutputName =~ s"\.parted$"";	# Two steps make sure we don't ...
-	$OutputName .= ".info";		# ... fail and overwrite sector0 file.
-	RunDangerousCmd("smartctl -i $InputName > $OutputName") unless ( $status eq 0 );
-	my @partitions = glob("$InputName*");
-	foreach my $partition (@partitions) {
-		($OutputName = "${partition}.mdadm") =~ s"^/dev/"$opt_o/";
-		RunDangerousCmd("mdadm --examine $partition > $OutputName");
+# ---------------------------------------------------------
+#
+# Release the job lock.
+#
+if ($JOBLOCKFH) {
+        close $JOBLOCKFH;
+        unlink $JobLockFile;
+}
+
+
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+$ExitCode=$Errors?10:0;
+exit($ExitCode);
+
+
+# ---------------------------------------------------------
+#
+# RunLocally - run a sysbackup on this machine.
+#
+sub RunLocally {
+	# ---------------------------------------------------------
+	#
+	# Load any host-specific options
+	#
+	my $HostOptions = shift;
+	if ($HostOptions) {
+		my @Array = quotewords(" ",0,$HostOptions);
+		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
 	}
-}
-close $FDISK;
 
-# Document partition maps.  Note that fdisk and sfdisk work for all disks
-# if no specific disk is named.
-RunDangerousCmd("fdisk -l > $opt_o/fdisk.out");
-RunDangerousCmd("sfdisk -l -d > $opt_o/sfdisk.out");
-RunDangerousCmd("parted -s $FirstDisk print all > $opt_o/parted.out");
-RunDangerousCmd("(lsscsi -H; lsscsi -d) > $opt_o/lsscsi.out");
-
-# Document the current mounts and sizes.
-RunDangerousCmd("df -h > $opt_o/df.out");
-RunDangerousCmd("mount > $opt_o/mount.out");
-
-# Capture installed packages.
-RunDangerousCmd("rpm -q -a | sort > $opt_o/rpm.out");
-RunDangerousCmd("yum list installed > $opt_o/yum.out");
-RunDangerousCmd("dpkg -l | sort > $opt_o/dpkg.out");
-
-# Capture the normal security tables.
-RunDangerousCmd("iptables -nvL > $opt_o/iptables.out");
-
-# Capture swap space information.
-RunDangerousCmd("swapon -s > $opt_o/swapon.out");
-
-# Capture lots of system facts, if we can.
-RunDangerousCmd("facter > $opt_o/facter.out");
-
-# Capture lots of system facts, if we can.
-RunDangerousCmd("getconf -a > $opt_o/getconf.out");
-
-# Capture LVM configuration information.
-if (`vgdisplay 2>&1` !~ /(No such file or directory|No entry)/) {
-	RunDangerousCmd("lvm vgcfgbackup -f $opt_o/vg-%s.out");
-	RunDangerousCmd("pvdisplay -m > $opt_o/pvdisplay.out");
-	RunDangerousCmd("vgdisplay > $opt_o/vgdisplay.out");
-	RunDangerousCmd("lvdisplay > $opt_o/lvdisplay.out");
-}
-
-# Capture network configuration.
-RunDangerousCmd("ifconfig -a > $opt_o/ifconfig.out");
-RunDangerousCmd("netstat -nr > $opt_o/netstat-nr.out");
-RunDangerousCmd("netstat -pln > $opt_o/netstat-pln.out");
-
-# Capture MD and DRBD configuration.
-RunDangerousCmd("cp /proc/mdstat $opt_o/mdstat.out") if (-e "/proc/mdstat");
-RunDangerousCmd("cp /proc/drbd $opt_o/drbd.out") if (-e "/proc/drbd");
-
-# Capture hardware information.
-RunDangerousCmd("dmidecode > $opt_o/dmidecode.out");
-RunDangerousCmd("lshw > $opt_o/lshw.out");
-
-# Document Adaptec configuration
-if (-x '/usr/StorMan/arcconf') {
-	my $Count = 0;
-	until ($?) {
-		$Count++;
-		RunDangerousCmd("echo '-------- Controller $Count --------' >> $opt_o/arcconf.out");
-		RunDangerousCmd("/usr/StorMan/arcconf getconfig $Count >> $opt_o/arcconf.out");
+	# If we're using the default output directory, perform clean up of prior
+	# default directories and assign the default output directory name.
+	$Options{days} = 21 unless ($Options{days} and ($Options{days} =~ /^\d+$/));
+	if (!$Options{outputdir}) {
+		my $Prefix="/recovery-";
+		RunDangerousCmd("find $Prefix* -prune -type d -mtime +$Options{days} -exec echo Removing {} \\; -exec rm -rf {} \\;") if (glob("$Prefix*"));
+		$Options{outputdir} = "$Prefix%Y%m%d";
+	}
+	$Options{outputdir} =~ s/%C/$HostName/g;
+	$Options{outputdir}=strftime($Options{outputdir},localtime());
+	if (! -d $Options{outputdir}) {
+		RunDangerousCmd("mkdir $Options{outputdir}") &&
+			die "Unable to create $Options{outputdir}: $!";
+	}
+	
+	# Capture data for each disk present.
+	my $FirstDisk;		# Need a valid disk name later for parted.
+	my $FDISK;		# FDisk handle.
+	open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(mapper|md|dm-)' |") ||
+		die("Unable to start fdisk process: $!\n");
+	while (<$FDISK>) {
+		chomp;
+		s/^Disk\s*//;
+		s/:\s.*$//;
+		my $InputName = $_;
+		$FirstDisk=$InputName unless ($FirstDisk);
+		my $OutputName;
+		($OutputName=$_) =~ s"^/dev/"$Options{outputdir}/";
+		$OutputName .= ".sector0";
+		RunDangerousCmd("mv $OutputName $OutputName.1")
+			if (-f $OutputName);
+		RunDangerousCmd("dd if=$InputName of=$OutputName bs=512 count=1");
+		$OutputName =~ s/.sector0$/.parted/;
+		RunDangerousCmd("parted $InputName p > $OutputName < /dev/null");
+		system("grep -q 'Partition Table: gpt' $OutputName");
+		my $status = $?;
+		$OutputName =~ s"\.parted$"";	# Two steps make sure we don't ...
+		$OutputName .= ".info";		# ... fail and overwrite sector0 file.
+		RunDangerousCmd("smartctl -i $InputName > $OutputName") unless ( $status eq 0 );
+		my @partitions = glob("$InputName*");
+		foreach my $partition (@partitions) {
+			($OutputName = "${partition}.mdadm") =~ s"^/dev/"$Options{outputdir}/";
+			RunDangerousCmd("mdadm --examine $partition > $OutputName");
+		}
+	}
+	close $FDISK;
+	
+	# Document partition maps.  Note that fdisk and sfdisk work for all disks
+	# if no specific disk is named.
+	RunDangerousCmd("fdisk -l > $Options{outputdir}/fdisk.out");
+	RunDangerousCmd("sfdisk -l -d > $Options{outputdir}/sfdisk.out");
+	RunDangerousCmd("parted -s $FirstDisk print all > $Options{outputdir}/parted.out");
+	RunDangerousCmd("(lsscsi -H; lsscsi -d) > $Options{outputdir}/lsscsi.out");
+	
+	# Document the current mounts and sizes.
+	RunDangerousCmd("df -h > $Options{outputdir}/df.out");
+	RunDangerousCmd("mount > $Options{outputdir}/mount.out");
+	
+	# Capture installed packages.
+	RunDangerousCmd("rpm -q -a | sort > $Options{outputdir}/rpm.out");
+	RunDangerousCmd("yum list installed > $Options{outputdir}/yum.out");
+	RunDangerousCmd("dpkg -l | sort > $Options{outputdir}/dpkg.out");
+	
+	# Capture the normal security tables.
+	RunDangerousCmd("iptables -nvL > $Options{outputdir}/iptables.out");
+	
+	# Capture swap space information.
+	RunDangerousCmd("swapon -s > $Options{outputdir}/swapon.out");
+	
+	# Capture lots of system facts, if we can.
+	RunDangerousCmd("facter > $Options{outputdir}/facter.out");
+	
+	# Capture lots of system facts, if we can.
+	RunDangerousCmd("getconf -a > $Options{outputdir}/getconf.out");
+	
+	# Capture LVM configuration information.
+	if (`vgdisplay 2>&1` !~ /(No such file or directory|No entry)/) {
+		RunDangerousCmd("lvm vgcfgbackup -f $Options{outputdir}/vg-%s.out");
+		RunDangerousCmd("pvdisplay -m > $Options{outputdir}/pvdisplay.out");
+		RunDangerousCmd("vgdisplay > $Options{outputdir}/vgdisplay.out");
+		RunDangerousCmd("lvdisplay > $Options{outputdir}/lvdisplay.out");
+	}
+	
+	# Capture network configuration.
+	RunDangerousCmd("ifconfig -a > $Options{outputdir}/ifconfig.out");
+	RunDangerousCmd("netstat -nr > $Options{outputdir}/netstat-nr.out");
+	RunDangerousCmd("netstat -pln > $Options{outputdir}/netstat-pln.out");
+	
+	# Capture MD and DRBD configuration.
+	RunDangerousCmd("cp /proc/mdstat $Options{outputdir}/mdstat.out") if (-e "/proc/mdstat");
+	RunDangerousCmd("cp /proc/drbd $Options{outputdir}/drbd.out") if (-e "/proc/drbd");
+	
+	# Capture hardware information.
+	RunDangerousCmd("dmidecode > $Options{outputdir}/dmidecode.out");
+	RunDangerousCmd("lshw > $Options{outputdir}/lshw.out");
+	
+	# Document Adaptec configuration
+	if (-x '/usr/StorMan/arcconf') {
+		my $Count = 0;
+		until ($?) {
+			$Count++;
+			RunDangerousCmd("echo '-------- Controller $Count --------' >> $Options{outputdir}/arcconf.out");
+			RunDangerousCmd("/usr/StorMan/arcconf getconfig $Count >> $Options{outputdir}/arcconf.out");
+		}
 	}
 }
 	
-exit(0);
+=head1 %Prog - Document system configuration to aid in future recoveries.
+
+=head3 Usage:  
+        %Prog [flag1 ...]
+
+        %Prog -h
+
+=head3 Options:
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+	--days=n		Days: if --outputdir is not specified,
+				the default directory will be used, and
+				any prior versions older than n days
+				will be deleted.
+        --error-mail|-e mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
+        --option-set|-O config: Insert the "config" configuration options
+                                from /usr/local/etc/%Prog.cfg
+                                into the command line at this point.
+	--outputdir|-o dir:	Output directory: the name of the directory
+				to which the output files should be written.
+				%C is replaced with the host (computer) name
+				and any remaining %x variables are processed
+				by strftime.  The directory will be created
+				if it doesn't exist.
+
+				If not specified, the default output
+				directory is /recovery-%Y%m%d.  In this case
+				an automatic clean-up routine will also delete
+				prior /recovery-* folders older than X days,
+				where X is the value from the --days option.
+	--remote-host|-R host	Remote: Run this on one or more remote
+				hosts.  "host" may be a host name, an
+				IP address, a configuration file entry
+				name, or a comma or space separated list of
+				any mix of these.  This option may also be
+				repeated to append to the list.  Host names
+				preceeded by ! are removed from the list.
+				This is primarily to allow a configuration
+				file list to be included, but some of the
+				hosts in the list to subsequently be excluded.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+				May be used multiple times to increase verbosity.
+        --help|-h:              Help: display this panel
+
+=head3 Parameters:
+        (none)
+
+=head3 Configuration files
+
+Configuration data may be loaded from the configuration files.  These files
+form key-value pairs that $Prog may reference.  The syntax of the file is:
+
+        name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=back
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
 
 
-#
-# SampleSub - sample subroutine
-#
-sub SampleSub {
+=head3 Notes:
 
-	#my($x,$y,$z,...)=@_;		# Get our calling arguments.
+=cut
 
-	# Declare local variables.
-	#my($a);		# Variable description.	
-
-}
-
-#
-# RunDangerousCmd - run a command, unless we're testing.
-#	Note: Returns status code, in which 0 (false) commonly means OK.
-#
-sub RunDangerousCmd {
-
-# 	This version is modified for recovery-info to test for the 
-#	existence of commands before running them.
-
-	my($Command)=@_;		# Get our calling arguments.
-	my($FH);			# Autovivified file handle.
-
-	if ($opt_t) {
-		print "Test: $Command\n";
-		return 0;
-	} else {
-
-		# See if this command exists on this system.
-		my $CommandName = $Command;
-		$CommandName =~ s/^\s*//;
-		$CommandName =~ s/^\(\s*//;
-		$CommandName =~ s/ .*$//;
-		if (system("which $CommandName > /dev/null 2>&1")) {
-			print "Not found: $Command\n" if ($opt_v);
-			return 0;
-		}
-
-		# Run it.
-		print "Executing: $Command\n" if ($opt_v);
-		if (open($FH, "$Command 2>&1 |")) {
-			while (<$FH>) {print;};
-			close $FH;
-		} else {
-			($CmdName = $Command) =~ s/^\s*(\S+)/$1/;
-			warn "$CmdName failed to start with status $?: $!\n";
-		}
-		return $?;
-	}
-}
-
-
-
-
-#
-# Untaint  -- use very carefully!
-#
-
-sub untaint {
-        local(@parms) = @_;
-        foreach (@parms) {
-                s/^(.*)$/$1/;
-                $_=$1;
-        }
-        if (@parms == 1) {
-                # Return scalar
-                return $parms[$[];
-        } else {
-                # Return list
-                return (@parms);
-        }
-}
-
-
-
-#
-# opt_h: Usage
-#
-sub opt_h {
-
-	open (PAGENATER,$ENV{'PAGER'}?"| $ENV{'PAGER'}":"| more") || die("Unable to start pagenater: $!\n");
-	print PAGENATER <<"ENDUSAGE";
-$Prog - (1 line description here)
-
-Usage:	$Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config]
-		[-k keyfile]
-	$Prog [-h]
-
-Flags:
-	-e mailid:	Error: Send an execution report to this e-mail address
-			if errors are detected.
-	-m mailid:	Mailid: Send an execution report to this e-mail address.
-	-p mailid:	Page: Send a very brief message (suitable for a pager)
-			to this e-mail address when this job completes.
-	-P mailid:	Page error: Send a very brief message to this e-mail 
-			address if errors are detected in this job.
-	-O config:	Insert the "config" configuration options from
-			$ConfigFile into
-			the command line at this point.
-	-t	:	Test: don't really run dangerous commands
-	-v	:	Verbose: show dangerous commands before executing them
-	-h	:	Help: display this panel
-
-Examples:
-
-Return codes:
-	0	:	Normal termination
-	1	:	Help panel displayed.
-	2	:	Invalid or unrecognized command line options.
-	3	:	Invalid or unrecognized command line option value.
-	4	:	Incorrect command line parameters.
-	5	:	Unexpected message found in output.
-ENDUSAGE
-close PAGENATER;
-exit 1;
-}
 __END__
 #
-# Output filters.  The syntax is: type pattern
-#
-#  Type:	Ignore - Don't display this message, it's not interesting.
-#		LogOnly - Write this message to the syslog and log file, but
-#			don't display it on STDOUT.
-#		Show - Display this message, but it's not an error condition.
-#		# - This is a comment, ignore it.
-#
-#  Pattern:	an ordinary perl pattern.  All patterns for a given score
-#		are joined by logical OR conditions.
-#
-#  Notes:
-#	1) The "Type" parameter may be specified in upper, lower, or mixed case.
-#	2) All messages go to the syslog, regardless of this filter.
-#
-#
-# The following are normal messages we don't need to see.
-#
+# ---------------------------------------------------------
+# See LogOutput.pm for an explanation of output filtering.
+IGNORE	"^\s*(\S+:\s*)?$"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+IGNORE	"^\s*\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s+Command: "
+LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*Command: "
+SHOW	"^\s*(\S+:\s*)?(Test|Executing|Verbose|debug):"
+SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
+SHOW	"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+SHOW	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "
 IGNORE	/^\s*$/
 IGNORE	"^\s*Disk /dev/md\d+ doesn't contain a valid partition table$"
 IGNORE	"^\s*1\+0 records (in|out)\s*$"
@@ -321,21 +389,6 @@ IGNORE	"^\s*The other application is: "
 IGNORE	"^\s*Memory :  \d+ M RSS \( \d+ MB VSZ\)$"
 IGNORE	"^\s*Started: ... ... .. ..:..:.. .... - \S+ ago$"
 IGNORE	"^\s*State  : Running, pid: \d+$"
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
-LOGONLY	/^Command: /
-#
-# These are normal messages that we want to see.
-#
 SHOW	"^\S+ started on \S+ on \d\d/\d\d/\d\d\d\d at \d\d:\d\d:\d\d$"
 IGNORE	"^\s*512 bytes (\(512 B\)\s*)?copied,"
-SHOW	/^\S+ ended normally with status 0 and signal 0$/
-SHOW	/^Test:/
-SHOW	/^debug:/i
-SHOW	/^Executing:/
 SHOW	/^Not found:/
-#
-# Anything that doesn't match one of these three sets of patterns is considered
-# an error.
