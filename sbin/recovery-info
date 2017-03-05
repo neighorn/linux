@@ -106,7 +106,9 @@ die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$P
 	if (@Parms);
 
 if (exists($Options{remote}) and @{$Options{remote}} > 0) {
-	$Errors = RunRemote(argv => [$Prog,@ARGV]);
+        unshift @ARGV,$Prog;
+        push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
+        $Errors = RunRemote(argv => \@ARGV);
 }
 else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});

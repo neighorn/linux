@@ -15,7 +15,7 @@ use IO::Socket;
 use Sys::Virt;
 use Data::Dumper::Simple;
 use JSON;			# To save/restore the backup index file.
-use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd Commify CompressByteSize);
+use JobTools::Utils qw(:Opt LoadConfigFiles RunDangerousCmd Commify CompressByteSize);
 $Data::Dumper::Pad = "Verbose:\t\t";
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
