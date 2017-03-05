@@ -200,7 +200,6 @@ sub RunLocally {
 	# if no specific disk is named.
 	RunDangerousCmd("fdisk -l > $Options{outputdir}/fdisk.out");
 	RunIfPresent("sfdisk -l -d > $Options{outputdir}/sfdisk.out");
-	RunIfPresent("parted -s $FirstDisk print all > $Options{outputdir}/parted.out");
 	RunIfPresent("(lsscsi -H; lsscsi -d) > $Options{outputdir}/lsscsi.out");
 	
 	# Document the current mounts and sizes.
