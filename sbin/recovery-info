@@ -165,7 +165,7 @@ sub RunLocally {
 	# Capture data for each disk present.
 	my $FirstDisk;		# Need a valid disk name later for parted.
 	my $FDISK;		# FDisk handle.
-	open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(mapper|md|dm-)' |") ||
+	open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(dm-|mapper|md|ram)' |") ||
 		die("Unable to start fdisk process: $!\n");
 	while (<$FDISK>) {
 		chomp;
@@ -197,9 +197,14 @@ sub RunLocally {
 	# Document partition maps.  Note that fdisk and sfdisk work for all disks
 	# if no specific disk is named.
 	RunDangerousCmd("fdisk -l > $Options{outputdir}/fdisk.out");
+<<<<<<< HEAD
 	RunDangerousCmd("sfdisk -l -d > $Options{outputdir}/sfdisk.out");
 	RunDangerousCmd("parted -s $FirstDisk print all > $Options{outputdir}/parted.out");
 	RunDangerousCmd("(lsscsi -H; lsscsi -d) > $Options{outputdir}/lsscsi.out");
+=======
+	RunIfPresent("sfdisk -l -d > $Options{outputdir}/sfdisk.out");
+	RunIfPresent("(lsscsi -H; lsscsi -d) > $Options{outputdir}/lsscsi.out");
+>>>>>>> badb629... recovery-info: add test for existence of vgdisplay
 	
 	# Document the current mounts and sizes.
 	RunDangerousCmd("df -h > $Options{outputdir}/df.out");
@@ -223,11 +228,20 @@ sub RunLocally {
 	RunDangerousCmd("getconf -a > $Options{outputdir}/getconf.out");
 	
 	# Capture LVM configuration information.
+<<<<<<< HEAD
 	if (`vgdisplay 2>&1` !~ /(No such file or directory|No entry)/) {
 		RunDangerousCmd("lvm vgcfgbackup -f $Options{outputdir}/vg-%s.out");
 		RunDangerousCmd("pvdisplay -m > $Options{outputdir}/pvdisplay.out");
 		RunDangerousCmd("vgdisplay > $Options{outputdir}/vgdisplay.out");
 		RunDangerousCmd("lvdisplay > $Options{outputdir}/lvdisplay.out");
+=======
+	my $Status = system('which vgdsiplay > /dev/null 2>&1');
+	if (($Status == 0) && (`vgdisplay 2>&1` !~ /(No such file or directory|No entry)/)) {
+		RunIfPresent("lvm vgcfgbackup -f $Options{outputdir}/vg-%s.out");
+		RunIfPresent("pvdisplay -m > $Options{outputdir}/pvdisplay.out");
+		RunIfPresent("vgdisplay > $Options{outputdir}/vgdisplay.out");
+		RunIfPresent("lvdisplay > $Options{outputdir}/lvdisplay.out");
+>>>>>>> badb629... recovery-info: add test for existence of vgdisplay
 	}
 	
 	# Capture network configuration.
