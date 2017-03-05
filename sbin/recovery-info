@@ -167,7 +167,7 @@ sub RunLocally {
 	# Capture data for each disk present.
 	my $FirstDisk;		# Need a valid disk name later for parted.
 	my $FDISK;		# FDisk handle.
-	open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(mapper|md|dm-)' |") ||
+	open($FDISK, "fdisk -l 2> /dev/null | grep '^Disk /dev/' | grep -vE '/dev/(dm-|mapper|md|ram)' |") ||
 		die("Unable to start fdisk process: $!\n");
 	while (<$FDISK>) {
 		chomp;
@@ -200,7 +200,6 @@ sub RunLocally {
 	# if no specific disk is named.
 	RunDangerousCmd("fdisk -l > $Options{outputdir}/fdisk.out");
 	RunIfPresent("sfdisk -l -d > $Options{outputdir}/sfdisk.out");
-	RunIfPresent("parted -s $FirstDisk print all > $Options{outputdir}/parted.out");
 	RunIfPresent("(lsscsi -H; lsscsi -d) > $Options{outputdir}/lsscsi.out");
 	
 	# Document the current mounts and sizes.
@@ -225,7 +224,8 @@ sub RunLocally {
 	RunIfPresent("getconf -a > $Options{outputdir}/getconf.out");
 	
 	# Capture LVM configuration information.
-	if (`vgdisplay 2>&1` !~ /(No such file or directory|No entry)/) {
+	my $Status = system('which vgdsiplay > /dev/null 2>&1');
+	if (($Status == 0) && (`vgdisplay 2>&1` !~ /(No such file or directory|No entry)/)) {
 		RunIfPresent("lvm vgcfgbackup -f $Options{outputdir}/vg-%s.out");
 		RunIfPresent("pvdisplay -m > $Options{outputdir}/pvdisplay.out");
 		RunIfPresent("vgdisplay > $Options{outputdir}/vgdisplay.out");
