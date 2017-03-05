@@ -13,7 +13,7 @@ use POSIX qw(strftime);
 use IO::Socket;
 use Data::Dumper;
 $Data::Dumper::Pad = "Verbose:        ";
-use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd Commify ExpandByteSize ExpandConfigList FormatElapsedTime);
+use JobTools::Utils qw(:Opt LoadConfigFiles RunDangerousCmd Commify ExpandByteSize ExpandConfigList FormatElapsedTime);
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
