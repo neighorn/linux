@@ -106,7 +106,9 @@ die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$P
 	if (@Parms);
 
 if (exists($Options{remote}) and @{$Options{remote}} > 0) {
-	$Errors = RunRemote(argv => [$Prog,@ARGV]);
+        unshift @ARGV,$Prog;
+        push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
+        $Errors = RunRemote(argv => \@ARGV);
 }
 else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});
@@ -180,16 +182,16 @@ sub RunLocally {
 			if (-f $OutputName);
 		RunDangerousCmd("dd if=$InputName of=$OutputName bs=512 count=1");
 		$OutputName =~ s/.sector0$/.parted/;
-		RunDangerousCmd("parted $InputName p > $OutputName < /dev/null");
+		RunIfPresent("parted $InputName p > $OutputName < /dev/null");
 		system("grep -q 'Partition Table: gpt' $OutputName");
 		my $status = $?;
 		$OutputName =~ s"\.parted$"";	# Two steps make sure we don't ...
 		$OutputName .= ".info";		# ... fail and overwrite sector0 file.
-		RunDangerousCmd("smartctl -i $InputName > $OutputName") unless ( $status eq 0 );
+		RunIfPresent("smartctl -i $InputName > $OutputName") unless ( $status eq 0 );
 		my @partitions = glob("$InputName*");
 		foreach my $partition (@partitions) {
 			($OutputName = "${partition}.mdadm") =~ s"^/dev/"$Options{outputdir}/";
-			RunDangerousCmd("mdadm --examine $partition > $OutputName");
+			RunIfPresent("mdadm --examine $partition > $OutputName");
 		}
 	}
 	close $FDISK;
@@ -198,6 +200,7 @@ sub RunLocally {
 	# if no specific disk is named.
 	RunDangerousCmd("fdisk -l > $Options{outputdir}/fdisk.out");
 	RunIfPresent("sfdisk -l -d > $Options{outputdir}/sfdisk.out");
+	RunIfPresent("parted -s $FirstDisk print all > $Options{outputdir}/parted.out");
 	RunIfPresent("(lsscsi -H; lsscsi -d) > $Options{outputdir}/lsscsi.out");
 	
 	# Document the current mounts and sizes.
@@ -205,21 +208,21 @@ sub RunLocally {
 	RunDangerousCmd("mount > $Options{outputdir}/mount.out");
 	
 	# Capture installed packages.
-	RunDangerousCmd("rpm -q -a | sort > $Options{outputdir}/rpm.out");
-	RunDangerousCmd("yum list installed > $Options{outputdir}/yum.out");
-	RunDangerousCmd("dpkg -l | sort > $Options{outputdir}/dpkg.out");
+	RunIfPresent("rpm -q -a | sort > $Options{outputdir}/rpm.out");
+	RunIfPresent("yum list installed > $Options{outputdir}/yum.out");
+	RunIfPresent("dpkg -l | sort > $Options{outputdir}/dpkg.out");
 	
 	# Capture the normal security tables.
-	RunDangerousCmd("iptables -nvL > $Options{outputdir}/iptables.out");
+	RunIfPresent("iptables -nvL > $Options{outputdir}/iptables.out");
 	
 	# Capture swap space information.
-	RunDangerousCmd("swapon -s > $Options{outputdir}/swapon.out");
+	RunIfPresent("swapon -s > $Options{outputdir}/swapon.out");
 	
 	# Capture lots of system facts, if we can.
-	RunDangerousCmd("facter > $Options{outputdir}/facter.out");
+	RunIfPresent("facter > $Options{outputdir}/facter.out");
 	
 	# Capture lots of system facts, if we can.
-	RunDangerousCmd("getconf -a > $Options{outputdir}/getconf.out");
+	RunIfPresent("getconf -a > $Options{outputdir}/getconf.out");
 	
 	# Capture LVM configuration information.
 	my $Status = system('which vgdsiplay > /dev/null 2>&1');
@@ -240,8 +243,8 @@ sub RunLocally {
 	RunDangerousCmd("cp /proc/drbd $Options{outputdir}/drbd.out") if (-e "/proc/drbd");
 	
 	# Capture hardware information.
-	RunDangerousCmd("dmidecode > $Options{outputdir}/dmidecode.out");
-	RunDangerousCmd("lshw > $Options{outputdir}/lshw.out");
+	RunIfPresent("dmidecode > $Options{outputdir}/dmidecode.out");
+	RunIfPresent("lshw > $Options{outputdir}/lshw.out");
 	
 	# Document Adaptec configuration
 	if (-x '/usr/StorMan/arcconf') {
@@ -253,7 +256,21 @@ sub RunLocally {
 		}
 	}
 }
+
+
+
+sub RunIfPresent {
+
+	my $Cmd = (split(/\s+/,$_[0]))[0];
+	$Cmd =~ s/^\(//g;
+	my $Status = system("which $Cmd > /dev/null 2>1");
+	print "Verbose: which $Cmd returned $Status\n"
+		if ($Options{verbose} >= 3);
+	RunDangerousCmd(join(' ',@_)) if ($Status == 0);
+}
 	
+=pod
+
 =head1 %Prog - Document system configuration to aid in future recoveries.
 
 =head3 Usage:  
