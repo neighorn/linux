@@ -260,7 +260,7 @@ print "$_" foreach (sort(@Skipped));
 if (%FileSystems) {
 	print "_"x60 . "\nDisk space report:\n";
 	my $units = ($^O eq 'aix'?'g':'h');
-	my $dfcmd="df -$units -P| grep -E '^(" . join('|',keys(%FileSystems)) . ")'";
+	my $dfcmd="df -l -$units -P| grep -E '^(" . join('|',keys(%FileSystems)) . ")'";
 	my @df = `$dfcmd`;
 	foreach my $Line (@df) {
 		if ( $Line =~ /^\s*Filesystem\s/) {
@@ -595,7 +595,7 @@ sub ProcessBackup {
 	close $NEWHIST if defined($NEWHIST);		# Failed open may still need close.
 	
 	# Remember this file system device for our space report.
-	my $fs=`df -P $MachineDirectory | tail -1`;
+	my $fs=`df -l -P $MachineDirectory | tail -1`;
 	$fs =~ s/\s.*$//;	# Just need the device name.
 	chomp $fs;
 	$FileSystems{$fs}=1;
