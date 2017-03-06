@@ -183,11 +183,9 @@ sub RunLocally {
 		RunDangerousCmd("dd if=$InputName of=$OutputName bs=512 count=1");
 		$OutputName =~ s/.sector0$/.parted/;
 		RunIfPresent("parted $InputName p > $OutputName < /dev/null");
-		system("grep -q 'Partition Table: gpt' $OutputName");
-		my $status = $?;
 		$OutputName =~ s"\.parted$"";	# Two steps make sure we don't ...
 		$OutputName .= ".info";		# ... fail and overwrite sector0 file.
-		RunIfPresent("smartctl -i $InputName > $OutputName") unless ( $status eq 0 );
+		RunIfPresent("smartctl -i $InputName > $OutputName");
 		my @partitions = glob("$InputName*");
 		foreach my $partition (@partitions) {
 			($OutputName = "${partition}.mdadm") =~ s"^/dev/"$Options{outputdir}/";
