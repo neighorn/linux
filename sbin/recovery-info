@@ -201,7 +201,7 @@ sub RunLocally {
 	RunIfPresent("(lsscsi -H; lsscsi -d) > $Options{outputdir}/lsscsi.out");
 	
 	# Document the current mounts and sizes.
-	RunDangerousCmd("df -h > $Options{outputdir}/df.out");
+	RunDangerousCmd("df -hl > $Options{outputdir}/df.out");
 	RunDangerousCmd("mount > $Options{outputdir}/mount.out");
 	
 	# Capture installed packages.
