@@ -218,7 +218,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?md/raid:
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?md/raid:md\d+: resync of RAID array md\d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?md: bind<sd\S+>$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?md: data-check of RAID array md\d+$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?md: delaying (data-check|resync) of md\d+ until md\d+ has finished "
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?md: delaying (data-check|recovery|resync) of md\d+ until md\d+ has finished "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?md: export_rdev\(\S+\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?md: export_rdev\(sd.+\n+\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?md: md\d+ still in use.$"
