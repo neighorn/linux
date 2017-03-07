@@ -167,12 +167,12 @@ sub Check {
 		printf REALSTDOUT "\n%5d %s Checking %s %s\n",
 			$$, __PACKAGE__, $Self->Host, $Self->Target
 				if ($Self->{'Verbose'});
-		my $GroupOK = _CheckPort($Self,$File,$Line,$Desc);
-		printf "%d/%d/%s\n", $$, $GroupOK, $Self->{'StatusDetail'}	# Tell the parent whether it was OK or FAILING.
+		my $GroupStatus = _CheckPort($Self,$File,$Line,$Desc);
+		printf "%d/%d/%s\n", $$, $GroupStatus, $Self->{'StatusDetail'}	# Tell the parent whether it was OK or FAILING.
 			or warn("$$ $File:$Line: Error returning status: $!");
 		close REALSTDOUT;
 		close STDOUT;
-		exit($GroupOK);		# Tell the parent whether it was OK or FAILING.
+		exit($GroupStatus);		# Tell the parent whether it was OK or FAILING.
 	}
 }
 
@@ -182,7 +182,7 @@ sub Check {
 #
 sub _CheckPort {
 	my($Self,$File,$Line,$Desc) = @_;
-	my $GroupOK=$Self->CHECK_FAIL;
+	my $GroupStatus=$Self->CHECK_FAIL;	# Fail unless we get a good connection.
 	my $socket;
 
 
@@ -242,7 +242,8 @@ sub _CheckPort {
 					if ($response =~ $Self->{'Expect'}) {
 						printf REALSTDOUT "\r%5d  %s:%d Received %s - match\n", $$, $host, $port, $response
 							if ($Self->Verbose);
-						$GroupOK=$Self->CHECK_OK;
+						$GroupStatus=$Self->CHECK_OK;
+						last HOST;
 					}
 					else {
 						printf REALSTDOUT "\r%5d  %s:%d Received %s - no-match\n", $$, $host, $port, $response
@@ -253,19 +254,20 @@ sub _CheckPort {
 				else {
 					# Just looking for a basic connection.
     					printf REALSTDOUT "\r%5d   %s:%d OK - %s\n", $$, $host, $port, $Desc if ($Self->Verbose);
-    					$GroupOK=$Self->CHECK_OK;	# One of this target group worked.
+    					$GroupStatus=$Self->CHECK_OK;	# One of this target group worked.
+					last HOST;
 				}
 				close($socket);
 			}
 			else {
 				$Self->{'StatusDetail'} = "Connect error: $@";
 				$Self->{'StatusDetail'} =~ s/IO::Socket::INET: connect: //;	# Remove clutter.
-				printf REALSTDOUT "\r%5d  %s:%d Connect error: %s\n", $$, $host, $port, $@
+				printf REALSTDOUT "\r%5d  %s:%d try #%d Connect error: %s\n", $$, $host, $port, $Try, $@
 					if ($Self->Verbose);
 			}
     			last TRY if ($HostDone);		# Don't need to try this host again
 		}
-		if ($GroupOK == $Self->CHECK_OK) {
+		if ($GroupStatus == $Self->CHECK_OK) {
 			printf REALSTDOUT "\r%5d           %s OK\n", $$,$Desc if ($Self->Verbose);
 			$Self->{'StatusDetail'} = '';		# Delete any recovered errors.
 			if ($LOGFH) {
@@ -282,7 +284,7 @@ sub _CheckPort {
 		}
 	}
 	close $LOGFH if ($LOGFH);
-	return($GroupOK);
+	return($GroupStatus);
 }
 =pod
 
