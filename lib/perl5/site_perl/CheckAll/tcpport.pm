@@ -269,7 +269,6 @@ sub _CheckPort {
 		}
 		if ($GroupStatus == $Self->CHECK_OK) {
 			printf REALSTDOUT "\r%5d           %s OK\n", $$,$Desc if ($Self->Verbose);
-			$Self->{'StatusDetail'} = '';		# Delete any recovered errors.
 			if ($LOGFH) {
 				close $LOGFH;
 				unlink($LogFile);
@@ -283,6 +282,7 @@ sub _CheckPort {
 			close($socket) if ($socket);
 		}
 	}
+	$Self->{'StatusDetail'} = '' if ($GroupStatus == $Self->CHECK_OK);		# Delete any recovered errors.
 	close $LOGFH if ($LOGFH);
 	return($GroupStatus);
 }
