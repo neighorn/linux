@@ -622,7 +622,7 @@ sub _RunRemoteChildPostDefault {
 
 	my %Parms = @_;
 	printf "%-*s  Remote job ended at %8s, return code = %3d, signal = %3d, run time = %10ss\n",
-		$Parms{maxhostlength},
+		$Parms{maxhostlength}+1,	# +1 for the colon
 		"$Parms{host}:",
 		strftime("%H:%M:%S", localtime($Parms{stoptime})),
 		$Parms{exitcode},
