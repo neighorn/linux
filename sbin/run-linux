@@ -90,7 +90,6 @@ die "No command specified on command line\n" unless (@ARGV > 0);
 die "No servers specified in config file\n" unless (@HostList);
 $Options{'remote-max'} = 1 unless $Options{'remote-max'};
 
-<<<<<<< HEAD
 my %RemoteArgs = (
 	argv		=> \@ARGV,
 	quiet		=> 1,
@@ -99,9 +98,6 @@ $RemoteArgs{childpre} =		# Add header if we're running them serially.
 	sub{my %Parms=@_;printf("%s %-*s %s\n",'-'x20,$Parms{maxhostlength},$Parms{host},'-'x20);}
 		if ($Options{'remote-max'} ==1);
 $Errors = RunRemote(%RemoteArgs);
-=======
-$Errors = RunRemote(argv => \@ARGV);
->>>>>>> run-linux: convert to use JobTools::Utils.
 
 if ($Errors) {
 	warn "$Prog failed.\n";
@@ -220,15 +216,12 @@ __END__
 #
 LOGONLY	"^\s*\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
 LOGONLY	"^\s*Command: "
-<<<<<<< HEAD
 IGNORE	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 IGNORE	"^\s*Job ended normally with status 0 and signal 0 - run time:"
 IGNORE	"^\s*\S+:\s+Remote job ended at \d\d:\d\d:\d\d, return code =   0, signal =   0, run time ="
-=======
 SHOW	"^\s*Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
 SHOW	"^\s*Job ended normally with status 0 and signal 0 - run time:"
 IGNORE	"^\s*Remote job ended at \d\d:\d\d:\d\d, return code =   0, signal =   0, run time ="
->>>>>>> run-linux: adjust filters
 SHOW	"^\s*Test:"
 SHOW	"^\s*Executing:"
 SHOW	"^\s*Verbose:"
