@@ -479,11 +479,14 @@ sub RunRemote {
 	require String::ShellQuote; String::ShellQuote->import(qw(shell_quote));
 
 	my %Defaults = (
-		'remote-max' => 64,
-		argv => [],
-		remote => [],
-		test => 0,
-		verbose => 0,
+		'remote-max'	=> 64,
+		argv		=> [],
+		childpre	=> undef,
+		childpost	=> undef,
+		quiet		=> 0,
+		remote		=> [],
+		test		=> 0,
+		verbose		=> 0,
 	);
 
 	my @HostList;
@@ -523,7 +526,7 @@ sub RunRemote {
 	foreach (@HostList) { $MaxLength=($MaxLength < length($_)?length($_):$MaxLength); }
 	$MaxLength++;		# Allow for trailing colon.
 
-	# Remove -R/--remote-host from remote.  They don't need to know who else we're backing up.
+	# Remove -R/--remote-host from remote.  They don't need to know who else we're talking to.
 	@RemoteParms = @{$Parms{argv}};
 	my $DeleteNext=0;
 	foreach (@RemoteParms) {
@@ -535,8 +538,8 @@ sub RunRemote {
 			$_ = '';		# Delete this for remote systems.
 		}
 		elsif (/^-R/) {
+			$DeleteNext=(/^-R$/);	# Differentiate between "-Rx" and "-R x".
 			$_ = '';
-			$DeleteNext=1;
 		}
 	}
 	@RemoteParms = grep { $_ ne '' } @RemoteParms;	# Delete empty elements.
@@ -546,7 +549,15 @@ sub RunRemote {
 	foreach my $Host (@HostList) {
 		my $pid = $PFM->start;	# Fork the child process.
 		if (!$pid) {
-			my $Cmd =   "ssh $Host "
+			&{$Parms{childpre}}(
+				pid		=> $$,
+				host		=> $Host,
+				parms		=> \%Parms,
+				maxhostlength	=> $MaxLength-1
+			)
+				if (defined($Parms{childpre}));
+			my $Cmd =   "ssh "
+				  . sprintf("%-*s",$MaxLength,$Host)
 				  . shell_quote(@RemoteParms) . ' '
 				  ;
 			my $FH;
@@ -561,30 +572,44 @@ sub RunRemote {
 	
 			print "Verbose: JobTools::Utils::RunRemote: Running $Cmd\n" if ($Parms{verbose} or $Parms{test});
 			my $StartTime = time();
+			my($ExitCode,$Signal,$StopTime,$Elapsed);
 			if (open($FH, "$Cmd |")) {
 				while (<$FH>) {
 					printf "%-*s %s", $MaxLength, "$Host:", $_;
 				}
 				close $FH;
-				my ($ExitCode, $Signal) = ($? >> 8, $? & 127);
-				my $StopTime = time();
+				($ExitCode, $Signal) = ($? >> 8, $? & 127);
+				$StopTime = time();
+				$Elapsed = $StopTime-$StartTime;
 				printf "%-*s  Remote job ended at %8s, return code = %3d, signal = %3d, run time = %10ss\n",
 					$MaxLength,
 					"$Host:",
 					strftime("%H:%M:%S", localtime($StopTime)),
 					$ExitCode,
 					$Signal,
-					FormatElapsedTime($StopTime-$StartTime),
-					;
+					FormatElapsedTime($Elapsed),
+						unless ($Parms{quiet});
 				$Errors++ if ($ExitCode or $Signal);
 			}
 			else {
 				warn "Unable to open ssh session to $Host: $!\n";
 				$Errors++;
 			}
+			&{$Parms{childpost}}(
+				pid		=> $$,
+				host		=> $Host,
+				parms		=> \%Parms,
+				maxhostlength	=> $MaxLength-1,
+				errors		=> $Errors,
+				exitcode	=> $ExitCode,
+				signal		=> $Signal,
+				elapsed		=> $Elapsed,
+			)
+				if (defined($Parms{childpost}));
 			$PFM->finish($Errors);
 		}
 	}
+	$PFM->wait_all_children;
 
 	return $Errors;
 }
