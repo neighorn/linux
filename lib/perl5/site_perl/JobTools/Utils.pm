@@ -479,11 +479,11 @@ sub RunRemote {
 	require String::ShellQuote; String::ShellQuote->import(qw(shell_quote));
 
 	my %Defaults = (
-		test => 0,
-		verbose => 0,
 		'remote-max' => 64,
 		argv => [],
 		remote => [],
+		test => 0,
+		verbose => 0,
 	);
 
 	my @HostList;
@@ -548,13 +548,9 @@ sub RunRemote {
 		if (!$pid) {
 			my $Cmd =   "ssh $Host "
 				  . shell_quote(@RemoteParms) . ' '
-				  . '-F SHOWALL '	# Turn off filters.  Caller's own filters will process them.
-				  . '--always-mail= '	# Turn off individual e-mails -- caller will handle that.
-				  . '--remote= '	# Avoid --remote recursion from AllJobs in .cfg.
-				  . "-O :remote=$Host "	# Optionally, load any options when running remote
-				  . '2\>\&1 '
 				  ;
 			my $FH;
+			$Cmd =~ s/%HOST%/$Host/g;
 	
 			# Don't even go to remote hosts if test level 2 (-tt).
 			if($Parms{test} >= 2) {
