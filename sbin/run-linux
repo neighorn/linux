@@ -92,7 +92,7 @@ $Options{'remote-max'} = 1 unless $Options{'remote-max'};
 
 my %RemoteArgs = (
 	argv		=> \@ARGV,
-	quiet		=> 1,
+	childpost	=> sub{return $_{exitcode};},
 );
 $RemoteArgs{childpre} =		# Add header if we're running them serially.
 	sub{my %Parms=@_;printf("%s %-*s %s\n",'-'x20,$Parms{maxhostlength},$Parms{host},'-'x20);}

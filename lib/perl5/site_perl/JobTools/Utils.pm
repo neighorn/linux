@@ -482,8 +482,7 @@ sub RunRemote {
 		'remote-max'	=> 64,
 		argv		=> [],
 		childpre	=> undef,
-		childpost	=> undef,
-		quiet		=> 0,
+		childpost	=> \&_RunRemoteChildPostDefault,
 		remote		=> [],
 		test		=> 0,
 		verbose		=> 0,
@@ -549,19 +548,23 @@ sub RunRemote {
 	foreach my $Host (@HostList) {
 		my $pid = $PFM->start;	# Fork the child process.
 		if (!$pid) {
-			&{$Parms{childpre}}(
-				pid		=> $$,
-				host		=> $Host,
-				parms		=> \%Parms,
-				maxhostlength	=> $MaxLength-1
-			)
-				if (defined($Parms{childpre}));
 			my $Cmd =   "ssh "
 				  . sprintf("%-*s",$MaxLength,$Host)
 				  . shell_quote(@RemoteParms) . ' '
 				  ;
 			my $FH;
 			$Cmd =~ s/%HOST%/$Host/g;
+
+			# Call user pre-execution run if desired.
+			my $StartTime = time();
+			&{$Parms{childpre}}(
+				pid		=> $$,
+				host		=> $Host,
+				parms		=> \%Parms,
+				maxhostlength	=> $MaxLength-1,
+				starttime	=> $StartTime,
+			)
+				if (defined($Parms{childpre}));
 	
 			# Don't even go to remote hosts if test level 2 (-tt).
 			if($Parms{test} >= 2) {
@@ -571,7 +574,6 @@ sub RunRemote {
 			}
 	
 			print "Verbose: JobTools::Utils::RunRemote: Running $Cmd\n" if ($Parms{verbose} or $Parms{test});
-			my $StartTime = time();
 			my($ExitCode,$Signal,$StopTime,$Elapsed);
 			if (open($FH, "$Cmd |")) {
 				while (<$FH>) {
@@ -581,20 +583,16 @@ sub RunRemote {
 				($ExitCode, $Signal) = ($? >> 8, $? & 127);
 				$StopTime = time();
 				$Elapsed = $StopTime-$StartTime;
-				printf "%-*s  Remote job ended at %8s, return code = %3d, signal = %3d, run time = %10ss\n",
-					$MaxLength,
-					"$Host:",
-					strftime("%H:%M:%S", localtime($StopTime)),
-					$ExitCode,
-					$Signal,
-					FormatElapsedTime($Elapsed),
-						unless ($Parms{quiet});
 				$Errors++ if ($ExitCode or $Signal);
 			}
 			else {
 				warn "Unable to open ssh session to $Host: $!\n";
+				$StopTime = time();
+				$Elapsed = $StopTime-$StartTime;
 				$Errors++;
-			}
+				$Signal=127;		# Indicate that fork failed.
+				$ExitCode=127;		# Indicate that fork failed.
+			};
 			&{$Parms{childpost}}(
 				pid		=> $$,
 				host		=> $Host,
@@ -603,6 +601,8 @@ sub RunRemote {
 				errors		=> $Errors,
 				exitcode	=> $ExitCode,
 				signal		=> $Signal,
+				starttime	=> $StartTime,
+				stoptime	=> $StopTime,
 				elapsed		=> $Elapsed,
 			)
 				if (defined($Parms{childpost}));
@@ -614,6 +614,22 @@ sub RunRemote {
 	return $Errors;
 }
 
+
+#
+# _RunRemoteChildPostDefault - default post-execution process - display status and detail.
+#
+sub _RunRemoteChildPostDefault {
+
+	my %Parms = @_;
+	printf "%-*s  Remote job ended at %8s, return code = %3d, signal = %3d, run time = %10ss\n",
+		$Parms{maxhostlength}+1,	# +1 for the colon
+		"$Parms{host}:",
+		strftime("%H:%M:%S", localtime($Parms{stoptime})),
+		$Parms{exitcode},
+		$Parms{signal},
+		FormatElapsedTime($Parms{elapsed}),
+	;
+}
 
 
 #
