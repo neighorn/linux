@@ -22,7 +22,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject FormatVerboseElapsedTime);
-our $Version	= 3.34;
+our $Version	= 3.35;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -298,6 +298,8 @@ sub LogOutput {
 		_SetupMail($Options{ALWAYS_PAGE_LIST}, $Options{MAIL_SUBJECT}, '', $Options{MAIL_FROM});
 	}
 	
+	close $RAW_LOGFILE_FH if ($RAW_LOGFILE_FH);
+
 	my $CleanupSub = $Options{CLEAN_UP};
 	if (defined($CleanupSub)) {
 		# They specified a cleanup subroutine.
@@ -313,7 +315,6 @@ sub LogOutput {
 	
 	unlink($Options{MAIL_FILE})
 		if ($Options{MAIL_FILE} && -e $Options{MAIL_FILE} && $DeleteMailFile);
-	close $RAW_LOGFILE_FH if ($RAW_LOGFILE_FH);
 	
 	exit $ExitCode;
 	
