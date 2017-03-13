@@ -5,5 +5,5 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*starting service \
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*stopping service$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*system table \S+ created, loading$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*system table \S+ destroyed, removing$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php(\[\d+\])?:\s*/sbin/ip6?tables -A"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ php(\[\d+\])?:\s*/sbin/ip6?tables -(A|F|N)"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sangoma_pnp(\[\d+\])?:\s*Starting Sangoma pnp_server$"
