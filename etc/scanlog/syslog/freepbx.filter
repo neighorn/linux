@@ -1,7 +1,7 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*\(\S+\) CMD "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*loading (system|user) tables$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*loading table \S+$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*starting service \(version"$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*starting service \(version$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*stopping service$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*system table \S+ created, loading$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ incrond(\[\d+\])?:\s*system table \S+ destroyed, removing$"
