@@ -20,7 +20,7 @@ do
 		tdbtool ${LXC_ROOTFS_PATH}$name <<ENDTDB
 		delete SECRETS/SID/$uppername
 		quit
-	ENDTDB
+ENDTDB
 	fi
 done
 
