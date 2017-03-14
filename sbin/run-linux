@@ -37,7 +37,7 @@ my %OptionSpecifications;
 		'help|h|?!'		=>	\&opt_h,
 		'always-mail|m=s'	=>	\&OptArray,
 		'error-mail|M=s'	=>	\&OptArray,
-		'option-set|O=s'	=>	\&opt_O,
+		'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
 		'always-page|p=s'	=>	\&OptArray,
 		'error-page|P=s'	=>	\&OptArray,
 		'config-file=s'		=>	sub {LoadConfigFile($_[1]);},
