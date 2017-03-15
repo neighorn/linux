@@ -45,6 +45,7 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Removing "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?run-parts: executing "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Skipping "
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?snap-confine"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?Status: "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?The current kernel is"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ ubuntu-delete-old-kernels(\[\d+\])?:?\s*(\S+:\s+)?The following package was automatically installed and is no longer required:"
