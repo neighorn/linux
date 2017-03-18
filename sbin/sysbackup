@@ -372,10 +372,11 @@ sub RunLocally {
 	);
 	chomp $size;
 	$size =~ s/^\s*(\d+)\s.*$/$1/;
-	print Commify($size)
-		. " bytes "
-		. ($size > 1024?'(' . CompressByteSize($size) . ') ':'')
-		. "written to $OutputDir\n";
+	printf "%14s bytes %10s written to %s\n",
+		Commify($size),
+		'(' . CompressByteSize($size) . ')',
+		$OutputDir,
+		;
 	warn "Warning: backup is less than the minimum expected size ("
 		. Commify($Options{'min-size'}) ." bytes)\n"
 	    if ($Options{'min-size'} and $size < $Options{'min-size'});
@@ -627,5 +628,6 @@ SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
 SHOW	"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
 IGNORE	"^\s*\S+:\s*?Backing up "
 SHOW	"^\s*(\S+:\s*)?(Test|Executing|Verbose|debug):"
-SHOW	"^\s*(\S+:\s*)?[\d,]+ bytes \([\d.]+[KMGT]\) written to "
+#ursula:     1,975,894,267 bytes    (1.8G) written to /usr/local/backup/sysbackup/03-18
+SHOW	"^\s*(\S+:\s*)?[\d,]+ bytes\s+\(\s*[\d.]+[KMGT]\) written to "
 IGNORE	"^\s*(\S+:\s*)?mdadm: \S+ has been started with \d+ drives.$"
