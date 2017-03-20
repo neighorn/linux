@@ -121,25 +121,46 @@ my %Items;
 #
 #Mar 31 08:10:43 11b012 postfix/qmgr[887]: 87CD281517: from=<admin_hutco@hutcoinc.com>, size=9607, nrcpt=1 (queue active)
 #Mar 31 08:10:44 11b012 postfix/smtp[13909]: 87CD281517: to=<recruiter@hutcoinc.com>, relay=mx.coxmail.com[68.99.120.4]:25, delay=1.5, delays=0.02/0.01/1.2/0.22, dsn=2.0.0, status=sent (250 2.0.0 cfAj1s00S3eNtgG01fAkZy mail accepted for delivery)
-while (<>) {
-	next unless (m"^(... .. ..:..:..) \S+ postfix/(qmgr|smtp)\[\d+\]:\s+([A-F\d]+):\s+(.*)$");
-	my ($timestamp,$service,$queueID,$line) = ($1,$2,$3,$4);
-	if ($service eq 'qmgr') {
-		next unless ($line =~ /from=<(\S+?)>/);
-		$Items{$queueID}{from}=$1;
-		$Items{$queueID}{lastupdate}=$timestamp;
+foreach my $File (@Parms) {
+	my $Unpack;
+	if ($File =~ /.xz$/)            { $Unpack = 'xzcat'; }
+	elsif ($File =~ /.bz2$/)        { $Unpack = 'bunzip2 -c'; }
+	elsif ($File =~ /.gz$/)         { $Unpack = 'zcat'; }
+	else                            { $Unpack = 'cat'; }
+
+	my $FH;
+	print qq<Verbose: Executing $Unpack "$File"\n>
+		if ($Options{verbose});
+	if (!open($FH,'-|',qq<$Unpack "$File">)) {
+		warn "Unable to open $File: $!\n";
+		next;
 	}
-        elsif ($service eq 'smtp') {
-                next unless ($line =~ /to=<(\S+?)>,.*status=(\S+) \((.*?)\)/);
-		$Items{$queueID}{to}=$1;
-		$Items{$queueID}{status}=$2;
-		$Items{$queueID}{detail}=$3;
-		$Items{$queueID}{lastupdate}=$timestamp;
-		if ($2 eq 'sent') {
-			PrintItem($queueID,%{$Items{$queueID}});
-			delete $Items{$queueID};		# This one is done.
+	while (<$FH>) {
+		print "Verbose: Read: $_" if ($Options{verbose});
+		next unless (m"^(... .. ..:..:..) \S+ postfix/(qmgr|smtp)\[\d+\]:\s+([A-F\d]+):\s+(.*)$");
+		my ($timestamp,$service,$queueID,$line) = ($1,$2,$3,$4);
+		if ($service eq 'qmgr') {
+			next unless ($line =~ /from=<(\S+?)>/);
+			$Items{$queueID}{from}=$1;
+			$Items{$queueID}{lastupdate}=$timestamp;
+			print "Verbose:   Timestamp = $timestamp, Queue ID=$1\n"
+				if ($Options{Verbose});
+		}
+	        elsif ($service eq 'smtp') {
+	                next unless ($line =~ /to=<(\S+?)>,.*status=(\S+) \((.*?)\)/);
+			$Items{$queueID}{to}=$1;
+			$Items{$queueID}{status}=$2;
+			$Items{$queueID}{detail}=$3;
+			$Items{$queueID}{lastupdate}=$timestamp;
+			print "Verbose:   Timestamp=$timestamp, To=$1, Status=$2, Detail=$3\n"
+				if ($Options{Verbose});
+			if ($2 eq 'sent') {
+				PrintItem($queueID,%{$Items{$queueID}});
+				delete $Items{$queueID};		# This one is done.
+			}
 		}
 	}
+	close $FH;
 }
 
 foreach (keys(%Items)) { PrintItem($_,%{$Items{$_}}); }			# Print any outstanding items.
