@@ -17,7 +17,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+ \[SAT\]
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/sd\S+ \[SAT\], \S+, S/N:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/sd\S+ \[SAT\], is SMART capable. Adding to \"monitor\" list.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/sd\S+ \[SAT\], not found in smartd database.$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/sd\S+, type changed from '\S+' to '\S+'$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/sd\S+.*, type changed from '\S+' to '\S+'$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Monitoring \d+ ATA and \d+ SCSI devices$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Opened configuration file "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Sending warning via \S+ to root ...$"
