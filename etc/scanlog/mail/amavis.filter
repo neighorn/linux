@@ -28,6 +28,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+(-\d+)+\) FWD 
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+(-\d+)+\) headers CLUSTERING: done all \d+ recips in one go$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+(-\d+)+\) INFECTED"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+(-\d+)+\) INFO: no existing header field 'Subject', inserting it\s*$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+(-\d+)+\) INFO: unfolded \d+ illegal all-whitespace continuation lines$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+(-\d+)+\) mail checking ended: exit_code=0"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+(-\d+)+\) mail_via_smtp: 250 2.6.0 Ok, id=.+-.+, from MTA: 250 Ok: queued as [0-9A-F]+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ amavis(\[\d+\])?:\s*\(\d+(-\d+)+\) Not-Delivered, <.*> -> <.+>"
