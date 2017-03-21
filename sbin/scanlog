@@ -54,7 +54,7 @@ my %OptionSpecifications;
 	'test|t'		=>	\&OptFlag,
 	'verbose|v'		=>	\&OptFlag,
 );
-our $ExitCode;
+our $ExitCode = 0;
 
 my $HostName = `hostname`;
 chomp $HostName;
