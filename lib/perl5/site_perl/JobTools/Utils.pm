@@ -765,6 +765,8 @@ sub UtilGetLock {
 	my %Defaults = (
 		'verbose'		=> 0,
 		'suppress-output'	=> 0,
+		'test'			=> $OptionsRef->{test},
+		'message'		=> qq<UtilGetLock: Skipped this job due to a conflicting job in progress per "%FILE%" dated %Y-%m-%d at %H:%M:%S\n>
 	);
 
 	my %Parms = _GatherParms({@_}, \%Defaults,'Lock');	# Gather parms into one place.
@@ -787,22 +789,19 @@ sub UtilGetLock {
 
 	print "Verbose: UtilGetLock: attempting to acquire lock for $LockFile\n"
 		if ($Parms{verbose});
-	if (!$OptionsRef->{test} and !open($LOCKFH,'>>',$LockFile)) {
+	if ($Parms{test}) {
+		return 1;	# Dummy value.
+	}
+	if (!open($LOCKFH,'>>',$LockFile)) {
 	        warn "Unable to create/open $LockFile: $!\n"
 			unless ($Parms{'suppress-output'});
 		return undef;
 	}
-	if (!$OptionsRef->{test} and !flock($LOCKFH, LOCK_EX | LOCK_NB)) {
+	elsif (!flock($LOCKFH, LOCK_EX | LOCK_NB)) {
 	        my @stat = stat($LockFile);
-	        my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
-	        $mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
-	        warn "UtilGetLock: Skipped this job due to a conflicting job in progress per "
-	                . qq<"$LockFile" dated $mdate at >
-	                . strftime(
-	                        "%H:%M:%S",
-	                        localtime((stat($LockFile))[8]))
-	                . "\n"
-				unless ($Parms{'suppress-output'});
+		$Parms{message} =~ s/%FILE%/$LockFile/g;
+	        warn strftime($Parms{message},localtime(stat($LockFile)))
+			unless ($Parms{'suppress-output'});
 	        return 0;
 	}
 	else {
@@ -821,6 +820,7 @@ sub UtilReleaseLock {
 	my %Defaults = (
 		'verbose'		=> 0,
 		'suppress-output'	=> 0,
+		'test'			=> $OptionsRef->{test},
 	);
 
 	my $ArrayRef = shift;
@@ -832,6 +832,7 @@ sub UtilReleaseLock {
 		return undef;
 	}
 	
+	return 1 if ($Parms{test});
 	my($LockFile,$LOCKFH) = @$ArrayRef;
 	print "Verbose: UtilReleaseLock: attempting to release lock on $LockFile\n"
 		if ($Parms{verbose});
