@@ -1,9 +1,18 @@
+# ---------------------------------------------------------
+# Copyright (c) 2015,2017 Martin Consulting Services, Inc.
+# Licensed under the Lesser Gnu Public License (LGPL).
+# 
+# ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
+# CODE IS STRICTLY AT YOUR OWN RISK.
+#
+
 package JobTools::Utils;
 require Exporter;
 @ISA			= qw(Exporter);
-@EXPORT_OK		= qw( Commify CompressByteSize ExpandByteSize FormatElapsedTime LoadConfigFiles OptArray OptFlag OptValue OptOptionSet RunDangerousCmd RunRemote ExpandConfigList);
+@EXPORT_OK		= qw(Commify CompressByteSize ExpandByteSize FormatElapsedTime UtilGetLock LoadConfigFiles OptArray OptFlag OptValue OptOptionSet UtilReleaseLock RunDangerousCmd RunRemote ExpandConfigList);
 %EXPORT_TAGS		= (
 	Opt		=> [qw(OptArray OptFlag OptValue OptOptionSet)],
+	Lock		=> [qw(UtilGetLock UtilReleaseLock)],
 	ByteSize	=> [qw(CompressByteSize ExpandByteSize)],
 );
 
@@ -11,22 +20,13 @@ use strict;
 use warnings;
 use POSIX qw(strftime);
 use Text::ParseWords;
+use Fcntl qw(:flock :mode :DEFAULT);
 
 our $Version		= 1.0;
 our $BYTESIZE_UNITS 	= 'BKMGTPEZY';
 our $OptionsRef;				# Pointer to %Options hash
 our $ConfigRef;					# Pointer to %Config hash
 our %OptArrayConfigUsed;			# Hash used to prevent infinite loops in OptArray config look-ups
-
-# ---------------------------------------------------------
-# Copyright (c) 2015, Martin Consulting Services, Inc.
-# Licensed under the Lesser Gnu Public License (LGPL).
-# 
-# ABSOLUTELY NO WARRENTIES EXPRESSED OR IMPLIED.  ANY USE OF THIS
-# CODE IS STRICTLY AT YOUR OWN RISK.
-#
-
-
 
 #
 # init - accept and store pointers we may need elsewhere.
@@ -665,18 +665,25 @@ sub FormatElapsedTime {
 #
 sub _GatherParms {
 
-	my($ArgvRef, $DefaultsRef) = @_;
+	my($ArgvRef, $DefaultsRef, $OptPrefix) = @_;
 	my %Parms;
-	foreach my $item (keys(%$DefaultsRef)) {
-		if (exists($ArgvRef->{$item})) {
+	if ($OptPrefix) {
+		$OptPrefix .= '-' unless ($OptPrefix =~ /-$/);	# Add - if missing.
+	}
+	else {
+		$OptPrefix = '';
+	}
+	$OptPrefix = '' unless ($OptPrefix);
+	foreach my $Item (keys(%$DefaultsRef)) {
+		if (exists($ArgvRef->{$Item})) {
 			# Provided in passed arguments.
-			$Parms{$item} = $ArgvRef->{$item};
+			$Parms{$Item} = $ArgvRef->{$Item};
 		}
-		elsif (defined($OptionsRef) and exists($OptionsRef->{$item})) {
-			$Parms{$item} = $OptionsRef->{$item};
+		elsif (defined($OptionsRef) and exists($OptionsRef->{$Item})) {
+			$Parms{$Item} = $OptionsRef->{"${OptPrefix}${Item}"};
 		}
 		else {
-			$Parms{$item} = $DefaultsRef->{$item};
+			$Parms{$Item} = $DefaultsRef->{$Item};
 		}
 	}
 	return %Parms;
@@ -745,5 +752,108 @@ sub _ExpandConfigGroup {
 	}
 	return @ReturnList;
 }
+
+
+#
+# UtilGetLock - try to get a lock, so we don't run multiple overlapping jobs
+#
+sub UtilGetLock {
+
+	use FindBin qw($Script);
+	my $LockFile;				# Name of our lock file.
+	my $LOCKFH;				# Lock file handle.
+	my %Defaults = (
+		'verbose'		=> 0,
+		'suppress-output'	=> 0,
+	);
+
+	my %Parms = _GatherParms({@_}, \%Defaults,'Lock');	# Gather parms into one place.
+
+	if ($Parms{lockfile}) {
+		$LockFile = $Parms{lockfile};
+	}
+	elsif ($^O eq 'MSWin32') {
+		# Windows.  Write it to temp file area.
+		$LockFile = "$ENV{TEMP}\\$Script.lock";
+	}
+	elsif (-w '/run') {
+		# Linux/Unix.  See if we can write to /run (generally only root can).
+		$LockFile = "/run/$Script.lock";
+	}
+	else {
+		# Linux/Unix.  Can't write to /run, so use /tmp.
+		$LockFile = "/tmp/$Script.lock";
+	}
+
+	print "Verbose: UtilGetLock: attempting to acquire lock for $LockFile\n"
+		if ($Parms{verbose});
+	if (!$OptionsRef->{test} and !open($LOCKFH,'>>',$LockFile)) {
+	        warn "Unable to create/open $LockFile: $!\n"
+			unless ($Parms{'suppress-output'});
+		return undef;
+	}
+	if (!$OptionsRef->{test} and !flock($LOCKFH, LOCK_EX | LOCK_NB)) {
+	        my @stat = stat($LockFile);
+	        my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
+	        $mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
+	        warn "UtilGetLock: Skipped this job due to a conflicting job in progress per "
+	                . qq<"$LockFile" dated $mdate at >
+	                . strftime(
+	                        "%H:%M:%S",
+	                        localtime((stat($LockFile))[8]))
+	                . "\n"
+				unless ($Parms{'suppress-output'});
+	        return 0;
+	}
+	else {
+		print "Verbose: UtilGetLock: acquired lock for $LockFile\n"
+			if ($Parms{verbose});
+		print $LOCKFH strftime("PID $$ locked file at %Y-%m-%d %H:%M:%S\n",localtime());
+		return [$LockFile,$LOCKFH];
+	}
+}
+
+#
+# Release the lock.
+#
+sub UtilReleaseLock {
+
+	my %Defaults = (
+		'verbose'		=> 0,
+		'suppress-output'	=> 0,
+	);
+
+	my $ArrayRef = shift;
+	my %Parms = _GatherParms({@_}, \%Defaults,'Lock');	# Gather parms into one place.
+
+	if (!defined($ArrayRef) or !defined($ArrayRef->[0]) or !defined($ArrayRef->[1])) {
+		warn "UtilReleaseLock: No lock was previously acquired\n"
+			unless ($Parms{'suppress-output'});
+		return undef;
+	}
+	
+	my($LockFile,$LOCKFH) = @$ArrayRef;
+	print "Verbose: UtilReleaseLock: attempting to release lock on $LockFile\n"
+		if ($Parms{verbose});
+	if (defined(fileno($LOCKFH))) {
+        	close $LOCKFH;
+	}
+	else {
+		warn "UtilReleaseLock: File handle was already closed.\n"
+			unless ($Parms{'suppress-output'});
+		return undef;
+	}
+
+	if (-e $LockFile) {
+	        unlink $LockFile;
+	}
+	else {
+		warn "UtilReleaseLock: Lock file was already deleted.\n"
+			unless ($Parms{'suppress-output'});
+		undef;
+	}
+	return 1;
+}
+
 
 1;

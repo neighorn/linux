@@ -310,6 +310,15 @@ is (FormatElapsedTime(86400*2),	'2:00:00:00',	'FormatElapsedTime - 2:00:00:00');
 
 
 #
+# UtilGetLock/UtilReleaseLock
+#
+
+my $Lock = UtilGetLock('suppress-output'=>1);		ok((defined($Lock) and $Lock),		'UtilGetLock - acquire lock');
+my $Lock2 = UtilGetLock('suppress-output'=>1);		ok((defined($Lock2) and !$Lock2),	'UtilGetLock - duplicate lock rejected');
+ok(UtilReleaseLock($Lock,'suppress-output'=>1),		'UtilReleaseLock - release lock');
+ok(!UtilReleaseLock($Lock,'suppress-output'=>1),	'UtilReleaseLock - release unacquired lock');
+
+#
 # RunRemote
 #
 
