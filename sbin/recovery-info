@@ -7,10 +7,9 @@ use warnings;
 use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
-use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
 use LogOutput;
-use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd);
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -20,8 +19,6 @@ $ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 my @Args=@ARGV;			# Preserve orig command for ref.
 my $ErrorFlag=0;		# No errors so far.
 my @ConfigFiles=("/usr/local/etc/${Prog}.cfg");     # Name of config files.
-my $JobLockFile;		# Name of our lock file.
-my $JOBLOCKFH;			# Lock file handle.
 our $Errors=0;
 our %Config;
 our @Parms;
@@ -114,16 +111,6 @@ else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
 
-# ---------------------------------------------------------
-#
-# Release the job lock.
-#
-if ($JOBLOCKFH) {
-        close $JOBLOCKFH;
-        unlink $JobLockFile;
-}
-
-
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {
@@ -149,6 +136,13 @@ sub RunLocally {
 		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
 	}
 
+	# ---------------------------------------------------------
+	#
+	# Get the job lock.
+	#
+	my $Lock = UtilGetLock();
+	exit 11 unless ($Lock);
+	
 	# If we're using the default output directory, perform clean up of prior
 	# default directories and assign the default output directory name.
 	$Options{days} = 21 unless ($Options{days} and ($Options{days} =~ /^\d+$/));
@@ -252,6 +246,15 @@ sub RunLocally {
 			RunDangerousCmd("/usr/StorMan/arcconf getconfig $Count >> $Options{outputdir}/arcconf.out");
 		}
 	}
+
+	# ---------------------------------------------------------
+	#
+	# Release the job lock.
+	#
+	UtilReleaseLock($Lock);
+
+	return 0;
+
 }
 
 

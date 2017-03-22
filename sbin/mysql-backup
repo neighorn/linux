@@ -7,11 +7,10 @@ use warnings;
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
-use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
 use FindBin qw($Bin $Script);
 use LogOutput;
-use JobTools::Utils qw(OptArray OptFlag OptValue OptOptionSet LoadConfigFiles RunRemote RunDangerousCmd Commify CompressByteSize ExpandByteSize);
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd Commify CompressByteSize ExpandByteSize);
 
 $ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
@@ -155,28 +154,11 @@ sub RunLocally {
 
 	# ---------------------------------------------------------
 	#
-	# Check for conflicting jobs/Acquire the job lock
+	# Get the job lock.
 	#
-	my $JobLockFile = "/var/run/$Prog.lock";
-	my $JOBLOCKFH;
-	if (!$Options{test} and !open($JOBLOCKFH,'>>',$JobLockFile)) {
-	        print "Unable to create/open $JobLockFile: $!\n";
-	        return 1;
-	}
-	if (!$Options{test} and !flock($JOBLOCKFH, LOCK_EX | LOCK_NB)) {
-	        my @stat = stat($JobLockFile);
-	        my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
-	        $mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
-	        print "Skipped this job due to a conflicting job in progress per "
-	                . qq<"$JobLockFile" dated $mdate at >
-	                . strftime(
-	                        "%H:%M:%S",
-	                        localtime((stat($JobLockFile))[8]))
-	                . "\n"
-	                ;
-	        return 1;
-	}
-
+	my $Lock = UtilGetLock();
+	exit 11 unless ($Lock);
+	
 	# ---------------------------------------------------------
 	#
 	# Run the back-ups
@@ -198,17 +180,13 @@ sub RunLocally {
                 . ($Options{host}?"--host $Options{host} ":'')
         );
 
-
 	# ---------------------------------------------------------
 	#
 	# Release the job lock.
 	#
-	if ($JOBLOCKFH) {
-	        close $JOBLOCKFH;
-	        unlink $JobLockFile;
-	}
-	return ($Errors>0?1:0);
+	UtilReleaseLock($Lock);
 
+	return 0;
 }
 
 
