@@ -798,7 +798,7 @@ sub UtilGetLock {
 		return undef;
 	}
 	elsif (!flock($LOCKFH, LOCK_EX | LOCK_NB)) {
-	        my $mtime = stat($LockFile)[9];
+	        my $mtime = (stat($LockFile))[9];
 		$Parms{message} =~ s/%FILE%/$LockFile/g;
 	        warn strftime($Parms{message},localtime($mtime))
 			unless ($Parms{'suppress-output'});
