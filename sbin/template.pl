@@ -7,10 +7,9 @@ use warnings;
 use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
-use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
 use LogOutput;
-use JobTools::Utils qw(:Opt LoadConfigFiles RunRemote RunDangerousCmd);
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -20,8 +19,6 @@ $ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 my @Args=@ARGV;			# Preserve orig command for ref.
 my $ErrorFlag=0;		# No errors so far.
 my @ConfigFiles=("/usr/local/etc/${Prog}.cfg");     # Name of config files.
-my $JobLockFile;		# Name of our lock file.
-my $JOBLOCKFH;			# Lock file handle.
 our $Errors=0;
 our %Config;
 our @Parms;
@@ -103,6 +100,17 @@ LogOutput({
 die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
 	if (@Parms);
 
+# ---------------------------------------------------------
+#
+# Get the job lock.
+#
+my $Lock = UtilGetLock();
+exit 11 unless ($Lock);
+
+# ---------------------------------------------------------
+#
+# Run the job.
+#
 if (exists($Options{remote}) and @{$Options{remote}} > 0) {
         unshift @ARGV,$Prog;
         push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
@@ -116,12 +124,12 @@ else {
 #
 # Release the job lock.
 #
-if ($JOBLOCKFH) {
-        close $JOBLOCKFH;
-        unlink $JobLockFile;
-}
+UtilReleaseLock($Lock);
 
-
+# ---------------------------------------------------------
+#
+# Wrap up.
+#
 if ($ExitCode) {
 	warn "$Prog failed.\n";
 } else {
