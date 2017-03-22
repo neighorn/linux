@@ -8,11 +8,10 @@ use LogOutput;
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
-use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
 use FindBin qw($Bin $Script);
 use LogOutput;
-use JobTools::Utils qw(OptArray OptFlag OptValue OptOptionSet LoadConfigFiles RunRemote RunDangerousCmd);
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -109,6 +108,10 @@ LogOutput({
 	MAIL_SUBJECT => $Options{subject},
 });
 
+# ---------------------------------------------------------
+#
+# Run the job.
+#
 if (exists($Options{'remote'}) and @{$Options{'remote'}} > 0) {
         unshift @ARGV,$Prog;
         push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
@@ -116,15 +119,6 @@ if (exists($Options{'remote'}) and @{$Options{'remote'}} > 0) {
 }
 else {
 	$Errors = RunLocally(@Parms);
-}
-
-# ---------------------------------------------------------
-#
-# Release the job lock.
-#
-if ($JOBLOCKFH) {
-        close $JOBLOCKFH;
-        unlink $JobLockFile;
 }
 
 
@@ -154,6 +148,13 @@ sub RunLocally {
 		die "Invalid options specified\n" unless (GetOptionsFromString($HostOptions,%OptionSpecifications));
 	}
 
+	# ---------------------------------------------------------
+	#
+	# Get the job lock.
+	#
+	my $Lock = UtilGetLock();
+	exit 11 unless ($Lock);
+	
 	my $ExitCode = RunDangerousCmd(
 		  '/usr/bin/mysqlcheck '
 		. '--all-databases '
@@ -161,6 +162,13 @@ sub RunLocally {
 		. ($Options{host}?"--host $Options{host} ":'')
 	);
 
+	# ---------------------------------------------------------
+	#
+	# Release the job lock.
+	#
+	UtilReleaseLock($Lock);
+	
+	return 0;
 }
 
 
