@@ -5,11 +5,10 @@
 use strict;
 use warnings;
 use LogOutput;
-use JobTools::Utils qw(OptArray OptFlag OptValue OptOptionSet LoadConfigFiles RunRemote RunDangerousCmd Commify ExpandByteSize CompressByteSize);
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd Commify ExpandByteSize CompressByteSize);
 use Getopt::Long qw(GetOptionsFromArray GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
-use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
 use File::Temp qw(tempdir);
 
@@ -21,8 +20,6 @@ $ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 my @Args=@ARGV;			# Preserve orig command for ref.
 my $ErrorFlag=0;		# No errors so far.
 my @ConfigFiles=("/usr/local/etc/${Prog}.cfg");     # Name of config files.
-my $JobLockFile;		# Name of our lock file.
-my $JOBLOCKFH;			# Lock file handle.
 our $Errors=0;
 our %Config;
 our @Parms;
@@ -151,6 +148,11 @@ foreach (@{$Options{'exclude-fs'}}) {
 	$TypeExclude{$_}=1;
 }
 
+# ---------------------------------------------------------
+#
+# Run the job.
+#
+
 if (exists($Options{remote}) and @{$Options{remote}} > 0) {
 	$Errors =         unshift @ARGV,$Prog;
         push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
@@ -159,16 +161,6 @@ if (exists($Options{remote}) and @{$Options{remote}} > 0) {
 else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
-
-# ---------------------------------------------------------
-#
-# Release the job lock.
-#
-if ($JOBLOCKFH) {
-        close $JOBLOCKFH;
-        unlink $JobLockFile;
-}
-
 
 if ($ExitCode) {
 	warn "$Prog failed.\n";
@@ -185,6 +177,7 @@ exit($ExitCode);
 # RunLocally - run a sysbackup on this machine.
 #
 sub RunLocally {
+
 	# ---------------------------------------------------------
 	#
 	# Load any host-specific options
@@ -212,6 +205,13 @@ sub RunLocally {
 	
 	chdir "/usr/local/sbin" || die "Unable to change directories to /usr/local/sbin: $!\n";
 	
+	# ---------------------------------------------------------
+	#
+	# Get the job lock.
+	#
+	my $Lock = UtilGetLock();
+	exit 11 unless ($Lock);
+
 	# ---------------------------------------------------------
 	#
 	# Run any initialization commands
@@ -267,29 +267,6 @@ sub RunLocally {
 		die "Unable to set group for $OutputDir: $!\n";
 	if (! $Options{test} ) {
 		chdir $OutputDir || die "Unable to change directories to $OutputDir: $!\n";
-	}
-	
-	# ---------------------------------------------------------
-	#
-	# Check for conflicting jobs.
-	#
-	$JobLockFile = "$OutputDir/$Prog.lock";
-	if (!$Options{test} and !open($JOBLOCKFH,'>>',$JobLockFile)) {
-	        print "Unable to create/open $JobLockFile: $!\n";
-	        exit 11;
-	}
-	if (!$Options{test} and !flock($JOBLOCKFH, LOCK_EX | LOCK_NB)) {
-	        my @stat = stat($JobLockFile);
-	        my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
-	        $mdate = 'today' if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
-	        print "Skipped this job due to a conflicting job in progress per "
-	                . qq<"$JobLockFile" dated $mdate at >
-	                . strftime(
-	                        "%H:%M:%S",
-	                        localtime((stat($JobLockFile))[8]))
-	                . "\n"
-	                ;
-	        exit 11;
 	}
 	
 	# ---------------------------------------------------------
@@ -396,6 +373,14 @@ sub RunLocally {
 			warn "--postcmd command failed:\n\t$Cmd\n\tExit status = $Status and signal = $Signal\n";
 		}
 	}
+
+	# ---------------------------------------------------------
+	#
+	# Release the job lock.
+	#
+	UtilReleaseLock($Lock);
+	return 0;
+	
 }
 
 

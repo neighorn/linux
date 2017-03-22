@@ -102,13 +102,6 @@ die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$P
 
 # ---------------------------------------------------------
 #
-# Get the job lock.
-#
-my $Lock = UtilGetLock();
-exit 11 unless ($Lock);
-
-# ---------------------------------------------------------
-#
 # Run the job.
 #
 if (exists($Options{remote}) and @{$Options{remote}} > 0) {
@@ -119,12 +112,6 @@ if (exists($Options{remote}) and @{$Options{remote}} > 0) {
 else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
-
-# ---------------------------------------------------------
-#
-# Release the job lock.
-#
-UtilReleaseLock($Lock);
 
 # ---------------------------------------------------------
 #
@@ -155,8 +142,22 @@ sub RunLocally {
 		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
 	}
 
+	# ---------------------------------------------------------
+	#
+	# Get the job lock.
+	#
+	my $Lock = UtilGetLock();
+	exit 11 unless ($Lock);
+	
 	# -------------- add code here -----------------
 
+	# ---------------------------------------------------------
+	#
+	# Release the job lock.
+	#
+	UtilReleaseLock($Lock);
+
+	return 0;
 }
 
 
