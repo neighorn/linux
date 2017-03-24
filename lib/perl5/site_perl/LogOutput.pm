@@ -22,7 +22,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject FormatVerboseElapsedTime);
-our $Version	= 3.35;
+our $Version	= 3.36;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -922,7 +922,9 @@ sub _FilterMessage {
 		}
 	}
 
-	if (defined(my $Index=$CompiledRegex->($Message))) {
+	# See if this message matches.  Have to verify $CompiledRegex is defined in
+	# case we haven't built it yet.
+	if (defined($CompiledRegex) and defined(my $Index=$CompiledRegex->($Message))) {
 		my $MetaData = $FiltersMetaData[$Index];
 		$MetaData->{count}++;				# Increment the count.
 		print "LogOutput: Message match:"
