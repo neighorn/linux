@@ -32,7 +32,7 @@ sub RegisterFile ($$@);
 sub RegisterInode ($@);
 sub FindMatch ($@);
 sub ElapsedTime ();
-sub ProcessOptions (@);
+sub ProcessCommandLineOptions (@);
 
 #
 # Global variables
@@ -109,7 +109,7 @@ LoadConfig($ConfigFile);
 #
 # Process options.
 #
-exit 8 unless ProcessOptions(@ARGV);
+exit 8 unless ProcessCommandLineOptions(@ARGV);
 
 our $DV = Dumpvalue->new(
     tick         => qq{"},
@@ -291,9 +291,9 @@ sub LoadConfig {
 
 
 #
-# ProcessOptions
+# ProcessCommandLineOptions
 #
-sub ProcessOptions (@) {
+sub ProcessCommandLineOptions (@) {
 
     foreach my $name (qw(dry-run logfile progress stats eta compare debug)) {
     	$Opt{$name} = 0 unless (exists($Opt{$name}));
@@ -431,7 +431,7 @@ sub Opt_optionset {
     my $optionset = uc($_[1]);
 
     if (exists($Config{$optionset})) {
-	ProcessOptions(shellwords($Config{$optionset}));
+	ProcessCommandLineOptions(shellwords($Config{$optionset}));
     }
     else {
         warn "Option set $optionset not found in config file -- skipped\n";
@@ -1074,7 +1074,7 @@ sub CheckInterrupt {
                 print "Enter new options or null to exit: ";
 		$Line = <STDIN>;
 		last unless ($Line);
-                ProcessOptions(shellwords($Line));
+                ProcessCommandLineOptions(shellwords($Line));
             };
         }
         elsif ( $Response eq 'r' ) {
