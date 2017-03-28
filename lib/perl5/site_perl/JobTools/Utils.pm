@@ -365,12 +365,17 @@ sub OptValue {
 # OptFlag - generic no-value flag option processing
 #
 sub OptFlag {
-	my($Name) = @_;
-	if (exists($OptionsRef->{$Name})) {
-		$OptionsRef->{$Name}++;
+	my($Name,$Value) = @_;
+	if (exists($OptionsRef->{$Name}) and $Value) {
+		# Positive value.  Increment option.
+		$OptionsRef->{$Name} += $Value;
+	}
+	elsif (exists($OptionsRef->{$Name})) {
+		# Value is 0.  Flag is being turned off.
+		$OptionsRef->{$Name} = 0;
 	}
 	else {
-		$OptionsRef->{$Name} = 1;
+		$OptionsRef->{$Name} = $Value;
 	}
 
 }
