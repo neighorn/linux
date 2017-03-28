@@ -159,9 +159,10 @@ OptValue('opt1','test1');							is($Options{opt1},'test1','OptValue simple value
 # OptFlag
 #
 undef %Options;		# Reinitialize this.
-OptFlag('test');								is($Options{test},1,'OptFlag first use');
-OptFlag('test');								is($Options{test},2,'OptFlag second use');
-OptFlag('test');								is($Options{test},3,'OptFlag third use');
+OptFlag('test',1);								is($Options{test},1,'OptFlag first use');
+OptFlag('test',1);								is($Options{test},2,'OptFlag second use');
+OptFlag('test',1);								is($Options{test},3,'OptFlag third use');
+OptFlag('test',0);								is($Options{test},0,'OptFlag negation');
 
 #
 # OptArray
