@@ -1,290 +1,347 @@
 #!/usr/bin/perl
-
-use LogOutput;
-use ProcessOptions;
-use Text::ParseWords;
+#
+# scanav - run a ClamAV scan and report the results
+#
 use strict;
 use warnings;
-
-$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
+use Getopt::Long qw(GetOptionsFromArray :config gnu_compat getopt_compat permute bundling);
+use Text::ParseWords;
+use POSIX qw(strftime);
+use File::Basename;
+use LogOutput;
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
-our $Prog=$0;                           # Get our name, for messages.
-$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
-$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
-my $Errors=0;   	                # No errors so far.
-my $ExitCode=0;
-my $Syslog='user';                      # Name of Syslog facility.  '' for none.
-my $BaseDir="/usr/local/etc";		# Set our base directory.
-my $ConfigFile="$BaseDir/${Prog}.cfg";  # Name of config file.
-our @Parms;
-our @opt_A;			# Additional arguments.
-our $opt_e;			# Error mail.
-our $opt_i=1;			# Clamscan -i passthru option.  -i says only report infected.
-our $opt_l='';			# Logfile - defaults to none.
-our $opt_m;			# Mail.
-our $opt_N;			# Name - used to identify different jobs in email
-our $opt_O;			# Option sets.
-our $opt_p;			# Page on completion
-our $opt_P;			# Page on error
-our $opt_q;			# Quiet - no summary.
-our $opt_t;			# Test
-our $opt_v;			# Verbose
-our @opt_x;			# Exclude patterns.
+my $Prog=$0;			# Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";		# Trim off the path, if present.
+$ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+my @Args=@ARGV;			# Preserve orig command for ref.
+my $ErrorFlag=0;		# No errors so far.
+my @ConfigFiles=("/usr/local/etc/${Prog}.cfg");     # Name of config files.
+our $Errors=0;
 our %Config;
-my $MachineDirectory;		# Base directory for this dirvish item.
+our @Parms;
+our %Options;			# Options settings.
+JobTools::Utils::init(config => \%Config, options => \%Options);
+
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+my %OptionSpecifications;
+%OptionSpecifications=(
+	'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
+	'args|A=s'		=>	\&OptArray,		# Additional args
+	'always-mail|m=s'	=>	\&OptArray,
+	'always-page|p=s'	=>	\&OptArray,
+	'debug|d'		=>	sub {$DB::AutoTrace=1;},
+	'exclude|x=s'		=>	\&OptArray,		# Exclude patterns
+	'i!'			=>	\&OptFlag,		# ClamAV -i passthru option
+	'error-mail|M=s'	=>	\&OptArray,
+	'error-page|P=s'	=>	\&OptArray,
+	'filter-file|F=s'	=>	\&OptArray,
+	'help|h|?!'		=>	\&opt_h,
+	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
+	'quiet|q'		=>	\&OptFlag,		# Quiet
+	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+	'test|t'		=>	\&OptFlag,
+	'verbose|v'		=>	\&OptFlag,
+);
+our $ExitCode;
+
+my $HostName = `hostname`;
+chomp $HostName;
+$HostName =~ s/\..*$//;		# Strip domain.
+our $BaseDir="/usr/local/backup/$Prog";	# Set our base directory.
+
+# ---------------------------------------------------------
 #
-
-# Note: general purpose script - don't change current directory.
-#chdir $BaseDir || die "Unable to change directories to $BaseDir: $!\n";
-
-# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
-#       1) We define a new type l (lowercase L), which is a list (i.e. if
-#          specified multiple times, values are concatenated & blank separated.o
-#          Normal =s and =i would replace values instead of concatenate.
-#       2) We don't support long option names, except as aliases.
-# These are the standard production options.  Add more options here as needed.
-my $OptSpec='A=l h e=l i l=s m=l N=s O=s p=l P=l q t v x=l';
-
 # Load the config file.
-if (-e $ConfigFile) {
-	open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-	# Build a hash of settings found in the config file.
-	while (<CONFIG>) {
-		next if (/^\s*#/);      # Comment.
-		next if (/^\s*$/);      # Blank line.
-		chomp;
-		my($name,$settings)=split(/:?\s+/,$_,2);
-		$name=~tr/[a-z]/[A-Z]/;
-		$Config{$name}.=$settings . ',' ;
-	}
-	close CONFIG;
-	foreach (keys(%Config)) {
-		$Config{$_} =~ s/,$//;	# Remove trailing comma
-	}
-}
-foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
+#
+LoadConfigFiles(files => \@ConfigFiles);
 
+# ---------------------------------------------------------
+#
 # Process the config file defaults if present.
+#
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+        if (join(' ',@ARGV) =~ /^\s*(\b-[tv]+)*\s*$/ && defined($Config{DEFAULTJOB}));
+
+# Process the config file host defaults and general defaults if present.
 unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
-	if (defined($Config{'ALLJOBS'}));
+        if (defined($Config{'ALLJOBS'}));
 
-# Process the command line options, if any.
-if (@ARGV) {
-	# Process the command line arguments.
-	ProcessOptions($OptSpec);
-} else {
-	# No command line options.  Run the default job.
-	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
-		if (defined($Config{'DEFAULTJOB'}));
-}
+# ---------------------------------------------------------
+#
+# Process the command line options.
+#
+my @ARGVSave = @ARGV;           # In case we need to reprocess the command line later.
+%Options=(verbose => 0);        # Initialize Options.
+die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;              # Restore @ARGV for LogOutput and second GetOptions.
 
-# If they didn't tell us what to scan, scan everything.
-push @Parms,"/" unless (@Parms > 0);
-	
+# ---------------------------------------------------------
+#
 # Set up our logging and output filtering.
-my $Subject;
-if ($opt_N) {
-	$Subject="%* %m/%d %C %N $opt_N %E %*%*%*" ;
-} elsif (@Parms == 1) {
-	$Subject="%* %m/%d %C %N $Parms[0] %E %*%*%*" ;
-} else {
-	$Subject="%* %m/%d %C %N %E %*%*%*";
-};
-
+#
 LogOutput({
-        SYSLOG_FACILITY => $Syslog,
-        MAIL_FILE => $opt_l,
-        ALWAYS_MAIL_LIST => $opt_m,
-        ERROR_MAIL_LIST => $opt_e,
-        ALWAYS_PAGE_LIST => $opt_p,
-        ERROR_PAGE_LIST => $opt_P,
-        MAIL_SUBJECT => $Subject,
+	ALWAYS_MAIL_LIST => $Options{'always-mail'},
+	ERROR_MAIL_LIST => $Options{'error-mail'},
+	ALWAYS_PAGE_LIST => $Options{'always-page'},
+	ERROR_PAGE_LIST => $Options{'error-page'},
+	SYSLOG_FACILITY => 'user',
+	VERBOSE => ($Options{verbose} >= 5? $Options{verbose}-4:0),
+	FILTER_FILE => $Options{'filter-file'},
 });
 
-# Build the exclude list.
-my $Exclude = "";
-foreach (@opt_x) {
-	my $opt=(-d $_?"--exclude-dir":"--exclude");
-	$Exclude .= "$opt $_ "
+# ---------------------------------------------------------
+#
+# Run the job.
+#
+if (exists($Options{remote}) and @{$Options{remote}} > 0) {
+        unshift @ARGV,$Prog;
+        push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
+        $Errors = RunRemote(argv => \@ARGV);
+}
+else {
+	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
 
-	
-foreach my $Target (@Parms) {
-	next if ($Target =~ /^\s*$/);
-	print "Scanning $Target...\n" unless ($opt_q);
-	my $Cmd = "clamscan -r -d /var/lib/clamav "
-		. ($opt_i?'-i ':'')
-		. ($opt_q?'--no-summary ':'')
-		. ($opt_v?'-v ':'')
-		. join(' ',@opt_A) . ' '
-		. qq<$Exclude "$Target" >;
-	my $Status = RunDangerousCmd ($Cmd);
-	if ($Status != 0) {
-		warn "clamscan returned status $Status\n";
-		$Errors++;
-	}
+# ---------------------------------------------------------
+#
+# Wrap up.
+#
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
 }
 
-#$ExitCode=$Errors?10:0;
+$ExitCode=$Errors?10:0;
 exit($ExitCode);
 
+
+# ---------------------------------------------------------
 #
-# RunDangerousCmd - run a command, or suppress it if -t specified.
+# RunLocally - run a sysbackup on this machine.
 #
-sub RunDangerousCmd {
-	my ($Cmd,$FH,$Line);
-	$Cmd=join(' ',@_);
-	if ($opt_t) {
-		print "Test: $Cmd\n";
-		return 0;
-	} else {
-		print "Executing: $Cmd\n" if ($opt_v);
-		if (open($FH,"$Cmd 2>&1 |")) {
-			while ($Line=<$FH>) {
-				$Line=~s/[
-]//g;
-				chomp $Line;
-				print "$Line\n";
-			};
-			close $FH;
-			return $?;
-		} else {
-			warn qq(Unable to start process for "$Cmd": $!\n");
-			return 8<<8;
+sub RunLocally {
+	# ---------------------------------------------------------
+	#
+	# Load any host-specific options
+	#
+	my $HostOptions = shift;
+	if ($HostOptions) {
+		my @Array = quotewords(" ",0,$HostOptions);
+		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
+	}
+
+	# Build the exclude list.
+	my $Exclude = "";
+	foreach (@{$Options{exclude}}) {
+		my $opt=(-d $_?"--exclude-dir":"--exclude");
+		$Exclude .= "$opt $_ "
+	}
+	
+	push @Parms,'/' unless (@Parms);	# Scan / unless they provided a list.
+	$Options{i} = 1 unless (exists($Options{i}));
+	foreach my $Target (@Parms) {
+		next if ($Target =~ /^\s*$/);
+		print "Scanning $Target...\n" unless ($Options{quiet});
+		my $Cmd = "clamscan -r -d /var/lib/clamav "
+			. ($Options{i}?'-i ':'')
+			. ($Options{quiet}?'--no-summary ':'')
+			. ($Options{verbose}?'-v ':'')
+			. (exists($Options{args})?join(' ',@{$Options{args}}):'') . ' '
+			. qq<$Exclude "$Target" >;
+		my $Status = RunDangerousCmd ($Cmd);
+		if ($Status != 0) {
+			my $Signal = $Status & 127;
+			my $Status = $Status >> 8;
+			warn "clamscan returned status $Status and signal $Signal\n";
+			$Errors++;
 		}
 	}
+
+	return $Errors;
 }
 
 
+# ---------------------------------------------------------
 #
 # opt_h: Usage
 #
 sub opt_h {
 
-	open (PAGENATER,"| more") || die("Unable to start pagenater: $!\n");
-	print PAGENATER <<"ENDUSAGE";
-$Prog - Scan a file or directory tree for viruses using ClamAV.
+	use FindBin qw($RealBin $RealScript);
 
-Usage:  $Prog [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-t|-v] [dir...] 
-	$Prog -h
-
-Flags:
-	-e mailid:      Error: Send an execution report to this e-mail address
-			if errors are detected.
-	-h      :       Help: display this panel
-	-i	:	Infected: Only report infected files (default).  This
-			option is passed through to clamscan.
-	-m mailid:      Mailid: Send an execution report to this e-mail address.
-	-p mailid:      Page: Send a very brief message (suitable for a pager)
-			to this e-mail address when this job completes.
-	-P mailid:      Page error: Send a very brief message to this e-mail 
-			address if errors are detected in this job.
-	-O config:      Insert the "config" configuration options from
-			$ConfigFile.
-			the command line at this point.
-	-t	:	Test: echo commands instead of running them.
-	-v	:	Verbose: echo commands before running them.
-	-x patt	:	eXclude: exclude directories matching this pattern.  May be
-			repeated.
-
-Parameters:
-	dir...	:	Zero or more directories to scan.  The default is "/".
-
-Return codes:
-	0       :       Normal termination
-	1       :       Help panel displayed.
-	2       :       Invalid or unrecognized command line options.
-	3       :       Invalid or unrecognized command line option value.
-	4       :       Incorrect command line parameters.
-	5       :       Unexpected message found in output.
-	10      :       Some delete's failed.
-ENDUSAGE
-close PAGENATER;
+	system(qq<pod2text $RealBin/$RealScript | sed "s/%Prog/$Prog/g" | more>);
 exit 1;
 }
+
+=pod
+
+=head1 %Prog -  
+
+=head3 Usage:  
+        %Prog [flag1 ...]
+
+        %Prog -h
+
+=head3 Options:
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+	--args|-A arg:		Arguments: Pass arg through to clamscan.
+				May be repeated.
+        --error-mail|-e mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
+        --exclude|-x patt :	eXclude: exclude directories matching this pattern.  May be
+	                        repeated.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
+	-i:			Infected: Only report infected files (default).
+				This option is passed through to clamscan.
+				Use --noi to report all files.
+        --option-set|-O config: Insert the "config" configuration options
+                                from /usr/local/etc/%Prog.cfg
+                                into the command line at this point.
+	--quiet|q:		Quiet: same as "-A --no-summary".
+	--remote-host|-R host	Remote: Run this on one or more remote
+				hosts.  "host" may be a host name, an
+				IP address, a configuration file entry
+				name, or a comma or space separated list of
+				any mix of these.  This option may also be
+				repeated to append to the list.  Host names
+				preceeded by ! are removed from the list.
+				This is primarily to allow a configuration
+				file list to be included, but some of the
+				hosts in the list to subsequently be excluded.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+				May be used multiple times to increase verbosity.
+        --help|-h:              Help: display this panel
+
+=head3 Parameters:
+	dir...  :		Zero or more directories and/or files to scan.
+				The default is "/".
+
+
+=head3 Configuration files
+
+Configuration data may be loaded from the configuration files.  These files
+form key-value pairs that $Prog may reference.  The syntax of the file is:
+
+        name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=back
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
+
+
+=head3 Notes:
+
+=cut
+
 __END__
 #
-# Output filters.  The syntax is: type pattern
-#
-#  Type:        Ignore - Don't display this message, it's not interesting.
-#               LogOnly - Write this message to the syslog and log file, but
-#                       don't display it on STDOUT.
-#               Show - Display this message, but it's not an error condition.
-#               # - This is a comment, ignore it.
-#
-#  Pattern:     an ordinary perl pattern.  All patterns for a given score
-#               are joined by logical OR conditions.
-#
-#  Notes:
-#       1) The "Type" parameter may be specified in upper, lower, or mixed case.
-#       2) All messages go to the syslog, regardless of this filter.
-#
-#
-# The following are normal messages we don't need to see.
-#
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
-LOGONLY /^Command: /
-#
-# These are normal messages that we want to see.
-#
-SHOW	"^\s*Running:"
-SHOW	"^\s*Scanning .+$"
-IGNORE	"^\s*LibClamAV .*: ClamAV-Test-File FOUND\s*$"
-IGNORE	"^\s*LibClamAV Error: cab_read_block: Can't read block header\s*$"
-IGNORE	"^\s*LibClamAV Error: cab_open: Can't read header for folder \d+\s*$"
-IGNORE	"^\s*LibClamAV Warning: Bad compression in flate stream\s*$"
-IGNORE	"^\s*LibClamAV Warning: .* Bad compressed block length in flate stream\s*$"
-IGNORE	"^\s*LibClamAV Warning: cab_open: Can't read header for folder \d+\s*$"
-IGNORE	"^\s*LibClamAV Warning: cli_pdf: Object number missing\s*$"
-IGNORE	"^\s*LibClamAV Warning: Corrupt TNEF header detected - "
-IGNORE	"^\s*LibClamAV Warning: Couldn't find "
-IGNORE	"^\s*LibClamAV Warning: Encrypted PDF files not yet supported\s*$"
-IGNORE	"^\s*LibClamAV Warning: Guessing little-endian\s*$"
-IGNORE	"^\s*LibClamAV Warning: Invalid RFC2231 header"
-IGNORE	"^\s*LibClamAV Warning: .* MIME message contains no boundary header"
-IGNORE	"^\s*LibClamAV Warning: Not supported compression method"
-IGNORE	"^\s*LibClamAV Warning: Only text and application attachments are fully"
-# Partial message - starts attachment but doesn't finish.  Ignore.
-IGNORE	"^\s*LibClamAV Warning: Partial message received from MUA/MTA - message cannot be scanned"
-IGNORE	"^\s*LibClamAV Warning: PE file contains no sections$"
-IGNORE	"^\s*LibClamAV Warning: TNEF - unknown"
-IGNORE	"^\s*LibClamAV Warning: Unknown VBA version signature"
-IGNORE	"^\s*LibClamAV Warning: uudecode: buffer overflow stopped"
-IGNORE	"^\s*LibClamAV Warning: Cannot prepare for JIT, because it has already been converted to interpreter"
-SHOW	"^\s*LibClamAV Warning: cli_scanxz: decompress file size exceeds limits"
-IGNORE	"Phishing.Heuristics.Email.SpoofedDomain FOUND$"
-SHOW	": ClamAV-Test-File FOUND$"
-SHOW	"Eicar-Test-Signature FOUND$"i
-IGNORE	"^\s*/etc/psad/snort_rules"
-IGNORE	"^\s*/usr/local/src/clamav-"
-IGNORE	"^\s*/usr/local/src/psad-"
-IGNORE	"^\s*/home/samba/common/downloads/AutoIT/SciTE4AutoIt3.exe"
-IGNORE	"^\s*/home/samba/common/AutoIT/"
-# Ignore our own AutoIT script.
+# ---------------------------------------------------------
+# See LogOutput.pm for an explanation of output filtering.
 IGNORE	"\s*/usr/local/etc/psad/snort_rules/.* FOUND$"
-SHOW	"^\s*----------- SCAN SUMMARY -----------$"
-IGNORE	"^\s*Known viruses: \d+$"
-IGNORE	"^\s*Engine version: \d+\.\d+(\.\d+)?$"
-SHOW	"^\s*Scanned directories: \d+$"
-SHOW	"^\s*Scanned files: \d+$"
-SHOW	"^\s*Infected files: "
-SHOW	"^\s*Total errors: "
-SHOW	"^\s*Data read:\s+\d+"
-SHOW	"^\s*/.* OK$"
-IGNORE	"^\s*/.* Empty file$"
-IGNORE	"^\s*/.* Excluded$"
-IGNORE	"^\s*Data scanned: \d+.\d+ MB$"
-IGNORE	"^\s*Time: \d+.\d+ sec \(\d+ m \d+ s\)$"
-SHOW	"^\s*clamscan returned status 256$"
-SHOW    /^\S+ ended normally with status 0 and signal 0 - run time:/
-SHOW    /^Test:/
-SHOW    /^Executing:/
-SHOW	/^\s*debug:/
-SHOW  /^\s*$/
-#
-# Anything that doesn't match one of these three sets of patterns is considered
-# an error.
+IGNORE	"^(S+:s*)?/.* Empty file$"
+IGNORE	"^(S+:s*)?/.* Excluded$"
+IGNORE	"^(S+:s*)?/etc/psad/snort_rules"
+IGNORE	"^(S+:s*)?/home/samba/common/AutoIT/"
+IGNORE	"^(S+:s*)?/home/samba/common/downloads/AutoIT/SciTE4AutoIt3.exe"
+IGNORE	"^(S+:s*)?/usr/local/src/clamav-"
+IGNORE	"^(S+:s*)?/usr/local/src/psad-"
+IGNORE	"^(S+:s*)?Data scanned: \d+.\d+ MB$"
+IGNORE	"^(S+:s*)?Engine version: \d+\.\d+(\.\d+)?$"
+IGNORE	"^(S+:s*)?Known viruses: \d+$"
+IGNORE	"^(S+:s*)?LibClamAV .*: ClamAV-Test-File FOUND\s*$"
+IGNORE	"^(S+:s*)?LibClamAV Error: cab_open: Can't read header for folder \d+\s*$"
+IGNORE	"^(S+:s*)?LibClamAV Error: cab_read_block: Can't read block header\s*$"
+IGNORE	"^(S+:s*)?LibClamAV Warning: .* Bad compressed block length in flate stream\s*$"
+IGNORE	"^(S+:s*)?LibClamAV Warning: .* MIME message contains no boundary header"
+IGNORE	"^(S+:s*)?LibClamAV Warning: Bad compression in flate stream\s*$"
+IGNORE	"^(S+:s*)?LibClamAV Warning: cab_open: Can't read header for folder \d+\s*$"
+IGNORE	"^(S+:s*)?LibClamAV Warning: Cannot prepare for JIT, because it has already been converted to interpreter"
+IGNORE	"^(S+:s*)?LibClamAV Warning: cli_pdf: Object number missing\s*$"
+IGNORE	"^(S+:s*)?LibClamAV Warning: Corrupt TNEF header detected - "
+IGNORE	"^(S+:s*)?LibClamAV Warning: Couldn't find "
+IGNORE	"^(S+:s*)?LibClamAV Warning: Encrypted PDF files not yet supported\s*$"
+IGNORE	"^(S+:s*)?LibClamAV Warning: Guessing little-endian\s*$"
+IGNORE	"^(S+:s*)?LibClamAV Warning: Invalid RFC2231 header"
+IGNORE	"^(S+:s*)?LibClamAV Warning: Not supported compression method"
+IGNORE	"^(S+:s*)?LibClamAV Warning: Only text and application attachments are fully"
+IGNORE	"^(S+:s*)?LibClamAV Warning: Partial message received from MUA/MTA - message cannot be scanned"
+IGNORE	"^(S+:s*)?LibClamAV Warning: PE file contains no sections$"
+IGNORE	"^(S+:s*)?LibClamAV Warning: TNEF - unknown"
+IGNORE	"^(S+:s*)?LibClamAV Warning: Unknown VBA version signature"
+IGNORE	"^(S+:s*)?LibClamAV Warning: uudecode: buffer overflow stopped"
+IGNORE	"^(S+:s*)?Time: \d+.\d+ sec \(\d+ m \d+ s\)$"
+IGNORE	"^\s*(\S+:\s*)?$"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+IGNORE	"^\s*\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s+Command: "
+IGNORE	"Phishing.Heuristics.Email.SpoofedDomain FOUND$"
+LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*Command: "
+SHOW	": ClamAV-Test-File FOUND$"
+SHOW	"^(S+:s*)?----------- SCAN SUMMARY -----------$"
+SHOW	"^(S+:s*)?/.* (OK|Symbolic link)$"
+SHOW	"^(S+:s*)?clamscan returned status 256$"
+SHOW	"^(S+:s*)?Data read:\s+\d+"
+SHOW	"^(S+:s*)?Infected files:\s+0$"
+SHOW	"^(S+:s*)?LibClamAV Warning: cli_scanxz: decompress file size exceeds limits"
+SHOW	"^(S+:s*)?Running:"
+SHOW	"^(S+:s*)?Scanned directories: [1-9]\d*$"
+SHOW	"^(S+:s*)?Scanned files: [1-9]\d*$"
+SHOW	"^(S+:s*)?Scanning .+\.\.\.$(?#Header when starting next @Parms)"
+IGNORE	"^(S+:s*)?Scanning .+$(?#clamscan starting a new directory)"
+SHOW	"^(S+:s*)?Total errors:\s+0$"
+SHOW	"^\s*(\S+:\s*)?(Test|Executing|Verbose|debug):"
+SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
+SHOW	"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+SHOW	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "
+SHOW	"Eicar-Test-Signature FOUND$"i
