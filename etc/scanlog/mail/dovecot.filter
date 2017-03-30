@@ -9,7 +9,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap(\(\S+\))?: Ma
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap(\(\S+\))?: Server shutting down.\s+in=\d+ out=\d+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Aborted login \(auth failed, \d+ attempts in \d+ secs\): "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Aborted login \(no auth attempts in \d+ secs\): "
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Disconnected \(.*\): user=<>, rip=\S+, lip=\S+,"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Disconnected \(.*\): user=<>, (method=\S+, )?rip=\S+, lip=\S+,"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Disconnected \(auth failed, \d+ attempts in \d+ secs\): user=<"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Disconnected: Inactivity"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dovecot(\[\d+\])?:\s*imap-login: Error: SSL: Stacked error: error:\S+:.*:no shared cipher$"
