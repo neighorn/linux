@@ -139,7 +139,7 @@ exit( ($Errors?10:0) );
 
 # ---------------------------------------------------------
 #
-# RunLocally - run a sysbackup on this machine.
+# RunLocally - run a MySQL back-up on this machine.
 #
 sub RunLocally {
 	# ---------------------------------------------------------
