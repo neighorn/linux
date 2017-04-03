@@ -263,7 +263,7 @@ sub RunIfPresent {
 
 	my $Cmd = (split(/\s+/,$_[0]))[0];
 	$Cmd =~ s/^\(//g;
-	my $Status = system("which $Cmd > /dev/null 2>1");
+	my $Status = system("which $Cmd > /dev/null 2>&1");
 	print "Verbose: which $Cmd returned $Status\n"
 		if ($Options{verbose} >= 3);
 	RunDangerousCmd(join(' ',@_)) if ($Status == 0);
