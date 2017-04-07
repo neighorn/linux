@@ -1,269 +1,373 @@
 #!/usr/bin/perl
 #
-# Back up the databases
+# Back up the PostgreSQL databases
 #
 use strict;
 use warnings;
-use lib '/usr/local/lib/perl5/site_perl';
-use LogOutput;
-use ProcessOptions;
+use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
-use FindBin qw($Bin);
 use POSIX qw(strftime);
 use File::Basename;
+use FindBin qw($Bin $Script);
+use LogOutput;
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd Commify CompressByteSize ExpandByteSize);
 
-# Set up the environment.
-$ENV{'PATH'}='/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin';
+$ENV{PATH}='/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin';
 
 # Initialize variables.
-our $Prog=$0;				# Get our name, for messages.
-$Prog=~s/^.*\///;			# Trim off the path, if present.
-our @Args=@ARGV;			# Preserve orig command for ref.
-our $ErrorFlag=0;			# No errors so far.
-our $BaseDir=$ENV{HOME};		# Set our base directory.
-our @parms;
-our $Parms;
-our %Exclude;				# Exclude list
+our $Prog=$0;                           # Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;            	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";     	    	# Trim off the path, if present.
+my $Errors=0;   	                # No errors so far.
+my $Syslog='user';                      # Name of Syslog facility.  '' for none.
+my $BaseDir="/usr/local/etc";		# Set our base directory.
+my @ConfigFiles=("$BaseDir/${Prog}.cfg");	# Name of config file(s).
+our %Config;				# Data from the config file.
+our %Options;				# Options settings.
+our @Parms;				# List of non-option arguments.
+our $HostName=`hostname -s`;		# Get our host name.
+chomp $HostName;
+JobTools::Utils::init(config => \%Config, options => \%Options);
 
-our $opt_d;				# Debug flag.
-our $opt_e;				# Error mail addresses.
-our $opt_h;				# Help flag.
-our $opt_l;				# Log file.
-our $opt_m;				# Mail addresses.
-our $opt_O;				# Option flag.
-our $opt_o="/usr/local/backup/postgres";
-our $opt_p;				# Normal page address.
-our $opt_P;				# Error page addresses.
-our $opt_r=7;				# Retention period.
-our $opt_t;				# Test flag.
-our $opt_U=$ENV{LOGNAME} || $ENV{USER} || getpwuid($<); # Default to our own user name.
-our $opt_v;				# Verbose.
-our $opt_z;				# Compress.
-
-my $Syslog='user';			# Name of Syslog facility.  '' for no logging.
-my $LogFile='';			# Log file name, or null for none.
-my $ConfigDir = $Bin;
-$ConfigDir =~ s"/[^/]*$"/etc";
-my $ConfigFile="$ConfigDir/${Prog}.cfg";# Name of config file.
-my $Subject;				# E-mail subject line.
-
-# Set our base directory.
-chdir($BaseDir) || die "Unable to cd to $BaseDir: $!\n";
-
-# Set the ProcessOptions spec here.  This is just like Getopt::Mixed except:
-#	1) We define a new type l (lowercase L), which is a list (i.e. if
-#	   specified multiple times, values are concatenated & blank separated.o
-#	   Normal =s and =i would replace values instead of concatenate.
-#	2) We don't support long option names, except as aliases.
-# These are the standard production options.  Add more options here as needed.
-my $OptSpec='d h t v z l=l m=l e=l p=l P=l o=s O=s r=s U=s';
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+our %OptionSpecifications;
+%OptionSpecifications=(
+		'<>'			=>	sub {push @Parms,shift;},
+		'debug|d'		=>	sub {$DB::AutoTrace=1;},
+		'help|h|?!'		=>	\&opt_help,
+		'always-mail|m=s'	=>	\&OptArray,
+		'error-mail|M=s'	=>	\&OptArray,
+		'option-set|O=s'	=>	sub { OptOptionSet(name => $_[1], optspec => \%OptionSpecifications );},
+		'always-page|p=s'	=>	\&OptArray,
+		'error-page|P=s'	=>	\&OptArray,
+		'filter-file|F=s'	=>	\&OptValue,
+		'log-file|l=s'		=>	\&OptValue,
+		'test|t'		=>	\&OptFlag,
+		'cycles|r=s'		=>	\&opt_cycles,
+		'min-size|s=s'		=>	\&opt_min_size,
+		'max-size|S=s'		=>	\&opt_max_size,
+		'output-directory|o=s'	=>	\&OptValue,
+		'remote|R=s'		=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+		'username|user|U=s'	=>	\&OptValue,
+		'gzip|z'		=>	\&OptValue,
+		'verbose|v'		=>	\&OptFlag,
+		'remote-max=n'		=>	\&OptValue,
+);
+#
 
 # Load the config file.
-my %Config;
-if (-e $ConfigFile) {
-        open(CONFIG,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
-        # Build a hash of settings found in the config file.
-        while (<CONFIG>) {
-                next if (/^\s*#/);      # Comment.
-                next if (/^\s*$/);      # Blank line.
-                my ($name,$settings)=/^\s*(\S+)\s*:\s*(.+)/;
-                $name=~tr/[a-z]/[A-Z]/;
-                $Config{$name}=$settings;
-        }
-	close CONFIG;
-}
+LoadConfigFiles(files => \@ConfigFiles);
+
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+	if (!@ARGV && defined($Config{DEFAULTJOB}));
 
 # Process the config file defaults if present.
-unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
-	if (defined($Config{'ALLJOBS'}));
-
-# Process the command line options, if any.
-if (@ARGV) {
-	# Process the command line arguments.
-	ProcessOptions($OptSpec);
-} else {
-	# No command line options.  Run the default job.
-	ProcessOptions($OptSpec,$Config{'DEFAULTJOB'})
-		if (defined($Config{'DEFAULTJOB'}));
+foreach (('ALLJOBS',"HOST=$HostName")) {
+	my $ConfigName = uc($_);
+	unshift @ARGV, quotewords(" ",0,$Config{$ConfigName})
+		if (exists($Config{$ConfigName}) and defined($Config{$ConfigName}));
 }
 
-if ($ErrorFlag) {exit $ErrorFlag;}	# Exit if errors were detected.
+# Pre-process our command line, to get the options we need for LogOutput.
+my @ARGVSave = @ARGV;		# Needed to reprocess command line later.
+%Options=(verbose => 0);	# Initialize Options.
+$Errors ++ unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;		# Restore @ARGV for LogOutput and second GetOptions.
 	
 # Set up our logging and output filtering.
+my $RunDate=`date +%m/%d`;
+chomp $RunDate;
+my $Subject;
+if ($Options{subject}) {
+	$Subject="$Options{subject}" ;
+} elsif (@Parms >= 1) {
+	$Subject="%* %m/%d %C %N " . join(', ',@Parms) . " %E %*%*%*" ;
+} else {
+	$Subject="%* %m/%d %C %N %E %*%*%*" ;
+};
+
+# Make sure some key items exist;
+foreach (qw(always-mail error-mail always-page error-page)) {
+	@{$Options{$_}} = () unless (exists($Options{$_}));
+}
+$Options{verbose} = 0 unless (exists($Options{verbose}));
+$Options{logfile} = '' unless (exists($Options{logfile}));
+my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
+$Options{'output-directory'}="/usr/local/backup/postgres" unless ($Options{'output-directory'});
+$Options{cycles}=7 unless ($Options{cycles});
+$Options{host} = '' unless (exists($Options{host}) and $Options{host});
+
 LogOutput({
-        SYSLOG_FACILITY => $Syslog,
-        MAIL_FILE => $opt_l,
-        ALWAYS_MAIL_LIST => $opt_m,
-        ERROR_MAIL_LIST => $opt_e,
-        ALWAYS_PAGE_LIST => $opt_p,
-        ERROR_PAGE_LIST => $opt_P,
+	SYSLOG_FACILITY		=> $Syslog,
+	MAIL_FILE		=> $Options{logfile},
+	MAIL_FILE_PERMS		=> 0644,
+	ALWAYS_MAIL_LIST	=> \@{$Options{'always-mail'}},
+	ERROR_MAIL_LIST		=> \@{$Options{'error-mail'}},
+	ALWAYS_PAGE_LIST	=> \@{$Options{'always-page'}},
+	ERROR_PAGE_LIST		=> \@{$Options{'error-page'}},
+	MAIL_SUBJECT		=> $Subject,
+	FILTER_FILE		=> $Options{'filter-file'},
+	VERBOSE			=> $LogOutputVerbose,
 });
 
-# Build the backup file name.
-my $DeletePattern;
-$opt_o .= "/%Y-%m-%d.sql" if (-d $opt_o);	# Add file name if this is a directory.
-$DeletePattern = basename($opt_o);		# Get the file name portion.
-$DeletePattern =~ s/%./*/g;			# Convert substitution values to *
-$opt_o=strftime($opt_o,localtime());		# Interp time vars (ours and theirs).
-my $OutDir=dirname($opt_o);
-
-# Next, delete any back-ups over $opt_r days old.  Presumably the nightly backups
-# or at least the weekly back-ups have captured them.
-RunDangerousCmd("find $OutDir -type f -name '$DeletePattern' -mtime +$opt_r -exec echo Deleting {} \\; -delete");
-
-# Now back up all our databases.
-RunDangerousCmd("su - postgres -c 'pg_dumpall --clean' > $opt_o");
-if (-f $opt_o) {
-	print commify((stat($opt_o))[7]) . " bytes written to $opt_o\n";
-	RunDangerousCmd("gzip $opt_o") if ($opt_z);
+if (exists($Options{remote}) and @{$Options{remote}} > 0) {
+        unshift @ARGV,$Prog;
+        push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
+        $Errors = RunRemote(argv => \@ARGV);
 }
 else {
-	die "Unable to locate output file $opt_o";
+	$Errors = RunLocally($Config{uc("host=$HostName")});
 }
 
-exit(0);
+if ($Errors) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+exit( ($Errors?10:0) );
 
 
+# ---------------------------------------------------------
 #
-# RunDangerousCmd - run a command, unless we're testing.
-#	Note: Returns status code, in which 0 (false) commonly means OK.
+# RunLocally - run a sysbackup on this machine.
 #
-sub RunDangerousCmd {
-
-	my($Command)=@_;		# Get our calling arguments.
-	my($FH);			# Autovivified file handle.
-
-	if ($opt_t) {
-		print "test: $Command\n";
-		return 0;
-	} else {
-		print "Executing: $Command\n" if ($opt_v);
-		if (open($FH, "$Command 2>&1 |")) {
-			while (<$FH>) {print;};
-			close $FH;
-		} else {
-			
-			$Command =~ s/^\s*(\S+)/$1/;
-			warn "$Command failed to start with status $?: $!\n";
-		}
-		return $?;
+sub RunLocally {
+	# ---------------------------------------------------------
+	#
+	# Load any host-specific options
+	#
+	my $HostOptions = shift;
+	if ($HostOptions) {
+		my @Array = quotewords(" ",0,$HostOptions);
+		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
 	}
-}
+	$Options{'output-directory'} = '/usr/local/backup/postgres'
+		unless ($Options{'output-directory'});
+	$Options{username} = 'postgres'
+		unless ($Options{username});
 
+	# ---------------------------------------------------------
+	#
+	# Get the job lock.
+	#
+	my $Lock = UtilGetLock();
+	exit 11 unless ($Lock);
+	
+	# ---------------------------------------------------------
+	#
+	# Clean up the backup directory
+	#
 
+	#    Make sure we have an output directory.
+	RunDangerousCmd("mkdir $Options{'output-directory'}") unless (-d $Options{'output-directory'});
 
-#
-# Untaint  -- use very carefully!
-#
+	#    Delete any incomplete backups.
+	RunDangerousCmd("rm -f $Options{'output-directory'}/*.tmp 2> /dev/null");
 
-sub untaint {
-        local(@parms) = @_;
-        foreach (@parms) {
-                s/^(.*)$/$1/;
-                $_=$1;
-        }
-        if (@parms == 1) {
-                # Return scalar
-                return $parms[$[];
-        } else {
-                # Return list
-                return (@parms);
-        }
-}
-
-
-#
-# commify - insert commas in numbers.
-sub commify {
-	local $_ = shift;
-	1 while s/^(-?\d+)(\d{3})/$1,$2/;
-	return $_;
-}
-
-
-#
-# opt_h: Usage
-#
-sub opt_h {
-
-	open (PAGENATER,$ENV{'PAGER'}?"| $ENV{'PAGER'}":"| more") || die("Unable to start pagenater: $!\n");
-	print PAGENATER <<"ENDUSAGE";
-$Prog - Backup MySQL databases
-
-Usage:	$Prog [-o dir] [-U username] [-r days] [-l logfile] [-e mailid] [-m mailid] [-p mailid] [-P mailid] [-O config] [-v] [-t]
-	$Prog [-h]
-
-Flags:
-	-e mailid:	Error: Send an execution report to this e-mail address
-			if errors are detected.
-	-h	:	Help: display this panel
-	-l logfile:	Logfile: write a log to "logfile".  This is in addition to the
-			syslog.
-	-m mailid:	Mailid: Send an execution report to this e-mail address.
-	-o output:	Output: Save the output in this file/directory.  If "output"
-			is a directory, the default filename is yyyy-mm-dd.sql.  "Output"
-			is processed by strftime, so % variables (a la `date`) are 
-			interpreted.  Default value is /usr/local/backup/database.
-				* See Warning below. *
-	-O config:	Insert the "config" configuration options from
-			$ConfigFile into
-			the command line at this point.
-	-p mailid:	Page: Send a very brief message (suitable for a pager)
-			to this e-mail address when this job completes.
-	-P mailid:	Page error: Send a very brief message to this e-mail 
-			address if errors are detected in this job.
-	-r days:	Retention: delete old backups after "days" days.  Default=7.
-	-t:		Test: don't really run commands, just display them.
-	-U username:	User: Log into the database as "username".  Defaults to current name.
-	-v: 		Verbose: display each command before executing it.
-	-z		Zip: gzip the output files when going to disk.
-
-Examples:
-
-Warning:  Execution of this script causes old files (per -r) in the output directory
-		to be deleted.
-
-Return codes:
-	0	:	Normal termination
-	1	:	Help panel displayed.
-	2	:	Invalid or unrecognized command line options.
-	3	:	Invalid or unrecognized command line option value.
-	4	:	Incorrect command line parameters.
-	5	:	Unexpected message found in output.
-ENDUSAGE
-close PAGENATER;
-exit 1;
-}
-
-
-#
-# opt_x: handle exclude list.
-#
-sub opt_r {
-	my($Value) = @_;
-	if ($Value =~ /^[1-9]\d*$/) {
-		$opt_r = $Value;
+	#    Delete any old cycles.
+	if (open(my $FHLS,"ls -t $Options{'output-directory'} 2> /dev/null |")) {
+		my $Count=0;
+		while (<$FHLS>) {
+			chomp;
+			next unless (-f "$Options{'output-directory'}/$_");	# Skip non-files.
+			next unless (/\.sql(\.gz)?$/);				# Skip wrong suffix.
+			next unless (/^[\d-]+\.sql(\.gz)?$/);			# Skip unexpected chars.
+			$Count++;
+			RunDangerousCmd(qq<rm -f "$Options{'output-directory'}/$_">) if ($Count >= $Options{cycles});
+		}
+		close $FHLS;
+	} else {
+		warn "Unable to open ls command - no cycles deleted: $!\n";
+	}
+	# ---------------------------------------------------------
+	#
+	# Run the back-ups
+	#
+	my $OutFile = strftime("$Options{'output-directory'}/%Y-%m-%d.sql",localtime());
+	my $Status = RunDangerousCmd("su - $Options{username} -c 'pg_dumpall --clean' > $OutFile");
+	if ($Status eq 0) {
+		my $bytes=($Options{test}?999999:(stat($OutFile))[7]);
+		print Commify($bytes) . " bytes written to $OutFile\n";
+		warn "$OutFile is less than $Options{'min-size'} bytes.\n"
+			if ($Options{'min-size'} and ($bytes lt $Options{'min-size'}));
+		warn "$OutFile is greater than $Options{'max-size'} bytes.\n"
+			if ($Options{'max-size'} and ($bytes gt $Options{'max-size'}));
+		RunDangerousCmd("gzip $OutFile") if ($Options{gzip});
 	}
 	else {
-		warn "Invalid retention period: $Value\n";
-		$ErrorFlag = 8;
+		$Errors++;
+		die "pg_dumpall failed with status $Status\n";
+	}
+
+	# ---------------------------------------------------------
+	#
+	# Release the job lock.
+	#
+	UtilReleaseLock($Lock);
+
+	return $Errors;
+}
+
+
+#
+# opt_help: Usage
+#
+sub opt_help {
+
+        my $Pagenater=$ENV{PAGENATER};
+        $Pagenater="more" unless ($Pagenater);
+        system("pod2text $Bin/$Script | $Pagenater");
+        exit(1);
+}
+
+=pod
+
+=head1 $Prog - Back up postgres databases
+
+=head3 Usage:  
+
+	$Prog [options] [database...]
+	$Prog [-h]
+
+=head3 Flags:
+
+        --always-mail|-m addr:  Mailid: Send an execution report to
+                                this e-mail address.
+        --always-page|-p addr:  Page: Send a very brief message
+                                (suitable for a pager) to this e-mail
+                                address when this job completes.
+        --error-page|-P addr:   Page error: Send a very brief message to
+                                this e-mail address if errors are
+                                detected in this job.
+        --error-mail|-e mailid: Error: Send an execution report to this
+                                e-mail address if errors are detected.
+	--log-file|-l logfile:	LogFile: write log to "logfile, in addition to
+				the syslog.
+        --option-set|-O config: Insert the "config" configuration options
+                                from $ConfigFile
+                                into the command line at this point.
+				A leading colon on "config" suppresses a 
+				warning message if "config" is not found
+				in the configuration file.  Several reserved
+				names are defined, and will be used if defined:
+				ALLJOBS: Prepended to all command lines - used
+				  to set standard options (e.g. always-mail)
+                                DEFAULTJOB: Used if no command line options or
+                                  parameters are specified
+                                HOST=hostname: Prepended to all command lines
+                                  after ALLJOBS if the short host name of the
+                                  host running the command matches "hostname".
+                                  This allows a common config file to be used
+                                  across multiple hosts with different option
+                                  requirements
+                                REMOTE=hostname: Prepended to all command lines
+                                  if executed on hostname, but run via -R from
+                                  another host.
+        --filter|-F filter:     Filter: Use alternate error detection
+                                filter file "filter".  The default is
+                                to use the built-in error filter.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+        --help|-h:              Help: display this panel
+
+	--output-directory|-o output:	Output: Save the output in this file/directory.
+				The default value is /usr/local/backup/postgres.
+				See "Warning" below.
+	--cycles|-r days:	Retention: delete old backups after "days" days.
+				Default=7.
+	--min-size|-s size:	Size: issue an error if the output is less than "size"
+				bytes (before compression).
+	--max-size|-S size:	Size: issue an error if the output is more than "size"
+				bytes (before compression).
+	--username|-U username:	User: Log into the database as "username".  Defaults
+				to current name.
+	--gzip|z		Zip: gzip the output files when going to disk.
+	--remote|R name		Remote: Don't run locally, but run on remote system
+				"name" instead.  May be repeated, or name may be a
+				comma-separated list to run on multple systems. 
+				Include "localhost" or similar to run it both 
+				locally and remotely.
+	--remote-max=n		Remote max: set the maximum number of remote
+				jobs to run in parallel when using --remote with multiple
+				remote hosts.
+	--username|u name	User name: name of the PostgreSQL user.  Default is
+				postgres.
+
+
+=head3 Parameters: (none)
+
+=head3 Examples:
+	postgres-backup
+		- back up all databases to /usr/local/backup/postgres/yyyy-mm-dd.sql
+	postgres-backup -o /mnt/postgres --gzip
+		- back up and compress all databases as /mnt/postgres/yyyy-mm-dd.sql.gz
+
+=head3 Warning:
+
+Execution of this script causes old files (per -r) in the output directory
+		to be deleted.
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
+
+=cut
+
+
+#
+# Options{cycles}: handle retention period.
+#
+sub opt_cycles {
+	my(undef,$Value) = @_;
+	if ($Value =~ /^[1-9]\d*$/) {
+		$Options{cycles} = $Value;
+	}
+	else {
+		warn "Invalid cycle count (--cycles/-r) value: $Value\n";
+		$Errors++;
 	}
 }
 
 
 #
-# opt_x: handle exclude list.
+# opt_min_size - minimum size threshold
 #
-sub opt_x {
-	my($Directory)=@_;
-	$Exclude{$Directory}=1;
+sub opt_min_size {
+        my(undef,$Value) = @_;
+	$Options{'min-size'} = ExpandByteSize($Value);
+        if (!defined($Options{'min-size'})) {
+                warn qq<Invalid minimum size (--min-size/-s) value: "$Value"\n>;
+		$Errors++;
+		$Options{'min-size'} = 0;
+        }
 }
 
+
+
 #
-# Clean-up routine.
+# opt_max_size - max size threshold
 #
-sub Cleanup {
+sub opt_max_size {
+        my(undef,$Value) = @_;
+	$Options{'max-size'} = ExpandByteSize($Value);
+        if (!defined($Options{'max-size'})) {
+                warn qq<Invalid maximum size (-S) value: "$Value"\n>;
+		$Errors++;
+		$Options{'max-size'} = 0;
+        }
 }
+
+
 __END__
 #
 # Output filters.  The syntax is: type pattern
@@ -282,23 +386,21 @@ __END__
 #	2) All messages go to the syslog, regardless of this filter.
 #
 #
-# The following are normal messages we don't need to see.
-#
-IGNORE	/^\s*$/
-#
-# These are normal messages that we want to see in the e-mail log only.
-#
-LOGONLY "^\S+ started on \S+ on \S+, \d+/\d+/\d+ at \d+:\d+:\d+"
-LOGONLY	/^Command: /
-#
-# These are normal messages that we want to see.
-#
-SHOW	/^\S+ ended normally with status 0 and signal 0$/
-SHOW	/^debug:/
-SHOW	/^test:/
-SHOW	/^Executing:/
-SHOW	"^\s*Deleting /usr/local/backup/postgres/"
-SHOW	"^[0-9,]+ bytes written to \S+$"
-#
-# Anything that doesn't match one of these three sets of patterns is considered
-# an error.
+IGNORE	"^\s*(\S+:\s*)?\s*$"
+IGNORE	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "
+IGNORE	"^\s*(\S+:\s+)?.*\s+OK$" 
+IGNORE	"^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0$"
+IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s*Command: "
+LOGONLY	"^\s*\S+ ended normally with status 0 and signal 0$"
+LOGONLY	"^\s*\S+ ended on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY	"^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+SHOW	"^\s*(\S+:\s*)?[1-9][\d,]* bytes (\(.*\) )?written to \S+$"
+SHOW	"^\s*(\S+:\s*)?debug:"i
+SHOW	"^\s*(\S+:\s*)?Executing:"i
+SHOW	"^\s*(\S+:\s*)?test:"i
+SHOW	"^\s*(\S+:\s*)?Verbose:"i
+SHOW	"^\s*Command: "
