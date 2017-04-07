@@ -2,7 +2,7 @@
 # CD in to directories and issue a git pull command.
 use strict;
 use warnings;
-use LogOutput;
+use JobTools::LogOutput;
 use Getopt::Long 2.38 qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);

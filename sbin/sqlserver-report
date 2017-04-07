@@ -13,7 +13,7 @@
 use strict;
 use warnings;
 use lib '/usr/local/lib/perl5/site_perl';
-use LogOutput;
+use JobTools::LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($Bin $Script);

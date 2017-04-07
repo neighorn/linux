@@ -9,7 +9,7 @@ use Text::ParseWords;
 use POSIX qw(strftime);
 use Fcntl;		# For O_CREAT, etc.
 use File::Basename;
-use LogOutput;
+use JobTools::LogOutput;
 use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.

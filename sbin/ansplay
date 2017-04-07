@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use LogOutput;
+use JobTools::LogOutput;
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling );
 use Text::ParseWords;
 use POSIX qw(strftime);

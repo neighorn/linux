@@ -12,7 +12,7 @@
 #
 use strict;
 use warnings;
-use LogOutput;
+use JobTools::LogOutput;
 use ProcessOptions;
 use Text::ParseWords;
 use FindBin qw($Bin $Script);

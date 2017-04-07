@@ -10,7 +10,7 @@ use POSIX qw(strftime);
 use Fcntl qw(:flock :mode :DEFAULT);
 use File::Basename;
 use Time::Local;
-use LogOutput;
+use JobTools::LogOutput;
 use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
