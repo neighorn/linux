@@ -14,6 +14,7 @@ use Mail::Sendmail;
 use LogOutput_cfg;
 use POSIX qw(strftime);
 use Sys::Syslog;
+use FindBin qw($RealBin $RealScript);
 use File::Glob qw(:glob);	# :bsd_glob not recognized on older systems
 use File::Temp qw(tempfile);
 use Fcntl;
@@ -22,7 +23,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject FormatVerboseElapsedTime);
-our $Version	= 3.36;
+our $Version	= 3.36.1;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -93,16 +94,20 @@ sub LogOutput {
 	}
 
 	# If we're going to the Syslog, set that up now.
-	if ($Options{SYSLOG_FACILITY}) {
-		if ($^O =~ /^(os2|MSWin32|MacOS)$/) {
+	if ($^O =~ /^(os2|MSWin32|MacOS)$/) {
+		if ($Options{SYSLOG_FACILITY}) {
 			require Sys::Syslog;
 			warn "LogOutput: Syslog is not supported under this operating system.";
 			$Options{SYSLOG_FACILITY}=0;
-		} else {
-			my $options = $Options{SYSLOG_OPTIONS};
-			$options='pid' unless (defined($options));
-			openlog($Options{PROGRAM_NAME},$options,$Options{SYSLOG_FACILITY});
 		}
+	}
+	else {
+		my $options = $Options{SYSLOG_OPTIONS};
+		my $TmpFacility = ($Options{SYSLOG_FACILITY}?$Options{SYSLOG_FACILTY}:'user');
+		$options='pid' unless (defined($options));
+		openlog($Options{PROGRAM_NAME},$options,$TmpFacility);
+		syslog("NOTICE", "LogOutput: %s is running an obsolete version of LogOutput.  Suggest using JobTools::LogOutput instead.", "$RealBin/$RealScript");
+		closelog() unless ($Options{SYSLOG_FACILITY});
 	}
 
 	# Prepare our mail file.
