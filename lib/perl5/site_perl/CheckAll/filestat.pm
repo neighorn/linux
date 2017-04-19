@@ -129,6 +129,7 @@ sub Check {
 		my $Data;
 		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
 			printf "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
+			printf "\r\%5d     ssh command=%s\n", $$,$Cmd if ($Self->Verbose >2);
 			eval("\$Data = `$Cmd`;");
 			$Status =$?;
 			last unless ($@ or $Status != 0);
