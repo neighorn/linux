@@ -1,3 +1,4 @@
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/lib/snapd/)?snapd(\[\d+\])?:\s*(daemon.go:\d+:\s*)?DEBUG:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/lib/snapd/)?snapd(\[\d+\])?:\s*(..../../.. ..:..:..\.\d+\s+)?daemon.go:\d+: started snapd"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/lib/snapd/)?snapd(\[\d+\])?:\s*(..../../.. ..:..:..\.\d+\s+)?main.go:\d+: Exiting on terminated signal.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/lib/snapd/)?snapd(\[\d+\])?:\s*(..../../.. ..:..:..\.\d+\s+)?snapmgr.go:\d+: No snaps to auto-refresh found$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ (/usr/lib/snapd/)?snapd(\[\d+\])?:\s*(daemon.go:\d+:\s*)?DEBUG:"
