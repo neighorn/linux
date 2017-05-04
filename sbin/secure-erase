@@ -252,6 +252,7 @@ foreach my $disk (@Parms) {
 	#			next;
 	#		}
 	#	}
+		$Frozen = '' unless (defined($Frozen));
 		if ($Frozen ne 'not') {
 			if ($Options{force}) {
 				print STDERR "$disk is frozen -- continuing.\n";
