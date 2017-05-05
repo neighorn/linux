@@ -1,0 +1,8 @@
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*------------\S+---------\S+--------\S+----------$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*/dev/\S+: security_password=\"password\"$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*/dev/\S+\s+\S+\s+\d+ \S+"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*Beginning disk erasures.  Estimated completion time is  "
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*Disk\S+Serial #\S+Size\S+Erase Time$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*Please confirm that the following disks should be immediately and permanently wiped of all data:$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*Proceed \(yes/NO\)\?$"
+SHOW	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*/dev/\S+: \d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d Beginning /dev/\S+.  Estimated run time = "
