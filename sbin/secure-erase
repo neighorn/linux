@@ -23,7 +23,7 @@ our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
 
 # Use LogOutput if it's available.
-my $HaveLogOutput = eval 'require LogOutput;';
+my $HaveLogOutput = eval 'require JobTools::LogOutput;';
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -97,7 +97,7 @@ $Options{logfile} = '' unless (exists($Options{logfile}));
 my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 
 if ($HaveLogOutput) {
-	LogOutput->import;
+	JobTools::LogOutput->import;
 	LogOutput({
 		SYSLOG_FACILITY		=> $Syslog,
 		MAIL_FILE		=> $Options{logfile},
