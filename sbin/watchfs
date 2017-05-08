@@ -1,0 +1,592 @@
+#!/usr/bin/perl
+#
+# watchfs - watch a file system and report disk space consumption changes
+#
+use strict;
+use warnings;
+use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
+use Text::ParseWords;
+use POSIX qw(strftime);
+use File::Basename;
+use JobTools::LogOutput;
+use JobTools::Utils qw(:Opt :Lock :ByteSize LoadConfigFiles RunRemote RunDangerousCmd);
+
+# Initialize variables.
+my $Prog=$0;			# Get our name, for messages.
+$Prog=~s/\.pl$|\.bat$//;	# Trim off the suffix, if present.
+$Prog=~s".*[/\\]"";		# Trim off the path, if present.
+$ENV{PATH} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+my @Args=@ARGV;			# Preserve orig command for ref.
+my $ErrorFlag=0;		# No errors so far.
+my @ConfigFiles=("/usr/local/etc/${Prog}.cfg");     # Name of config files.
+our $Errors=0;
+our %Config;
+our @Parms;
+our %Options;			# Options settings.
+JobTools::Utils::init(config => \%Config, options => \%Options);
+
+# Define our command-line options.  I use sub for everything, because
+# GetOptions doesn't work right on a second call to it (which we need
+# to do) with the conventional approach.
+$DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
+my %OptionSpecifications;
+%OptionSpecifications=(
+	'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
+#	'always-mail|m=s'	=>	\&OptArray,
+#	'always-page|p=s'	=>	\&OptArray,
+	'debug|d'		=>	sub {$DB::AutoTrace=1;},
+#	'error-mail|M=s'	=>	\&OptArray,
+#	'error-page|P=s'	=>	\&OptArray,
+#	'filter-file|F=s'	=>	\&OptArray,
+	'help|h|?!'		=>	\&opt_h,
+	'html-file=s'		=>	\&OptValue,
+	'interval|i=i'		=>	\&OptValue,
+	'ma-weight=i'		=>	\&OptValue,
+	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
+	'pid=i'			=>	\&OptArray,
+#	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+	'status-edit=s'		=>	sub {OptArray(@_,'preserve-lists'=>1);},
+	'status-file=s'		=>	\&OptValue,
+	'test|t'		=>	\&OptFlag,
+	'verbose|v'		=>	\&OptFlag,
+);
+our $ExitCode;
+
+my $HostName = `hostname`;
+chomp $HostName;
+$HostName =~ s/\..*$//;		# Strip domain.
+our $BaseDir="/usr/local/backup/$Prog";	# Set our base directory.
+
+# ---------------------------------------------------------
+#
+# Load the config file.
+#
+LoadConfigFiles(files => \@ConfigFiles);
+
+# ---------------------------------------------------------
+#
+# Process the config file defaults if present.
+#
+# Use the default job if it's defined and we didn't get anything on 
+# the command line.
+push @ARGV,(shellwords($Config{DEFAULTJOB}))
+        if (join(' ',@ARGV) =~ /^\s*(\b-[tv]+)*\s*$/ && defined($Config{DEFAULTJOB}));
+
+# Process the config file host defaults and general defaults if present.
+unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
+        if (defined($Config{'ALLJOBS'}));
+
+# ---------------------------------------------------------
+#
+# Process the command line options.
+#
+my @ARGVSave = @ARGV;           # In case we need to reprocess the command line later.
+%Options=(verbose => 0);        # Initialize Options.
+die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
+@ARGV = @ARGVSave;              # Restore @ARGV for LogOutput and second GetOptions.
+
+# ---------------------------------------------------------
+#
+# Set up our logging and output filtering.  -- general purpose script - no logging.
+#
+#LogOutput({
+#	ALWAYS_MAIL_LIST => $Options{'always-mail'},
+#	ERROR_MAIL_LIST => $Options{'error-mail'},
+#	ALWAYS_PAGE_LIST => $Options{'always-page'},
+#	ERROR_PAGE_LIST => $Options{'error-page'},
+#	SYSLOG_FACILITY => 'user',
+#	VERBOSE => ($Options{verbose} >= 5? $Options{verbose}-4:0),
+#	FILTER_FILE => $Options{'filter-file'},
+#});
+
+# ---------------------------------------------------------
+#
+# Verify the command line and run the job.
+#
+die('incorrect parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
+	if (@Parms != 1);
+die(qq<Invalid file system "$Parms[0]" specified.\n>) unless ($Parms[0]);
+$Options{interval} = 300 unless ($Options{interval});
+$Options{'ma-weight'} = 10 unless ($Options{'ma-weight'});
+die(qq[Invalid moving average weight "$Options{'ma-weight'}" - must be between 1 and 99\n]) 
+	unless ($Options{'ma-weight'} > 0 and $Options{'ma-weight'} < 100);
+if (exists($Options{'status-file'})) {
+	if (-r "$Options{'status-file'}") {
+		require File::ReadBackwards;
+	}
+	else {
+		warn qq<Unable to read "$Options{'status-file'}" -- ignored.\n>;
+		delete $Options{'status-file'};
+	}
+}
+
+# ---------------------------------------------------------
+#
+# Run the job.
+#
+#if (exists($Options{remote}) and @{$Options{remote}} > 0) {
+#        unshift @ARGV,$Prog;
+#        push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
+#        $Errors = RunRemote(argv => \@ARGV);
+#}
+#else {
+	$Errors = RunLocally($Config{uc("host=$HostName")});
+#}
+
+# ---------------------------------------------------------
+#
+# Wrap up.
+#
+if ($ExitCode) {
+	warn "$Prog failed.\n";
+} else {
+	#print "$Prog ended normally.\n";
+}
+
+$ExitCode=$Errors?10:0;
+exit($ExitCode);
+
+
+# ---------------------------------------------------------
+#
+# RunLocally - run a sysbackup on this machine.
+#
+sub RunLocally {
+	# ---------------------------------------------------------
+	#
+	# Load any host-specific options
+	#
+	my $HostOptions = shift;
+	if ($HostOptions) {
+		my @Array = quotewords(" ",0,$HostOptions);
+		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
+	}
+
+	my $FS = $Parms[0];
+
+	# Convert any PID list into a hash for easier deletion.
+	my %PIDList;
+	my $CheckPIDs = 0;
+	if (exists($Options{pid}) and @{$Options{pid}}) {
+		$CheckPIDs = 1;
+		foreach (@{$Options{pid}}) {
+			$PIDList{$_}=1;
+		}
+	}
+
+	# ---------------------------------------------------------
+	#
+	# Get the job lock.
+	#
+	#my $Lock = UtilGetLock();
+	#exit 11 unless ($Lock);
+	
+	my @History;			# Last 20 data values
+
+	# Get the initial values
+	my $FSStats = GetFSStats($FS);  # device, 1024b-blocks, %Used, %Avail, Capacity, MountPt
+	$FSStats->{time} = time();
+	push @History, $FSStats;	# Store it for reference on the next pass.
+
+	$FS = $FSStats->{mountpoint};	# Normalize, so /tmp/abc (a file) becomes /tmp.
+
+	while (1) {
+		#
+		# If we have a PID list, see if there are any still running.
+		#
+		if ($CheckPIDs and CheckPIDs(\%PIDList) == 0) {
+			# They're all gone.
+			print "All specified PIDs have terminated.  Exiting.\n";
+			my $TimeStamp = strftime("%Y-%m-%d %T",localtime());
+			my $Message = "$TimeStamp All specified PIDS have terminated.  Exiting $Prog.\n";
+			UpdateHTMLFile(\@History, $Message);
+			return 0;
+		}
+
+		#
+		# Sleep until our next update cycle
+		#
+		my $StartTime = time();
+		my $SleepTime = $Options{interval} - ($StartTime % $Options{interval});
+		$SleepTime = $Options{interval} unless ($SleepTime);	# In case of zero.
+		print "Verbose: Sleeping $SleepTime seconds...\n" if ($Options{verbose});
+		sleep($SleepTime);
+
+		#
+		# Capture new data.
+		#
+		$FSStats = GetFSStats($FS);
+		$FSStats->{time} = time();
+		$FSStats->{timestamp} = strftime("%Y-%m-%d %T",localtime($FSStats->{time}));
+
+		#
+		# Generate our calculated values and store them in history.
+		#
+		$FSStats->{change}	= $FSStats->{used} - $History[-1]->{used};
+		$FSStats->{perhour}	= $FSStats->{change}*3600/($FSStats->{time}-$History[-1]->{time});
+		$History[-1]->{movavg}	= $FSStats->{perhour} unless (defined($History[-1]->{movavg}));		# Handle first pass.
+		$FSStats->{movavg}	= ($History[-1]->{movavg}*(100-$Options{'ma-weight'}) + $FSStats->{perhour}*$Options{'ma-weight'})/100;
+		$FSStats->{usedC}	= CompressByteSize($FSStats->{used});		# Store pretty values so we only calculate them once.
+		$FSStats->{perhourC}	= CompressByteSize($FSStats->{perhour});	# Store pretty values so we only calculate them once.
+		$FSStats->{movavgC}	= CompressByteSize($FSStats->{movavg});	# Store pretty values so we only calculate them once.
+		$FSStats->{status}	= StatusLine() if ($Options{'status-file'});
+		push @History, $FSStats;
+		shift @History if (@History > 20);	# No need to burn up memory needlessly.
+		
+		#
+		# Generate output.
+		#
+		DisplayOutput(\@History);
+		UpdateHTMLFile(\@History);
+
+	}
+
+
+	# ---------------------------------------------------------
+	#
+	# Release the job lock.
+	#
+	#UtilReleaseLock($Lock);
+
+	return 0;
+}
+
+
+# ---------------------------------------------------------
+#
+# CheckPIDs: Check to see if any of our PIDs are still running.
+#
+sub CheckPIDs {
+
+	my $PIDRef = shift;
+	my $Pid;
+	my $Found = 0;
+	foreach (keys(%{$PIDRef})) {
+		if (-e "/proc/$_") {
+			$Found=1;
+			last;
+		}
+		else {
+			# This PID is gone.  Delete from list.
+			delete $PIDRef->{$_};
+		}
+	}
+	return $Found;
+}
+
+
+# ---------------------------------------------------------
+#
+# GetFSStats: Get file system statistics
+#
+sub GetFSStats {
+
+	my $FS = shift;
+	my $DF;
+	my @Stats;
+	if (open($DF,qq[df -P "$FS" |])) {
+		while (<$DF>) {
+			next if (/^Filesystem /);	# Header
+			@Stats = split(/\s+/,$_);
+			print "Verbose: File system stats=" . join(', ',@Stats) . "\n"
+				if ($Options{verbose});
+			last;
+		}
+		close $DF;
+		if (@Stats) {
+			for (1..3) {
+				$Stats[$_] *= 1024;	# Convert kilobytes to bytes.
+			}
+			$Stats[4] =~ s/%$//;		# Remove trailing percent sign.
+			my $ref = {
+				device		=> $Stats[0],
+				size		=> $Stats[1],
+				used		=> $Stats[2],
+				available	=> $Stats[3],
+				percent		=> $Stats[4],
+				mountpoint	=> $Stats[5],
+			};
+			return $ref;
+		}
+		else {
+			die "Unable to gather file system statistics for $FS\n";
+		}
+	}
+	else {
+		die "Unable to start df process: $!\n";
+	}
+}
+
+
+# ---------------------------------------------------------
+#
+# StatusLine: Read and edit the last line of a status file
+#
+sub StatusLine {
+
+	if (! -r $Options{'status-file'}) {
+		warn "Unable to read $Options{'status-file'}.  Will ignore this file.\n";
+		delete $Options{'status-file'};
+		return '';
+	}
+	my $Handle = File::ReadBackwards->new ($Options{'status-file'});
+	if (!defined($Handle)) {
+		warn "Unable to open $Options{'status-file'}: $!.  Will ignore this file.\n";
+		delete $Options{'status-file'};
+		return '';
+	}
+	my $StatusLine;
+	while ( defined( $StatusLine = $Handle->readline ) ) {
+		$StatusLine =~ s/[\s\r\n]*$//;	# Trim off one or more end of line marks and spaces.
+		last if ($StatusLine);		# Stop when we find a non-blank line.
+	}
+	$StatusLine = '' unless (defined($StatusLine));
+	$Handle->close;
+
+	return $StatusLine unless (exists($Options{'status-edit'}));	# Done, unless edits present.
+
+	for my $Index (0..$#{$Options{'status-edit'}}) {
+		my $Edit = $Options{'status-edit'}->[$Index];
+		next unless (defined($Edit));
+		if ($Edit !~ /^s/) {
+			warn qq<Invalid status-edit "$Edit" - not a substitute command.  Ignored.\n>;
+			$Options{'status-edit'}->[$Index]=undef;	# Mark for skipping.
+			next;
+		}
+		my $Cmd = "\$StatusLine =~ $Edit;";
+		my $Status = eval $Cmd;
+		if (!defined($Status)) {
+			# Eval failed.
+			warn qq<Invalid status-edit "$Edit" - Eval failed with $@.  Will skip this edit.\n>;
+			$Options{'status-edit'}->[$Index]=undef;	# Mark for skipping.
+			next;
+		}
+	}
+	return $StatusLine;
+}
+
+
+# ---------------------------------------------------------
+#
+# DisplayOutput: Display the current values.
+#
+sub DisplayOutput {
+	my $HistRef = shift;	
+
+	my $Output = sprintf("%s used: %6s, change: %6s/hr, m.avg: %6s/hr",
+		$HistRef->[-1]->{timestamp},
+		$HistRef->[-1]->{usedC},
+		$HistRef->[-1]->{perhourC},
+		$HistRef->[-1]->{movavgC},
+	);
+	
+	$Output .= $HistRef->[-1]->{status} if (exists($HistRef->[-1]->{status}));
+	print "$Output\n";
+}
+
+
+# ---------------------------------------------------------
+#
+# UpdateHTMLFile: Update the optional HTML file.
+#
+sub UpdateHTMLFile {
+
+	my($HistRef,$Message) = @_;
+
+	my $FS = $HistRef->[-1]->{mountpoint};
+
+	if (exists($Options{'html-file'}) and $Options{'html-file'}) {
+		my $HTMLFILE;
+		if (open($HTMLFILE,'>', $Options{'html-file'})) {
+			print $HTMLFILE <<ENDHTMLPREFACE;
+<HTML>
+<HEAD>
+<TITLE >$FS status</TITLE>
+<META HTTP-EQUIV="Refresh" CONTENT="60">
+</HEAD>
+<BODY>
+<H2>
+$FS status as of $HistRef->[-1]->{timestamp}
+</H2>
+<pre>
+ENDHTMLPREFACE
+			
+			foreach my $Index (0..$#$HistRef) {
+				print $HTMLFILE "<b>" if ($Index == $#{$HistRef});
+				print $HTMLFILE $HistRef->[$Index];
+				print $HTMLFILE "</b>" if ($Index == $#{$HistRef});
+				print $HTMLFILE "\n";
+			}
+			print $HTMLFILE "<br><b>$Message</b>\n" if ($Message);
+			print $HTMLFILE "</pre>\n</BODY>\n</HTML>\n";
+			close $HTMLFILE;
+		}
+		else {
+			warn "Unable to open $Options{'html-file'}: $!\n";
+			delete $Options{'html-file'};	# Don't try this one again.
+			close $HTMLFILE;
+		}
+	}
+}
+
+
+
+# ---------------------------------------------------------
+#
+# opt_h: Usage
+#
+sub opt_h {
+
+	use FindBin qw($RealBin $RealScript);
+
+	system(qq<pod2text $RealBin/$RealScript | sed "s/%Prog/$Prog/g" | more>);
+exit 1;
+}
+
+=pod
+
+=head1 %Prog - Watch changes in a file system's disk space consumption
+
+=head3 Overview:
+
+%Prog watches a file system via "df" and reports disk usage changes at 
+regular intervals.  It also calculates moving averages to indicate
+the rate at which the file system usage is changing.  Optionally, it
+can write the most recent reports to an HTML-formatted file, suitable
+for viewing via a web browser.  Optionally, it can read the last 
+non-blank line of a specified file and include that line in its
+report.  The specified file is usually some sort of log file that
+is reporting on the progress of a back-up or other job that is 
+heavily using the target file system.
+
+=head3 Usage:  
+        %Prog [flag1 ...] mountpoint
+
+        %Prog -h
+
+=head3 Options:
+	--html-file=file:	Write status information to "file" in
+				HTML.  The default is to not write an
+				HTML file.
+	--interval|-i sec	Update the status every "sec" seconds.
+				Default is 300 seconds (5 minutes).
+	--ma-weight=weight	Weighting factor to use in calculating
+				the moving average.  "weight" ranges
+				between 1 and 99, and represents the
+				percent of the moving average provided
+				by the most recent value.  Larger values
+				mean the moving average changes much
+				more quickly.  Smaller numbers smooth
+				out short spikes in values.
+        --option-set|-O config: Insert the "config" configuration options
+                                from /usr/local/etc/%Prog.cfg
+                                into the command line at this point.
+        --pid=pid		PID: Exit when the specified PID has
+				terminated.  May be repeated, in which
+				case %Prog continues to run as long as
+				at least one PID is running.  The
+				default is to run forever.
+	--status-file=file	Status file: Gather supplemental status 
+				information from file.  On each report,
+				%Prog will read the last non-blank line
+				of "file" and append it to the output. "File"
+				is typically the log file of some process
+				(like a back-up) that is writing to the
+				target file system.
+	--status-edit=edit	Edit: Make the following edit to the line
+				from the status file before presenting it.
+				"Edit" is a PERL substitute command, and 
+				this whole option often needs to be quoted
+				in single quotes to preserve backslashes,
+				asterisks, etc.  Example:
+				'--status-edit=s/^\s*Jones Company\s*//'
+				Removes "Jones Company" and any 
+				surrounding white space from the beginning
+				of the status line.
+        --test|-t:              Test: echo commands instead of running them.
+        --verbose|-v:           Verbose: echo commands before running them.
+				May be used multiple times to increase verbosity.
+        --help|-h:              Help: display this panel
+
+=head3 Parameters:
+        mountpoint:		The path of the mount point to monitor.
+
+=head3 Examples:
+
+	%Prog /data		# Report the disk space used in /data
+				# every 5 minutes.
+	
+	%Prog /data --interval=600	# Report every 10 minutes.
+
+	%Prog /data --pid=4703		# Report until PID 4703 terminates
+
+	%Prog /data --html-file=/var/www/html/datastats.html
+				# Report, and also write an HTML readable
+				# report
+
+	%Prog /data --status-file=/var/log/backup.log
+				# Include the last non-blank line of backup.log
+				# in the report.
+
+=head3 Configuration files
+
+
+Configuration data may be loaded from the configuration files.  These files
+form key-value pairs that $Prog may reference.  The syntax of the file is:
+
+        name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.
+
+Several "names" are reserved, as follows:
+
+=over
+
+=item *
+Alljobs: any value listed here is prepended to the command line before
+command line processing begins.  This permits default options to be
+set.
+
+=item *
+Defaultjob: any value listed here is used as the command line if no
+command line options are specified.
+
+=item *
+Include: any value here is treated as another configuration file, which
+is loaded immediately.
+
+=back
+
+=head3 Return codes:
+        0       :       Normal termination
+        1       :       Help panel displayed.
+        2       :       Invalid or unrecognized command line options.
+        3       :       Invalid or unrecognized command line option value.
+        4       :       Incorrect command line parameters.
+        5       :       Unexpected message found in output.
+
+
+=head3 Notes:
+
+=cut
+
+__END__
+#
+# ---------------------------------------------------------
+# See LogOutput.pm for an explanation of output filtering.
+IGNORE	"^\s*(\S+:\s*)?$"
+IGNORE	"^\s*(\S+:\s*)?\S+:\s+Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+IGNORE	"^\s*\S+:\s*\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+IGNORE	"^\s*\S+:\s*\S+:\s+\S+ ended normally with status 0 and signal 0"
+IGNORE	"^\s*\S+:\s+\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+IGNORE	"^\s*\S+:\s+Command: "
+LOGONLY "^\s*\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"
+LOGONLY "^\s*Command: "
+SHOW	"^\s*(\S+:\s*)?(Test|Executing|Verbose|debug):"
+SHOW	"^\s*(\S+:\s*)?Starting \S+ at \d+:\d+:\d+ on \S+, \d\d\d\d-\d\d-\d\d...\s*$"
+SHOW	"^\s*\S+ ended normally with status 0 and signal 0$"
+SHOW	"^\s*\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
+SHOW	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =   0, signal =   0, run time = "
