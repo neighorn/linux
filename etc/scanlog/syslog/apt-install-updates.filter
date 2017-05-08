@@ -73,6 +73,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Unknown media type in type"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Unpacking "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?update-binfmts: warning: \S+ already enabled in kernel.$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?update-alternatives: using \S+ to provide"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?update-initramfs: deferring update \(trigger activated\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?update-initramfs: Deleting"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?update-initramfs: Generating "
