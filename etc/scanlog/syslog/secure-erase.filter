@@ -1,5 +1,3 @@
--> May  4 19:17:25 ida secure-erase[32252]:    ------------  ---------  --------  ----------
-
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*------------\s+---------\s+--------\s+----------$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*/dev/\S+: security_password=\"password\"$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ secure-erase(\[\d+\])?:\s*/dev/\S+\s+\S+\s+\d+ \S+"

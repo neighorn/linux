@@ -6,6 +6,7 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?Job e
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?Test: "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?\d+ bytes(\s*\(.*\))? copied, "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?ls: cannot access /usr/local/backup/mii20/\[01\]\[0-9\]-\[0-3\]\[0-9\]: No such file or directory$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?Remote job ended at ..:..:.., return code =   0, signal =   0, run time ="
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?sysbackup started on "
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?tar: .+ file changed as we read it$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ sysbackup(\[\d+\])?:\s*(\S+:\s*)?tar: .+ socket ignored$"
