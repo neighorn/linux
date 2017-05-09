@@ -385,7 +385,7 @@ sub DisplayOutput {
 		$HistRef->[-1]->{movavgC},
 	);
 	
-	$Output .= $HistRef->[-1]->{status} if (exists($HistRef->[-1]->{status}));
+	$Output .= ' status:' . $HistRef->[-1]->{status} if (exists($HistRef->[-1]->{status}));
 	print "$Output\n";
 }
 
