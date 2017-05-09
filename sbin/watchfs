@@ -186,6 +186,11 @@ sub RunLocally {
 	# Get the initial values
 	my $FSStats = GetFSStats($FS);  # device, 1024b-blocks, %Used, %Avail, Capacity, MountPt
 	$FSStats->{time} = time();
+	$FSStats->{timestamp} = strftime("%Y-%m-%d %T",localtime($FSStats->{time}));
+	$FSStats->{usedC} = CompressByteSize($FSStats->{used});
+	$FSStats->{perhourC} = '----';
+	$FSStats->{movavgC} = '----';
+	$FSStats->{status} = '' if ($Options{'status-file'});
 	push @History, $FSStats;	# Store it for reference on the next pass.
 
 	$FS = $FSStats->{mountpoint};	# Normalize, so /tmp/abc (a file) becomes /tmp.
@@ -410,11 +415,16 @@ $FS status as of $HistRef->[-1]->{timestamp}
 </H2>
 <pre>
 ENDHTMLPREFACE
-			
-			foreach my $Index (0..$#$HistRef) {
+			foreach my $Index (0..$#{$HistRef}) {
 				print $HTMLFILE "<b>" if ($Index == $#{$HistRef});
-				print $HTMLFILE $HistRef->[$Index];
-				print $HTMLFILE "</b>" if ($Index == $#{$HistRef});
+				print $HTMLFILE 
+					$HistRef->[$Index]->{timestamp}
+					." used: " . $HistRef->[$Index]->{usedC}
+					." change: " . $HistRef->[$Index]->{perhourC} . '/hr'
+					." m.avg: " . $HistRef->[$Index]->{movavgC} . '/hr'
+				;
+				print $HTMLFILE " status: " . $HistRef->[$Index]->{status}
+					if (exists($HistRef->[0]->{status}));
 				print $HTMLFILE "\n";
 			}
 			print $HTMLFILE "<br><b>$Message</b>\n" if ($Message);
