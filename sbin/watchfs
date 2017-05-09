@@ -424,7 +424,7 @@ sub UpdateHTMLFile {
 <H2>
 $FS status as of $HistRef->[-1]->{timestamp}
 </H2>
-<table style="font-family: monospace;font-size: x-small">
+<table style="font-family: monospace;font-size: small">
 ENDHTMLPREFACE
 		# Generate the table headings.
 		my $Output = '<tr>';
