@@ -78,6 +78,7 @@ is(CompressByteSize(1024**3*100),'100.0G','CompressByteSize(1024^3*100)');
 is(CompressByteSize(1024**4*1),'1.0T','CompressByteSize(1024^4*1)');
 is(CompressByteSize(1024**4*10),'10.0T','CompressByteSize(1024^4*10)');
 is(CompressByteSize(1024**4*100),'100.0T','CompressByteSize(1024^4*100)');
+is(CompressByteSize(-1024**4*100),'-100.0T','CompressByteSize(-1024^4*100)');
 is(CompressByteSize(Value=>999,Conversion=>1000),'999.0B','CompressByteSize(Value=>999,Conversion=>1000)');
 is(CompressByteSize(Value=>1000,Conversion=>1000),'1.0K','CompressByteSize(Value=>1000,Conversion=>1000)');
 is(CompressByteSize(Value=>1000,Conversion=>1000),'1.0K','CompressByteSize(Value=>1000,Conversion=>1000)');

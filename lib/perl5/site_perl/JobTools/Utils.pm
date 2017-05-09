@@ -143,6 +143,10 @@ sub CompressByteSize {
 
 	my $Conversion = (exists($Hash{Conversion})?$Hash{Conversion}:1024);	# Default to 1024
 
+	# Preserve the sign, then remove it temporarily.
+	my $Sign = ($Value <=> 0);
+	$Value *= $Sign;	
+
 	my $UnitsRemaining = $BYTESIZE_UNITS;
 	$UnitsRemaining =~ m/^(.)(.*)$/;
 	my $Unit=$1;
@@ -152,6 +156,7 @@ sub CompressByteSize {
 		$Value /= $Conversion;
 	}
 	$Hash{Format}='%.1f%s' unless ($Hash{Format});
+	$Value *= $Sign;	# Restore the sign.
 	return sprintf($Hash{Format},$Value,$Unit);
 }
 
