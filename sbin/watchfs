@@ -8,7 +8,6 @@ use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
 use File::Basename;
-use JobTools::LogOutput;
 use JobTools::Utils qw(:Opt :Lock :ByteSize LoadConfigFiles RunRemote RunDangerousCmd);
 
 # Initialize variables.
@@ -23,6 +22,7 @@ our $Errors=0;
 our %Config;
 our @Parms;
 our %Options;			# Options settings.
+my @History;			# Last 20 data values
 JobTools::Utils::init(config => \%Config, options => \%Options);
 
 # Define our command-line options.  I use sub for everything, because
@@ -181,7 +181,6 @@ sub RunLocally {
 	#my $Lock = UtilGetLock();
 	#exit 11 unless ($Lock);
 	
-	my @History;			# Last 20 data values
 
 	# Get the initial values
 	my $FSStats = GetFSStats($FS);  # device, 1024b-blocks, %Used, %Avail, Capacity, MountPt
@@ -403,12 +402,12 @@ sub UpdateHTMLFile {
 
 	# Build a list of fields and headings to display
 	my @Fields = (
-		{heading => '',		field => 'timestamp',	suffix => ''},
-		{heading => 'used',	field => 'usedC',	suffix => '/hr'}, 
-		{heading => 'change',	field => 'perhourC',	suffix => '/hr'}, 
-		{heading => 'm.avg',	field => 'movavgC',	suffix => '/hr'}, 
+		{heading => '',		field => 'timestamp',	suffix => '',		align => 'right'},
+		{heading => 'used',	field => 'usedC',	suffix => '/hr',	align => 'right'}, 
+		{heading => 'change',	field => 'perhourC',	suffix => '/hr',	align => 'right'}, 
+		{heading => 'm.avg',	field => 'movavgC',	suffix => '/hr',	align => 'right'}, 
 	);
-	push @Fields, {heading => 'status', field => 'status', suffix => ''}
+	push @Fields, {heading => 'status', field => 'status', suffix => '',		align => 'left'}
 		if (exists($Options{'status-file'}));
 
 	my $FS = $HistRef->[-1]->{mountpoint};
@@ -425,24 +424,40 @@ sub UpdateHTMLFile {
 <H2>
 $FS status as of $HistRef->[-1]->{timestamp}
 </H2>
-<pre>
+<table style="font-family: monospace;font-size: x-small">
 ENDHTMLPREFACE
+		# Generate the table headings.
+		my $Output = '<tr>';
+		foreach (@Fields) {
+			$Output .=
+				'<td align="'
+				. $_->{align}
+				. '">'
+				. $_->{heading}
+				. '</td>';
+		}
+		$Output .= "</tr>";
+		print $HTMLFILE "$Output\n";
+			
+		# Generate data records.
 		foreach my $Index (0..$#{$HistRef}) {
-			my $Output = '';
-			$Output .= '<b>' if ($Index == $#{$HistRef});
+			my $Output = '<tr'
+				. ($Index == $#{$HistRef}?' style="font-weight:bold"':'')
+				. '>';
 			foreach (@Fields) {
-				$Output .= $_->{heading} . ': '
-					if ($_->{heading});
-				$Output .= $HistRef->[$Index]->{$_->{field}};
-				$Output .= $_->{suffix}
-					if ($_->{suffix});
-				$Output .= ' ';
+				$Output .=
+					'<td align="'
+					. $_->{align}
+					. '">&nbsp;'
+					. $HistRef->[$Index]->{$_->{field}}
+					. '&nbsp;</td>'
+				;
 			}
-			$Output .= '</b>' if ($Index == $#{$HistRef});
+			$Output .= '</tr>';
 			print $HTMLFILE "$Output\n";
 		}
 		print $HTMLFILE "<br><b>$Message</b>\n" if ($Message);
-		print $HTMLFILE "</pre>\n</BODY>\n</HTML>\n";
+		print $HTMLFILE "</table>\n</BODY>\n</HTML>\n";
 		close $HTMLFILE;
 	}
 	else {
@@ -451,7 +466,6 @@ ENDHTMLPREFACE
 		close $HTMLFILE;
 	}
 }
-
 
 
 # ---------------------------------------------------------
