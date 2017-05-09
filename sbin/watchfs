@@ -396,14 +396,26 @@ sub DisplayOutput {
 #
 sub UpdateHTMLFile {
 
+	# Leave unless they asked for an HTML file.
+	return unless (exists($Options{'html-file'}) and $Options{'html-file'});
+
 	my($HistRef,$Message) = @_;
+
+	# Build a list of fields and headings to display
+	my @Fields = (
+		{heading => '',		field => 'timestamp',	suffix => ''},
+		{heading => 'used',	field => 'usedC',	suffix => '/hr'}, 
+		{heading => 'change',	field => 'perhourC',	suffix => '/hr'}, 
+		{heading => 'm.avg',	field => 'movavgC',	suffix => '/hr'}, 
+	);
+	push @Fields, {heading => 'status', field => 'status', suffix => ''}
+		if (exists($Options{'status-file'}));
 
 	my $FS = $HistRef->[-1]->{mountpoint};
 
-	if (exists($Options{'html-file'}) and $Options{'html-file'}) {
-		my $HTMLFILE;
-		if (open($HTMLFILE,'>', $Options{'html-file'})) {
-			print $HTMLFILE <<ENDHTMLPREFACE;
+	my $HTMLFILE;
+	if (open($HTMLFILE,'>', $Options{'html-file'})) {
+		print $HTMLFILE <<ENDHTMLPREFACE;
 <HTML>
 <HEAD>
 <TITLE >$FS status</TITLE>
@@ -415,27 +427,28 @@ $FS status as of $HistRef->[-1]->{timestamp}
 </H2>
 <pre>
 ENDHTMLPREFACE
-			foreach my $Index (0..$#{$HistRef}) {
-				print $HTMLFILE "<b>" if ($Index == $#{$HistRef});
-				print $HTMLFILE 
-					$HistRef->[$Index]->{timestamp}
-					." used: " . $HistRef->[$Index]->{usedC}
-					." change: " . $HistRef->[$Index]->{perhourC} . '/hr'
-					." m.avg: " . $HistRef->[$Index]->{movavgC} . '/hr'
-				;
-				print $HTMLFILE " status: " . $HistRef->[$Index]->{status}
-					if (exists($HistRef->[0]->{status}));
-				print $HTMLFILE "\n";
+		foreach my $Index (0..$#{$HistRef}) {
+			my $Output = '';
+			$Output .= '<b>' if ($Index == $#{$HistRef});
+			foreach (@Fields) {
+				$Output .= $_->{heading} . ': '
+					if ($_->{heading});
+				$Output .= $HistRef->[$Index]->{$_->{field}};
+				$Output .= $_->{suffix}
+					if ($_->{suffix});
+				$Output .= ' ';
 			}
-			print $HTMLFILE "<br><b>$Message</b>\n" if ($Message);
-			print $HTMLFILE "</pre>\n</BODY>\n</HTML>\n";
-			close $HTMLFILE;
+			$Output .= '</b>' if ($Index == $#{$HistRef});
+			print $HTMLFILE "$Output\n";
 		}
-		else {
-			warn "Unable to open $Options{'html-file'}: $!\n";
-			delete $Options{'html-file'};	# Don't try this one again.
-			close $HTMLFILE;
-		}
+		print $HTMLFILE "<br><b>$Message</b>\n" if ($Message);
+		print $HTMLFILE "</pre>\n</BODY>\n</HTML>\n";
+		close $HTMLFILE;
+	}
+	else {
+		warn "Unable to open $Options{'html-file'}: $!\n";
+		delete $Options{'html-file'};	# Don't try this one again.
+		close $HTMLFILE;
 	}
 }
 
