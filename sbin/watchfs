@@ -187,8 +187,8 @@ sub RunLocally {
 	$FSStats->{time} = time();
 	$FSStats->{timestamp} = strftime("%Y-%m-%d %T",localtime($FSStats->{time}));
 	$FSStats->{usedC} = CompressByteSize($FSStats->{used});
-	$FSStats->{perhourC} = '----';
-	$FSStats->{movavgC} = '----';
+	$FSStats->{perhourC} = '-----';
+	$FSStats->{movavgC} = '-----';
 	$FSStats->{status} = '' if ($Options{'status-file'});
 	push @History, $FSStats;	# Store it for reference on the next pass.
 
@@ -384,7 +384,7 @@ sub DisplayOutput {
 		$HistRef->[-1]->{movavgC},
 	);
 	
-	$Output .= ' status:' . $HistRef->[-1]->{status} if (exists($HistRef->[-1]->{status}));
+	$Output .= ' status: ' . $HistRef->[-1]->{status} if (exists($HistRef->[-1]->{status}));
 	print "$Output\n";
 }
 
@@ -432,9 +432,9 @@ ENDHTMLPREFACE
 			$Output .=
 				'<td align="'
 				. $_->{align}
-				. '">'
+				. '">&nbsp;'
 				. $_->{heading}
-				. '</td>';
+				. '&nbsp;</td>';
 		}
 		$Output .= "</tr>";
 		print $HTMLFILE "$Output\n";
@@ -450,6 +450,7 @@ ENDHTMLPREFACE
 					. $_->{align}
 					. '">&nbsp;'
 					. $HistRef->[$Index]->{$_->{field}}
+					. $_->{suffix}
 					. '&nbsp;</td>'
 				;
 			}
