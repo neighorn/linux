@@ -187,10 +187,12 @@ sub RunLocally {
 	$FSStats->{time} = time();
 	$FSStats->{timestamp} = strftime("%Y-%m-%d %T",localtime($FSStats->{time}));
 	$FSStats->{usedC} = CompressByteSize($FSStats->{used});
-	$FSStats->{perhourC} = '-----';
-	$FSStats->{movavgC} = '-----';
+	$FSStats->{perhourC} = '---.--';
+	$FSStats->{movavgC} = '---.--';
 	$FSStats->{status} = '' if ($Options{'status-file'});
 	push @History, $FSStats;	# Store it for reference on the next pass.
+	DisplayOutput(\@History);
+	UpdateHTMLFile(\@History);
 
 	$FS = $FSStats->{mountpoint};	# Normalize, so /tmp/abc (a file) becomes /tmp.
 
@@ -457,8 +459,9 @@ ENDHTMLPREFACE
 			$Output .= '</tr>';
 			print $HTMLFILE "$Output\n";
 		}
+		print $HTMLFILE "</table>\n";
 		print $HTMLFILE "<br><b>$Message</b>\n" if ($Message);
-		print $HTMLFILE "</table>\n</BODY>\n</HTML>\n";
+		print $HTMLFILE "</BODY>\n</HTML>\n";
 		close $HTMLFILE;
 	}
 	else {
