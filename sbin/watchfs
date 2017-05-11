@@ -8,7 +8,7 @@ use Getopt::Long qw(GetOptionsFromArray :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
 use File::Basename;
-use JobTools::Utils qw(:Opt :Lock :ByteSize LoadConfigFiles RunRemote RunDangerousCmd);
+use JobTools::Utils qw(:Opt :Lock :ByteSize LoadConfigFiles FormatElapsedTime);
 
 # Initialize variables.
 my $Prog=$0;			# Get our name, for messages.
@@ -43,10 +43,12 @@ my %OptionSpecifications;
 	'interval|i=i'		=>	\&OptValue,
 	'ma-weight=i'		=>	\&OptValue,
 	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
-	'pid=i'			=>	\&OptArray,
+	'pid=s'			=>	\&OptArray,
 #	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 	'status-edit=s'		=>	sub {OptArray(@_,'preserve-lists'=>1);},
 	'status-file=s'		=>	\&OptValue,
+	'target-used=s'		=>	\&OptValue,
+	'target-change=s'	=>	\&OptValue,
 	'test|t'		=>	\&OptFlag,
 	'verbose|v'		=>	\&OptFlag,
 );
@@ -167,13 +169,36 @@ sub RunLocally {
 	# Convert any PID list into a hash for easier deletion.
 	my %PIDList;
 	my $CheckPIDs = 0;
+	my @InvalidPIDs;
 	if (exists($Options{pid}) and @{$Options{pid}}) {
 		$CheckPIDs = 1;
 		foreach (@{$Options{pid}}) {
-			$PIDList{$_}=1;
+			if (/^\d+$/) {
+				$PIDList{$_}=1;
+			}
+			else {
+				push @InvalidPIDs, $_;
+			}
 		}
 	}
+	warn "Warning: ignorning invalid PID(s) specified with --pid: " . join(', ',@InvalidPIDs) . "\n"
+		if (@InvalidPIDs);
 
+	# Validate --target-used and --target-changed, then convert to bytes.
+	foreach (qw(target-used target-change)) {
+		if (exists($Options{$_})) {
+			my $TargetBytes = ExpandByteSize($Options{$_});	# Convert to bytes.
+			if (!defined($TargetBytes) or $TargetBytes <= 0) {
+				warn "Ignoring invalid --$_ value: $Options{$_}\n";
+				delete $Options{$_};
+			}
+			else {
+				$Options{$_} = $TargetBytes;
+			}
+		}
+	}
+	
+		
 	# ---------------------------------------------------------
 	#
 	# Get the job lock.
@@ -184,12 +209,16 @@ sub RunLocally {
 
 	# Get the initial values
 	my $FSStats = GetFSStats($FS);  # device, 1024b-blocks, %Used, %Avail, Capacity, MountPt
+	$Options{'target-used'} = $FSStats->{used} + $Options{'target-change'}
+		if ($Options{'target-change'});
 	$FSStats->{time} = time();
 	$FSStats->{timestamp} = strftime("%Y-%m-%d %T",localtime($FSStats->{time}));
 	$FSStats->{usedC} = CompressByteSize($FSStats->{used});
-	$FSStats->{perhourC} = '---.--';
-	$FSStats->{movavgC} = '---.--';
+	$FSStats->{perhourC} = '--.--';
+	$FSStats->{movavgC} = '--.--';
+	$FSStats->{eta} = '--:--' if ($Options{'target-used'});
 	$FSStats->{status} = '' if ($Options{'status-file'});
+	
 	push @History, $FSStats;	# Store it for reference on the next pass.
 	DisplayOutput(\@History);
 	UpdateHTMLFile(\@History);
@@ -234,7 +263,8 @@ sub RunLocally {
 		$FSStats->{movavg}	= ($History[-1]->{movavg}*(100-$Options{'ma-weight'}) + $FSStats->{perhour}*$Options{'ma-weight'})/100;
 		$FSStats->{usedC}	= CompressByteSize($FSStats->{used});		# Store pretty values so we only calculate them once.
 		$FSStats->{perhourC}	= CompressByteSize($FSStats->{perhour});	# Store pretty values so we only calculate them once.
-		$FSStats->{movavgC}	= CompressByteSize($FSStats->{movavg});	# Store pretty values so we only calculate them once.
+		$FSStats->{movavgC}	= CompressByteSize($FSStats->{movavg});		# Store pretty values so we only calculate them once.
+		$FSStats->{eta}		= ETA($Options{'target-used'} - $FSStats->{used}, $FSStats->{movavg}) if ($Options{'target-used'});
 		$FSStats->{status}	= StatusLine() if ($Options{'status-file'});
 		push @History, $FSStats;
 		shift @History if (@History > 20);	# No need to burn up memory needlessly.
@@ -326,6 +356,25 @@ sub GetFSStats {
 
 # ---------------------------------------------------------
 #
+# ETA: Calculate our ETA to meet the target used space
+#
+sub ETA {
+
+	my($Remaining,$MovAvg) = @_;
+	return '--:--' if (($Remaining <=> 0) != ($MovAvg <=> 0));	# Going wrong direction.
+
+	$MovAvg /= 3600;			# Convert bytes/hrs back to seconds
+	my $RemSec = $Remaining/$MovAvg;
+	my $ETA = time() + $RemSec;
+	my $ETAFormatted = strftime('%Y-%m-%d %H:%M:%S',localtime($ETA));
+	my @time = localtime();
+	$ETAFormatted =~ s/^....-..-.. //	# Remove date if it's before midnight.
+		if (($time[2]*3600 + $time[1] *60 + $time[0] + $RemSec) < 86400);
+	return $ETAFormatted;
+}
+
+# ---------------------------------------------------------
+#
 # StatusLine: Read and edit the last line of a status file
 #
 sub StatusLine {
@@ -386,6 +435,7 @@ sub DisplayOutput {
 		$HistRef->[-1]->{movavgC},
 	);
 	
+	$Output .= ' ETA: ' . $HistRef->[-1]->{eta} if (exists($HistRef->[-1]->{eta}));
 	$Output .= ' status: ' . $HistRef->[-1]->{status} if (exists($HistRef->[-1]->{status}));
 	print "$Output\n";
 }
@@ -409,7 +459,11 @@ sub UpdateHTMLFile {
 		{heading => 'change',	field => 'perhourC',	suffix => '/hr',	align => 'right'}, 
 		{heading => 'm.avg',	field => 'movavgC',	suffix => '/hr',	align => 'right'}, 
 	);
-	push @Fields, {heading => 'status', field => 'status', suffix => '',		align => 'left'}
+	push @Fields,
+		{heading => 'ETA',	field => 'eta',		suffix => '',		align => 'left'}
+			if (exists($Options{'target-used'}));
+	push @Fields,
+		{heading => 'status',	field => 'status',	suffix => '',		align => 'left'}
 		if (exists($Options{'status-file'}));
 
 	my $FS = $HistRef->[-1]->{mountpoint};
@@ -544,6 +598,17 @@ heavily using the target file system.
 				Removes "Jones Company" and any 
 				surrounding white space from the beginning
 				of the status line.
+	--target-change=value	Estimate time when the used space in the 
+				file system will increase or decrease by the
+				specified amount from the space used at the
+				start of %Prog.  Amount may be in bytes
+				(default), or suffixed by k, m, g, or t
+				(case-insensitive).  
+	--target-used=value	Estimate time when the file system will
+				reach the specified amount.  Amount may be
+				in bytes (default), or suffixed by k, m, g,
+				or t (case-insensitive).  --target-change 
+				overrides --target-used.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
 				May be used multiple times to increase verbosity.
