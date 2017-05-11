@@ -107,7 +107,7 @@ die('incorrect parameters on the command line: "' . join(' ',@Parms) . "\" See \
 	if (@Parms != 1);
 die(qq<Invalid file system "$Parms[0]" specified.\n>) unless ($Parms[0]);
 $Options{interval} = 300 unless ($Options{interval});
-$Options{'ma-weight'} = 10 unless ($Options{'ma-weight'});
+$Options{'ma-weight'} = 5 unless ($Options{'ma-weight'});
 die(qq[Invalid moving average weight "$Options{'ma-weight'}" - must be between 1 and 99\n]) 
 	unless ($Options{'ma-weight'} > 0 and $Options{'ma-weight'} < 100);
 if (exists($Options{'status-file'})) {
@@ -405,7 +405,7 @@ sub UpdateHTMLFile {
 	# Build a list of fields and headings to display
 	my @Fields = (
 		{heading => '',		field => 'timestamp',	suffix => '',		align => 'right'},
-		{heading => 'used',	field => 'usedC',	suffix => '/hr',	align => 'right'}, 
+		{heading => 'used',	field => 'usedC',	suffix => '',		align => 'right'}, 
 		{heading => 'change',	field => 'perhourC',	suffix => '/hr',	align => 'right'}, 
 		{heading => 'm.avg',	field => 'movavgC',	suffix => '/hr',	align => 'right'}, 
 	);
@@ -518,7 +518,7 @@ heavily using the target file system.
 				by the most recent value.  Larger values
 				mean the moving average changes much
 				more quickly.  Smaller numbers smooth
-				out short spikes in values.
+				out spikes in values.  Default is 5.
         --option-set|-O config: Insert the "config" configuration options
                                 from /usr/local/etc/%Prog.cfg
                                 into the command line at this point.
