@@ -38,7 +38,7 @@ my %OptionSpecifications;
 	'always-page|p=s'	=>	\&OptArray,
 	'check-is-error|C'	=>	\&OptFlag,
 	'debug|d'		=>	sub {$DB::AutoTrace=1;},
-	'devices|D'		=>	\&OptFlag,
+	'devices|D!'		=>	\&OptFlag,
 	'error-mail|M=s'	=>	\&OptArray,
 	'error-page|P=s'	=>	\&OptArray,
 	'filter-file|F=s'	=>	\&OptArray,

@@ -2,6 +2,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: (bytecode|daily|main)
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: (daily|main)\.(cld|cvd|inc) is up to date"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: (WARNING: )?getfile: \S+.cdiff not found on "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: (WARNING: )?getfile: Error while reading database from \S+ \(IP: \S+\): Operation now in progress$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: (WARNING: )?getpatch: Can't download \S+\.cdiff from \S+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: .* is up to date"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: ClamAV update process started at"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ freshclam\[\d+\]: ClamAV update process started at"
