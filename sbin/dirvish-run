@@ -47,9 +47,9 @@ our $MaxVaultLength=0;			# Length of longest vault name, for formatting.
 our @Banks;				# List of banks, from the config file.
 our $CurrentMachine=0;			# nth machine being processed.
 our $TotalMachines=0;			# How many machines will we back up?
-our %MachinesDone;			# Hash of machines we did, so we don't try them twice.
 our %ExcludeVaults;			# Hash of values provided by --exclude-vaults=xxx
 our @Skipped;				# List of skipped machines.
+our %JobDefs;				# Job definitions (target, options, sequence, etc.).
 JobTools::Utils::init(config => \%Config, options => \%Options);
 
 # Define our command-line options.  I use sub for everything, because
@@ -84,6 +84,8 @@ my %OptionSpecifications;
 	'rename-vault=s'	=>	\&OptValue,
 	'rerun|R:1'		=>	\&OptFlag,
 	'sectionlockfile=s'	=>	\&OptSectionLockFile,
+	'seq-default=i'		=>	\&OptValue,
+	'seq-priority|seq-priorities=s'	=>	\&OptValue,
 	'subject|N=s'		=>	\&OptValue,
 	'statfile=s'		=>	\&OptValue,
 	'test|t!'		=>	\&OptFlag,
@@ -242,16 +244,50 @@ foreach (@{$Options{jobinit}}) {
 
 # Now we have to wipe the options (because we've collected things
 # that may be sequence-sensitive), and reprocess them.  This time
-# GetOptions will call ProcessBackup for each non-option argument
-# it finds, effectively running the backups.
+# GetOptions will call QueueBackup for each non-option argument
+# it finds, to gather the current back-up parameters and options for
+# each vault, and place the collection on the queue.
 %Options=(
-	test => $Options{test},		# Make this global.
-	verbose => $Options{verbose},	# Make this global.
+	test		=> $Options{test},		# Make this global.
+	verbose		=> $Options{verbose},		# Make this global.
+	'seq-default'	=> $Options{'seq-default'},	# Make this global.
 );
 $Options{"max-fs-percent"} = 95 unless ($Options{"max-fs-percent"});
+$Options{'seq-default'} = 32 unless ($Options{'seq-default'});
 
-$OptionSpecifications{'<>'} = sub {&ProcessBackup(target => $_[0], config => \%Config, optspec => \%OptionSpecifications);};
+$OptionSpecifications{'<>'} = sub {QueueBackup(target => $_[0], config => \%Config, optspec => \%OptionSpecifications);};
 $Errors++ unless GetOptions(%OptionSpecifications);
+
+# Assign sequence priority overrides, if any.
+my $Overrides = $Options{'seq-priority'};
+while ($Overrides and $Overrides =~ /(\S+?)=(\d+)/) {
+	my($TargetList,$Priority) = ($1,$2);
+	$Overrides =~ s/^\S+?=\d+,*//;		# Trim off this one.
+	foreach my $Target (split(',',$TargetList)) {
+		if (exists($JobDefs{$Target})) {
+			$JobDefs{$Target}{'seq-priority'} = $Priority;
+			print "Verbose: Setting $Target sequence priority to $Priority\n" if ($Options{verbose} >= 4);
+		}
+		else {
+			warn "Unable to set sequence priority for $Target - target not part of this job.\n";
+		}
+	}
+}
+warn "Ignoring extraneous --seq-priority data: $Overrides\n" if ($Overrides);
+
+# Now run the back-up in order based on entry sequence unless there were sequence overrides.
+my @JobQueue = 
+	sort{
+		   $JobDefs{$a}{'seq-priority'} <=> $JobDefs{$b}{'seq-priority'}	# High-order sort on override priority.
+		|| $JobDefs{$a}{'sequence'} <=> $JobDefs{$b}{'sequence'}		# Secondary sort on sequence.
+	} keys(%JobDefs)
+	;
+print "Verbose: Job queue sequence: " . join(', ',@JobQueue) . "\n" if ($Options{verbose} >= 3);
+foreach my $Target (@JobQueue) {
+	my %SaveOptions = %Options;	# Back-up messes with this.  Make sure we can clean up afterwards.
+	ProcessBackup($Target);
+	%Options = %SaveOptions;	# Restore base options.
+}
 
 # List any skipped items.
 print "$_" foreach (sort(@Skipped));
@@ -318,9 +354,9 @@ sub GetNameLengths {
 
 
 #
-# ProcessBackup - run a particular backup
+# QueueBackup - gather all the options for this job and place them on the queue.
 #
-sub ProcessBackup {
+sub QueueBackup {
 
 	my %Parms = @_;
 	my $Target = $Parms{target};
@@ -330,13 +366,10 @@ sub ProcessBackup {
         # Is this really a machine name, or a list of names?
 	if ($ConfigRef->{$Target}) {
 		foreach (ExpandConfigList($Target)) {
-			ProcessBackup(target => $_, config => $ConfigRef, optspec => \%LocalOptSpec);
+			QueueBackup(target => $_, config => $ConfigRef, optspec => \%LocalOptSpec);
 		}
 		return;
 	}
-
-	my $VaultStartTime = time();
-	$CurrentMachine++;
 
 	# Are we renaming the vault?
 	$Target=RenameVault($Target);
@@ -347,7 +380,13 @@ sub ProcessBackup {
 		return;
 	};
 
+	if (exists($JobDefs{$Target})) {
+		push @Skipped, sprintf("Not requeueing %-*s: -- already listed in this job.\n",$MaxVaultLength,$Target);
+		return;
+	}
+
 	# Load any machine-specific options from the config files.
+	my $SeqDefault = $Options{'seq-default'};	# Get this before it potentially changes.
 	my %SaveOptions = %Options;		# Need to save the current state, so we can put them back.
 						# Can't just "local" %Option becacuase OptSpec already
 						# has their addresses (apparently).
@@ -357,22 +396,34 @@ sub ProcessBackup {
 		$Errors ++ unless GetOptionsFromString($ConfigRef->{$VaultConfig},%LocalOptSpec);
 	}
 
-	if ($Options{verbose} >= 3) {
-		print "Verbose:	Beginning backup of $Target.  Options:\n";
+	$JobDefs{$Target} = {
+		sequence	=> scalar(keys(%JobDefs)),	# Track the order queued - probably be the order run.
+		options		=> {%Options},			# Store copy of current options.
+		'seq-priority'	=> $SeqDefault,				# Set default sequence priority, in case we're resequencing.
+	};
+
+	%Options = %SaveOptions;		# Restore the options.	Don't want to include vault-specifics for next vault.
+	return;
+}
+
+
+#
+# ProcessBackup - run a particular backup
+#
+sub ProcessBackup {
+
+	my $Target = shift;
+	%Options = %{$JobDefs{$Target}{options}};
+
+	PrintStatsFile(strftime("\n%D %T Starting $Target\n",localtime()));
+	if ($Options{verbose} >= 4) {
+		print "Verbose:	$Target options:\n";
 		print Dumper(\%Options);
 	}
-	PrintStatsFile(strftime("\n%D %T Starting $Target\n",localtime()));
 
 	$MachineDirectory=GetMachineDirectory($Target,0);
 	if (!$MachineDirectory) {
-		%Options = %SaveOptions;		# Restore options.
 		return
-	}
-
-	if (exists($MachinesDone{$MachineDirectory})) {
-		push @Skipped, sprintf("Skipped %-*s: -- already backed once in this job.\n",$MaxVaultLength,$Target);
-		%Options = %SaveOptions;		# Restore options.
-		return;
 	}
 
 	# Document that we're starting a new target.
@@ -381,7 +432,6 @@ sub ProcessBackup {
 	if (!chdir $MachineDirectory) {
 		warn "Unable to CD to $MachineDirectory: $!\n";
 		$Errors++;
-		%Options = %SaveOptions;		# Restore options.
 		return;
 	}
 	
@@ -395,7 +445,6 @@ sub ProcessBackup {
 				or (!$relative and strftime("%H:%M",localtime()) gt sprintf("%02d:%02d",$hours,$minutes))
 			) {
 				push @Skipped, sprintf(qq<Skipped %-*s: -- outside "--ifbefore" time constraints.\n>,$MaxVaultLength,$Target);
-				%Options = %SaveOptions;		# Restore options.
 				return;
 			}
 		}
@@ -411,13 +460,11 @@ sub ProcessBackup {
 		if (!open($SECTIONLOCK,'>>',$Options{sectionlockfile})) {
  	               print "Unable to create/open section lock file $Options{sectionlockfile}: $!\n";
 			$Errors++;
-			%Options = %SaveOptions;		# Restore options.
                 	return;
 		}
         	if (!flock($SECTIONLOCK, LOCK_EX | LOCK_NB)) {
                 	print qq<Warning: Skipped $Target due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
 			$Errors++;
-			%Options = %SaveOptions;		# Restore options.
                 	return;
 		}
         }
@@ -453,7 +500,6 @@ sub ProcessBackup {
 			# Localhost.  Make sure tree exists, to support automounts.
 			if (! -e "$Tree/.") {
 				push @Skipped, sprintf("Skipped %-*s: $Tree is not accessible.\n",$MaxVaultLength,$Target);
-				%Options = %SaveOptions;		# Restore options.
 				return;
 			}
 			elsif ($Options{verbose}) {
@@ -471,7 +517,6 @@ sub ProcessBackup {
 			}
 			else {
 				push @Skipped, sprintf("Skipped %-*s: $Options{ifuptarget} is unreachable.\n",$MaxVaultLength,$Target);
-				%Options = %SaveOptions;		# Restore options.
 				return;
 			}
 		}
@@ -487,13 +532,11 @@ sub ProcessBackup {
 	if (!open($LOCK,'>>',$LockFile)) {
 		warn "Unable to create/open $LockFile: $!";
 		$Errors++;
-		%Options = %SaveOptions;		# Restore options.
 		return;
 	}
 	if (!flock($LOCK, LOCK_EX | LOCK_NB)) {
 		warn qq<Warning: Skipped $Target due to a conflicting backup in progress per "$LockFile"\n>;
 		$Errors++;
-		%Options = %SaveOptions;		# Restore options.
 		return;
 	}
 
@@ -555,7 +598,7 @@ sub ProcessBackup {
 				print "Verbose: skipping $_ - older backup\n" if ($Options{verbose} > 2);
 			}
 			else {
-				Summarize($Target, $Dir, $VaultStartTime);
+				Summarize($Target, $Dir, $TargetStartTime);
 			}
 		}
 	} else {
@@ -565,9 +608,6 @@ sub ProcessBackup {
 
 	# Clean up the lock file.
 	unlink($LockFile);
-
-	# Remember we did this one.
-	$MachinesDone{$MachineDirectory} = 1;
 
 	# Clean up the .hist file, so it doesn't grow forever.  This is non-critical.
 	my $HistFile = `ls -t $MachineDirectory/dirvish/*.hist 2> /dev/null | head -1`;
@@ -599,7 +639,6 @@ sub ProcessBackup {
 	$fs =~ s/\s.*$//;	# Just need the device name.
 	chomp $fs;
 	$FileSystems{$fs}=1;
-	%Options = %SaveOptions;		# Restore options.
 }
 
 
@@ -911,6 +950,27 @@ Universal Options:
 	--max-fs-percent=num		At the end of job, flag any file systems
 					written to by the job that now exceed
 					num % of capacity.  Defaults to 95.
+
+	--seq-default=value		Default sequence prioritys.  Used by
+					seq-priority.  Defaults to 32.
+	--seq-priority=priorities	Resequence the order in which the vaults
+					are backed up according to these 
+					priorities.  "priorities" consists of
+					one or more comma-separated strings of
+					the form "X=Y".  X is one or more 
+					vault names, separated by commas. Y is
+					a number indicating the priority of 
+					these vaults relative to others.  Vaults
+					with lower values will run before vaults
+					with higher values.  Default priority
+					is 32 (or per --seq-default).  Example:
+					  --seq-priority=a,b=50,c=750
+					Running vaults a-f would result in the
+					sequence a,b,d,e,f,c.  This option is
+					used when the vault list comes from an
+					external source (e.g. a standard "servers"
+					list) that doesn't reflect the desired
+					back-up order.
 
 	-h|?|--help:			Help: display this panel
 
