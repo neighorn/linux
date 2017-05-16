@@ -427,6 +427,7 @@ sub ProcessBackup {
 	}
 
 	# Document that we're starting a new target.
+	$CurrentMachine++;
 	print strftime("Starting $Target [$CurrentMachine/$TotalMachines] at %H:%M:%S on %A, %Y-%m-%d...\n",localtime());
 
 	if (!chdir $MachineDirectory) {
