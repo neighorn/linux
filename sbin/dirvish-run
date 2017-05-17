@@ -85,7 +85,7 @@ my %OptionSpecifications;
 	'rerun|R:1'		=>	\&OptFlag,
 	'sectionlockfile=s'	=>	\&OptSectionLockFile,
 	'seq-default=i'		=>	\&OptValue,
-	'seq-priority|seq-priorities=s'	=>	\&OptValue,
+	'seq-priority|seq-priorities=s'	=>	sub {OptValue(@_, append => 1);},
 	'subject|N=s'		=>	\&OptValue,
 	'statfile=s'		=>	\&OptValue,
 	'test|t!'		=>	\&OptFlag,

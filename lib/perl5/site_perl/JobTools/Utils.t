@@ -155,6 +155,10 @@ is($Config{TEST10},'testa testb testc testd teste','LoadConfigFile include file,
 
 undef %Options;		# Make sure this is initialized.
 OptValue('opt1','test1');							is($Options{opt1},'test1','OptValue simple value');
+OptValue('opt1','test2');							is($Options{opt1},'test2','OptValue simple value with replace');
+OptValue('opt2','test1', append => 1);						is($Options{opt2},'test1','OptValue simple value with append');
+OptValue('opt2','test2', append => 1);						is($Options{opt2},'test1,test2','OptValue simple value with second value and append');
+OptValue('opt2','');								is(0+defined($Options{opt2}),0,'OptValue unset simple value');
 
 #
 # OptFlag

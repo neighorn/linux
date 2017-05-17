@@ -361,7 +361,32 @@ sub OptArray {
 #
 sub OptValue {
 	my($Name,$Value) = @_;
-	$OptionsRef->{$Name} = $Value;
+
+        # Possible array processing options:
+        #       append: 0 (default), if repeated, replace prior value with
+	#		  new value
+	#		1, if repeated, append the new value to the prior
+	#		   value, separated by a comma
+
+        my %Defaults = (
+                'append'        => 0,
+        );
+        my %Parms = _GatherParms({@_}, \%Defaults);     # Gather parms into one place.
+
+        # Is the value empty, meaning to wipe any entries to this point.
+        if (!$Value) {
+                # Received "--opt=".  Empty this.
+                delete ($OptionsRef->{$Name});
+                return;
+        }
+	if (!$OptionsRef->{$Name} or !$Parms{append}) {
+		# No prior value, or don't append
+		$OptionsRef->{$Name} = $Value;
+	}
+	else {
+		# Prior value and appending
+		$OptionsRef->{$Name} .= ",$Value";
+	}
 }
 
 
