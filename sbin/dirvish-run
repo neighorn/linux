@@ -381,7 +381,7 @@ sub QueueBackup {
 	};
 
 	if (exists($JobDefs{$Target})) {
-		push @Skipped, sprintf("Not requeueing %-*s: -- already listed in this job.\n",$MaxVaultLength,$Target);
+		push @Skipped, sprintf("Skipped %-*s: already queued for back-up in this job.\n",$MaxVaultLength,$Target);
 		return;
 	}
 
