@@ -236,7 +236,7 @@ sub CheckMDDevices {
 				print "Verbose:	- normal\n" if ($Options{verbose});
 			} else {
 				warn "Unexpected response from $mdname: $rest\n";
-				$ReturnStatus=$disks;
+				$ReturnStatus=1;
 			}
 			# Maintain a list of devices, in case we need to document them.
 			#  sdb[9] sdd[8] sdh[7] sdg[6] sdf[5] sde[4] sdc[3] sda[2]
