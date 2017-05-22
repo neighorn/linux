@@ -61,6 +61,7 @@ my %OptionSpecifications;
 	'<>'			=>	sub {push @Parms,$_[0] if ($_[0]);},
 	'always-page|p=s'	=>	\&OptArray,
 	'always-mail|m=s'	=>	\&OptArray,
+	'checksum|c!'		=>	\&OptFlag,
 	'debug|d'		=>	sub {$DB::AutoTrace=1;},
 	'dirvish|D=s'		=>	\&OptArray,
 	'error-mail|M=s'	=>	\&OptArray,
@@ -576,6 +577,8 @@ sub ProcessBackup {
 		if ($Options{imagename});
 	$AdditionalOptions .= " --expire=$Options{expire}"
 		if ($Options{expire});
+	$AdditionalOptions .= " --checksum"
+		if ($Options{checksum});
 	$AdditionalOptions .= ' ' . join(' ',@{$Options{dirvish}})
 		if (exists($Options{dirvish}));
 
@@ -979,6 +982,8 @@ Universal Options:
 					them.
 
 Vault Options:
+	-c|--checksum:			Checksum: Pass "--checksum" through to
+					the dirvish command.
 	-D|--dirvish=parms:		Dirvish: Pass the following parameters
 					and options directly to dirvish. 
 					Spaces need to be escaped or quoted.
@@ -990,7 +995,7 @@ Vault Options:
 					the internal list.  See LogOutput.pm
 					for a description of filter files
 					and reserved file names.
-	--ifbefore=[+]hh:mm:	Only run this backup if the 
+	--ifbefore=[+]hh:mm:		Only run this backup if the 
 					current time is before hh:mm.  Prefix
 					the time with a + to restrict targets
 					to times relative to the start of 
