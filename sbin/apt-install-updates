@@ -441,6 +441,7 @@ IGNORE  "^\s*(\S+:\s*)?Installing new version of config file /etc/init.d/apparmo
 IGNORE  "^\s*(\S+:\s*)?LXC container detected, aborting due to LXC managed /dev.$"
 IGNORE  "^\s*(\S+:\s*)?lxc$"
 IGNORE  "^\s*(\S+:\s*)?Obsolete conffile \S+ has been modified by you, renaming to .dpkg-bak$"
+IGNORE  "^\s*(\S+:\s*)?Processing \d+ changed doc-base file"
 IGNORE  "^\s*(\S+:\s*)?Processing /usr/share/vim/addons/doc$"
 IGNORE  "^\s*(\S+:\s*)?Regenerating fonts cache... done.$"
 IGNORE  "^\s*(\S+:\s*)?Your console font configuration will be updated the next time your system$"
