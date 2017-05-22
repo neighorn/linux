@@ -84,6 +84,7 @@ my %OptionSpecifications;
 	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1],optspec => \%OptionSpecifications);},
 	'rename-vault=s'	=>	\&OptValue,
 	'rerun|R:1'		=>	\&OptFlag,
+	'retries|retry=i'	=>	\&OptValue,
 	'sectionlockfile=s'	=>	\&OptSectionLockFile,
 	'seq-default=i'		=>	\&OptValue,
 	'seq-priority|seq-priorities=s'	=>	sub {OptValue(@_, append => 1);},
@@ -325,7 +326,8 @@ if (%FileSystems) {
 if ($Errors) {
 	warn "$Prog failed.\n";
 	PrintStatsFile(strftime("%D %T $Prog ended with errors.<br>",localtime()));
-} else {
+}
+else {
 	#print "$Prog ended normally.\n";
 	PrintStatsFile(strftime("%D %T $Prog ended normally.<br>",localtime()));
 }
@@ -415,6 +417,10 @@ sub ProcessBackup {
 
 	my $Target = shift;
 	%Options = %{$JobDefs{$Target}{options}};
+
+	my %NoRetries = (		# List of status codes where we don't retry on failure.
+		57344 => 1,		#    Image already exists.
+	);
 
 	PrintStatsFile(strftime("\n%D %T Starting $Target\n",localtime()));
 	if ($Options{verbose} >= 4) {
@@ -605,8 +611,19 @@ sub ProcessBackup {
 				Summarize($Target, $Dir, $TargetStartTime);
 			}
 		}
-	} else {
-		print "dirvish failed with status $Status\n";
+	}
+	else {
+		if ($Options{retries} and !$NoRetries{$Status}) {
+			push @JobQueue,$Target;
+			my $times = $JobDefs{$Target}{options}->{retries};
+			$times .= ($times == 1?' time':' times');	# Add "time" or "times" as appropriate.
+			print "dirvish failed with status $Status - will requeue up to $times\n";
+			$JobDefs{$Target}{options}->{retries}--;	# Reduce count.
+			$JobDefs{$Target}{options}->{rerun}=.9		# Delete the prior run.
+		}
+		else {
+			print "dirvish failed with status $Status\n";
+		}
 		$Errors++;
 	}
 
@@ -679,7 +696,8 @@ sub GetMachineDirectory {
 			warn "$MachineDirectory not found\n";
 			$Errors++;
 		};
-	} else {
+	}
+	else {
 		# No full path.  Hunt for it.
 		foreach (@Banks) {
 			if (-d "$_/$Target/dirvish") {
@@ -1057,6 +1075,13 @@ Vault Options:
 					provided that it is no more than "days"
 					days old.  Days is optional, and 
 					defaults to 1.
+
+	--retry|retries=n		Retry: If the back-up fails, retry
+					it n times (for a total of n+1
+					attempts).  If multiple vaults
+					are being backed up, retries
+					will be attempted last.  Default is
+					not to retry.
 
 	-s|--min-size=size:		minimum Size: Issue a warning if the
 					size of the new items are less than
