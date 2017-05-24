@@ -1,4 +1,4 @@
-www-data ALL=(ALL) NOPASSWD: /usr/local/sbin/dirvish-mon 1
+www-data ALL=(ALL) NOPASSWD: /usr/local/sbin/dirvish-mon --count=1
 www-data ALL=(ALL) NOPASSWD: /usr/sbin/iotop
 www-data ALL=(ALL) NOPASSWD: /bin/df
 www-data ALL=(ALL) NOPASSWD: /bin/grep dirvish-run\\\[ /var/log/syslog /var/log/messages
