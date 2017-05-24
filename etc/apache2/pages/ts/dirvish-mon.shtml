@@ -10,7 +10,7 @@
 	dirvish-mon as of <!--#echo var="DATE_LOCAL" -->
 </H2>
 <pre>
-<!--#exec cmd="/usr/bin/sudo -n /usr/local/sbin/dirvish-mon --count=1 2>&1" -->
+<!--#exec cmd="/usr/bin/sudo -n /usr/local/sbin/dirvish-mon --count=1 --html 2>&1" -->
 </pre>
 </BODY>
 <HTML>

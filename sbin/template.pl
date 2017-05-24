@@ -49,7 +49,7 @@ our $ExitCode;
 my $HostName = `hostname`;
 chomp $HostName;
 $HostName =~ s/\..*$//;		# Strip domain.
-our $BaseDir="/usr/local/backup/$Prog";	# Set our base directory.
+our $BaseDir="/usr/local";	# Set our base directory.
 
 # ---------------------------------------------------------
 #
@@ -129,7 +129,7 @@ exit($ExitCode);
 
 # ---------------------------------------------------------
 #
-# RunLocally - run a sysbackup on this machine.
+# RunLocally - run a the job on this machine.
 #
 sub RunLocally {
 	# ---------------------------------------------------------
