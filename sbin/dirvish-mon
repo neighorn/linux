@@ -102,7 +102,7 @@ sub RunCycle {
 			my $vault = $logfile;
 			$vault =~ s"/log.tmp$"";			# Extract the vault path.
 			$LogFiles{$logfile}->{vaultpath} = $vault;	# Save the vault path.
-			$vault =~ s"^.*/(\S+)/\S+$"$1";			# Extract just the vault name.
+			$vault =~ s"^.*/(\S+/\S+)$"$1";			# Extract just the vault name.
 			$LogFiles{$logfile}->{vault} = $vault;		# Save the vault name.
 			$VaultMax = length($vault) if (length($vault) > $VaultMax);
 			my $space = `df -hlP "$LogFiles{$logfile}->{vaultpath}" | grep -v ^Filesystem`;
@@ -121,10 +121,13 @@ sub RunCycle {
 			$LogFiles{$logfile}->{lastfile} = $2;
 			last;
 		}
+		if (! exists($LogFiles{$logfile}->{type})) {
+			# Nothing in the log yet.
+			$LogFiles{$logfile}->{type} = '-';
+			$LogFiles{$logfile}->{lastfile} = '(none yet)';
+		}
 		$LOGFH->close;
 		my $mtime = (stat($logfile))[9];
-		$LogFiles{$logfile}->{mtime} = 
-			POSIX::strftime('%T',localtime($mtime));
 		if ($LogFiles{$logfile}->{lastfile}
 			and ($LogFiles{$logfile}->{type} eq 'f')
 		) {
@@ -136,16 +139,28 @@ sub RunCycle {
 			}
 			my $size;
 			if (defined($lastfile)) {
-				$size = (stat($lastfile))[7];
+				($size,$mtime) = (stat($lastfile))[7,9];
 				$LogFiles{$logfile}->{size} = CompressByteSize($size);
+				# Use either log mtime or file mtime, which ever is more recent.
+				$LogFiles{$logfile}->{mtime} = $mtime
+					if ( !defined($LogFiles{$logfile}->{mtime}) 
+						or (defined($mtime) && $LogFiles{$logfile}->{mtime} < $mtime));
 			}
 			else {
 				$LogFiles{$logfile}->{size} = '?';
 			}
 		}
 		else {
-			$LogFiles{$logfile}->{size} = $LogFiles{$logfile}->{type};
+			if ($LogFiles{$logfile}->{type} eq 'd') {
+				$LogFiles{$logfile}->{size} = 'dir';
+			}
+			else {
+				$LogFiles{$logfile}->{size} = $LogFiles{$logfile}->{type};
+			}
+			
 		}
+		$LogFiles{$logfile}->{mtime} = 
+			POSIX::strftime('%T',localtime($mtime));	# Make human-readable.
 	}
 	
 	DisplayData(\%LogFiles,$VaultMax);
@@ -165,15 +180,23 @@ sub DisplayData {
 	if ($Options{html}) {
 		# Display as HTML
 		#  Display headings.
-		print '<table style="font-family: monospace"><tr><td>&nbsp;Last update&nbsp;</td><td>&nbsp;PID&nbsp;</td><td>&nbsp;Space Used&nbsp;</td><td>&nbsp;File size&nbsp;</td><td>&nbsp;Vault&nbsp;</td><td>&nbsp;Latest item&nbsp;</td></tr>' . "\n";
+		print '<table style="font-family: monospace"><tr>'
+			. '<td style="text-decoration: underline" align=right>&nbsp;&nbsp;PID</td>'
+			. '<td style="text-decoration: underline">Last Update</td>'
+			. '<td style="text-decoration: underline">FS % Full</td>'
+			. '<td style="text-decoration: underline">Vault</td>'
+			. '<td style="text-decoration: underline">File Size</td>'
+			. '<td style="text-decoration: underline">Latest item</td>'
+			. '</tr>'
+			. "\n";
 		foreach my $logfile (sort(keys(%$LogRef))) {
 			print	'<tr>'
-				. '<td>&nbsp;' . $LogRef->{$logfile}->{mtime}		. '&nbsp;</td>'
-				. '<td>&nbsp;' . $LogRef->{$logfile}->{pid}		. '&nbsp;</td>'
-				. '<td align=right>' . $LogRef->{$logfile}->{percentfull}	. '&nbsp;</td>'
-				. '<td align=right>' . $LogRef->{$logfile}->{size}		. '&nbsp;</td>'
-				. '<td>&nbsp;' . $LogRef->{$logfile}->{vault}		. '&nbsp;</td>'
-				. '<td>&nbsp;' . $LogRef->{$logfile}->{lastfile}	. '&nbsp;</td>'
+				. '<td align=right>      '	. $LogRef->{$logfile}->{pid}		. '</td>'
+				. '<td>'			. $LogRef->{$logfile}->{mtime}		. '</td>'
+				. '<td align=right>'		. $LogRef->{$logfile}->{percentfull}	. '&nbsp;&nbsp;&nbsp;</td>'
+				. '<td>'			. $LogRef->{$logfile}->{vault}		. '</td>'
+				. '<td align=right>'		. $LogRef->{$logfile}->{size}		. '&nbsp;&nbsp;</td>'
+				. '<td>'			. $LogRef->{$logfile}->{lastfile}	. '</td>'
 				. '</tr>'
 				. "\n"
 			;
