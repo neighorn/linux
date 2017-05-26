@@ -117,7 +117,7 @@ sub RunCycle {
 		my $LOGFH = File::ReadBackwards->new( $logfile ) or next;
 		until ($LOGFH->eof) {
 			my $line = $LOGFH->readline;
-			next unless ($line =~ /^[c>h.]([fdLDS])\S+\s+(.*?)\s*$/);
+			next unless ($line =~ /^[c>h.]([fdLDS])\S*\s+(.*?)\s*$/);
 			$LogFiles{$logfile}->{type} = $1;
 			$LogFiles{$logfile}->{lastfile} = $2;
 			$LatestMax = length($2) if (length($2) > $LatestMax);
@@ -154,10 +154,19 @@ sub RunCycle {
 		}
 		else {
 			if ($LogFiles{$logfile}->{type} eq 'd') {
-				$LogFiles{$logfile}->{size} = 'dir';
+				$LogFiles{$logfile}->{size} = '(dir)';
+			}
+			elif ($LogFiles{$logfile}->{type} eq 'L') {
+				$LogFiles{$logfile}->{size} = '(symlink)';
+			}
+			elif ($LogFiles{$logfile}->{type} eq 'D') {
+				$LogFiles{$logfile}->{size} = '(device)';
+			}
+			elif ($LogFiles{$logfile}->{type} eq 'S') {
+				$LogFiles{$logfile}->{size} = '(socket)';
 			}
 			else {
-				$LogFiles{$logfile}->{size} = $LogFiles{$logfile}->{type};
+				$LogFiles{$logfile}->{size} = '(' . $LogFiles{$logfile}->{type} . ')';
 			}
 			
 		}
