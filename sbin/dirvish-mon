@@ -192,7 +192,7 @@ sub DisplayData {
 		# Display as HTML
 		#  Display headings.
 		$LatestMax = ($LatestMax >= 11?$LatestMax-11:0);
-		print '<table style="border-spacing:10px 0; font-family: monospace"><tr>'
+		print '<table style="border-spacing:10px 0; font-family: monospace; vertical-align: bottom"><tr>'
 			. '<td style="text-decoration: underline" align=right>&nbsp;&nbsp;PID</td>'
 			. '<td style="text-decoration: underline">Last Update</td>'
 			. '<td style="text-decoration: underline">FS % Used</td>'
