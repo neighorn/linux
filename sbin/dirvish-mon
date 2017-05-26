@@ -112,6 +112,7 @@ sub RunCycle {
 		close $LSOF;
 	}
 	
+	my $LatestMax = 0;	# Length of longest name.
 	foreach my $logfile (keys(%LogFiles)) {
 		my $LOGFH = File::ReadBackwards->new( $logfile ) or next;
 		until ($LOGFH->eof) {
@@ -119,6 +120,7 @@ sub RunCycle {
 			next unless ($line =~ /^[c>h.]([fdLDS])\S+\s+(.*?)\s*$/);
 			$LogFiles{$logfile}->{type} = $1;
 			$LogFiles{$logfile}->{lastfile} = $2;
+			$LatestMax = length($2) if (length($2) > $LatestMax);
 			last;
 		}
 		if (! exists($LogFiles{$logfile}->{type})) {
@@ -163,7 +165,7 @@ sub RunCycle {
 			POSIX::strftime('%T',localtime($mtime));	# Make human-readable.
 	}
 	
-	DisplayData(\%LogFiles,$VaultMax);
+	DisplayData(\%LogFiles,$VaultMax,$LatestMax);
 }
 
 
@@ -172,7 +174,7 @@ sub RunCycle {
 # DisplayData - display what we found.
 #
 sub DisplayData {
-	my($LogRef,$VaultMax) = @_;
+	my($LogRef,$VaultMax,$LatestMax) = @_;
 	if (keys(%$LogRef) == 0) {
 		print "No rsync processes running.\n";
 		return;
@@ -180,13 +182,14 @@ sub DisplayData {
 	if ($Options{html}) {
 		# Display as HTML
 		#  Display headings.
-		print '<table style="font-family: monospace"><tr>'
+		$LatestMax = ($LatestMax >= 11?$LatestMax-11:0);
+		print '<table style="border-spacing:10px 0; font-family: monospace"><tr>'
 			. '<td style="text-decoration: underline" align=right>&nbsp;&nbsp;PID</td>'
 			. '<td style="text-decoration: underline">Last Update</td>'
 			. '<td style="text-decoration: underline">FS % Used</td>'
 			. '<td style="text-decoration: underline">Vault' . '&nbsp;'x($VaultMax-5) . '</td>'
 			. '<td style="text-decoration: underline">File Size</td>'
-			. '<td style="text-decoration: underline">Latest item</td>'
+			. '<td style="text-decoration: underline">Latest item' . '&nbsp;'x$LatestMax . '</td>'
 			. '</tr>'
 			. "\n";
 		foreach my $logfile (sort(keys(%$LogRef))) {
