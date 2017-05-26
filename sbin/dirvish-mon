@@ -156,13 +156,13 @@ sub RunCycle {
 			if ($LogFiles{$logfile}->{type} eq 'd') {
 				$LogFiles{$logfile}->{size} = '(dir)';
 			}
-			elif ($LogFiles{$logfile}->{type} eq 'L') {
+			elsif ($LogFiles{$logfile}->{type} eq 'L') {
 				$LogFiles{$logfile}->{size} = '(symlink)';
 			}
-			elif ($LogFiles{$logfile}->{type} eq 'D') {
+			elsif ($LogFiles{$logfile}->{type} eq 'D') {
 				$LogFiles{$logfile}->{size} = '(device)';
 			}
-			elif ($LogFiles{$logfile}->{type} eq 'S') {
+			elsif ($LogFiles{$logfile}->{type} eq 'S') {
 				$LogFiles{$logfile}->{size} = '(socket)';
 			}
 			else {
