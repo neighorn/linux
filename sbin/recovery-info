@@ -202,6 +202,7 @@ sub RunLocally {
 	RunIfPresent("rpm -q -a | sort > $Options{outputdir}/rpm.out");
 	RunIfPresent("yum list installed > $Options{outputdir}/yum.out");
 	RunIfPresent("dpkg -l | sort > $Options{outputdir}/dpkg.out");
+	RunIfPresent("dpkg-query --show | sort > $Options{outputdir}/dpkg-query.out");
 	
 	# Capture the normal security tables.
 	RunIfPresent("iptables -nvL > $Options{outputdir}/iptables.out");
