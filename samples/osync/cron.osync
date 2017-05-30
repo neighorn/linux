@@ -1,0 +1,2 @@
+MAILTO=sysadmin
+*/15 * * * * root /usr/local/bin/osync-batch.sh --silent
