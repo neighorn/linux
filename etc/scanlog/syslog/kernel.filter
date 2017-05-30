@@ -512,7 +512,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]s+)?[[:xdigit
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]s+)?Architected cp15 timer\(s\) running at \d+\.\d+MHz \(phys\).$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]s+)?bcm2708-dmaengine [[:xdigit:]]+.dma: DMA legacy API manager at [[:xdigit:]]+, dmachans=0x[[:xdigit:]]+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]s+)?bcm2708-dmaengine [[:xdigit:]]+.dma: dma_debug:0$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]s+)?bcm2708-dmaengine [[:xdigit:]]+.dma: Initialized \d+ DMA channels \(+ 1 legacy\)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]s+)?bcm2708-dmaengine [[:xdigit:]]+.dma: Initialized \d+ DMA channels \(\+ \d+ legacy\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]s+)?bcm2708-dmaengine [[:xdigit:]]+.dma: Load BCM2835 DMA engine driver$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]s+)?bcm2835-mbox [[:xdigit:]]+.mailbox: mailbox enabled$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]s+)?bcm2835-rng [[:xdigit:]]+.rng: hwrng registered$"
