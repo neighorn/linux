@@ -613,16 +613,18 @@ sub ProcessBackup {
 		}
 	}
 	else {
-		if ($Options{retries} and !$NoRetries{$Status}) {
+		my $Signal = $Status & 127;
+		my $RetCode = $Status >> 8;
+		if ($Options{retries} and !$NoRetries{$Status} and !$Signal) {
 			push @JobQueue,$Target;
 			my $times = $JobDefs{$Target}{options}->{retries};
 			$times .= ($times == 1?' time':' times');	# Add "time" or "times" as appropriate.
-			print "dirvish failed with status $Status - will requeue up to $times\n";
+			print "dirvish failed with return code $RetCode - will requeue up to $times\n";
 			$JobDefs{$Target}{options}->{retries}--;	# Reduce count.
 			$JobDefs{$Target}{options}->{rerun}=.9		# Delete the prior run.
 		}
 		else {
-			print "dirvish failed with status $Status\n";
+			print "dirvish failed with return code $RetCode and signal $Signal\n";
 		}
 		$Errors++;
 	}
