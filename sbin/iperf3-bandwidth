@@ -47,8 +47,9 @@ our %OptionSpecifications=(
 		'port=i'		=>	\&opt_Value,
 		'retries=i'		=>	\&opt_Value,
 		'minrate=i'		=>	\&opt_Value,
-		'sendminrate=i'		=>	\&opt_Value,
 		'recvminrate=i'		=>	\&opt_Value,
+		'sendminrate=i'		=>	\&opt_Value,
+		'sleeptime=i'		=>	\&opt_Value,
 );
 #
 our $ExitCode;
@@ -106,6 +107,7 @@ LogOutput({
 die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
 	if (@Parms);
 $Options{retries} = 3 unless ($Options{retries});
+$Options{sleeptime} = 30 unless ($Options{sleeptime});
 
 if (exists($Options{'remote-host'})) {
 	$Errors = RunRemote(@ARGV);
@@ -386,12 +388,19 @@ sub RunLocally {
 				$RecvRate = $1;
 			}
 		}
+		print "Verbose:   Attempt #$Try returned "
+			. (defined($SendRate)?$SendRate:'(unknown)')
+			. "mb/sec sending and "
+			. (defined($RecvRate)?$RecvRate:'(unknown)')
+			. "mb/sec receiving.\n"
+				if ($Options{verbose});
 		$MaxSend = $SendRate if (defined($SendRate) and $SendRate > $MaxSend);
 		$MaxRecv = $RecvRate if (defined($RecvRate) and $RecvRate > $MaxRecv);
 		last if ($MaxSend >= $Options{sendminrate} and $MaxRecv >= $Options{recvminrate});
 		$SendRate = undef;
 		$RecvRate = undef;
-		sleep(30) if ($Try <= $Options{retries});
+		print "Verbose: Sleeping $Options{sleeptime} seconds before next attempt\n" if ($Options{verbose});
+		sleep($Options{sleeptime}) if ($Try <= $Options{retries});
 	}
 	if ($MaxSend == 0 or $MaxRecv == 0) {
 		warn "Unable to gather bandwidth measurements after $Options{retries} attempts. Last line read:\n\t$LastLine\n";
@@ -583,9 +592,6 @@ sub opt_O {
 	--minrate=n:		MinRate: flag an error if the send or receive
 				rate falls below this many megabits/second.
 				See also sendminrate, recvminrate.
-	--sendminrate=n:	SendMinRate: flag an error if the send rate
-				falls below this many megabits/second.  
-				Overrides minrate.
 	--recvminrate=n:	RecvMinRate: flag an error if the receive rate
 				falls below this many megabits/second.  
 				Overrides minrate.
@@ -593,7 +599,12 @@ sub opt_O {
 				n times.  Testing will stop after the first
 				measurement that meets the
 				sendminrate/recvminrate/minrate goals.
+	--sendminrate=n:	SendMinRate: flag an error if the send rate
+				falls below this many megabits/second.  
+				Overrides minrate.
 	--server=s		Server: Iperf3 server.  Defaults to iperf.he.net
+	--sleeptime=n		Sleep time: interval to sleep between retries.
+				Default is 30 seconds.
 	--port=n		Server port: Iperf3 server port.  Defaults to 5201.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
