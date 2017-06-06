@@ -117,7 +117,8 @@ sub RunCycle {
 		my $LOGFH = File::ReadBackwards->new( $logfile ) or next;
 		until ($LOGFH->eof) {
 			my $line = $LOGFH->readline;
-			next unless ($line =~ /^[c>h.]([fdLDS])\S*\s+(.*?)\s*$/);
+			next unless ($line =~ /^[c>.]([fdLDS])\S*\s+(.*?)\s*$/);
+			next if ($line =~ /^cd/);
 			$LogFiles{$logfile}->{type} = $1;
 			$LogFiles{$logfile}->{lastfile} = $2;
 			$LatestMax = length($2) if (length($2) > $LatestMax);
