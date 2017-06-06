@@ -621,6 +621,7 @@ sub ProcessBackup {
 			$times .= ($times == 1?' time':' times');	# Add "time" or "times" as appropriate.
 			print "dirvish failed with return code $RetCode - will requeue up to $times\n";
 			$JobDefs{$Target}{options}->{retries}--;	# Reduce count.
+			$TotalMachines++;				# We just added another task.  Increase count.
 			$JobDefs{$Target}{options}->{rerun}=.9		# Delete the prior run.
 		}
 		else {
