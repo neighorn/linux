@@ -419,7 +419,7 @@ sub ProcessBackup {
 	%Options = %{$JobDefs{$Target}{options}};
 
 	my %NoRetries = (		# List of status codes where we don't retry on failure.
-		57344 => 1,		#    Image already exists.
+		224 => 1,		#    Image already exists.
 	);
 
 	PrintStatsFile(strftime("\n%D %T Starting $Target\n",localtime()));
@@ -615,7 +615,13 @@ sub ProcessBackup {
 	else {
 		my $Signal = $Status & 127;
 		my $RetCode = $Status >> 8;
-		if ($Options{retries} and !$NoRetries{$Status} and !$Signal) {
+		# Should we retry this job
+		if (
+			     !$Signal					# Don't retry on kills, segfaults, etc.
+			and ( $RetCode <= 99 or $RetCode >= 150 )	# Ignore non-fatal rsync error
+			and !$NoRetries{$Status}			# It's not on our don't-retry list
+			and $Options{retries}				# We still have more retrys permitted
+		) {
 			push @JobQueue,$Target;
 			my $times = $JobDefs{$Target}{options}->{retries};
 			$times .= ($times == 1?' time':' times');	# Add "time" or "times" as appropriate.
