@@ -271,7 +271,7 @@ while ($Overrides and $Overrides =~ /(\S+?)=(\d+)/) {
 			print "Verbose: Setting $Target sequence priority to $Priority\n" if ($Options{verbose} >= 4);
 		}
 		else {
-			warn "Unable to set sequence priority for $Target - target not part of this job.\n";
+			print "Ignoring sequence priority for $Target - target not part of this job.\n";
 		}
 	}
 }
@@ -1228,6 +1228,7 @@ SHOW	"^\s*Running:"
 SHOW	"^\s*Skipped \S+\s*:"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 SHOW	/^\s*debug:/
+SHOW	/^\s*Ignoring sequence priority for \S+ - target not part of this job.$"
 SHOW	/^\s*Unable to lock (stat|mail) file "\S+": Resource temporarily unavailable/
 SHOW	/^\S+ ended normally with status 0 and signal 0 - run time:/
 SHOW	/^Executing:/
