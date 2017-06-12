@@ -100,10 +100,6 @@ LogOutput({
 	FILTER_FILE => $Options{'filter-file'},
 });
 
-# Verify the command line.
-die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
-	if (@Parms);
-
 if (exists($Options{remote}) and @{$Options{remote}} > 0) {
 	unshift @ARGV,$Prog;
 	push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
@@ -143,17 +139,33 @@ sub RunLocally {
 	# Check to see if we're disabled.
 	return 0 if CheckDisabled();
 	
+	# Are we just restricted to specific devices?
+	my %TargetMDs;
+	my $CheckSpecific = (@Parms > 0);
+	if ($CheckSpecific) {
+		foreach (@Parms) {
+			if (m"^(?:/dev/)?(md\d+)$") {
+				$TargetMDs{$1}=1;
+			}
+			else {
+				warn "Ignoring $_ - invalid md device name\n";
+				$Errors++;
+			}
+		}
+		$CheckSpecific = (keys(%TargetMDs) > 0);
+		die "No remaining devices left to check\n" unless ($CheckSpecific);
+	}
+	
 	if (! $Options{'always-mail'} and ! $Options{'error-mail'} ) {
 		# No mail addresses.  That's an error unless we have a tty.
 		`tty -s` && warn "No e-mail addresses supplied.  $Prog has no way to notify of raid failures.\n";
 	}
 	
 	do {
-		$ErrorFlag = CheckMDDevices(\%devices);
+		$ErrorFlag = CheckMDDevices(\%devices, $CheckSpecific, \%TargetMDs);
 		sleep(60) if ($ErrorFlag and $Options{wait});
 	} until (($ErrorFlag == 0) or ($Options{wait} == 0));
-	
-	
+
 	# Document the devices
 	if ($ErrorFlag or $Options{devices}) {
 		foreach (sort(keys(%devices))) {
@@ -208,7 +220,7 @@ sub CheckDisabled {
 sub CheckMDDevices {
 
 
-	my $DeviceHashRef = shift;
+	my($DeviceHashRef,$CheckSpecific,$TargetMDRef) = @_;
 
 	# Typical /proc/mdstat records...
 	# md13 : active raid6 sdb[9] sdd[8] sdh[7] sdg[6] sdf[5] sde[4] sdc[3] sda[2]
@@ -231,6 +243,9 @@ sub CheckMDDevices {
 			$disks =~ s/\s+$//;
 			my $rest;
 			($rest = $_) =~ s/^.*?://;
+			
+			next if ($CheckSpecific and !$TargetMDRef->{$mdname});	# Checking specific devices, but not this one.
+
 			if ($status =~ /^active/ && $type =~ /raid[156]/ && $_ !~ /\(F\)/) {
 				# Everything is normal.
 				print "Verbose:	- normal\n" if ($Options{verbose});
@@ -246,6 +261,7 @@ sub CheckMDDevices {
 		}
 		if (/\s*\d+\s+blocks\s.*\[\d+\/\d+\]\s+(\S+)\s*$/) {
 			# This is a "xxxxxx blocks [2/2] [UU]" line.
+			next if ($CheckSpecific and !$TargetMDRef->{$mdname});	# Checking specific devices, but not this one.
 			if ($1 !~ /^\[UU+\]/) {
 				warn "$mdname is degraded ($1)\n" unless ($Options{wait});
 				warn "$mdname disks: $disks\n" unless ($Options{wait});
@@ -254,6 +270,7 @@ sub CheckMDDevices {
 		}
 		if (/\s*[\[\]=>.]+\s*(recovery|resync|check)/) {
 			my $operation=$1;
+			next if ($CheckSpecific and !$TargetMDRef->{$mdname});	# Checking specific devices, but not this one.
 			# This is a recovery line.  It's an error, unless we're
 			# checking the RAID.  Find out.
 			if ($operation ne 'check') {
@@ -274,6 +291,7 @@ sub CheckMDDevices {
 			$ReturnStatus=1;
 		}
 		if (/^\s*resync=/) {
+			next if ($CheckSpecific and !$TargetMDRef->{$mdname});	# Checking specific devices, but not this one.
 			# This device needs resync, but is delayed.  So it is still broken.
 			chomp;
 			warn "$mdname: $_\n" unless ($Options{wait});
@@ -299,7 +317,7 @@ exit 1;
 =head1 %Prog -  
 
 =head3 Usage:  
-        %Prog [flag1 ...]
+        %Prog [flag1 ...] {mdX...}
 
         %Prog -h
 
@@ -345,10 +363,16 @@ exit 1;
         --help|-h:              Help: display this panel
 
 =head3 Parameters:
-        (none)
+        {mdX...}		Optionally, one or more MD names.  If supplied, only the
+				specified MDs will be checked.  If no devices are named,
+				all devices are checked.  "mdX" may be specified with or
+				without the leading "/dev/".
 
-=head3 Example:
-	checkmd
+=head3 Examples:
+	checkmd			# Check all devices.
+	checkmd -w		# Wait for all devices are normal.
+	checkmd /dev/md5 md6	# Check only md5 and md6.
+	checkmd -w /dev/md5	# Wait until /dev/md5 is normal.
 
 =head3 Configuration files
 Configuration data may be loaded from the configuration files.  These files
