@@ -1205,6 +1205,7 @@ IGNORE	"^\s*All access is prohibited unless expressly authorized.$"
 IGNORE	"^\s*cannot expire .* No unexpired good images$"
 IGNORE	"^\s*Copyright \(c\) \d\d\d\d Water Technologies Inc.\s*$"
 IGNORE	"^\s*Expiring\s"
+IGNORE	"^\s*Ignoring sequence priority for \S+ - target not part of this job.$"
 IGNORE	"^\s*job \d+ at "
 IGNORE	"^\s*Job \S+.a will be run at ... ... .. ........ ... ....\.$"
 IGNORE	"^\s*rsync error: unexplained error \(code 24\) at main.c\(1045\)\s*$"
@@ -1228,7 +1229,6 @@ SHOW	"^\s*Running:"
 SHOW	"^\s*Skipped \S+\s*:"
 SHOW	/^\s*[a-zA-Z:]+ \d+ items backed up; \d+ are new.$/
 SHOW	/^\s*debug:/
-SHOW	/^\s*Ignoring sequence priority for \S+ - target not part of this job.$"
 SHOW	/^\s*Unable to lock (stat|mail) file "\S+": Resource temporarily unavailable/
 SHOW	/^\S+ ended normally with status 0 and signal 0 - run time:/
 SHOW	/^Executing:/
