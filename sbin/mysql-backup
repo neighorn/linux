@@ -196,17 +196,19 @@ sub RunLocally {
 #
 sub BackupDatabase {
 	my $Database = shift;
+
 	my $OutputPrefix = ($Options{host}?$Options{host} . '-':'');
 	$OutputPrefix .= ($Database eq '--all-databases'?'':"$Database-");
 
 	# Build the backup file name.
 	my $DeletePattern;
 	my $OutPath = $Options{'output-directory'};
-	$OutPath .= "/$OutputPrefix%Y-%m-%d.sql" if (-d $OutPath);	# Add file name if this is a directory.
+	$OutPath .= "/%C-$OutputPrefix%Y-%m-%d.sql" if (-d $OutPath);	# Add file name if this is a directory.
 	$DeletePattern = basename($OutPath);		# Get the file name portion.
 	$DeletePattern =~ s/%./\\S+/g;			# Convert substitution values to \S+.
 	$DeletePattern = "^${DeletePattern}(.gz)?\$";	# Add anchors and optional .gz.
-	$OutPath=strftime($OutPath,localtime());	# Interp time vars (ours and theirs).
+	$OutPath =~ s/%C/$HostName/g;			# Interp time vars (ours).
+	$OutPath=strftime($OutPath,localtime());	# Interp time vars (date's).
 	my $OutDir=dirname($OutPath);
 	
 	# Delete any incomplete backups.
@@ -337,10 +339,12 @@ sub opt_help {
 	--output-directory|-o output:	Output: Save the output in this file/directory.
 				If "output" is a directory, the default filename is
 				yyyy-mm-dd.sql.  "Output" is processed by strftime,
-				so % variables (a la `date`) are interpreted.
-				Default value is /usr/local/backup/mysql/%Y-%m-%d.sql
+				so % variables (a la `date`) are interpreted, except
+				that %C is replaced with the short name of the system
+				running the back-up (e.g. `hostname -s`).
+				Default value is /usr/local/backup/mysql/%C-%Y-%m-%d.sql
 				if no databases are specified, or
-				/usr/local/backup/mysql/databasename-%Y-%m-%d.sql
+				/usr/local/backup/mysql/%C-databasename-%Y-%m-%d.sql
 				if individual databases are specified.
 				* See Warning below. *
 	--cycles|-r days:	Retention: delete old backups after "days" days.
