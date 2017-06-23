@@ -1,6 +1,7 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?.._..\.UTF-8\.\.\. (up-to-date|done)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?\(Reading database .* currently installed.\)\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?\* (Starting|Stopping) network management services:$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?\* Restarting virtual private network daemon\(s\)..."
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?\d+ upgraded, \d+ newly installed, \d+ to remove and \d+ not upgraded.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?\S+ start/running, process \d+$"
