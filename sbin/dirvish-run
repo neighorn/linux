@@ -624,13 +624,13 @@ sub ProcessBackup {
 			push @JobQueue,$Target;
 			my $times = $JobDefs{$Target}{options}->{retries};
 			$times .= ($times == 1?' time':' times');	# Add "time" or "times" as appropriate.
-			print "dirvish failed with return code $RetCode - will requeue up to $times\n";
+			print "dirvish $Target backup failed with return code $RetCode and signal $Signal - will requeue up to $times\n";
 			$JobDefs{$Target}{options}->{retries}--;	# Reduce count.
 			$TotalMachines++;				# We just added another task.  Increase count.
 			$JobDefs{$Target}{options}->{rerun}=.9		# Delete the prior run.
 		}
 		else {
-			print "dirvish failed with return code $RetCode and signal $Signal\n";
+			print "dirvish $Target backup failed with return code $RetCode and signal $Signal\n";
 		}
 		$Errors++;
 	}
@@ -1222,6 +1222,8 @@ SHOW	"^\s*[-_]+\s*$"
 SHOW	"^\s*\S+ skipped -- "
 SHOW	"^\s*\S+\s*:\s+Total Items:\s+[\d,]+\s*=\s*\d+(\.\d)?[BKGMT],\s+New Items:\s+[\d,]+\s*=\s*\d+(\.\d)?[BKGMT],\s+Run Time:\s+[\d:]*\ds, \S"
 SHOW	"^\s*\S+\s+[\d.]+[TGMK]\s+[\d.]+[TGMK]\s+[\d.]+[TGMK]\s+\d+%\s+\S+$"
+SHOW	"^\s*dirvish error: branch /home/samba/shares/linux/notus:daily image \S+ failed$"
+SHOW	"^\s*dirvish \S+ backup failed with return code \d+ - will requeue up to \d+ times$"
 SHOW	"^\s*Disk space report:$"
 SHOW	"^\s*Filesystem\s+Size\s+Used\s+Avail\s+Use%\s+Mounted on\s*$"
 SHOW	"^\s*Running offsite back-ups to disk #\d+"
