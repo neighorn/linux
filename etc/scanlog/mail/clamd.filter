@@ -14,6 +14,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd(\[\d+\])?:\s*Database correctly r
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd(\[\d+\])?:\s*Database correctly reloaded"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd(\[\d+\])?:\s*ELF support enabled.$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd(\[\d+\])?:\s*Heuristic: precedence enabled$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd(\[\d+\])?:\s*LibClamAV Warning: cli_tnef: file truncated, returning CLEAN$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd(\[\d+\])?:\s*Limits: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd(\[\d+\])?:\s*Listening daemon: PID: \d+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ clamd(\[\d+\])?:\s*Loaded \d+ signatures.$"
