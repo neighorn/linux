@@ -41,7 +41,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?grub-probe: error: disk \`lvmid/\S+' not found.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Hit(:\d+)? http://"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Ign(:\d+)? http://"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?initctl: Unable to connect to Upstart: Failed to connect to socket /com/ubuntu/upstart: Connection refusedi\s*$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?initctl: Unable to connect to Upstart: Failed to connect to socket /com/ubuntu/upstart: Connection refused\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?insserv: Default-Start undefined, assuming empty (start|stop) runlevel\(s\) for script `screen-cleanup'$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?insserv: warning: script 'screen-cleanup' missing LSB tags and overrides\s*$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?install-info:"
