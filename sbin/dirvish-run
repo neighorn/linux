@@ -72,6 +72,7 @@ my %OptionSpecifications;
 	'help|h|?!'		=>	\&opt_h,
 	'ifup!'			=>	\&OptFlag,
 	'ifuptarget=s'		=>	\&OptValue,
+	'ifafter=s'		=>	\&OptValue,
 	'ifbefore=s'		=>	\&OptValue,
 	'imagename|image=s'	=>	\&OptValue,
 	'ionice=s'		=>	\&OptValue,
@@ -460,6 +461,24 @@ sub ProcessBackup {
 			warn "Invalid --ifbefore specification (\"$Options{ifbefore}\") -- ignored.\n";
 			$Errors++;
 			$Options{ifbefore}='';
+		}
+	} 
+	if ($Options{ifafter}) {
+		# We're only supposed to back this target up if it's after a certain time.
+		if ($Options{ifafter} =~ /^(\+)?(\d|[01]\d|2[0-3]):([0-5]\d)\s*$/) {
+			my ($relative,$hours,$minutes) = ($1,$2,$3);
+			if (
+			       ($relative and time() < $StartTime+$hours*3600+$minutes*60)
+				or (!$relative and strftime("%H:%M",localtime()) lt sprintf("%02d:%02d",$hours,$minutes))
+			) {
+				push @Skipped, sprintf(qq<Skipped %-*s: -- outside "--ifafter" time constraints.\n>,$MaxVaultLength,$Target);
+				return;
+			}
+		}
+		else {
+			warn "Invalid --ifafter specification (\"$Options{ifafter}\") -- ignored.\n";
+			$Errors++;
+			$Options{ifafter}='';
 		}
 	} 
 
@@ -1021,12 +1040,16 @@ Vault Options:
 					the internal list.  See LogOutput.pm
 					for a description of filter files
 					and reserved file names.
+	--ifafter=[+]hh:mm:		Only run this backup if the 
+					current time is after hh:mm.  Prefix
+					the time with a + to restrict targets
+					to times relative to the start of 
+					dirvish-run.
 	--ifbefore=[+]hh:mm:		Only run this backup if the 
 					current time is before hh:mm.  Prefix
 					the time with a + to restrict targets
 					to times relative to the start of 
 					dirvish-run.
-
 	--ifup/--noifup			Only run this backup if the host is
 					reachable.  Otherwise, note that the
 					host was unreachable but don't generate
