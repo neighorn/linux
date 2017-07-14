@@ -643,7 +643,12 @@ sub ProcessBackup {
 			push @JobQueue,$Target;
 			my $times = $JobDefs{$Target}{options}->{retries};
 			$times .= ($times == 1?' time':' times');	# Add "time" or "times" as appropriate.
-			print "$Target backup failed with return code $RetCode and signal $Signal - will requeue up to $times\n";
+			printf "%s backup failed at %s with return code %d and signal %d - will requeue up to %d\n",
+				$Target,
+				strftime("%T",localtime()),
+				$RetCode,
+				$Signal,
+				$times;
 			$JobDefs{$Target}{options}->{retries}--;	# Reduce count.
 			$TotalMachines++;				# We just added another task.  Increase count.
 			$JobDefs{$Target}{options}->{rerun}=.9		# Delete the prior run.
