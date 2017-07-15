@@ -643,7 +643,7 @@ sub ProcessBackup {
 			push @JobQueue,$Target;
 			my $times = $JobDefs{$Target}{options}->{retries};
 			$times .= ($times == 1?' time':' times');	# Add "time" or "times" as appropriate.
-			printf "%s backup failed at %s with return code %d and signal %d - will requeue up to %d\n",
+			printf "%s backup failed at %s with return code %d and signal %d - will requeue up to %s\n",
 				$Target,
 				strftime("%T",localtime()),
 				$RetCode,
