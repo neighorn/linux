@@ -3,7 +3,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ plesk sendmail(\[\d+\])?:\s*SKIP during
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*(message repeated \d+ times: \[\s*)?[[:xdigit:]]+: client=\S+\[\S+\]"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*(message repeated \d+ times: \[\s*)?connect from \S+\[\S+\]\]?$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*(message repeated \d+ times: \[\s*)?disconnect from \S+\[\S+\]"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*(message repeated \d+ times: \[\s*)?lost connection after (AUTH|CONNECT|EHLO|HELO|RCPT|STARTTLS|UNKNOWN) from \S+\[\S+\]\]?$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*(message repeated \d+ times: \[\s*)?lost connection after (AUTH|CONNECT|DATA|EHLO|HELO|RCPT|STARTTLS|UNKNOWN) from \S+\[\S+\]\]?$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*(message repeated \d+ times: \[\s*)?NOQUEUE: reject: RCPT from \S+\[\S+\]: 450 4.2.0 <\S+>: Recipient address rejected: Greylisted,"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*(message repeated \d+ times: \[\s*)?NOQUEUE: reject: RCPT from \S+\[\S+\]: 450 4.2.0 <\S+>: Recipient address rejected: User unknown in local recipient table"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/(submission/)?smtpd(\[\d+\])?:\s*(message repeated \d+ times: \[\s*)?NOQUEUE: reject: RCPT from \S+\[\S+\]: 501 5.5.2 <\S+>: Helo command rejected: Invalid name; "
