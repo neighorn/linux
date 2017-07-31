@@ -116,6 +116,7 @@ IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Running queries to upgrade MySQL server.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?System not running in EFI mode, not installing to EFI system partition.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?The sys schema is already up to date \(version \S+\).$"
+IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?The user \S+ is already a member of \S+.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Upgrade process completed successfully.$"
 IGNORE  "^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?WARN: Duplicate profile '.+', using last found\*$"
 LOGONLY	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?\S+ started on \S+ on \S+, \d+-\d+-\d+ at \d+:\d+:\d+"

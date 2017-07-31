@@ -446,6 +446,7 @@ IGNORE	"^\s*(\S+:\s*)?The following packages were automatically installed and ar
 IGNORE	"^\s*(\S+:\s*)?The following packages will be REMOVED:$"
 IGNORE	"^\s*(\S+:\s*)?The following packages will be upgraded:$"
 IGNORE	"^\s*(\S+:\s*)?The sys schema is already up to date \(version \S+\).$"
+IGNORE	"^\s*(\S+:\s*)?The user \S+ is already a member of \S+.$"
 IGNORE	"^\s*(\S+:\s*)?The value of the capability argument is not permitted for a file. Or the file is not a regular \(non-symlink\) file$"
 IGNORE	"^\s*(\S+:\s*)?Universal Time is now:"
 IGNORE	"^\s*(\S+:\s*)?Unknown media type in type"
