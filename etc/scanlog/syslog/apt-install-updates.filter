@@ -34,6 +34,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Failed to set capabilities on file `/usr/bin/systemd-detect-virt' \(Invalid argument\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Fetched [\d.,]+ [kMGT]B in \S+ \([\d,]+ kB/s\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Found \S+ image:"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Found .* on /dev"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Generating grub configuration file ...$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Generating locales...$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Generation complete.$"
