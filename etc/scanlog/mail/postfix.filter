@@ -49,6 +49,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp(\[\d+\])?:\s*Trusted TLS c
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp(\[\d+\])?:\s*warning: (malformed|numeric) domain name in resource data of MX record for "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtp(\[\d+\])?:\s*warning: valid_hostname: empty hostname$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*[[:xdigit:]]+: client="
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*[[:xdigit:]]+: reject: RCPT from .*: 554 5.7.1 .*: Recipient address rejected: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*connect from "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*disconnect from "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*lost connection after (AUTH|CONNECT|DATA|EHLO|HELO|MAIL|NOOP|RCPT|RSET|STARTTLS|UNKNOWN) from"
