@@ -74,6 +74,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*warning: .*s
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*warning: \d+.\d+.\d+.\d+: hostname \S+ verification failed: Name or service not known\s*$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*warning: Illegal address syntax from"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*warning: numeric domain name in resource data of MX record for"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*warning: numeric hostname: \S+$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*warning: numeric result .* in address->name lookup for"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/smtpd(\[\d+\])?:\s*warning: smtpd_peer_init.*verification failed: "
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ postfix/submission/smtpd(\[\d+\])?:\s*connect from \S+\[\d+\.\d+\.\d+\.\d+\]$"
