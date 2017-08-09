@@ -1,0 +1,24 @@
+[Unit]
+Description=%I
+Requires=usr-local-lxc.mount
+After=usr-local-lxc.mount
+
+[Service]
+Restart=always
+RestartSec=30
+#StartLimitInterval=3600
+#StartLimitBurst=5
+#TimeoutStartSec=5
+Type=simple
+# Following line reads the LXC config file for lxc.network.veth.pair=XXX entries
+# and makes sure that we delete any old network interface.  LXC sometimes doesn't
+# delete these, leaving a duplicate with the same IP address and MAC that may
+# sometimes even answer pings.  We do this clean-up prior to starting (in case one
+# is left over from a manual shutdown) and after stopping.
+ExecStartPre=-/usr/local/sbin/lxc-clean-up %I
+ExecStart=/usr/bin/lxc-start -n %I --logpriority=NOTICE --logfile /var/log/lxc/%I.detail.log
+
+ExecStop=/usr/bin/lxc-stop -n %I --timeout 30 
+ExecStopPost=/usr/local/sbin/lxc-clean-up %I
+[Install]
+WantedBy=multi-user.target

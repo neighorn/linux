@@ -1,0 +1,24 @@
+#!/bin/bash
+# Used by local systemd lxc@ template to turn off old network interfaces
+# when the lxc system closes.  Otherwise they fail to start next time.
+
+instance=$1
+
+if [[ $# -ne 1 ]]
+then
+	echo "usage: lxc-clean-up <instance-name>"
+	exit 8
+fi
+
+config="/usr/local/lxc/$instance/config"
+if [[ ! -r "$config" ]]
+then
+	echo "lxc-clean-up: unable to read $config"
+	exit 8
+fi
+	
+grep "^ *lxc.network.veth.pair"  "$config" | while read interface
+do
+	interface=${interface##*=}
+	/sbin/ip link del $interface
+done
