@@ -6,7 +6,7 @@
 use strict;
 use warnings;
 use JobTools::LogOutput;
-use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd);
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd ExpandConfigList);
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling require_order);
 use Text::ParseWords;
 use POSIX qw(strftime);
@@ -119,6 +119,7 @@ foreach (@{$Options{'remote-host'}}) {
 	
 die "No command specified on command line\n" unless (@ARGV > 0);
 die "No servers specified in config file\n" unless (@HostList);
+@HostList = ExpandConfigList(@HostList);	# Expand any config file names.
 my $MaxHostLen = 0;
 foreach (@HostList) {
 	$MaxHostLen = ($MaxHostLen < length($_)?length($_):$MaxHostLen);
