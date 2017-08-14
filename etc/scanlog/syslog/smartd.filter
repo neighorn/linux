@@ -16,7 +16,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+(\s*\[me
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+(\s*\[megaraid_disk_\d+\])?(\s*\[SAT\])?, self-test in progress, \d+% remaining$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+(\s*\[megaraid_disk_\d+\])?(\s*\[SAT\])?, SMART Prefailure Attribute: (1|194|195) \S+ changed from ([5-9]\d|1\d\d) to ([5-9]\d|1\d\d)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+(\s*\[megaraid_disk_\d+\])?(\s*\[SAT\])?, SMART Prefailure Attribute: (2|3|8|9|191|194) \S+ changed from \d+ to \d\d\d$"
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+(\s*\[megaraid_disk_\d+\])?(\s*\[SAT\])?, SMART Usage Attribute: (9|190|191|194) \S+ changed from \d+ to \d+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+(\s*\[megaraid_disk_\d+\])?(\s*\[SAT\])?, SMART Usage Attribute: (9|190|191|194|195) \S+ changed from \d+ to \d+$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Device: /dev/\S+.*, type changed from '\S+' to '\S+'$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Monitoring \d+ ATA and \d+ SCSI devices$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smartd\[\d+\]: Opened configuration file "
