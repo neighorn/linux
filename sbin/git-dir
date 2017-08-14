@@ -34,13 +34,13 @@ our %OptionSpecifications;
 		'<>'			=>	sub {push @Parms,shift;},
 		'debug|d'		=>	sub {$DB::AutoTrace=1;},
 		'help|h|?!'		=>	\&opt_h,
-		'always-mail|m=s'	=>	\&opt_Array,
-		'error-mail|M=s'	=>	\&opt_Array,
+		'always-mail|m=s'	=>	\&OptArray,
+		'error-mail|M=s'	=>	\&OptArray,
 		'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
-		'always-page|p=s'	=>	\&opt_Array,
-		'error-page|P=s'	=>	\&opt_Array,
-		'test|t'		=>	\&opt_Flag,
-		'verbose|v'		=>	\&opt_Flag,
+		'always-page|p=s'	=>	\&OptArray,
+		'error-page|P=s'	=>	\&OptArray,
+		'test|t'		=>	\&OptFlag,
+		'verbose|v'		=>	\&OptFlag,
 );
 #
 
