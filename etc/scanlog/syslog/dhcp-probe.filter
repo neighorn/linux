@@ -1,3 +1,5 @@
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcp_probe(\[\d+\])?:\s*dhcp_probe: bad interface '\S+': \S+: no IPv4 address assigned$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcp_probe(\[\d+\])?:\s*Done.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcp_probe(\[\d+\])?:\s*exiting$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcp_probe(\[\d+\])?:\s*starting, version \S+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ dhcp_probe(\[\d+\])?:\s*Waiting for pid file round: \d+$"
