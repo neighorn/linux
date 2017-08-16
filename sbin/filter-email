@@ -243,8 +243,8 @@ exit($ExitCode);
 # Clean-up - make sure we have a zero return code so we don't mess with Postfix.
 #
 sub CleanUp {
-	my $trash = $LogOutput::ExitCode;	# Suppress perl "Only used once" message.
-	$LogOutput::ExitCode = 0;
+	my $trash = $JobTools::LogOutput::ExitCode;	# Suppress perl "Only used once" message.
+	$JobTools::LogOutput::ExitCode = 0;
 }
 
 
