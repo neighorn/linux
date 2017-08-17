@@ -6,7 +6,7 @@
 use strict;
 use warnings;
 use JobTools::LogOutput;
-use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd ExpandConfigList);
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunDangerousCmd ExpandConfigList);
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling require_order);
 use Text::ParseWords;
 use POSIX qw(strftime);

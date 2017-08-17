@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use JobTools::LogOutput;
-use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunRemote RunDangerousCmd);
+use JobTools::Utils qw(:Opt :Lock LoadConfigFiles RunDangerousCmd);
 use Getopt::Long 2.38 qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
