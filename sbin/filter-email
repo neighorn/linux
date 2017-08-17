@@ -6,7 +6,7 @@
 use strict;
 use warnings;
 use JobTools::LogOutput;
-use JobTools::Utils qw(:Opt :Lock LoadConfigFiles);
+use JobTools::Utils qw(:Opt :Lock);
 use Getopt::Long qw(GetOptionsFromString :config gnu_compat permute bundling);
 use Text::ParseWords;
 use POSIX qw(strftime);
@@ -56,7 +56,7 @@ our %OptionSpecifications;
 
 # Load the config file.
 foreach (@ConfigFiles) {
-	LoadConfigFiles($_);
+	LoadConfigFile($_);
 }
 foreach (keys(%Config)) { s/,$//;};	# Trim off trailing commas.
 
@@ -107,7 +107,7 @@ $From =~ s/\s.*$//;		# Strip any trailing data.
 $From = getlogin() unless ($From !~ /^\s*$/);
 ($JobName = $InputSubject) =~ s/^\s*(\S+)\b.*$/$1/;
 $JobName =~ s/[^a-zA-Z0-9:_-]//g;
-$SendingHost = "(unknown host)" unless ($SendingHost);
+$SendingHost = "UNKNOWN-HOST" unless ($SendingHost);
 $SendingHost = lc($SendingHost);
 $SendingHost =~ s/\..*$//;	#Strip domain name.
 print "Verbose: From=$From, Sending Host=$SendingHost, JobName=$JobName, Subject=$InputSubject\n"
@@ -240,6 +240,63 @@ if ($ExitCode) {
 }
 
 exit($ExitCode);
+
+
+
+#
+# LoadConfigFile - load a configuration file
+#   This is a custom version to support special handling for FilterFile records.
+#
+sub LoadConfigFile {
+	my $ConfigFile = shift;
+	if (-e $ConfigFile) {
+		my $CONFIGFH;
+                open($CONFIGFH,$ConfigFile) || die("Unable to open $ConfigFile: $!\n");
+                # Build a hash of settings found in the config file.
+                my @Lines;
+
+                # Read config file and assemble continuation lines into single items.
+                while (<$CONFIGFH>) {
+                        next if (/^\s*#/);                      # Comment.
+                        next if (/^\s*$/);                      # Blank line.
+                        chomp;
+                        if (/^\s+/ and @Lines > 0) {
+                                # Continuation line.  Append to prior line.
+                                $Lines[$#Lines] .= " $_";
+                        }
+                        else {
+                                push @Lines, $_;
+                        }
+                }
+                close $CONFIGFH;
+
+                # Process assembled lines.
+                foreach (@Lines) {
+                        my ($name,$settings)=split(/:?\s+/,$_,2);
+                        $name=uc($name);                        # Name is not case sensitive.
+                        $settings='' unless ($settings);        # Avoid undef warnings.
+                        $settings=~s/\s+$//;                    # Trim trailing spaces.
+			if ($name eq 'INCLUDE') {
+				LoadConfigFile($settings);
+			}
+			elsif ($name eq 'FILTERFILE') {
+				my ($file,$regex) = split(/\s+/,$settings,2);
+				$file="/usr/local/etc/$Prog.d/$file" unless ($file =~ m"^/");
+				eval "\$regex = qr$regex;";		# Compile the regex.
+				push @FilterFiles,[$regex,$file];
+			}
+			else {
+				$settings=~s/\s+$//;	# Trim trailing spaces.
+				$Config{$name}.=$settings . ',' ;
+			}
+                }
+		foreach (keys(%Config)) {
+			$Config{$_} =~ s/,$//;  # Remove trailing comma
+		}
+        }
+}
+
+
 
 
 #
