@@ -110,6 +110,8 @@ $JobName =~ s/[^a-zA-Z0-9:_-]//g;
 $SendingHost = "(unknown host)" unless ($SendingHost);
 $SendingHost = lc($SendingHost);
 $SendingHost =~ s/\..*$//;	#Strip domain name.
+print "Verbose: From=$From, Sending Host=$SendingHost, JobName=$JobName, Subject=$InputSubject\n"
+	if ($Options{verbose} >= 2);
 
 # See if we can find a customized filter file.
 my $filterfile;
