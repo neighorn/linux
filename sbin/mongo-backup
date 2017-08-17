@@ -31,6 +31,7 @@ our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
 our $HostName=`hostname -s`;		# Get our host name.
 chomp $HostName;
+JobTools::Utils::init(config => \%Config, options => \%Options);
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need

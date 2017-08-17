@@ -26,6 +26,7 @@ our $Errors=0;
 our %Config;
 our @Parms;
 our %Options;			# Options settings.
+JobTools::Utils::init(config => \%Config, options => \%Options);
 
 # Define our command-line options.  I use sub for everything, because
 # GetOptions doesn't work right on a second call to it (which we need
@@ -33,18 +34,20 @@ our %Options;			# Options settings.
 $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
 our %OptionSpecifications;
 %OptionSpecifications = (
-		'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
-		'always-mail|m=s'	=>	\&OptArray,
-		'always-page|p=s'	=>	\&OptArray,
-		'debug|d'		=>	sub {$DB::AutoTrace=1;},
-		'error-mail|M=s'	=>	\&OptArray,
-		'error-page|P=s'	=>	\&OptArray,
-		'filter-file|F=s'	=>	\&OptArray,
-		'help|h|?!'		=>	\&opt_h,
-		'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
-		'remote-host|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
-		'test|t'		=>	\&OptFlag,
-		'verbose|v'		=>	\&OptFlag,
+	'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
+	'after|A=s'		=>	\&OptArray,
+	'always-mail|m=s'	=>	\&OptArray,
+	'always-page|p=s'	=>	\&OptArray,
+	'before|B=s'		=>	\&OptArray,
+	'debug|d'		=>	sub {$DB::AutoTrace=1;},
+	'error-mail|M=s'	=>	\&OptArray,
+	'error-page|P=s'	=>	\&OptArray,
+	'filter-file|F=s'	=>	\&OptArray,
+	'help|h|?!'		=>	\&opt_h,
+	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
+	'remote-host|R=s'	=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+	'test|t'		=>	\&OptFlag,
+	'verbose|v'		=>	\&OptFlag,
 );
 #
 our $ExitCode;
@@ -145,8 +148,14 @@ sub RunLocally {
 		die "Invalid options specified\n" unless (GetOptionsFromArray(\@Array,\%Options,%OptionSpecifications));
 	}
 
+	foreach (@{$Options{before}}) {
+		RunDangerousCmd($_);
+	}
 	RunDangerousCmd('mkdir -p -m 660 /usr/local/backup/samba') unless ( -d '/usr/local/backup/samba');
 	RunDangerousCmd('samba_backup - /usr/local/backup/samba 14');
+	foreach (@{$Options{after}}) {
+		RunDangerousCmd($_);
+	}
 
 }
 

@@ -30,6 +30,7 @@ our %Config;				# Data from the config file.
 our %Options;				# Options settings.
 our @Parms;				# List of non-option arguments.
 our @RecoveryRestart;			# List of machines that failed to
+JobTools::Utils::init(config => \%Config, options => \%Options);
 					# shutdown.
 
 # Define our command-line options.  I use sub for everything, because
