@@ -43,7 +43,7 @@ our %OptionSpecifications;
 #		'error-page|P=s'	=>	\&OptArray,
 		'config-file=s'		=>	sub {LoadConfigFile($_[1]);},
 		'filter-file|F=s'	=>	\&OptValue,
-		'remote-host|R=s'	=>	\&OptArray,
+		'remote|R=s'	=>	\&OptArray,
 		'test|t'		=>	\&OptFlag,
 		'verbose|v'		=>	\&OptFlag,
 );
@@ -106,9 +106,9 @@ my $LogOutputVerbose = ($Options{verbose} > 4?$Options{verbose}-4:0);
 #	VERBOSE			=> $LogOutputVerbose,
 #});
 
-push @{$Options{'remote-host'}}, 'SERVERS' unless (exists($Options{'remote-host'}));
+push @{$Options{'remote'}}, 'SERVERS' unless (exists($Options{'remote'}));
 my @HostList;
-foreach (@{$Options{'remote-host'}}) {
+foreach (@{$Options{'remote'}}) {
 	if (exists($Config{uc($_)})) {
 		# This is a name from the config file.  Push it's list.
 		push @HostList, split(/\s+/,$Config{uc($_)});
@@ -183,7 +183,7 @@ sub opt_h {
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFiles[0]
                                 into the command line at this point.
-	--remote-host|-R host	Remote: Send this command to "host".  If 
+	--remote|-R host	Remote: Send this command to "host".  If 
 				host matches a label in a configuration file,
 				the list associated with that label will be
 				used.  Otherwise, "host" will be assumed to

@@ -45,7 +45,7 @@ our %OptionSpecifications;
 	'filter-file|F=s'	=>	\&OptArray,
 	'help|h|?!'		=>	\&opt_h,
 	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
-	'remote-host|R=s'	=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+	'remote|R=s'	=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 	'test|t'		=>	\&OptFlag,
 	'verbose|v'		=>	\&OptFlag,
 );
@@ -106,8 +106,10 @@ LogOutput({
 die('Excess parameters on the command line: "' . join(' ',@Parms) . "\" See \"$Prog -h\" for usage.")
 	if (@Parms);
 
-if (exists($Options{'remote-host'})) {
-	$Errors = RunRemote(@ARGV);
+if (exists($Options{'remote'}) and @{$Options{'remote'}} > 0) {
+        unshift @ARGV,$Prog;
+        push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
+        $Errors = RunRemote(argv => \@ARGV);
 }
 else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});
@@ -214,11 +216,15 @@ exit 1;
         %Prog -h
 
 =head3 Options:
+	--after=cmd:		After: Run this command after the backup
+				finishes.
         --always-mail|-m addr:  Mailid: Send an execution report to
                                 this e-mail address.
         --always-page|-p addr:  Page: Send a very brief message
                                 (suitable for a pager) to this e-mail
                                 address when this job completes.
+	--before=cmd:		Before: Run this command before the backup
+				starts.
         --error-mail|-e mailid: Error: Send an execution report to this
                                 e-mail address if errors are detected.
         --error-page|-P addr:   Page error: Send a very brief message to
@@ -230,7 +236,7 @@ exit 1;
         --option-set|-O config: Insert the "config" configuration options
                                 from /usr/local/etc/%Prog.cfg
                                 into the command line at this point.
-	--remote-host|-R host	Remote: Run this on one or more remote
+	--remote|-R host	Remote: Run this on one or more remote
 				hosts.  "host" may be a host name, an
 				IP address, a configuration file entry
 				name, or a comma or space separated list of

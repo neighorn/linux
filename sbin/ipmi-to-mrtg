@@ -273,7 +273,7 @@ exit 1;
         --option-set|-O config: Insert the "config" configuration options
                                 from /usr/local/etc/%Prog.cfg
                                 into the command line at this point.
-	--remote-host|-R host	Remote: Run this on one or more remote
+	--remote|-R host	Remote: Run this on one or more remote
 				hosts.  "host" may be a host name, an
 				IP address, a configuration file entry
 				name, or a comma or space separated list of

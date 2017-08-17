@@ -43,7 +43,7 @@ our %OptionSpecifications;
 		'error-page|P=s'	=>	\&OptArray,
 		'filter-file|F=s'	=>	\&OptValue,
 		'test|t'		=>	\&OptFlag,
-		'remote-host|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+		'remote|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'verbose|v'		=>	\&OptFlag,
 		'keep|k=i'		=>	\&OptValue,
 );
@@ -107,9 +107,11 @@ LogOutput({
 	VERBOSE			=> $LogOutputVerbose,
 });
 
-# Are we in remote-host mode, in which case we don't run locally.
-if ($Options{'remote-host'}) {
-	$Errors = RunRemote();
+# Are we in remote mode, in which case we don't run locally.
+if (exists($Options{remote}) and @{$Options{remote}} > 0) {
+        unshift @ARGV,$Prog;
+        push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
+        $Errors = RunRemote(argv => \@ARGV);
 }
 else {
 	$Errors = RunLocally();
@@ -261,7 +263,7 @@ delete old Ubuntu kernels, because Ubuntu just keeps them forever
         --option-set|-O config: Insert the "config" configuration options
                                 from $ConfigFile
                                 into the command line at this point.
-	--remote-host|-R host	Remote: Run this on one or more remote
+	--remote|-R host	Remote: Run this on one or more remote
 				hosts.  "host" may be a host name, an
 				IP address, a configuration file entry
 				name, or a comma or space separated list of

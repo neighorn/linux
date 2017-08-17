@@ -56,7 +56,7 @@ our %OptionSpecifications;
 		'min-size|s=s'		=>	\&opt_min_size,
 		'max-size|S=s'		=>	\&opt_max_size,
 		'output-directory|o=s'	=>	\&OptValue,
-		'remote-host|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+		'remote|R=s'	=>	sub { OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 		'username|user|U=s'	=>	\&OptValue,
 		'gzip|z'		=>	\&OptValue,
 		'oplog'			=>	\&OptValue,
@@ -130,8 +130,10 @@ $Options{cycles}=7 unless ($Options{cycles});
 $Options{host} = '' unless (exists($Options{host}) and $Options{host});
 $Options{executable}="mongodump" unless $Options{executable};
 
-if (exists($Options{'remote-host'})) {
-	$Errors = RunRemote(@ARGV);
+if (exists($Options{remote}) and @{$Options{remote}} > 0) {
+        unshift @ARGV,$Prog;
+        push @ARGV,split(/\s+/,'-F SHOWALL --always-mail= --remote= -O :remote=%HOST%');
+        $Errors = RunRemote(argv => \@ARGV);
 }
 else {
 	$Errors = RunLocally($Config{uc("host=$HostName")});
@@ -139,7 +141,8 @@ else {
 
 if ($Errors) {
 	warn "$Prog failed.\n";
-} else {
+}
+else {
 	#print "$Prog ended normally.\n";
 }
 

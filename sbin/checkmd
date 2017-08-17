@@ -344,7 +344,7 @@ exit 1;
 				if the named option set doesn't exist, unless the
 				name is prefixed with a colon to indicate that it
 				is optional.
-	--remote-host|-R host	Remote: Run this on one or more remote
+	--remote|-R host	Remote: Run this on one or more remote
 				hosts.  "host" may be a host name, an
 				IP address, a configuration file entry
 				name, or a comma or space separated list of
@@ -355,7 +355,7 @@ exit 1;
 				file list to be included, but some of the
 				hosts in the list to subsequently be excluded.
 	--remote-max=n:		Remote max: set the maximum number of remote jobs
-				to run in parallel.  Used with --remote-host.
+				to run in parallel.  Used with --remote.
         --test|-t:              Test: echo commands instead of running them.
         --verbose|-v:           Verbose: echo commands before running them.
 				May be used multiple times to increase verbosity.
