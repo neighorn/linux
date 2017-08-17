@@ -35,17 +35,17 @@ $DB::AutoTrace=$DB::AutoTrace;		# Suppress spurious warning.
 our %OptionSpecifications;
 %OptionSpecifications = (
 	'<>'			=>	sub {my $Arg = shift; push @Parms,$Arg if (length($Arg));},
-	'after|A=s'		=>	\&OptArray,
+	'after|A=s'		=>	sub {OptArray(@_,'preserve-lists'=>1);},
 	'always-mail|m=s'	=>	\&OptArray,
 	'always-page|p=s'	=>	\&OptArray,
-	'before|B=s'		=>	\&OptArray,
+	'before|B=s'		=>	sub {OptArray(@_,'preserve-lists'=>1);},
 	'debug|d'		=>	sub {$DB::AutoTrace=1;},
 	'error-mail|M=s'	=>	\&OptArray,
 	'error-page|P=s'	=>	\&OptArray,
 	'filter-file|F=s'	=>	\&OptArray,
 	'help|h|?!'		=>	\&opt_h,
 	'option-set|O=s'	=>	sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
-	'remote|R=s'	=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
+	'remote|R=s'		=>	sub {OptArray(@_,'allow-delete'=>1,'expand-config'=>1);},
 	'test|t'		=>	\&OptFlag,
 	'verbose|v'		=>	\&OptFlag,
 );
