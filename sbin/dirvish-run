@@ -655,8 +655,8 @@ sub ProcessBackup {
 		}
 		else {
 			print "$Target backup failed with return code $RetCode and signal $Signal\n";
+			$Errors++;
 		}
-		$Errors++;
 	}
 
 	# Clean up the lock file.
