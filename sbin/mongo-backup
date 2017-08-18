@@ -269,7 +269,7 @@ sub BackupDatabase {
 			find(sub {$size += -s if -f $_}, $OutPath);
 		}
 		printf "%15s bytes (%6s) written to %s\n",
-			Commify($size), CompressSize($size), $OutPath;
+			Commify($size), CompressByteSize($size), $OutPath;
 		warn "Warning: backup is less than the minimum expected size ("
 			. Commify($Options{'min-size'}) ." bytes)\n"
 				if ($Options{'min-size'} and $size < $Options{'min-size'} and ! $Options{test});
@@ -434,7 +434,7 @@ sub opt_cycles {
 #
 sub opt_min_size {
         my(undef,$Value) = @_;
-	$Options{'min-size'} = ExpandSize($Value);
+	$Options{'min-size'} = ExpandByteSize($Value);
         if (!defined($Options{'min-size'})) {
                 warn qq<Invalid minimum size (--min-size/-s) value: "$Value"\n>;
 		$Errors++;
@@ -449,7 +449,7 @@ sub opt_min_size {
 #
 sub opt_max_size {
         my(undef,$Value) = @_;
-	$Options{'max-size'} = ExpandSize($Value);
+	$Options{'max-size'} = ExpandByteSize($Value);
         if (!defined($Options{'max-size'})) {
                 warn qq<Invalid maximum size (-S) value: "$Value"\n>;
 		$Errors++;
