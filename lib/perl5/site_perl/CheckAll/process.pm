@@ -134,7 +134,7 @@ sub Check {
 	    		;
 
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
-			printf REALSTDOUT "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
+			printf REALSTDOUT "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose >= 2);
     			eval("\@Data = `$Cmd`;");
     			last unless ($@ or $? != 0);
 			$CmdStatus = ($??"rc=$?":$@);
@@ -153,7 +153,7 @@ sub Check {
 		@{$HostData{$Host}} = @Data;
 		_Check($Self);
 		printf REALSTDOUT "\r\%5d		Status=%d, Detail=%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
-			if ($Self->{Verbose});
+			if ($Self->{Verbose} >= 2);
 		printf "%d/%d/%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
 			or warn("$$ $File:$Line: Error returning status: $!");
                 close REALSTDOUT;
@@ -174,14 +174,14 @@ sub _Check {
 
         foreach (@{$HostData{$Host}}) {
         	chomp;
-        	printf REALSTDOUT "\r%5d   Comparing %s to %s\n", $$, $Target, $_ if ($Self->{Verbose});
+        	printf REALSTDOUT "\r%5d   Comparing %s to %s\n", $$, $Target, $_ if ($Self->{Verbose} >= 2);
 		if ($_ =~ $Target) {
-        		printf REALSTDOUT "\r%5d     Match found: %s\n", $$, $_ if ($Self->{Verbose});
+        		printf REALSTDOUT "\r%5d     Match found: %s\n", $$, $_ if ($Self->{Verbose} >= 2);
 			$Self->{Status} = $Self->CHECK_OK;
         		return $Self->CHECK_OK;
 		}
         };
-       	printf REALSTDOUT "\r%5d   %s did not match any process\n", $$, $Target if ($Self->{Verbose});
+       	printf REALSTDOUT "\r%5d   %s did not match any process\n", $$, $Target if ($Self->{Verbose} >= 2);
 	$Self->{Status} = $Self->CHECK_FAIL;
        	return $Self->CHECK_FAIL;
 }
