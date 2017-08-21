@@ -98,7 +98,7 @@ sub Check {
 		# Find out how we're doing.
 		_Check($Self);
 		printf REALSTDOUT "\r\%5d	Status=%d, Detail=%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
-			if ($Self->{Verbose});
+			if ($Self->{Verbose} >= 2);
 		return "Status=" . $Self->{Status}
 	}
 
@@ -119,7 +119,7 @@ sub Check {
                 # We're the child.  Recover our file handles, then test the service.
                 printf REALSTDOUT "\n%5d %s Checking %s %s\n",
                         $$, __PACKAGE__, $Self->Host, $Self->Target
-                                if ($Self->{'Verbose'});
+                                if ($Self->{'Verbose'} >= 2);
 		
 		my $Timeout = int($main::Options{waittime} / $Self->{Tries});
 		my $Cmd = 
@@ -134,7 +134,7 @@ sub Check {
 	    		;
 
     		for (my $Try = 1; $Try <= $Self->{'Tries'}; $Try++) {
-			printf REALSTDOUT "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose >= 2);
+			printf REALSTDOUT "\r\%5d   Gathering data from %s (%s) try %d\n", $$,$Self->{Host},$Self->{Desc},$Try if ($Self->Verbose);
     			eval("\@Data = `$Cmd`;");
     			last unless ($@ or $? != 0);
 			$CmdStatus = ($??"rc=$?":$@);
@@ -153,7 +153,7 @@ sub Check {
 		@{$HostData{$Host}} = @Data;
 		_Check($Self);
 		printf REALSTDOUT "\r\%5d		Status=%d, Detail=%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
-			if ($Self->{Verbose} >= 2);
+			if ($Self->{Verbose});
 		printf "%d/%d/%s\n", $$, $Self->{Status}, $Self->{StatusDetail}
 			or warn("$$ $File:$Line: Error returning status: $!");
                 close REALSTDOUT;
