@@ -224,10 +224,10 @@ if ($Options{joblockfile}) {
 	if (!flock($JOBLOCK, LOCK_EX | LOCK_NB)) {
 		my @stat = stat($Options{joblockfile});
 		my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
-		$mdate =  strftime("%H:%M:%D",localtime($stat[8]))
+		$mdate =  strftime("%H:%M:%S",localtime($stat[8]))
 			if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
-		print "Warning: Skipped this job due to a conflicting job in progress per "
-			. qq<"$Options{joblockfile}" started $mdate >
+		print "Warning: Skipped this job due to a conflicting job started $mdate per "
+			. qq<"$Options{joblockfile}">
 			. "\n"
 			;
 		exit 11;
@@ -488,7 +488,7 @@ sub ProcessBackup {
                 	return;
 		}
         	if (!flock($SECTIONLOCK, LOCK_EX | LOCK_NB)) {
-                	print qq<Warning: Skipped $Target due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
+                	print qq<Warning: Skipped "$Target" due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
 			$Errors++;
                 	return;
 		}
@@ -560,11 +560,11 @@ sub ProcessBackup {
 		return;
 	}
 	if (!flock($LOCK, LOCK_EX | LOCK_NB)) {
-		my @stat = stat($Options{$LockFile});
+		my @stat = stat($LockFile);
 		my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
-		$mdate =  strftime("%H:%M:%D",localtime($stat[8]))
+		$mdate =  strftime("%H:%M:%S",localtime($stat[8]))
 			if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
-		warn qq<Warning: Skipped $Target due to a conflicting backup started $mdate per "$LockFile"\n>;
+		warn qq<Warning: Skipped "$Target" due to a conflicting backup started $mdate per "$LockFile"\n>;
 		$Errors++;
 		return;
 	}
