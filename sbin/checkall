@@ -81,7 +81,7 @@ unshift @ARGV, quotewords(" ",0,$Config{'ALLJOBS'})
 GetOptions (
 	'v|verbose+'	=> \$Options{verbose},
 	'c|config=s'	=> \$Options{config},
-	'a|all'		=> sub {$Options{failed} = 0;},	# Synonym for --nofail
+	'a|all|show'	=> sub {$Options{failed} = 0;},	# Synonym for --nofail
 	'fail|failed!'	=> \$Options{failed},
 	'h|help'	=> \$Options{help},
 	'L|libdir=s'	=> sub{ unshift @INC, glob($_[1]); },
@@ -808,10 +808,11 @@ Fail -- only list failing items.
 Force -- ignore "DISABLEDUNTIL" specification in config file.
 
 
-=item --all, --nofail, --nofailed
+=item --show, --all
 
-All -- override prior --fail/--failed.  This is used primarily on the command
-line to override a --fail or --failed in the .cfg file.
+show -- override prior --fail/--failed.  This is used primarily on the command
+line to override a --fail or --failed in the .cfg file.  --all is a deprecated
+alias for --show.
 
 =item -h, --help
 
