@@ -1650,7 +1650,7 @@ IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?tsc: Fa
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?tsc: PIT calibration matches PMTIMER. \d+ loops$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ resolvconf\[\d+\]:\s+/etc/resolvconf/update.d/libc: Warning: /etc/resolv.conf is not a symbolic link to /run/resolvconf/resolv.conf$"
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ sh\[\d+\]:\s+ifup: interface \S+ already configured$"
-IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ systemd([\d+\]):\s+Found device "
+IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ systemd(\[\d+\]):\s+Found device "
 IGNORE  "^... [ 1-3]\d \d\d:\d\d:\d\d \S+ thermald\[\d+\]:\s+Unsupported cpu model, use thermal-conf.xml file or run with --ignore-cpuid-check$"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+(\[\s*\d+\.\d+\]\s+)?Linux version \s+"
 SHOW	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s+\[\s+\d+.\d+\]\s*Linux version \d+.\d+.\d+-\d+-\S+ \(\S+\) "
