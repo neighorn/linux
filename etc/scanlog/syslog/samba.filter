@@ -19,6 +19,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba(\[\d+\])?:\s*Copyright Andrew Tri
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba(\[\d+\])?:\s*samba version \S+ started.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba(\[\d+\])?:\s*samba: using 'standard' process model$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba(\[\d+\])?:\s*STATUS=daemon 'samba' finished starting up and ready to serve connections$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ samba(\[\d+\])?:\s*/usr/local/samba/sbin/samba_kcc: ldb_wrap open of \S+$"
 #
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*\[\d+/\d+/\d+ \d+:\d+:\d+\.\d+,\s*\d+\] ../lib/util/become_daemon.c:\d+\(daemon_ready\)$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ smbd(\[\d+\])?:\s*\[\d+/\d+/\d+ \d+:\d+:\d+\.\d+,\s*\d+\] ../source3/smbd/oplock.c:\d+\(oplock_timeout_handler\)$"
