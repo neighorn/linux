@@ -72,7 +72,7 @@ IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?run-parts: executing "
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Setcap worked\! gst-ptp-helper is not suid\!$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Setting up "
-IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Skipping profile in /etc/apparmor.d/disable: \S+$"
+IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Skipping profile in /etc/apparmor.d/disable:"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?snap-confine$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Software catalog update was successful.$"
 IGNORE	"^... [1-3 ]\d \d\d:\d\d:\d\d \S+ apt-install-updates(\[\d+\])?:\s*(\S+:\s*)?Synchronizing state of unattended-upgrades.service with SysV init with /lib/systemd/systemd-sysv-install...$"
