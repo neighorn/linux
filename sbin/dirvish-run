@@ -50,6 +50,7 @@ our $TotalMachines=0;			# How many machines will we back up?
 our %ExcludeVaults;			# Hash of values provided by --exclude-vaults=xxx
 our @Skipped;				# List of skipped machines.
 our %JobDefs;				# Job definitions (target, options, sequence, etc.).
+our @Failed;				# Machines that failed.
 JobTools::Utils::init(config => \%Config, options => \%Options);
 
 # Define our command-line options.  I use sub for everything, because
@@ -293,6 +294,9 @@ foreach my $Target (@JobQueue) {
 # List any skipped items.
 print "$_" foreach (sort(@Skipped));
 
+# Summarize any failed back-ups.
+print "Failed targets: " . join(' ', sort(@Failed)) . "\n";
+
 # Print the disk space report.
 if (%FileSystems) {
 	print "_"x60 . "\nDisk space report:\n";
@@ -488,8 +492,7 @@ sub ProcessBackup {
                 	return;
 		}
         	if (!flock($SECTIONLOCK, LOCK_EX | LOCK_NB)) {
-                	print qq<Warning: Skipped "$Target" due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
-			$Errors++;
+			push @Skipped, qq<Warning: Skipped "$Target" due to a conflicting section in progress per "$Options{sectionlockfile}"\n>;
                 	return;
 		}
         }
@@ -564,8 +567,7 @@ sub ProcessBackup {
 		my $mdate = strftime("%Y-%m-%d",localtime($stat[8]));
 		$mdate =  strftime("%H:%M:%S",localtime($stat[8]))
 			if ($mdate eq strftime("%Y-%m-%d",localtime(time())));
-		warn qq<Warning: Skipped "$Target" due to a conflicting backup started $mdate per "$LockFile"\n>;
-		$Errors++;
+		push @Skipped, sprintf(qq<Warning: Skipped "$Target" due to a conflicting backup started $mdate per "$LockFile"\n>);
 		return;
 	}
 
@@ -657,6 +659,7 @@ sub ProcessBackup {
 		}
 		else {
 			print "$Target backup failed with return code $RetCode and signal $Signal\n";
+			push @Failed,$Target;
 			$Errors++;
 		}
 	}
