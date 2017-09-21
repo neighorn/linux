@@ -641,7 +641,7 @@ sub ProcessBackup {
 		# Should we retry this job
 		if (
 			     !$Signal					# Don't retry on kills, segfaults, etc.
-			and !$NoRetries{$Status}			# It's not on our don't-retry list
+			and !$NoRetries{$RetCode}			# It's not on our don't-retry list
 			and $Options{retries}				# We still have more retrys permitted
 		) {
 			push @JobQueue,$Target;
