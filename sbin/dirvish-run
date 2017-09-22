@@ -295,7 +295,7 @@ foreach my $Target (@JobQueue) {
 print "$_" foreach (sort(@Skipped));
 
 # Summarize any failed back-ups.
-print "Failed targets: " . join(' ', sort(@Failed)) . "\n";
+print "Failed targets: " . join(' ', sort(@Failed)) . "\n" if (@Failed);
 
 # Print the disk space report.
 if (%FileSystems) {
