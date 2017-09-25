@@ -340,7 +340,7 @@ IGNORE	"^\s*(\S+:\s*)?\S+:\s+\S+ ended normally with status 0 and signal 0"
 IGNORE	"^\s*(\S+:\s*)?\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
 IGNORE	"^\s*(\S+:\s*)?\S+ ended on \S+, \d\d\d\d-\d\d-\d\d at \d\d:\d\d:\d\d"
 IGNORE	"^\s*(\S+:\s*)?Shutting down .* \[\s*OK\s*\]"
-IGNORE	"^\s*(\S+:\s*)?Starting .* \[\s*OK\s*\]$"
+IGNORE	"^\s*(\S+:\s*)?Starting .* \[\s*OK\s*\]"
 IGNORE	"^\s*(\S+:\s*)?\[\s*OK\s*\]$"
 SHOW	"^\s*\S+:\s*Remote job ended at ..:..:.., return code =\s+0, signal =\s+0"
 #
