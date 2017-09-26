@@ -22,7 +22,7 @@ use Fcntl qw(:flock);
 our @ISA	= qw(Exporter);
 our @EXPORT	= qw(LogOutput);
 our @EXPORT_OK	= qw(AddFilter FilterMessage WriteMessage $Verbose $MailServer $MailDomain $Subject FormatVerboseElapsedTime);
-our $Version	= 3.37;
+our $Version	= 3.38;
 
 our($ExitCode);			# Exit-code portion of child's status.
 our($RawRunTime);		# Unformatted run time.
@@ -1080,8 +1080,8 @@ Options and defaults are shown in the table below:
    ---------------------|---------------|----------------------------
    ALWAYS_MAIL_LIST	| -none-	| Always send a report
    			|		| to these e-mail addreses
-   ALWAYS_PAGE_LIST	| -none-	| Always send a page to
-   			|		| these e-mail addresses
+   ALWAYS_PAGE_LIST	| -none-	| Always send a page (short email)
+   			|		| to these e-mail addresses
    CLEAN_UP		| -none-	| Call this subroutine after
    			|		| the child process completes
    ERROR_MAIL_LIST	| -none-	| Send a report to these
@@ -1217,6 +1217,7 @@ of information sent in the e-mail'd execution reports.
 See "Filtering and Error Detection" below for filter file syntax.
 
 Examples:
+
     FILTER_FILE => '/home/joeuser/jobname.filter'
     FILTER_FILE => '/home/joeuser/jobname.*.filter'
     FILTER_FILE => (
@@ -1254,7 +1255,7 @@ syslog, although the two are not mutually exclusive.
 This option contains a file name to use to hold e-mail text.  If not
 provided, a
 file is created in /tmp and deleted on termination.  Any prior contents of
-this file are always deleted.  Symbol substitution is allowed.
+this file are always deleted.  Symbol substitution is allowed (see below).
 
 Example:  MAIL_FILE => '/home/joeuser/log/jobname.log'
 
@@ -1344,7 +1345,7 @@ look like "07/01 SERVER1 MyScript ended normally".
 =head2 NORMAL_RETURN_CODES
 
 This option identifies exit codes that should be considered normal.  LogOutput
-uses as part of its effort to determine if the script ran normally.  Normal
+uses the exit code as part of its effort to determine if the script ran normally.  Normal
 exit codes are specified as a list, as shown in the example below.  If the
 script exits with an exit code other than one in the list, LogOutput will
 flag the script as having ended with errors.  By default, zero is a normal exit code, and anything else is abnormal.
@@ -1390,7 +1391,7 @@ a signal (segfault, kill, etc.), is considered to have failed
 =item 3)
 
 Unexpected messages, according to the specification found in
-the "$FilterFile" fileis).
+the "$FilterFile" files.
 
 =back
 
@@ -1428,15 +1429,6 @@ The possible options are:
 
 Except for "INCLUDE", PATTERN is any valid PERL pattern.
 
-                  Example:
-
-
-                  In this example, any output matching the pattern will be displayed in 
-                  the syslog, on STDOUT, and in the e-mail report.  At the end of the
-                  job, an error will be thrown if this message did not appear, or appeared
-                  more than once.
-
-
 For example:
 
     IGNORE		"^Now processing record \d+$"
@@ -1453,11 +1445,12 @@ backups occurred in the same job.
 =head1 Clean-up
 
 Once the script has terminated, LogOutput checks to see if a subroutine
-exists in the main program called "Cleanup".  If one exists, LogOutput
+was specified using the CLEAN_UP option.  If one exists, LogOutput
 will call this routine to perform clean-up processing.  Note that this is being
-called in the parent process (see Detailed Description below), so Cleanup
-won't have access to global variables set in the child process that ran
-most of the script code.
+called in the parent process (see Detailed Description below).  This is 
+necessary so it has access to the child's exit status, but it also means
+that the routine won't have access to global variables set in the child
+process that ran most of the script code.
 
 =head1 Detailed Description
 
@@ -1493,5 +1486,8 @@ it may or may not echo any given message to the console.  If a message is
 echoed to the console, it is echoed as STDOUT even if the original message
 came via STDERR.  This effectively reclassifies all messages as STDOUT 
 messages for purposes of command line redirection.
+
+Signals sent to the parent process (notably ^C from a command line) are not
+relayed to the child process.
 
 =cut

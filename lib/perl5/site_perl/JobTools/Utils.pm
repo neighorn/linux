@@ -22,11 +22,26 @@ use POSIX qw(strftime);
 use Text::ParseWords;
 use Fcntl qw(:flock :mode :DEFAULT);
 
-our $Version		= 1.0;
+our $Version		= 1.1;
 our $BYTESIZE_UNITS 	= 'BKMGTPEZY';
 our $OptionsRef;				# Pointer to %Options hash
 our $ConfigRef;					# Pointer to %Config hash
 our %OptArrayConfigUsed;			# Hash used to prevent infinite loops in OptArray config look-ups
+
+=pod
+
+=head1 JobTools::Utils
+
+=head2 Overview
+
+JobTools::Utils contains a variety of scripting tools (e.g. 
+convert "1234567" to "1,234,567)
+used by the MCSI script library.  Many require JobTools::Utils::init to be called to provide two hash references.  See JobTools::init
+for details.
+
+=head2 ----------
+
+=cut
 
 #
 # init - accept and store pointers we may need elsewhere.
@@ -47,6 +62,52 @@ sub init {
 	}
 	undef %OptArrayConfigUsed;	# (Re)initialize this.
 	return;
+=pod
+
+=head2 JobTools::Utils::init
+
+=head3 Synopsis
+
+    use JobTools::Utils
+    our %Config;                # Config data.
+    our %Options;               # Options settings.
+    JobTools::Utils::init(config => \%Config, options => \%Options);
+
+=head3 Explanation
+
+
+Many of the subroutines in JobTools::Utils need to know the location of one or both
+of two hashes maintained by the caller.  These two hashes contain the following information:
+
+=over
+
+=item *
+
+A hash to contain option settings (e.g. what level of verbosity do we want, are we testing, are we sending e-mail to anyone and if so what are the addresses).  The 
+internal format is an uppercase key that matches whatever the relevant option is as reported by GetOpt::Long (e.g. "VERBOSE"), with the values containing whatever
+was provided on the command line, as interpreted by OptFlag, OptValue, or OptArray (discussed below).  
+
+=item *
+
+A hash to contain configuration data as loaded out of configuration files.  This data is less widely used, but still required by some routines.
+The internal format is the uppercase key found in the configuration file by LoadConfigFiles (see below), with the value being whatever data was found in the
+configuration file for that key.
+
+=back
+
+JobTools::init allows the calling program to pass references to these two hashes, which various routines JobTools::Utils can reference.  In the simplest
+case, the calling program just declares these two hashes, passes them to JobTools::Utils::init, and subsequently ignores them.  In more advanced
+cases, the calling program or its subroutines may reference these arrays to get settings for their own purposes (e.g. the main program may also 
+like to know if we're in verbose mode or not).
+
+    our %Config;		# Config data.
+    our %Options;		# Options settings.
+    JobTools::Utils::init(config => \%Config, options => \%Options);
+
+=head2 ----------
+
+=cut
+
 }
 
 
@@ -56,8 +117,29 @@ sub init {
 #
 sub Commify {
 	local $_ = shift;
+	s/,//g;		# Remove any pre-existing commas.
 	1 while s/^(-?\d+)(\d{3})/$1,$2/;
 	return $_;
+
+=pod
+
+=head2 JobTools::Commify
+
+=head3 Synopsis
+
+    use JobTools::Utils qw(Commify);
+    my $formatted = Commify('1234567');			# Returns '1,234,567'.
+    my $formatted = Commify('12,34,56,7');		# Returns '1,234,567'.
+
+=head3 Explanation
+
+Commify removes any existing commas, and then inserts commas in the appropriate
+places to separate strings of digits into three-digit blocks. 
+
+=head2 ----------
+
+=cut
+
 }
 
 
@@ -115,6 +197,38 @@ sub ExpandByteSize {
 	if (defined($Factor)) {
 		return $Value*$Hash{Conversion}**$Factor;
         }
+
+=pod
+
+=head2 JobTools::ExpandByteSize
+
+=head3 Synopsis
+
+    use JobTools::Utils qw(ExpandByteSize);		# Or "... qw(ByteSize);"
+    my $bytes = ExpandByteSize('1K');			# Returns 1024.
+    my $bytes = ExpandByteSize('3G');			# Returns 3221225472.
+    my $bytes = ExpandByteSize({Value=>'1K',Conversion=1000});	# Returns 1000.
+    my $bytes = ExpandByteSize({Value=>'3G',Conversion=1000});	# Returns 3000000000.
+
+=head3 Explanation
+
+ExpandByteSize converts number common storage-unit suffixes to
+the equivalent integers.  The default suffixes recognized are
+    B, K, M, G, T, P, E, Z, Y
+These can be changed by setting JobTools::Utils::BYTESIZE to a string
+containing the proper sequence (e.g. JobTools::Utils::BYTESIZE = 'ABCDEFG')
+with the leftmost symbol representing bytes, and each subsequent letter
+indicating the next higher unit.o
+
+Using the hash-based calling format, the default conversion unit of 1024
+can be changed to 1000, or any other desired value.
+
+See also: JobTools::CompressByteSize for the reverse operation.
+
+=head2 ----------
+
+=cut
+
 }
 
 
