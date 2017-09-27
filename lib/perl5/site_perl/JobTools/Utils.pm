@@ -793,6 +793,94 @@ sub RunDangerousCmd {
 			return 8<<8;
 		}
 	}
+
+=pod
+
+=head2 JobTools::RunDangerousCmd
+
+=head3 Synopsis
+
+    # Common preface...
+    use JobTools::Utils qw(RunDangerouscmd);
+    my %Config;		# Where we'll store configuration parameters.
+    my %Options;	# Where we'll store command line options (unused here).
+    JobTools::Utils::init(config => \%Config, options => \%Options);
+    # Individual examples...
+    RunDangerousCmd('rm -f /abc/def/ghi.dat');
+    RunDangerousCmd('rm -f /abc/def/ghi.dat',verbose=>1);
+
+=head3 Explanation
+
+RunDangerousCmd is a wrapper around system().  It provides the following enhancements:
+
+=over
+
+=item 1
+
+It honors the $Options{test} flag (or whatever hash was provided for options in JobTools::Utils::init).
+When the test flag is set, it doesn't actually run the "dangerous" command, but instead displays
+what it would have executed.  Thorough use of RunDangerousCmd means that a script can be executed
+safely with the test flag, even in a production environment if necessary, to help diagnose problems.
+
+=item 2
+
+It honors the $Options{verbose} flag.  When the verbose flag is set, it displays a command before
+executing it.  In the case that both the test and verbose flags are set, test is safer and takes
+priority over verbose.
+
+=back
+
+Calling format consists of a single string value defining a command to be executed, optionally
+followed by a series of one or more hash-style key=>value pairs.  Valid key=>value pairs are:
+
+=over
+
+=item *
+
+verbose=>value - defines a value of 0 or 1 to turn verbosity off or on.  Default is 0 (off).
+
+=item *
+
+test=>value - defines a value of 0 or 1 to turn test mode off or on.  Default is 0 (off).
+
+=item *
+
+suppress-output=>value - defines a value of 0 or 1 to present or suppress output.  Default is 0 (present).
+When suppress-output is set to 1, it overrides verbose and test.  
+This is used primarily by the JobTools::Utils test suite for testing, and not expected to be used in 
+production.
+
+=back
+
+=head3 Notes
+
+=over
+
+=item 1
+
+Some scripts may need additional logic to run gracefully in test mode.
+This happens when they rely on a prior command having been executed, but test mode
+prevented it from being run.  For example:
+ 
+    RunDangerousCmd("mkdir /tmp/abc");
+    opendir(my $dh, '/tmp/abc') || die "Can't open /tmp/abc";
+ 
+In test mode the opendir will always fail, because the "mkdir" didn't actually run.
+This can be resolved by using logic similar to the following:
+ 
+    RunDangerousCmd("mkdir /tmp/abc");
+    (opendir(my $dh, '/tmp/abc') || die "Can't open /tmp/abc") unless ($Options{test});;
+ 
+=item 2
+
+RunDangerousCmd deletes ^H and ^M from the command output, and appends \n, for better logging and processing by JobTools::LogOutput.
+
+=back
+
+=head2 ----------
+
+=cut
+
 }
 
 
