@@ -383,7 +383,7 @@ IGNORE	"^\s*(\S+:\s*)?Failed to set capabilities on file `/usr/bin/systemd-detec
 IGNORE	"^\s*(\S+:\s*)?Fetched [\d.,]+ [kMGT]B in .* \([\d,.]+ \S+/s\)$"
 IGNORE	"^\s*(\S+:\s*)?Found .* on /dev"
 IGNORE	"^\s*(\S+:\s*)?Found \S+ image:"
-IGNORE	"^\s*(\S+:\s*)?Found kernel:"\S+ image:"
+IGNORE	"^\s*(\S+:\s*)?Found kernel:\s*\S+ image:"
 IGNORE	"^\s*(\S+:\s*)?Generating grub configuration file ..."
 IGNORE	"^\s*(\S+:\s*)?Generating locales \(this might take a while\)...\s*$"
 IGNORE	"^\s*(\S+:\s*)?Generating locales...\s*$"
