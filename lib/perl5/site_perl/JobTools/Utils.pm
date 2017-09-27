@@ -84,7 +84,7 @@ of two hashes maintained by the caller.  These two hashes contain the following 
 =item *
 
 A hash to contain option settings (e.g. what level of verbosity do we want, are we testing, are we sending e-mail to anyone and if so what are the addresses).  The 
-internal format is an uppercase key that matches whatever the relevant option is as reported by GetOpt::Long (e.g. "VERBOSE"), with the values containing whatever
+internal format is an key that matches whatever the relevant option is as reported by GetOpt::Long (e.g. "verbose"), with the values containing whatever
 was provided on the command line, as interpreted by OptFlag, OptValue, or OptArray (discussed below).  
 
 =item *
@@ -152,18 +152,18 @@ sub ExpandByteSize {
 
 	my %Hash;		# Input parameters.
 	if (@_ == 1) { 
-	        $Hash{Value} = shift;
+	        $Hash{value} = shift;
 	}
 	else {
 		%Hash = @_;
 	}
 
 	# Parse the value and suffix, and validate the value.
-	if (! exists($Hash{Value})) {
+	if (! exists($Hash{value})) {
 		warn qq<No conversion value provided -- no conversion possible.>;
 		return undef;
 	}
-	my $Input = $Hash{Value};
+	my $Input = $Hash{value};
 
 	my $Value;			# Resulting value.
 	my $Suffix;			# Resulting suffix.
@@ -173,29 +173,29 @@ sub ExpandByteSize {
 		$Suffix = $2;
 	}
 	else {
-		warn qq<Invalid value "$Hash{Value}" -- no conversion possible>;
+		warn qq<Invalid value "$Hash{value}" -- no conversion possible>;
 		return undef;
 	}
 	$Suffix = 'B' unless (defined($Suffix));
 	$Suffix = uc($Suffix);
 		
 	# Validate the conversion factor.
-	if (! exists($Hash{Conversion})) {
-		$Hash{Conversion} = 1024;		# Using the default.
+	if (! exists($Hash{conversion})) {
+		$Hash{conversion} = 1024;		# Using the default.
 	}
-	elsif ($Hash{Conversion} =~ /^\s*0*([1-9]\d*)\s*$/) {
-		$Hash{Conversion} = $1;
+	elsif ($Hash{conversion} =~ /^\s*0*([1-9]\d*)\s*$/) {
+		$Hash{conversion} = $1;
 	}
 	else {
-		warn qq<Invalid conversion value "$Hash{Conversion}" -- using 1024>;
-		$Hash{Conversion} = 1024;
+		warn qq<Invalid conversion value "$Hash{conversion}" -- using 1024>;
+		$Hash{conversion} = 1024;
 	}
 
         return $1 unless (defined($Suffix));	# No suffix means bytes.
 	
 	my $Factor = index(uc($BYTESIZE_UNITS),$Suffix);
 	if (defined($Factor)) {
-		return $Value*$Hash{Conversion}**$Factor;
+		return $Value*$Hash{conversion}**$Factor;
         }
 
 =pod
@@ -207,18 +207,48 @@ sub ExpandByteSize {
     use JobTools::Utils qw(ExpandByteSize);		# Or "... qw(ByteSize);"
     my $bytes = ExpandByteSize('1K');			# Returns 1024.
     my $bytes = ExpandByteSize('3G');			# Returns 3221225472.
-    my $bytes = ExpandByteSize({Value=>'1K',Conversion=1000});	# Returns 1000.
-    my $bytes = ExpandByteSize({Value=>'3G',Conversion=1000});	# Returns 3000000000.
+    my $bytes = ExpandByteSize(value=>'1K',conversion=1000);	# Returns 1000.
+    my $bytes = ExpandByteSize(value=>'3G',conversion=1000);	# Returns 3000000000.
 
 =head3 Explanation
 
-ExpandByteSize converts number common storage-unit suffixes to
-the equivalent integers.  The default suffixes recognized are
+ExpandByteSize converts numbers with common storage-unit suffixes to
+the equivalent integers.
+
+
+Calling parameters may be expressed in either of two formats:
+
+=over
+
+=item *
+
+A single value, to be converted (e.g. "ExpandByteSize('1K')").
+
+=item *
+
+A hash-style list of keys and associated values (e.g. "ExpandsByteSize(value=>'1K',conversion=>1000)").
+Legitimate keys are:
+
+=over
+
+=item -
+
+value - the value to be converted (required)
+
+=item -
+
+conversion - an alternate conversion value (e.g. 1000, defaults to 1024).
+
+=back
+
+=back
+
+The default suffixes recognized are
     B, K, M, G, T, P, E, Z, Y
 These can be changed by setting JobTools::Utils::BYTESIZE to a string
 containing the proper sequence (e.g. JobTools::Utils::BYTESIZE = 'ABCDEFG')
 with the leftmost symbol representing bytes, and each subsequent letter
-indicating the next higher unit.o
+indicating the next higher unit.
 
 Using the hash-based calling format, the default conversion unit of 1024
 can be changed to 1000, or any other desired value.
@@ -241,21 +271,21 @@ sub CompressByteSize {
 
 	my %Hash;		# Input parameters.
 	if (@_ == 1) { 
-	        $Hash{Value} = shift;
+	        $Hash{value} = shift;
 	}
 	else {
 		%Hash = @_;
 	}
 
 	# Parse the value and suffix, and validate the value.
-	if (! exists($Hash{Value})) {
+	if (! exists($Hash{value})) {
 		warn qq<No conversion value provided -- no conversion possible.>;
 		return undef;
 	}
-	my $Value = $Hash{Value};
+	my $Value = $Hash{value};
         $Value =~ s/,//g;               # Ignore commas.
 
-	my $Conversion = (exists($Hash{Conversion})?$Hash{Conversion}:1024);	# Default to 1024
+	my $Conversion = (exists($Hash{conversion})?$Hash{conversion}:1024);	# Default to 1024
 
 	# Preserve the sign, then remove it temporarily.
 	my $Sign = ($Value <=> 0);
@@ -269,9 +299,80 @@ sub CompressByteSize {
 		($Unit,$UnitsRemaining) = split('',$UnitsRemaining,2);
 		$Value /= $Conversion;
 	}
-	$Hash{Format}='%.1f%s' unless ($Hash{Format});
+	$Hash{format}='%.1f%s' unless ($Hash{format});
 	$Value *= $Sign;	# Restore the sign.
-	return sprintf($Hash{Format},$Value,$Unit);
+	return sprintf($Hash{format},$Value,$Unit);
+
+=pod
+
+=head2 JobTools::CompressByteSize
+
+=head3 Synopsis
+
+    use JobTools::Utils qw(CompressByteSize);		# Or "... qw(ByteSize);"
+    my $bytes = CompressByteSize(1024);		# Returns '1.0K' - exact
+    my $bytes = CompressByteSize(1075);		# Returns '1.0K' - rounding down
+    my $bytes = CompressByteSize(1076);		# Returns '1.1K' - roounding up
+    my $bytes = CompressByteSize(3221225472);		# Returns '3.0G' - larger unit
+    my $bytes = CompressByteSize(value=>1075,format=>'%.3f%s');	# Returns '1.05K'.
+    my $bytes = CompressByteSize(value=>1000,conversion=>1000);	# Returns '1.0K'.
+    my $bytes = CompressByteSize(value=>3000000000,conversion=>1000);	# Returns '3.0G'.
+
+=head3 Explanation
+
+CompressByteSize converts integers to approximate values using common storage-unit suffixes.
+
+Calling parameters may be expressed in either of two formats:
+
+=over
+
+=item *
+
+A single value, to be converted (e.g. "CompressByteSize(102400)").
+
+=item *
+
+A hash-style list of keys and associated values (e.g. "CompressByteSize(value=>102400,conversion=>1000)").
+Legitimate keys are:
+
+=over
+
+=item -
+
+value - the value to be converted (required)
+
+=item -
+
+conversion - an alternate conversion value (e.g. 1000, defaults to 1024).
+
+=item -
+
+format - a display format (e.g. '%.3f %s', defaults to '%.1f%s').
+
+=back
+
+=back
+
+The default suffixes recognized are
+    B, K, M, G, T, P, E, Z, Y
+These can be changed by setting JobTools::Utils::BYTESIZE to a string
+containing the proper sequence (e.g. JobTools::Utils::BYTESIZE = 'ABCDEFG')
+with the leftmost symbol representing bytes, and each subsequent letter
+indicating the next higher unit.  Changing this affects both ExpandByteSize
+and CompressByteSize.
+
+The default format is "%.1f%s".  Using the hash-based call, the format can be changed
+as shown above.
+
+Using the hash-based calling format, the default conversion unit of 1024
+can be changed to 1000, or any other desired value.
+
+See also: JobTools::ExpandByteSize for the reverse operation.
+
+=head2 ----------
+
+=cut
+
 }
 
 
@@ -353,6 +454,85 @@ sub LoadConfigFiles {
 	                }
 	        }
         }
+
+
+=pod
+
+=head2 JobTools::LoadConfigFiles
+
+=head3 Synopsis
+
+    # Common preface...
+    use JobTools::Utils qw(LoadConfigFiles);
+    my %Config;		# Where we'll store configuration parameters.
+    my %Options;	# Where we'll store command line options (unused here).
+    JobTools::Utils::init(config => \%Config, options => \%Options);
+    # Individual examples...
+    LoadConfigFiles('my.cfg');			# Read "my.cfg" 
+    LoadConfigFiles(files => \@file_list);	# Load file names in @file_list.
+    LoadConfigFiles(files => ["site.cfg", "local.cfg"]);	# Load multiple files
+
+=head3 Explanation
+
+LoadConfigFiles read one or more configuration files, and creates entries 
+in the "Config" hash (as provided using JobTools::Utils::init).
+
+Calling parameters may be expressed in either of two formats:
+
+=over
+
+=item *
+
+A single value, naming a single file to be loaded.
+
+=item *
+
+A hash-style list of keys and associated values (e.g. "LoadConfigFiles(files=>\@file_list,verbose=>2)").
+Legitimate keys are:
+
+=over
+
+=item -
+
+files - a reference to an array of file names to be loaded as shown above.
+
+=item -
+
+verbose - an integer indicating the level of verbosity desired.  The default
+is 0.  At present, meaningful values range from 0 to 2.
+
+=back
+
+=back
+
+=head3 Configuration file format
+
+Configuration files consist of lines of key-value pairs, in the format:
+
+        name: value
+
+"name" must begin in column 1, and is case-insensitive.  Lines beginning
+with white-space are treated as continuations of the previous line.  Blank
+lines or lines beginning with # are ignored.  The colon after the name is
+optional.  Multiple lines defining the same value are combined.  The 
+following three examples all result in $Config{MAILDIR} having a value of
+"joe@example.com sarah@example.com".
+
+    # Example 1 - one line
+    maildir: joe@example.com sarah@example.com
+
+    # Example 2 - continued line
+    maildir: joe@example.com
+        sarah@example.com
+
+    # Example 3 - multiple lines
+    maildir: joe@example.com
+    maildir: sarah@example.com
+
+=head2 ----------
+
+=cut
+
 }
 
 

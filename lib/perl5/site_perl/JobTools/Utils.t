@@ -59,7 +59,7 @@ is(ExpandByteSize('1.1K'),1126.4,'ExpandByteSize("1.1K")');
 is(ExpandByteSize('0'),0,'ExpandByteSize("0")');
 is(ExpandByteSize('0K'),0,'ExpandByteSize("0K")');
 is(ExpandByteSize('01K'),1024,'ExpandByteSize("01K")');
-is(ExpandByteSize(Value=>'1K',Conversion=>1000),1000,'ExpandByteSize(Value=>1K,Conversion=>1000))');
+is(ExpandByteSize(value=>'1K',conversion=>1000),1000,'ExpandByteSize(value=>1K,conversion=>1000))');
 
 
 is(CompressByteSize(1),'1.0B','CompressByteSize(1)');
@@ -79,11 +79,11 @@ is(CompressByteSize(1024**4*1),'1.0T','CompressByteSize(1024^4*1)');
 is(CompressByteSize(1024**4*10),'10.0T','CompressByteSize(1024^4*10)');
 is(CompressByteSize(1024**4*100),'100.0T','CompressByteSize(1024^4*100)');
 is(CompressByteSize(-1024**4*100),'-100.0T','CompressByteSize(-1024^4*100)');
-is(CompressByteSize(Value=>999,Conversion=>1000),'999.0B','CompressByteSize(Value=>999,Conversion=>1000)');
-is(CompressByteSize(Value=>1000,Conversion=>1000),'1.0K','CompressByteSize(Value=>1000,Conversion=>1000)');
-is(CompressByteSize(Value=>1000,Conversion=>1000),'1.0K','CompressByteSize(Value=>1000,Conversion=>1000)');
-is(CompressByteSize(Value=>1234567,Conversion=>1000),'1.2M','CompressByteSize(Value=>1234567,Conversion=>1000)');
-is(CompressByteSize(Value=>1234567,Conversion=>1000,Format=>'%.3f %s'),'1.235 M','CompressByteSize(Value=>1234567,Conversion=>1000,Format=>%.3f %s)');
+is(CompressByteSize(value=>999,conversion=>1000),'999.0B','CompressByteSize(value=>999,conversion=>1000)');
+is(CompressByteSize(value=>1000,conversion=>1000),'1.0K','CompressByteSize(value=>1000,conversion=>1000)');
+is(CompressByteSize(value=>1000,conversion=>1000),'1.0K','CompressByteSize(value=>1000,conversion=>1000)');
+is(CompressByteSize(value=>1234567,conversion=>1000),'1.2M','CompressByteSize(value=>1234567,conversion=>1000)');
+is(CompressByteSize(value=>1234567,conversion=>1000,format=>'%.3f %s'),'1.235 M','CompressByteSize(value=>1234567,conversion=>1000,format=>%.3f %s)');
 
 my %Args = 	(                                 test3 => 'arg', test4 => 'arg' );
    %Options =	(                 test2 => 'opt',                 test4 => 'opt' );
