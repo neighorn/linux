@@ -540,6 +540,147 @@ following three examples all result in $Config{MAILDIR} having a value of
 
 # ---------------------------------------------------------
 #
+# OptFlag - generic no-value flag option processing
+#
+sub OptFlag {
+	my($Name,$Value) = @_;
+	if (exists($OptionsRef->{$Name}) and $Value) {
+		# Positive value.  Increment option.
+		$OptionsRef->{$Name} += $Value;
+	}
+	elsif (exists($OptionsRef->{$Name})) {
+		# Value is 0.  Flag is being turned off.
+		$OptionsRef->{$Name} = 0;
+	}
+	else {
+		$OptionsRef->{$Name} = $Value;
+	}
+
+
+=pod
+
+=head2 JobTools::OptFlag
+
+=head3 Synopsis
+
+    # Common preface...
+      use JobTools::Utils qw(OptFlag);		# or ... qw(:Opt);
+      use Getopt::Long;
+      my %Config;	# Where we'll store configuration parameters (unused here).
+      my %Options;	# Where we'll store command line options.
+      JobTools::Utils::init(config => \%Config, options => \%Options);
+    # Individual examples...
+      GetOptions(
+	  # Simple flag - false unless --quiet is specified on the command line
+	  'quiet'    =>  \&OptFlag,
+	  # Negatatable flag - can be turned on with --test, turned off with --notest.
+	  'test!'    =>  \&OptFlag,
+	  # Incremental flag - undefined by default, 1 if --verbose, 2 if --verbose --verbose, etc.
+          'verbose+' =>  \&OptFlag,
+      );
+      print "Starting script\n" unless ($Options{quiet});
+      print "Testing\n" if ($Options{test});
+      print "Using verbose level $Options{verbose}\n" if ($Options{verbose});
+
+=head3 Explanation
+
+OptFlag is intended to be called from Getopt::Long to process command line options that are simple flags.
+It stores the flag settings as a hash entry in the options hash as identified in JobTools::Utils::init
+(referred here by the traditional hash name of $Options). It supports GetOpt::Long's negation and
+increment flags, as shown above.
+
+=head2 ----------
+
+=cut
+
+}
+
+
+# ---------------------------------------------------------
+#
+# OptValue - generic single-value option processing
+#
+sub OptValue {
+	my($Name,$Value) = @_;
+
+        # Possible array processing options:
+        #       append: 0 (default), if repeated, replace prior value with
+	#		  new value
+	#		1, if repeated, append the new value to the prior
+	#		   value, separated by a comma
+
+        my %Defaults = (
+                'append'        => 0,
+        );
+        my %Parms = _GatherParms({@_}, \%Defaults);     # Gather parms into one place.
+
+        # Is the value empty, meaning to wipe any entries to this point.
+        if (!$Value) {
+                # Received "--opt=".  Empty this.
+                delete ($OptionsRef->{$Name});
+                return;
+        }
+	if (!$OptionsRef->{$Name} or !$Parms{append}) {
+		# No prior value, or don't append
+		$OptionsRef->{$Name} = $Value;
+	}
+	else {
+		# Prior value and appending
+		$OptionsRef->{$Name} .= ",$Value";
+	}
+
+=pod
+
+=head2 JobTools::OptValue
+
+=head3 Synopsis
+
+    # Common preface...
+      use JobTools::Utils qw(OptValue);		# or ... qw(:Opt);
+      use Getopt::Long;
+      my %Config;	# Where we'll store configuration parameters (unused here).
+      my %Options;	# Where we'll store command line options.
+      JobTools::Utils::init(config => \%Config, options => \%Options);
+    # Individual examples...
+      GetOptions(
+	  # Simple call using all the default options...
+	  'source=s'  =>  \&OptValue,
+	  # Complex call to set non-default options....
+          'target=s'    =>  sub {OptValue(@_,append => 1);},
+      );
+      print "Source:    $Options{source}\n";
+      print "Target(s): $Options{target}\n";
+
+=head2 ----------
+
+=head3 Explanation
+
+OptValue is intended to be called from Getopt::Long to process command line options that accept a single value.
+It captures the values and stores them as a hash entry in the options hash as identified in JobTools::Utils::init
+(referred here by the traditional hash name of $Options).  In the example above, a command line option of
+"--source=alpha" would result in $Options{source} having a value of "alpha".  
+
+OptValue provides additional handling if a command line option is specified multiple times, or specified without
+a value.  Using the above example, if --source is specified multiple times, the last specified value is retained.
+So "--source=alpha --source=beta" would result in $Options{source} having a value of "beta".
+
+A previously set value can be unset by specifying an empty value.  So "--source=alpha --source=" would
+result in the source key in $Options being deleted (no key, as opposed to a key with an undefined value).
+This can be useful in scripts where an option has a predefined value, or has previously received a value from
+a configuration file, that the user now wants to remove.
+
+Finally, when the append option is true as shown with the "targets" option above, multiple uses cause the
+values to be appended, separated by commas.  So in the above example, "--target=gamma --target=delta"
+will result in $Options{target} having a value of "gamma,delta".  As in the prior example, a null value
+deletes the target key from %Options.
+
+=cut
+
+}
+
+
+# ---------------------------------------------------------
+#
 # OptArray - generic multi-value option  processing
 #
 sub OptArray {
@@ -547,22 +688,6 @@ sub OptArray {
 	my $Name = shift;
 	my $Value = shift;
 	
-	# Possible array processing options:
-	#       preserve-lists: 0 (default), split on embedded spaces or commas
-	#                       1, don't split on embedded spaces or commas
-	#	allow-delete:	0 (default), leading ! on value has no meaning
-	#			1, leading ! on value means delete value from
-	#				current list.
-	#	force-delete:	0 (default), assume add unless ! and allow-delete=1
-	#			1, delete this item regardless of leading !
-	#			   Used internally with expand-config=1 to pass !
-	#                          indicator to expanded Config values that are 
-	#                          also keys.  (e.g. !SERVERS => !a !b !MORESERVERS)
-	#	expand-config:	0 (default), leave values unexamined
-	#			1, check values to see if they match a %Config key.
-	#			   If so, replace with the associated Config values.
-	#			   Then check resulting values for more keys.
-
 	my %Defaults = (
 		'preserve-lists'	=> 0,
 		'allow-delete'		=> 0,
@@ -662,9 +787,9 @@ sub OptArray {
     # Individual examples...
       GetOptions(
 	  # Simple call using all the default options...
-	  maillist=s  =>  \&OptArray,
+	  'maillist=s'  =>  \&OptArray,
 	  # Complex call to set non-default options....
-          remote=s    =>  sub {OptArray(@_,'preserve-lists' => 1);},
+          'remote=s'    =>  sub {OptArray(@_,'preserve-lists' => 1);},
       );
       print "Sending e-mail to " . join(', ',@{$Options{maillist}) . "\n";
       print "Remote hosts are " . join(', ',@{$Options{remote}) . "\n";
@@ -750,63 +875,6 @@ verbose=>value - defines a value of 0 or 1 to turn verbosity off or on.  Default
 =head2 ----------
 
 =cut
-
-}
-
-
-
-# ---------------------------------------------------------
-#
-# OptValue - generic single-value option processing
-#
-sub OptValue {
-	my($Name,$Value) = @_;
-
-        # Possible array processing options:
-        #       append: 0 (default), if repeated, replace prior value with
-	#		  new value
-	#		1, if repeated, append the new value to the prior
-	#		   value, separated by a comma
-
-        my %Defaults = (
-                'append'        => 0,
-        );
-        my %Parms = _GatherParms({@_}, \%Defaults);     # Gather parms into one place.
-
-        # Is the value empty, meaning to wipe any entries to this point.
-        if (!$Value) {
-                # Received "--opt=".  Empty this.
-                delete ($OptionsRef->{$Name});
-                return;
-        }
-	if (!$OptionsRef->{$Name} or !$Parms{append}) {
-		# No prior value, or don't append
-		$OptionsRef->{$Name} = $Value;
-	}
-	else {
-		# Prior value and appending
-		$OptionsRef->{$Name} .= ",$Value";
-	}
-}
-
-
-# ---------------------------------------------------------
-#
-# OptFlag - generic no-value flag option processing
-#
-sub OptFlag {
-	my($Name,$Value) = @_;
-	if (exists($OptionsRef->{$Name}) and $Value) {
-		# Positive value.  Increment option.
-		$OptionsRef->{$Name} += $Value;
-	}
-	elsif (exists($OptionsRef->{$Name})) {
-		# Value is 0.  Flag is being turned off.
-		$OptionsRef->{$Name} = 0;
-	}
-	else {
-		$OptionsRef->{$Name} = $Value;
-	}
 
 }
 
