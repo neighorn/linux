@@ -463,14 +463,15 @@ sub LoadConfigFiles {
 =head3 Synopsis
 
     # Common preface...
-    use JobTools::Utils qw(LoadConfigFiles);
-    my %Config;		# Where we'll store configuration parameters.
-    my %Options;	# Where we'll store command line options (unused here).
-    JobTools::Utils::init(config => \%Config, options => \%Options);
+      use JobTools::Utils qw(LoadConfigFiles);
+      my %Config;	# Where we'll store configuration parameters (unused here).
+      my %Options;	# Where we'll store command line options.
+      JobTools::Utils::init(config => \%Config, options => \%Options);
     # Individual examples...
-    LoadConfigFiles('my.cfg');			# Read "my.cfg" 
-    LoadConfigFiles(files => \@file_list);	# Load file names in @file_list.
-    LoadConfigFiles(files => ["site.cfg", "local.cfg"]);	# Load multiple files
+      LoadConfigFiles('my.cfg');			# Read "my.cfg" 
+      LoadConfigFiles(files => \@file_list);	# Load file names in @file_list.
+      LoadConfigFiles(files => \@file_list, verbose=>1);	# ... and turn on verbose
+      LoadConfigFiles(files => ["site.cfg", "local.cfg"]);	# Load multiple files
 
 =head3 Explanation
 
@@ -645,6 +646,111 @@ sub OptArray {
 			@{$OptionsRef->{$Name}} = grep { $_ ne $Value } @{$OptionsRef->{$Name}};
 		}
 	}
+
+=pod
+
+=head2 JobTools::OptArray
+
+=head3 Synopsis
+
+    # Common preface...
+      use JobTools::Utils qw(OptArray);		# or ... qw(:Opt);
+      use Getopt::Long;
+      my %Config;	# Where we'll store configuration parameters.
+      my %Options;	# Where we'll store command line options.
+      JobTools::Utils::init(config => \%Config, options => \%Options);
+    # Individual examples...
+      GetOptions(
+	  # Simple call using all the default options...
+	  maillist=s  =>  \&OptArray,
+	  # Complex call to set non-default options....
+          remote=s    =>  sub {OptArray(@_,'preserve-lists' => 1);},
+      );
+      print "Sending e-mail to " . join(', ',@{$Options{maillist}) . "\n";
+      print "Remote hosts are " . join(', ',@{$Options{remote}) . "\n";
+
+=head3 Explanation
+
+OptArray is intended to be called from Getopt::Long to process command line options that accept multiple values.
+It captures the values and stores them as an array in the options hash as identified in JobTools::Utils::init
+(referred here by the traditional hash name of $Options).  
+Facilities to support splitting comma-separated lists and to delete prior list items are
+provided (see options below).
+
+When specifying non-default options, the Getopt::Long syntax requires that it be called using the "=> sub {...}"
+syntax.
+
+OptArray supports the following options:
+
+=over
+
+=item *
+
+preserve-lists
+
+By default ('preserve-lists'=>0), OptArray considers a value containing commas or embedded spaces to be a
+comma/space-separated list of values.  In the above example, a command line option of '--maillist=a,b' would
+be treated as equivalent to '--maillist=a --maillist=b', and the resulting @{$Options{maillist}} array would
+contain two elements.  Setting preserve-lists to 1 suppresses splitting on commas/spaces.  In this case, maillist
+would contain one element with a value of 'a,b'.
+
+=item *
+
+expand-config
+
+By default ('expand-config'=>0), individual values are not examined beyond comma/space
+and exclamation point (discussed below) processing.  If expand-config is set to 1,
+then individual values are compared (case-insensitive) to the keys in the configuration hash
+(traditionally "%Config").  If a matching key is found, the array value is replace with
+the configuration hash value.  For example, 
+
+  - if $Config{SERVERS} = 'a'
+  - and the command line includes "--maillist=servers,test"
+  - then
+    - with expand-config=0 the resulting maillist values will be
+      'servers' and 'test' from the command line (no interpretation)
+    - with expand-config=1 the resulting maillist value will be
+      'a' and 'test', because 'servers' matched a configuration
+      file key and was replaced, but 'test' did not match and so
+      was left as-is.
+
+=item *
+
+allow-delete
+
+By default ('allow-delete'=>0), values starting with exclamation points ('!') have no special meaning.  If 
+allow-delete is set to 1, values starting with exclamation points indicate values to be deleted from the
+existing list of values.  (Note that ! has special meaning in most shells, and so needs to be escaped.)  For
+example, a command line containing "--maillist=a,b,c  --maillist=\!b" would be equivalent to 
+"--maillist=a,c", because value "b" was deleted.
+
+This feature is most commonly used in cases
+where a default list of values is provided from a configuration file, but sometimes the user
+wants to remove one or more of the values for the current execution.  It is also used with expand-config=1
+to use an existing configuration file list, but remove some items.  For example, if the configuration file
+defines SERVERS to be 'a,b,c', then a command line could be --maillist=SERVERS,\!b to leave b out of the list.
+
+=item *
+
+force-delete
+
+force-delete is primarily used internally by OptArray.  It's purpose is to support cases where allow-delete
+and expand-config are both enabled and something like "--maillist=\!SERVERS" is given where SERVERS is a
+configuration file hash key.  In this case, OptArray needs to expand the configuration file list, and 
+then delete everything in the list.  So if the configuration file contains "SERVER: a,b,c", the above
+example is equivalent to "--maillist=\!a,\!b,\!c" and not "--maillist=\!a,b,c".  force-delete supports
+that.
+
+=item *
+
+verbose=>value - defines a value of 0 or 1 to turn verbosity off or on.  Default is 0 (off).
+
+=back
+
+=head2 ----------
+
+=cut
+
 }
 
 
