@@ -158,7 +158,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?\S+: ren
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?\s+ZCOMP: \d+ tags$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?__ex_table already sorted, skipping sort$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?A\d+-FFFFF uncachable$"
-IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?acpi device:15f: hash matches"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?acpi \S+: hash matches"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?acpi device:[[:xdigit:]]+: hash matches$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ACPI Error: \[\_SB_.PRAD\] Namespace lookup failure, AE_NOT_FOUND \(\d+/psargs-\d+\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s*)?ACPI Error: Method parse/execution failed \[\_GPE._L24\] \(Node [[:xdigit:]]+\), AE_NOT_FOUND \(\d+/psparse-\d+\)$"
