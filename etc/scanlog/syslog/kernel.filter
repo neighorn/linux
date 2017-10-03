@@ -369,6 +369,7 @@ IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?scsi \S+
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?SCSI device sd.+: \d+ 512-byte hdwr sectors \(\d+ MB\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?SCSI device sd.+: drive cache:"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?scsi host\d+: (usb-storage \d+-\d+:\d+\.\d+|isci|ahci)$"
+IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?scsi target\d+:\d+:\d+: enclosure_logical_id\(0x[[:xdigit:]]\), slot\(\d+\)$"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?scsi target\d+:\d+:\d+: handle"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?scsi\d+ : pata_jmicron"
 IGNORE	"^... [ 1-3]\d \d\d:\d\d:\d\d \S+ kernel:\s*(\[\s*\d+\.\d+\]\s+)?scsi\d+ : SCSI emulation for USB Mass Storage devices$"
