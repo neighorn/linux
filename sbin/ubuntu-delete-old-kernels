@@ -314,7 +314,7 @@ __END__
 #       2) All messages go to the syslog, regardless of this filter.
 #
 #
-IGNORE	"^\s*(\S+:\s+)?/usr/sbin/grub-probe: warning: Couldn't find physical volume `\(null\)'. Some modules may be missing from core image..$"
+IGNORE	"^\s*(\S+:\s+)?/usr/sbin/grub-probe: warning: Couldn't find physical volume `\(null\)'. Some modules may be missing from core image.."
 IGNORE	"^\s*(\S+:\s+)?0 upgraded, 0 newly installed, \d+ to remove and \d+ not upgraded.$"
 IGNORE	"^\s*(\S+:\s+)?\(Reading database \.\.\."
 IGNORE	"^\s*(\S+:\s+)?After this operation, .* disk space will be freed.$"
