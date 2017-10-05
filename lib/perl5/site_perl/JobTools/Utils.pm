@@ -868,7 +868,9 @@ that.
 
 =item *
 
-verbose=>value - defines a value of 0 or 1 to turn verbosity off or on.  Default is 0 (off).
+verbose
+
+verbose defines a value of 0 or 1 to turn verbosity off or on.  Default is 0 (off).
 
 =back
 
@@ -883,11 +885,6 @@ verbose=>value - defines a value of 0 or 1 to turn verbosity off or on.  Default
 #
 # OptOptionSet - Process options from an option set as if
 #                they had been on the command line.
-#    Example:
-#      Command line: myscript -O optset
-#      Confilg file: optset -v -m jsmith
-#      OptOptionSet( name => 'optset', optspec => \%OptSpec )
-#      Result: %Config (as declared in init) has -v turned on and -m set to 'jsmith'
 #
 sub OptOptionSet {
 	require Getopt::Long; Getopt::Long->import(qw(GetOptionsFromString));
@@ -928,6 +925,105 @@ sub OptOptionSet {
 			if ($Hash{verbose});
 	}
 	return $Errors;
+
+=pod
+
+=head2 JobTools::OptOptionSet
+
+=head3 Synopsis
+
+    # Common preface...
+      use JobTools::Utils qw(OptOptionSet);		# or ... qw(:Opt);
+      use Getopt::Long;
+      my %Config;	# Where we'll store configuration parameters.
+      my %Options;	# Where we'll store command line options.
+      JobTools::Utils::init(config => \%Config, options => \%Options);
+    # Individual example...
+      my %OptionSpecifications;		# Declare GetOpt::Long parms in a hash
+      %OptionSpecifications=(
+        'option-set|O=s' => sub {OptOptionSet(name => $_[1], optspec => \%OptionSpecifications);},
+        'test|t'         => \&OptFlag, # Other options also in the hash, as needed
+        'verbose|v'      => \&OptFlag, # Other options also in the hash, as needed
+        'min-size=i'     => \&OptValue, # Other options also in the hash, as needed
+        'max-size=i'     => \&OptValue, # Other options also in the hash, as needed
+        'output=s'       => \&OptValue, # Other options also in the hash, as needed
+      );
+      # Now invoke GetOptions to process our command line options.
+      die "Invalid options specified\n" unless (GetOptions(%OptionSpecifications));
+
+=head3 Explanation
+
+OptOptionSet is designed to be called by GetOpt::Long, as a way to allow the user to type a short
+name instead of a long list of options.  It accomplishes this by allowing frequently used 
+option combinations ("option sets") to be named and stored in a configuration
+file.  The option set name can be specified on the command line, where it will be replaced by
+the associated options.
+
+For example, supposing the configuration file
+contains:
+
+    Saturday: --min-size=100000 --max-size=100000000
+    Sunday:   --min-size=500000 --max-size=500000000
+    testrun:  --min-size=100 --max-size=1000
+    outfile:  --output=/home/myhome/weekly/output/myscript.out
+
+Then running the script "myscript" as:
+
+    myscript -O testrun
+
+would be equivalent to:
+
+    myscript --min-size=100 --max-size=1000
+
+Option sets can be intermixed with other options, as:
+
+    myscript -O testrun -v -O outfile
+
+which is equivalent to:
+
+    myscript --min-size=100 --max-size=1000 -v --output=/home/myhome/weekly/output/myscript.out
+
+OptOptionSets supports the following options:
+
+=over
+
+=item *
+
+name
+
+name provides the name of the option set to be loaded from the configuration file hash 
+(%Config in the above example - typically loaded with LoadConfigFiles).  "name" is required.
+
+=item *
+
+optspec
+
+optspec provides a reference to the GetOpt::Long::GetOptions parameter list.  Internally
+OptOptionSets calls GetOpt::Long::GetOptionsFromString with these option specifications and
+the options found in the named option set.  "optspec" is required.
+
+=item *
+
+verbose
+
+verbose defines a value of 0 or 1 to turn verbosity off or on.  Default is 0 (off).
+
+
+=item *
+
+suppress-output
+
+suppress-output defines a value of 0 or 1 to present or suppress output.  Default is 0 (present).
+When suppress-output is set to 1, it overrides verbose and test.  
+This is used primarily by the JobTools::Utils test suite for testing, and not expected to be used in 
+production.
+
+=back
+
+=head2 ----------
+
+=cut
+
 }
 
 
@@ -1011,15 +1107,21 @@ followed by a series of one or more hash-style key=>value pairs.  Valid key=>val
 
 =item *
 
-verbose=>value - defines a value of 0 or 1 to turn verbosity off or on.  Default is 0 (off).
+verbose
+
+verbose defines a value of 0 or 1 to turn verbosity off or on.  Default is 0 (off).
 
 =item *
 
-test=>value - defines a value of 0 or 1 to turn test mode off or on.  Default is 0 (off).
+test
+
+test defines a value of 0 or 1 to turn test mode off or on.  Default is 0 (off).
 
 =item *
 
-suppress-output=>value - defines a value of 0 or 1 to present or suppress output.  Default is 0 (present).
+suppress-output
+
+suppress-output defines a value of 0 or 1 to present or suppress output.  Default is 0 (present).
 When suppress-output is set to 1, it overrides verbose and test.  
 This is used primarily by the JobTools::Utils test suite for testing, and not expected to be used in 
 production.
@@ -1447,5 +1549,36 @@ sub UtilReleaseLock {
 	return 1;
 }
 
+#
+#=pod
+#
+#=head2 JobTools::OptXXXX
+#
+#=head3 Synopsis
+#
+#    # Common preface...
+#      use JobTools::Utils qw(XXXX);
+#      use Getopt::Long;
+#      my %Config;	# Where we'll store configuration parameters.
+#      my %Options;	# Where we'll store command line options.
+#      JobTools::Utils::init(config => \%Config, options => \%Options);
+#    # Individual examples...
+#
+#=head3 Explanation
+#
+#XXXX supports the following options:
+#
+#=over
+#
+#=item *
+#
+#xxxx
+#
+#=back
+#
+#=head2 ----------
+#
+#=cut
+#
 
 1;
