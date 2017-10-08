@@ -1266,7 +1266,7 @@ sub RunRemote {
 				next;
 			}
 	
-			print "Verbose: JobTools::Utils::RunRemote: Running $Cmd\n" if ($Parms{verbose} or $Parms{test});
+			print "Verbose: JobTools::Utils::RunRemote: Running $Cmd\n" if ($Parms{verbose});
 			my($ExitCode,$Signal,$StopTime,$Elapsed);
 			if (open($FH, "$Cmd |")) {
 				while (<$FH>) {
@@ -1305,6 +1305,186 @@ sub RunRemote {
 	$PFM->wait_all_children;
 
 	return $Errors;
+
+
+
+=pod
+
+=head2 JobTools::RunRemote
+
+=head3 Synopsis
+
+    # Common preface...
+      use JobTools::Utils qw(RunRemote);
+      use Getopt::Long;
+      my %Config;	# Where we'll store configuration parameters.
+      my %Options;	# Where we'll store command line options.
+      JobTools::Utils::init(config => \%Config, options => \%Options);
+    # Individual examples...
+      $Errors = RunRemote(	# Run "who -r" on three machines in parallel
+          argv => ['who','-r']
+          remote => qw(alpha beta gamma),
+      );
+      $Errors = RunRemote(	# Run tar on 20 machines, but only 5 at a time
+          argv => qw(tar -czf /usr/local/backup/root.tgz --one-file-system /),
+          remote => qw(a b c d e f g h i j k l m n o p q r s t),
+          'remote-max' => 5,
+      );
+
+
+=head3 Explanation
+
+RunRemote executes a command on one or more remote machines via SSH.  It assumes that 
+ssh keys have been created on the local machine and authorized on the remote machines to
+permit the command to be executed.
+
+By default, RunRemote will run commands in
+parallel for up to 64 machines (adjustable up or down by specifying a different
+value for the "remote-max" option).  For some value N of remote-max, if more than N
+host names are provided, the first N host jobs will be launched immediately.  As soon
+as any one of them completes, the job for host N+1 will be launched, and so on until
+all hosts have been processed.
+
+RunRemote supports the following options:
+
+=over
+
+=item *
+
+remote
+
+remote points to an array of host names and/or IP addresses on which
+the desired command will be executed.  There is no default, and
+this option is required.
+
+=item *
+
+argv
+
+argv points to an array of command line arguments, describing the
+command to be executed on each remote host.  If the string "%HOST%"
+(without quotes) is present in the command line, it will be 
+replaced with the name of the current host where the command is
+going to be executed.  There is no default value for argv,
+and this option is required.
+
+=item *
+
+childpre
+
+childpre points to an optional subroutine.  When RunRemote forks a 
+process for a given host, if childpre is provided the subroutine
+will be called in the child process before executing the command.
+childpre may be used to print or log status updates, or otherwise
+invoke caller code at the beginning of each remote job.
+The called subroutine will be passed a hash containing the following
+keys and values:
+
+=over 4
+
+=item -
+
+pid: the PID of the child process
+
+=item -
+
+host: the host name or IP address of the target machine
+
+=item -
+
+parms: the calling parameters passed to RunRemote when it
+was invoked
+
+=item - 
+
+maxhostlength: the length in bytes of the longest host name
+(for display formatting purposes, if desired)
+
+=item - 
+
+starttime - the value of time() when the child process was started
+
+=back
+
+=item *
+
+childpost
+
+childpost provides the same function as childpre, but occurs once
+a remote job has completed.  If provided, the called subroutine
+will be provided a hash that includes all the same information as
+the one provided to childpre, plus the additional keys and values:
+
+=over 4
+
+=item -
+
+stoptime: the value of time() when the job ended
+
+=item -
+
+elapsed: the difference between stoptime and starttime
+
+=item -
+
+exitcode: the returned exit code (e.g. "8" if the ssh command ended by calling "exit(8)".
+
+=item -
+
+signal: the process signal code, if any (e.g. 9 if the process was killed with "kill -9 ...").
+
+=item -
+
+errors: false if there were no errors, or true if there were errors
+
+=back
+
+If childpost is not provided, an internal routine is called that displays
+a standard line that includes the following information:
+
+=over 4
+
+=item -
+
+the remote host name or IP address
+
+=item -
+
+The formatted stop time
+
+=item -
+
+the exit code
+
+=item -
+
+the signal
+
+=item - 
+
+the formatted elapsed time
+
+=back
+
+=item *
+
+verbose
+
+verbose defines a value of 0 or 1 to turn verbosity off or on.  Default is 0 (off).
+
+=item *
+
+test
+
+If test is set to 2 or greater, the ssh command is displayed instead of executed.
+
+=back
+
+=head2 ----------
+
+=cut
+
+
 }
 
 
@@ -1552,7 +1732,7 @@ sub UtilReleaseLock {
 #
 #=pod
 #
-#=head2 JobTools::OptXXXX
+#=head2 JobTools::XXXX
 #
 #=head3 Synopsis
 #
