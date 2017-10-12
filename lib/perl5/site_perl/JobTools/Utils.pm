@@ -9,7 +9,7 @@
 package JobTools::Utils;
 require Exporter;
 @ISA			= qw(Exporter);
-@EXPORT_OK		= qw(Commify CompressByteSize ExpandByteSize FormatElapsedTime UtilGetLock LoadConfigFiles OptArray OptFlag OptValue OptOptionSet UtilReleaseLock RunDangerousCmd RunRemote ExpandConfigList);
+@EXPORT_OK		= qw(Commify CompressByteSize ExpandByteSize FormatElapsedTime UtilGetLock LoadConfigFiles %LoadConfigFiles_ConfigFilesRead OptArray OptFlag OptValue OptOptionSet UtilReleaseLock RunDangerousCmd RunRemote ExpandConfigList);
 %EXPORT_TAGS		= (
 	Opt		=> [qw(OptArray OptFlag OptValue OptOptionSet)],
 	Lock		=> [qw(UtilGetLock UtilReleaseLock)],
@@ -22,11 +22,12 @@ use POSIX qw(strftime);
 use Text::ParseWords;
 use Fcntl qw(:flock :mode :DEFAULT);
 
-our $Version		= 1.1;
+our $Version		= 1.2;
 our $BYTESIZE_UNITS 	= 'BKMGTPEZY';
 our $OptionsRef;				# Pointer to %Options hash
 our $ConfigRef;					# Pointer to %Config hash
 our %OptArrayConfigUsed;			# Hash used to prevent infinite loops in OptArray config look-ups
+our %LoadConfigFiles_ConfigFilesRead;		# Hash used to prevent infinite loops in config file includes
 
 =pod
 
@@ -381,7 +382,6 @@ See also: JobTools::ExpandByteSize for the reverse operation.
 #
 # LoadConfigFiles - load a configuration file
 #
-my %LoadConfigFiles_ConfigFilesRead;	# Persistent package module.
 sub LoadConfigFiles {
 
 	my %Hash;		# Input parameters.
@@ -396,16 +396,21 @@ sub LoadConfigFiles {
 	}
 	$Hash{verbose} = $OptionsRef->{verbose} unless (exists($Hash{verbose}));
 	$Hash{verbose} = 0 unless (defined($Hash{verbose}));
+	$Hash{config} = $ConfigRef unless (defined($Hash{config}));
+	$Hash{append} = 1 unless (defined($Hash{append}));
 
 	foreach my $ConfigFile (@{$Hash{files}}) {
-		if (exists($LoadConfigFiles_ConfigFilesRead{$ConfigFile})) {
+		if (
+			    exists($LoadConfigFiles_ConfigFilesRead{$Hash{config}})
+			and exists($LoadConfigFiles_ConfigFilesRead{$Hash{config}}{$ConfigFile}))
+		{
 			# We already read this one.
 			print "Verbose: JobTools::Utils::LoadConfigFiles: Ignoring duplicate $ConfigFile\n" if ($Hash{verbose});
 			next;
 		}
 		else {
 			# Remember we read this one, to avoid include-loops.
-			$LoadConfigFiles_ConfigFilesRead{$ConfigFile} = 1;
+			$LoadConfigFiles_ConfigFilesRead{$Hash{config}}{$ConfigFile} = 1;
 		}
 		print "Verbose: JobTools::Utils::LoadConfigFiles: Processing $ConfigFile\n" if ($Hash{verbose});
 		if (-e $ConfigFile) {
@@ -441,13 +446,13 @@ sub LoadConfigFiles {
 				}
 				else {
 					$settings=~s/\s+$//;	# Trim trailing spaces.
-					if ($ConfigRef->{$name}) {
+					if ($Hash{append} and $Hash{config}->{$name}) {
 						# Append to existing values.
-						$ConfigRef->{$name}.=" $settings";
+						$Hash{config}->{$name}.=" $settings";
 						print qq<Verbose: JobTools::Utils::LoadConfigFiles: Appending to $name: "$settings"\n> if ($Hash{verbose} >=2 );
 					}
 					else {
-						$ConfigRef->{$name}=$settings;
+						$Hash{config}->{$name}=$settings;
 						print qq<Verbose: JobTools::Utils::LoadConfigFiles: Setting $name to "$settings"\n> if ($Hash{verbose} >=2 );
 					}
 				}
@@ -502,6 +507,18 @@ files - a reference to an array of file names to be loaded as shown above.
 verbose - an integer indicating the level of verbosity desired.  The default
 is 0.  At present, meaningful values range from 0 to 2.
 
+=item -
+
+append - an integer.  If append=>1 (default) multiple lines with the same
+key will result in the later values being appended to the earlier values.
+If append=>0, values on later lines will replace earlier values.
+
+=item - 
+
+config - a reference to a hash in which to store the lines.  If this is
+not provided, the configuration hash declared in JobTools::Utils::init
+will be used.
+
 =back
 
 =back
@@ -515,20 +532,22 @@ Configuration files consist of lines of key-value pairs, in the format:
 "name" must begin in column 1, and is case-insensitive.  Lines beginning
 with white-space are treated as continuations of the previous line.  Blank
 lines or lines beginning with # are ignored.  The colon after the name is
-optional.  Multiple lines defining the same value are combined.  The 
-following three examples all result in $Config{MAILDIR} having a value of
-"joe@example.com sarah@example.com".
+optional.  Unless append=>0, multiple lines defining the same value are combined.  The 
+following three examples all result in $Config{MAILDEST} having a value of
+"joe@example.com sarah@example.com".  If append=>1, then the first two examples
+still produce the same result (multiple values on a single line), but the third
+example results in $Config{MAILDIST} containing "sarah@example", the last value.
 
     # Example 1 - one line
-    maildir: joe@example.com sarah@example.com
+    maildest: joe@example.com sarah@example.com
 
     # Example 2 - continued line
-    maildir: joe@example.com
+    maildest: joe@example.com
         sarah@example.com
 
     # Example 3 - multiple lines
-    maildir: joe@example.com
-    maildir: sarah@example.com
+    maildest: joe@example.com
+    maildest: sarah@example.com
 
 =head2 ----------
 

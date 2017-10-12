@@ -11,7 +11,7 @@ use warnings;
 package	JobTools::LogOutput;
 require	Exporter;
 use Mail::Sendmail;
-use JobTools::LogOutput_cfg;
+use JobTools::Utils qw(LoadConfigFiles);
 use POSIX qw(strftime);
 use Sys::Syslog;
 use File::Glob qw(:glob);	# :bsd_glob not recognized on older systems
@@ -373,32 +373,38 @@ sub _SetOptions {
 	$Options{PROGRAM_NAME}=~ s"^.*[/\\]"";	# Strip path.
 	$Options{PROGRAM_NAME}=~ s"\..*?$"";	# Strip suffix.
 	$Options{MAIL_SUBJECT} = '';		# Set in SetupMail if not set before.
-	$Options{VERBOSE}=0;
+	$Options{VERBOSE}=1;
 
 	# Now load our site defaults.  May be overridden by calling args.
-	# We support two formats, so we start by figuring out which is 
-	# being used.
-	my @Config = LogOutput_cfg();
-	if (ref(\$Config[0]) eq 'SCALAR') {
-		# V1/2 LogOutput_cfg.
-		$Options{MAIL_SERVER}=$Config[0];
-		$Options{MAIL_DOMAIN}=$Config[1];
-	} 
-	else {
-		# V3 LogOutput_cfg.
-		my $HashRef = $Config[0];
-		foreach my $key (keys(%$HashRef)) {
-			if ($ValidOptions{$key}) {
-				$Options{$key} = $$HashRef{$key};
-				print "LogOutput: Set $key to $$HashRef{$key} from LogOutput_cfg\n"
-					if ($Options{VERBOSE});
-			}
-			else {
-				$ErrorsDetected += _FilterMessage("LogOutput: Invalid option '$key' passed from LogOutput_cfg -- ignored.\n");
-				$Options{$key} = undef;
+	# Have two sources here.  The deprecated LogOutput_cfg.pm module,
+	# and /usr/local/etc/LogOutput.cfg.
+	eval qq[require JobTools::LogOutput_cfg;];
+	if (!$@) {
+		my @Config = JobTools::LogOutput_cfg::LogOutput_cfg();
+		# We support two formats, so we start by figuring out which is 
+		# being used.
+		if (ref(\$Config[0]) eq 'SCALAR') {
+			# V1/2 LogOutput_cfg.
+			$Options{MAIL_SERVER}=$Config[0];
+			$Options{MAIL_DOMAIN}=$Config[1];
+		} 
+		else {
+			# V3 LogOutput_cfg.
+			my $HashRef = $Config[0];
+			foreach my $key (keys(%$HashRef)) {
+				if ($ValidOptions{$key}) {
+					$Options{$key} = $$HashRef{$key};
+					print "LogOutput: Set $key to $Options{$key} from LogOutput_cfg\n"
+						if ($Options{VERBOSE});
+				}
+				else {
+					$ErrorsDetected += _FilterMessage("LogOutput: Invalid option '$key' passed from LogOutput_cfg -- ignored.\n");
+					$Options{$key} = undef;
+				}
 			}
 		}
 	}
+	LoadConfigFiles(files=>['/usr/local/etc/LogOutput.cfg'],config=>\%Options,append=>0,verbose=>10);
 
 	# Finally, get our calling parameters.  Again we support two formats,
 	# a list of seven scalars (deprecated) or a hash reference.
@@ -440,6 +446,7 @@ sub _SetOptions {
 	# Check for environmental overrides
 	$Options{VERBOSE} = $ENV{LOGOUTPUT_VERBOSE} if (exists($ENV{LOGOUTPUT_VERBOSE}));
 	$Options{VERBOSE} = 0 unless defined($Options{VERBOSE});	# In case supplied $opt_v is undef.
+	print "debug: final: Options{MAIL_SERVER}=$Options{MAIL_SERVER}\n";
 }
 
 
@@ -1113,6 +1120,13 @@ Options and defaults are shown in the table below:
 
 The option names (i.e. "ALWAYS_MAIL_LIST") are case-insensitive.
 
+In addition to specifying the options as calling arguments, they may also
+be specified in /usr/local/etc/LogOutput.cfg.  Each line consists of a 
+option name and value in the format "name: value".  See JobTools::Utils::LoadConfigFile
+for more details about acceptable syntax rules.  There is also a deprecated
+LogOutput_cfg.pm.  In case multiple sources are provided for values, the priority (least to most) for each
+option is: LogOutput_cfg.pm (lowest), LogOutput.cfg, calling parameters (highest).
+
 The four mail lists each may be specified as either a space-separated list of
 e-mail addresses (i.e. "joe@example.com bob@example.com cindy@example.com")
 or as a reference to an array (i.e. \@mail_list).
@@ -1325,7 +1339,7 @@ Example:  CLEAN_UP => \&MyCleanUp
 
 This option should contain a string to be appended to e-mail addresses that
 are not fully qualified.  This option is frequently specified in
-LogOutput_cfg.pm, as it is generally constant for all scripts on a given system.
+/usr/local/etc/LogOutput.cfg, as it is generally constant for all scripts on a given system.
 
 Example: MAIL_DOMAIN => 'example.com'
 
@@ -1333,7 +1347,7 @@ Example: MAIL_DOMAIN => 'example.com'
 
 This option identifies the name or IP address of the server used to send
 e-mail.  If not specified, it defaults to "127.0.0.1".  This option is 
-frequently specified in LogOutput_cfg.pm.
+frequently specified in /usr/local/etc/LogOutput.cfg.
 
 =head2 MAIL_SUBJECT
 

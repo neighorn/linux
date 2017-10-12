@@ -135,6 +135,7 @@ print $TMP2 <<CONFIG2;
 # Second tempfile.
 # Add more to test10
 test10: testc testd teste
+test11: testg
 
 # Test recursive include prevention.
 INCLUDE $TempFile2
@@ -150,8 +151,18 @@ is($Config{TEST5},'testa testb','LoadConfigFile continuation line/multiple space
 is($Config{TEST6},'testa testb','LoadConfigFile continuation line/single tab');
 is($Config{TEST7},'testa testb','LoadConfigFile continuation line/multiple tabs');
 is($Config{TEST8},'testa testb testc testd teste testf','LoadConfigFile continuation line/mixed whitespace, embedded comment');
-is($Config{TEST9},'testa testb','LoadConfigFile multiple declarations');
+is($Config{TEST9},'testa testb','LoadConfigFile multiple declarations with append = 1');
 is($Config{TEST10},'testa testb testc testd teste','LoadConfigFile include file, recursive include');
+LoadConfigFiles($TempFile2);
+is($Config{TEST11},'testg','LoadConfigFile prevent loading file multiple times');	# Would be 'testg testg' if it fails.
+undef %Config;
+undef %JobTools::Utils::LoadConfigFiles_ConfigFilesRead;				# Reset read-file list so we can reuse the test file.
+LoadConfigFiles(files=>[$TempFile],append=>0);
+is($Config{TEST9},'testb','LoadConfigFile multiple declarations with append = 0');
+undef %Config;
+my %Config2;
+LoadConfigFiles(files=>[$TempFile],config=>\%Config2);
+ok((!exists($Config{TEST1}) and exists($Config2{TEST1}) and $Config2{TEST1} eq 'testa'),'LoadConfigFiles config parm');
 
 undef %Options;		# Make sure this is initialized.
 OptValue('opt1','test1');							is($Options{opt1},'test1','OptValue simple value');
