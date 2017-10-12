@@ -373,7 +373,7 @@ sub _SetOptions {
 	$Options{PROGRAM_NAME}=~ s"^.*[/\\]"";	# Strip path.
 	$Options{PROGRAM_NAME}=~ s"\..*?$"";	# Strip suffix.
 	$Options{MAIL_SUBJECT} = '';		# Set in SetupMail if not set before.
-	$Options{VERBOSE}=1;
+	$Options{VERBOSE}=0;
 
 	# Now load our site defaults.  May be overridden by calling args.
 	# Have two sources here.  The deprecated LogOutput_cfg.pm module,
@@ -446,7 +446,6 @@ sub _SetOptions {
 	# Check for environmental overrides
 	$Options{VERBOSE} = $ENV{LOGOUTPUT_VERBOSE} if (exists($ENV{LOGOUTPUT_VERBOSE}));
 	$Options{VERBOSE} = 0 unless defined($Options{VERBOSE});	# In case supplied $opt_v is undef.
-	print "debug: final: Options{MAIL_SERVER}=$Options{MAIL_SERVER}\n";
 }
 
 
