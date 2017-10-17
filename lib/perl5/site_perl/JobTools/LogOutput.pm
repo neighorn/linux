@@ -404,7 +404,7 @@ sub _SetOptions {
 			}
 		}
 	}
-	LoadConfigFiles(files=>['/usr/local/etc/LogOutput.cfg'],config=>\%Options,append=>0,verbose=>10);
+	LoadConfigFiles(files=>['/usr/local/etc/LogOutput.cfg'],config=>\%Options,append=>0);
 
 	# Finally, get our calling parameters.  Again we support two formats,
 	# a list of seven scalars (deprecated) or a hash reference.
